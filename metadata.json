@@ -1,0 +1,6 @@
+{
+  "name": "SalesPilot",
+  "description": "AI-powered sales automation SaaS platform for lead generation, outreach automation, and pipeline management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
