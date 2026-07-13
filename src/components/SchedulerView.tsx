@@ -51,14 +51,38 @@ export function SchedulerView({
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Google Calendar Integration States
-  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(true);
-  const [googleCalendarEmail, setGoogleCalendarEmail] = useState('sohamkharat481@gmail.com');
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
+  const [googleCalendarEmail, setGoogleCalendarEmail] = useState('');
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [externalEvents, setExternalEvents] = useState<any[]>([]);
 
+  // Check backend connected accounts state on load
+  const checkConnectionStatus = async () => {
+    try {
+      const res = await fetch('/calendar/accounts');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.accounts && data.accounts.length > 0) {
+          const acc = data.accounts[0];
+          setGoogleCalendarConnected(true);
+          setGoogleCalendarEmail(acc.email);
+        } else {
+          setGoogleCalendarConnected(false);
+          setGoogleCalendarEmail('');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to query calendar connection accounts:', err);
+    }
+  };
+
+  useEffect(() => {
+    checkConnectionStatus();
+  }, []);
+
   // Fetch Google Calendar External Events
   const fetchExternalEvents = async () => {
-    if (!googleCalendarConnected) return;
+    if (!googleCalendarConnected || !googleCalendarEmail) return;
     try {
       const response = await fetch(`/calendar/events?email=${googleCalendarEmail}`);
       if (response.ok) {
@@ -96,39 +120,82 @@ export function SchedulerView({
   };
 
   const handleConnectCalendar = async () => {
-    const emailInput = prompt('Enter Google Account email to authorize with OAuth 2.0:', googleCalendarEmail || 'sohamkharat481@gmail.com');
-    if (!emailInput) return;
-    
     setLoadingId('connect-calendar');
     try {
+      // 1. Initialize Firebase App securely (if not already initialized)
+      const firebaseConfig = await import('../../firebase-applet-config.json');
+      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { getAuth, signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+
+      const app = getApps().length === 0 ? initializeApp(firebaseConfig.default || firebaseConfig) : getApp();
+      const auth = getAuth(app);
+
+      // 2. Set up Google Auth Provider with requested Google Calendar scopes
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/calendar');
+      provider.addScope('https://www.googleapis.com/auth/calendar.events');
+
+      // 3. Trigger sign-in popup to authorize Google Calendar scopes
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (!credential || !credential.accessToken) {
+        throw new Error('Failed to retrieve the Google OAuth Access Token.');
+      }
+
+      const emailInput = result.user.email;
+      if (!emailInput) {
+        throw new Error('Could not retrieve user email from authenticated profile.');
+      }
+
+      // 4. Send the credentials to the backend /calendar/connect
       const res = await fetch('/calendar/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: emailInput,
-          fullName: emailInput.split('@')[0],
-          accessToken: 'mock_access_token_' + Date.now(),
+          fullName: result.user.displayName || emailInput.split('@')[0],
+          accessToken: credential.accessToken,
           expiresAt: new Date(Date.now() + 3600000).toISOString()
         })
       });
+
       if (res.ok) {
-        const data = await res.json();
         setGoogleCalendarEmail(emailInput);
         setGoogleCalendarConnected(true);
-        alert(`Successfully connected to ${emailInput} Google Calendar with secure OAuth.`);
+        alert(`Successfully synchronized secure Google Calendar with ${emailInput}.`);
         fetchExternalEvents();
+      } else {
+        const errText = await res.text();
+        throw new Error(`Server failed to register the Google Calendar connection: ${errText}`);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('[CALENDAR OAUTH ERROR]', err);
+      alert(`Authorization failed: ${err.message || String(err)}`);
     } finally {
       setLoadingId(null);
     }
   };
 
-  const handleDisconnectCalendar = () => {
-    if (confirm('Are you sure you want to disconnect Google Calendar integration?')) {
-      setGoogleCalendarConnected(false);
-      setExternalEvents([]);
+  const handleDisconnectCalendar = async () => {
+    if (!confirm('Are you sure you want to disconnect Google Calendar integration?')) return;
+    
+    setLoadingId('disconnect-calendar');
+    try {
+      const res = await fetch('/calendar/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: googleCalendarEmail })
+      });
+      if (res.ok) {
+        setGoogleCalendarConnected(false);
+        setGoogleCalendarEmail('');
+        setExternalEvents([]);
+        alert('Google Calendar has been disconnected.');
+      }
+    } catch (err) {
+      console.error('Failed to disconnect Google Calendar:', err);
+    } finally {
+      setLoadingId(null);
     }
   };
 
@@ -167,8 +234,35 @@ export function SchedulerView({
     time: '14:30',
     durationMins: 30,
     timezone: detectedTimezone || 'Asia/Kolkata',
-    notes: ''
+    notes: '',
+    isOnline: true
   });
+
+  const [isRunningTest, setIsRunningTest] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+
+  const handleRunE2ETest = async () => {
+    setIsRunningTest(true);
+    setTestResult(null);
+    try {
+      const response = await fetch('/api/v1/test-calendar-integration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      setTestResult(data);
+      if (data.success) {
+        alert(`Google Calendar E2E Test Succeeded!\n\nSubject: ${data.summary.summary}\nEvent ID: ${data.summary.eventId}\nMeet URL: ${data.summary.meetLink || 'N/A'}`);
+      } else {
+        alert(`Google Calendar E2E Test Failed:\n\n${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`Network failure triggering E2E test: ${err.message || String(err)}`);
+    } finally {
+      setIsRunningTest(false);
+    }
+  };
 
   const [editForm, setEditForm] = useState({
     date: '',
@@ -279,12 +373,14 @@ export function SchedulerView({
           dateTime: dateTimeIso,
           durationMins: bookingForm.durationMins,
           notes: bookingForm.notes,
-          timezone: bookingForm.timezone
+          timezone: bookingForm.timezone,
+          isOnline: bookingForm.isOnline
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to book appointment');
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to book appointment');
       }
 
       const newApt = await response.json();
@@ -317,12 +413,13 @@ export function SchedulerView({
         time: '14:30',
         durationMins: 30,
         timezone: detectedTimezone || 'Asia/Kolkata',
-        notes: ''
+        notes: '',
+        isOnline: true
       });
       alert('Success! Meeting scheduled and synced with Google Calendar.');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to book appointment.');
+      alert(`Failed to book appointment: ${err.message || String(err)}`);
     } finally {
       setLoadingId(null);
     }
@@ -553,6 +650,14 @@ export function SchedulerView({
             </div>
             <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
               <button
+                onClick={handleRunE2ETest}
+                disabled={isRunningTest}
+                className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/40 border border-blue-150 dark:border-blue-900/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isRunningTest ? 'animate-pulse' : ''}`} />
+                {isRunningTest ? 'Testing...' : 'Run E2E Test'}
+              </button>
+              <button
                 onClick={handleSyncCalendar}
                 disabled={isSyncingCalendar}
                 className="px-3.5 py-1.5 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-250 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
@@ -593,6 +698,57 @@ export function SchedulerView({
           </>
         )}
       </div>
+
+      {testResult && (
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-200 space-y-2 animate-fade-in shadow-lg">
+          <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+            <span className="font-bold text-slate-100 flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${testResult.success ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+              Google Calendar Integration Test Logs ({testResult.isRealGoogleAPI ? 'REAL END-TO-END' : 'MOCK PREVIEW'})
+            </span>
+            <button 
+              onClick={() => setTestResult(null)}
+              className="px-2 py-0.5 bg-slate-850 hover:bg-slate-700 text-[10px] text-slate-300 hover:text-white rounded font-mono transition"
+            >
+              Close Logs
+            </button>
+          </div>
+          <div className="max-h-60 overflow-y-auto space-y-1 font-mono text-[11px] leading-relaxed select-all">
+            {testResult.logs?.map((logLine: string, idx: number) => (
+              <div 
+                key={idx} 
+                className={
+                  logLine.includes('FAIL') 
+                    ? 'text-rose-400 bg-rose-950/10 px-1 rounded' 
+                    : logLine.includes('SUCCESS') 
+                      ? 'text-emerald-400 bg-emerald-950/10 px-1 rounded' 
+                      : 'text-slate-300'
+                }
+              >
+                {logLine}
+              </div>
+            ))}
+          </div>
+          {testResult.success && (
+            <div className="pt-2 border-t border-slate-850 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] bg-slate-950/40 p-2.5 rounded-lg border border-slate-850">
+              <div><span className="text-slate-500 font-mono">Event Subject:</span> <strong className="text-slate-200">{testResult.summary.summary}</strong></div>
+              <div><span className="text-slate-500 font-mono">Confirmed Event ID:</span> <span className="bg-slate-850 text-slate-300 px-1 rounded font-semibold text-[10px]">{testResult.summary.eventId}</span></div>
+              <div className="md:col-span-2 flex items-center gap-2">
+                <span className="text-slate-500 font-mono">Generated Google Meet:</span> 
+                {testResult.summary.meetLink ? (
+                  <a href={testResult.summary.meetLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 font-mono underline hover:text-blue-300 flex items-center gap-1">
+                    {testResult.summary.meetLink}
+                    <ExternalLink className="w-3 h-3 inline" />
+                  </a>
+                ) : (
+                  <span className="text-slate-400 font-sans italic">None generated (Offline Meet)</span>
+                )}
+              </div>
+              <div className="md:col-span-2"><span className="text-slate-500 font-mono font-normal">Attendees:</span> <strong className="text-slate-300 font-mono">{testResult.summary.attendee}</strong></div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Appointment Analytics Ribbon */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -725,6 +881,20 @@ export function SchedulerView({
                 <option value={45}>45 Minutes</option>
                 <option value={60}>60 Minutes</option>
               </select>
+            </div>
+
+            <div className="md:col-span-12 flex items-center gap-2.5 py-1">
+              <input
+                type="checkbox"
+                id="booking_form_is_online"
+                checked={bookingForm.isOnline}
+                onChange={(e) => setBookingForm(prev => ({ ...prev, isOnline: e.target.checked }))}
+                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-opacity-25"
+              />
+              <label htmlFor="booking_form_is_online" className="text-xs font-semibold text-slate-700 dark:text-slate-300 select-none cursor-pointer flex items-center gap-1.5">
+                <Video className="w-3.5 h-3.5 text-blue-500" />
+                Online Meeting: Generate unique Google Meet URL and dispatch invite emails automatically
+              </label>
             </div>
 
             <div className="md:col-span-12 space-y-1.5">

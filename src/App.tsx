@@ -1073,14 +1073,21 @@ export default function App() {
                             })
                           });
                           const data = await res.json();
+                          if (res.ok && data.answer) {
+                            setAiChatMessages(prev => [
+                              ...prev, 
+                              { id: botMsgId, sender: 'bot', text: data.answer, time: 'Just now' }
+                            ]);
+                          } else {
+                            setAiChatMessages(prev => [
+                              ...prev, 
+                              { id: botMsgId, sender: 'bot', text: `Error contacting AI: ${data.error || 'Server error occurred.'}`, time: 'Just now' }
+                            ]);
+                          }
+                        } catch (e: any) {
                           setAiChatMessages(prev => [
                             ...prev, 
-                            { id: botMsgId, sender: 'bot', text: data.answer || 'Completed successfully.', time: 'Just now' }
-                          ]);
-                        } catch (e) {
-                          setAiChatMessages(prev => [
-                            ...prev, 
-                            { id: botMsgId, sender: 'bot', text: 'Error contacting AI. Fallback simulation active: Outbound campaign target compiled successfully.', time: 'Just now' }
+                            { id: botMsgId, sender: 'bot', text: `Error contacting AI: ${e.message || String(e)}`, time: 'Just now' }
                           ]);
                         } finally {
                           setIsAiResponding(false);
@@ -1126,7 +1133,7 @@ export default function App() {
                 setAiChatMessages(prev => [...prev, { id: userMsgId, sender: 'user', text: queryStr, time: 'Just now' }]);
                 setIsAiResponding(true);
 
-                try {
+                 try {
                   const res = await fetch('/api/v1/ai/ask-insights', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1138,9 +1145,13 @@ export default function App() {
                     })
                   });
                   const data = await res.json();
-                  setAiChatMessages(prev => [...prev, { id: botMsgId, sender: 'bot', text: data.answer || 'Consultation processed successfully.', time: 'Just now' }]);
-                } catch (err) {
-                  setAiChatMessages(prev => [...prev, { id: botMsgId, sender: 'bot', text: 'Local strategic rule: Outbound funnel optimized. Proceed with sequence deployment.', time: 'Just now' }]);
+                  if (res.ok && data.answer) {
+                    setAiChatMessages(prev => [...prev, { id: botMsgId, sender: 'bot', text: data.answer, time: 'Just now' }]);
+                  } else {
+                    setAiChatMessages(prev => [...prev, { id: botMsgId, sender: 'bot', text: `Error contacting AI: ${data.error || 'Server error occurred.'}`, time: 'Just now' }]);
+                  }
+                } catch (err: any) {
+                  setAiChatMessages(prev => [...prev, { id: botMsgId, sender: 'bot', text: `Error contacting AI: ${err.message || String(err)}`, time: 'Just now' }]);
                 } finally {
                   setIsAiResponding(false);
                 }
