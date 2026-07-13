@@ -843,8 +843,8 @@ const unusedDummyAppointments = [
 ];
 
 let integrations: IntegrationCredentials = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: process.env.SUPABASE_URL || '',
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   n8nWebhookUrl: '',
   cashfreeAppId: ''
@@ -1306,7 +1306,7 @@ export async function generateResearchProfile(lead: Lead, customApiKey?: string)
   const now = new Date().toISOString();
 
   if (!geminiKey) {
-    return generateComprehensiveResearchFallback(lead);
+    throw new Error('GEMINI_API_KEY is not configured on the server. Real B2B AI research requires a verified Google GenAI API key.');
   }
 
   try {
@@ -1520,9 +1520,9 @@ Do not include any markdown styling like \`\`\`json. Return only the valid JSON.
       insightsMeetingProbability: parsed.insightsMeetingProbability || 60,
       insightsConversionProbability: parsed.insightsConversionProbability || 45
     };
-  } catch (error) {
-    console.error('❌ Gemini Research Profile Generation failed, returning fallback:', error);
-    return generateComprehensiveResearchFallback(lead);
+  } catch (error: any) {
+    console.error('❌ Gemini Research Profile Generation failed:', error);
+    throw new Error(`Gemini Research Profile Generation failed: ${error?.message || String(error)}`);
   }
 }
 
@@ -3360,18 +3360,29 @@ Ensure the output is strictly valid JSON format.`;
         // Save to Supabase (Only verified businesses!)
         const supabase = getSupabaseClient();
         if (supabase) {
+          console.log(`[SUPABASE] Saving lead for "${newLead.company}" to database...`);
           try {
             let organization_id = null;
-            const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
+            console.log(`[SUPABASE] Checking existing organizations...`);
+            const { data: orgs, error: orgFetchErr } = await supabase.from('organizations').select('id').limit(1);
+            if (orgFetchErr) {
+              console.error(`[SUPABASE] Error fetching organization:`, orgFetchErr);
+            }
             if (orgs && orgs.length > 0) {
               organization_id = orgs[0].id;
+              console.log(`[SUPABASE] Found existing organization ID: ${organization_id}`);
             } else {
-              const { data: newOrg } = await supabase.from('organizations').insert({
+              console.log(`[SUPABASE] Creating default organization...`);
+              const { data: newOrg, error: orgInsErr } = await supabase.from('organizations').insert({
                 company_name: 'Default Organization',
                 country: country || 'India'
               }).select('id');
+              if (orgInsErr) {
+                console.error(`[SUPABASE] Organization creation failed:`, orgInsErr);
+              }
               if (newOrg && newOrg.length > 0) {
                 organization_id = newOrg[0].id;
+                console.log(`[SUPABASE] Created new organization with ID: ${organization_id}`);
               }
             }
 
@@ -3400,17 +3411,23 @@ Ensure the output is strictly valid JSON format.`;
                 source: newLead.source || 'Google Maps'
               };
 
+              console.log(`[SUPABASE] Inserting lead:`, JSON.stringify(dbLead, null, 2));
               const { error: insErr } = await supabase.from('leads').insert(dbLead);
               if (insErr) {
                 rlsOrInsertErrors.push(insErr);
-                console.error('[DATABASE] Lead insertion error:', insErr);
+                console.error('[SUPABASE] Lead insertion error:', insErr);
               } else {
                 insertedToSupabase++;
+                console.log(`[SUPABASE] Lead inserted successfully! Total inserted: ${insertedToSupabase}`);
               }
+            } else {
+              console.warn(`[SUPABASE] Skipped lead insertion because organization_id could not be resolved.`);
             }
           } catch (dbErr) {
-            console.error('[DATABASE] Supabase lead insertion exception:', dbErr);
+            console.error('[SUPABASE] lead insertion exception:', dbErr);
           }
+        } else {
+          console.log('[SUPABASE] Supabase is not configured or disabled. Skipping database save.');
         }
 
         leads.unshift(newLead);
@@ -3782,37 +3799,8 @@ Respond strictly with valid JSON.`;
     const targetBizType = businessType || 'B2B Enterprise';
 
     if (!geminiKey) {
-      // High-quality interpolated templates when Gemini API key is missing
-      console.log('⚠️ No GEMINI_API_KEY. Using sophisticated local copy generator.');
-      const localResponse = {
-        coldEmail: {
-          subject: `Outbound scaling strategy for ${targetCompany}`,
-          variationA: `Hi ${targetName},\n\nI was reviewing ${targetCompany}'s digital footprint in ${targetIndustry} and noticed your team is working on enterprise solutions.\n\nAt your size of ${targetSize}, one of the primary constraints is likely ${targetPainPoints}. We specialize in helping ${targetBizType} firms build custom automated multi-channel sequences.\n\nWould you be open to a 10-minute demo on Tuesday at 11 AM IST to see how we automate meetings inside ${targetCountry}?\n\nWarmly,\nSoham Kharat\nSalesPilot AI`,
-          variationB: `Hey ${targetName},\n\nHope you are doing great! ${targetTitle}s in ${targetIndustry} often find themselves wasting hours on manual LinkedIn messaging. At ${targetCompany}, your team has better things to focus on.\n\nWe build an automated Outreach Engine that helps resolve ${targetPainPoints}.\n\nLet me know if we can share our 3-step blueprint. Is next Tuesday open?\n\nBest,\nSoham`
-        },
-        linkedinMessage: {
-          variationA: `Hi ${targetName}, loved ${targetCompany}'s focus on innovation in ${targetCountry}. As ${targetTitle}, do you guys face challenges with ${targetPainPoints}? Would love to connect and share some automation insights.`,
-          variationB: `Hey ${targetName} - noticed you manage sales operations at ${targetCompany}. We help ${targetBizType} companies automate inbound funnels and bypass low reply rates. Let's connect!`
-        },
-        whatsappMessage: {
-          variationA: `Hello ${targetName}, Soham from SalesPilot here. I was impressed by ${targetCompany}'s website (${targetWebsite}). I know ${targetTitle}s are busy, but would you be open to a short WhatsApp voice note regarding solving ${targetPainPoints}?`,
-          variationB: `Hi ${targetName}! Just sent you an email regarding custom outreach pipelines. Wanted to drop a quick ping here. Would you be open to a brief call this week?`
-        },
-        followUpMessage: {
-          variationA: `Hi ${targetName} - following up on my previous note. I know you're busy running things at ${targetCompany}. Just wanted to check if scaling your ${targetIndustry} outbound channel is still a priority this quarter?`,
-          variationB: `Hey ${targetName}, just bumping this to the top of your mind. We helped a similar size firm in ${targetCountry} scale to ₹25 Lakh in recurring bookings using this exact approach. Open for a brief sync?`
-        },
-        meetingInvitation: {
-          subject: `Meeting Invitation: SalesPilot x ${targetCompany}`,
-          variationA: `Hi ${targetName},\n\nExcited to showcase how we can solve ${targetPainPoints} for ${targetCompany}.\n\nProposed Time: Tuesday at 11:30 AM IST (Google Meet)\n\nLet's map out your sequence automation blueprint.`,
-          variationB: `Hi ${targetName},\n\nThanks for connecting. Here is the scheduled calendar block for our 15-minute SalesPilot session.\n\nWe will review multi-channel strategies tailored for ${targetCountry}. See you then!`
-        },
-        reEngagementMessage: {
-          variationA: `Hi ${targetName} - hope things are scaling well since we last spoke. Since our last chat, we've launched our active AI Reply Analyzer which automates Google Calendar booking. Would love to show you how it works at ${targetCompany}.`,
-          variationB: `Hey ${targetName}, it's been a few weeks. Are you still searching for a premium, compliant way to automate WhatsApp & LinkedIn sequences? We have some new templates for ${targetIndustry}.`
-        }
-      };
-      res.json(localResponse);
+      console.log('⚠️ No GEMINI_API_KEY. real AI outreach generation is disabled.');
+      res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server. Real AI email/outreach generation requires a verified Google GenAI API key.' });
       return;
     }
 
@@ -4393,11 +4381,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           return;
         }
       } else {
-        // Mock account simulation
-        googleEventId = `mock_event_${Date.now()}`;
-        if (isOnline) {
-          meetingLink = `https://meet.google.com/sp-demo-${lead.firstName.toLowerCase()}-${Math.floor(Math.random() * 1000)}`;
-        }
+        res.status(400).json({ error: 'Real Google Calendar token is not connected. Real booking requires a verified OAuth Calendar account.' });
+        return;
       }
     } else {
       res.status(400).json({ error: 'No Google Calendar account connected. Please link your Google Calendar.' });
@@ -5942,6 +5927,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               const errorPayload = await gmailSendRes.text();
               throw new Error(`Gmail API error: ${errorPayload}`);
             }
+          } else {
+            throw new Error('Real Gmail API token is not connected. Real dispatch requires a verified OAuth Gmail account.');
           }
 
           // Complete successful dispatch
@@ -6052,6 +6039,179 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }, 10000);
 
   // --- GMAIL API ROUTES ---
+
+  // Google OAuth URL generation
+  app.get('/api/auth/google/url', (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res.status(400).json({ error: 'GOOGLE_CLIENT_ID is not configured on the server. Please add GOOGLE_CLIENT_ID to your environment variables.' });
+    }
+    const redirectUri = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/google/callback`;
+    const scopes = [
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/calendar',
+      'openid',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile'
+    ];
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: scopes.join(' '),
+      access_type: 'offline',
+      prompt: 'consent'
+    });
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    res.json({ url: authUrl });
+  });
+
+  // Google OAuth Callback Handler
+  app.get('/api/auth/google/callback', async (req, res) => {
+    const code = req.query.code as string;
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    
+    if (!code || !clientId || !clientSecret) {
+      return res.send(`
+        <html>
+          <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
+            <h3 style="color: #dc2626;">Authentication Configuration Error</h3>
+            <p style="color: #4b5563;">Missing parameters, client ID, or client secret configuration.</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Missing parameters or client configuration.' }, '*');
+              }
+              setTimeout(() => window.close(), 3000);
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
+    const redirectUri = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/google/callback`;
+
+    try {
+      // Exchange code for tokens
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code'
+        })
+      });
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        throw new Error(`Google exchange failed: ${errText}`);
+      }
+
+      const tokenData = await tokenRes.json() as any;
+      const { access_token, refresh_token, expires_in } = tokenData;
+
+      // Fetch user profile info
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { 'Authorization': `Bearer ${access_token}` }
+      });
+
+      if (!userRes.ok) {
+        throw new Error('Failed to fetch user info from Google');
+      }
+
+      const userData = await userRes.json() as any;
+      const email = userData.email;
+      const name = userData.name || email.split('@')[0];
+      const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
+
+      // Connect user to Gmail Account on server
+      const existingGmail = gmailAccounts.find(a => a.email === email);
+      if (existingGmail) {
+        existingGmail.accessToken = access_token;
+        if (refresh_token) existingGmail.refreshToken = refresh_token;
+        existingGmail.expiresAt = expiresAt;
+        existingGmail.status = 'CONNECTED';
+        existingGmail.fullName = name;
+      } else {
+        gmailAccounts.push({
+          email,
+          fullName: name,
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expiresAt,
+          status: 'CONNECTED',
+          sendingLimit: 500,
+          sentToday: 0,
+          bounceCount: 0,
+          retryCount: 0,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      // Connect user to Calendar Account on server
+      const existingCalendar = calendarAccounts.find(c => c.email === email);
+      if (existingCalendar) {
+        existingCalendar.accessToken = access_token;
+        if (refresh_token) existingCalendar.refreshToken = refresh_token;
+        existingCalendar.expiresAt = expiresAt;
+        existingCalendar.status = 'CONNECTED';
+        existingCalendar.fullName = name;
+      } else {
+        calendarAccounts.push({
+          email,
+          fullName: name,
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expiresAt,
+          status: 'CONNECTED',
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      // Respond to popup window, sending postMessage and closing
+      res.send(`
+        <html>
+          <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
+            <h3 style="color: #10b981;">Authentication Successful!</h3>
+            <p style="color: #4b5563;">Syncing connected email and calendar accounts with SalesPilot...</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'GOOGLE_AUTH_SUCCESS',
+                  email: ${JSON.stringify(email)},
+                  name: ${JSON.stringify(name)},
+                  accessToken: ${JSON.stringify(access_token)},
+                  refreshToken: ${JSON.stringify(refresh_token)},
+                  expiresAt: ${JSON.stringify(expiresAt)}
+                }, '*');
+              }
+              setTimeout(() => window.close(), 1500);
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (err: any) {
+      console.error('[GOOGLE AUTH EXCH ERROR]', err);
+      res.send(`
+        <html>
+          <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
+            <h3 style="color: #dc2626;">Authentication Failed</h3>
+            <p style="color: #4b5563;">${err.message || String(err)}</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(err.message || String(err))} }, '*');
+              }
+              setTimeout(() => window.close(), 4000);
+            </script>
+          </body>
+        </html>
+      `);
+    }
+  });
 
   // Connects a Gmail Account
   app.post('/gmail/connect', (req, res) => {
@@ -6493,11 +6653,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           return res.status(500).json({ error: `Google Calendar creation exception: ${err.message || String(err)}` });
         }
       } else {
-        // Mock account simulation
-        googleEventId = `mock_event_${Date.now()}`;
-        if (isOnline) {
-          meetingLink = `https://meet.google.com/sp-demo-${lead ? lead.firstName.toLowerCase() : 'prospect'}-${Math.floor(Math.random() * 1000)}`;
-        }
+        return res.status(400).json({ error: 'Real Google Calendar token is not connected. Real booking requires a verified OAuth Calendar account.' });
       }
     } else {
       return res.status(400).json({ error: 'No Google Calendar account connected. Please link your Google Calendar.' });
@@ -6944,18 +7100,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         }
       }
     } else {
-      // Mock validation mode
-      log('Encountered Mock Token. Simulating rigorous validation steps for developer mode...');
-      log('Simulating Event Creation payload...');
-      log('Simulating Google Meet requestId generation...');
-      createdEventId = `test_mock_event_${Date.now()}`;
-      hangoutLink = `https://meet.google.com/test-mock-${Date.now()}`;
-      
-      log(`SUCCESS: Mock Event Created. ID: ${createdEventId}`);
-      log(`SUCCESS: Mock Google Meet link generated. URL: ${hangoutLink}`);
-      log('SUCCESS: Simulated invitation email sending to: salespilot.tester@gmail.com');
-      log('SUCCESS: Verified simulated persistence in mock database.');
-      log('SUCCESS: Cleanup complete.');
+      log('FAIL: Mock validation mode is disabled. E2E tests can only be run with real connected OAuth Accounts.');
+      return res.status(400).json({
+        success: false,
+        error: 'Real Google Calendar token is not connected. Real booking requires a verified OAuth Calendar account.',
+        logs
+      });
     }
 
     log('E2E integration test completed successfully!');

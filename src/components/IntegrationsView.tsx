@@ -1122,112 +1122,32 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const triggerRealGoogleLogin = () => {
-    // Elegant OAuth Consent Screen mock that executes inside the sandboxed preview iframe
-    const mockOAuthWindow = document.createElement('div');
-    mockOAuthWindow.id = 'google_oauth_iframe_mock';
-    mockOAuthWindow.className = 'fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans';
-    mockOAuthWindow.innerHTML = `
-      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 animate-scale-in">
-        <div class="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <svg class="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="#EA4335" d="M12 5.04c1.64 0 3.12.56 4.28 1.67l3.2-3.2C17.52 1.58 14.94 1 12 1 7.35 1 3.4 3.65 1.5 7.5l3.8 3C6.2 7.56 8.9 5.04 12 5.04z"/>
-              <path fill="#4285F4" d="M23.5 12.25c0-.82-.07-1.62-.2-2.38H12v4.5h6.48c-.28 1.48-1.12 2.73-2.38 3.58l3.7 2.88c2.16-2 3.7-4.94 3.7-8.58z"/>
-              <path fill="#FBBC05" d="M5.3 14.5c-.25-.76-.4-1.57-.4-2.5s.15-1.74.4-2.5L1.5 6.5C.54 8.4 0 10.15 0 12s.54 3.6 1.5 5.5l3.8-3z"/>
-              <path fill="#34A853" d="M12 23c3.24 0 5.96-1.08 7.94-2.9l-3.7-2.88c-1.1.74-2.5 1.18-4.24 1.18-3.1 0-5.8-2.52-6.7-5.46l-3.8 3C3.4 20.35 7.35 23 12 23z"/>
-            </svg>
-            <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase font-mono">Sign in with Google</span>
-          </div>
-          <button id="oauth_close" class="text-slate-400 hover:text-slate-600 cursor-pointer">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
-        </div>
-        
-        <div class="p-6 space-y-5">
-          <div class="text-center">
-            <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto text-blue-600 mb-2">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            </div>
-            <h3 class="text-sm font-bold text-slate-800">SalesPilot wants to access your Google Account</h3>
-            <p class="text-[11px] text-slate-500 mt-1">Select scopes you consent to sharing with this workspace application:</p>
-          </div>
-
-          <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3 text-xs">
-            <div class="flex items-start gap-2.5">
-              <input type="checkbox" checked disabled class="mt-0.5 rounded text-blue-600">
-              <div>
-                <p class="font-bold text-slate-700">Read and search inbox emails</p>
-                <p class="text-[10px] text-slate-400">auth/gmail.readonly</p>
-              </div>
-            </div>
-            <div class="flex items-start gap-2.5">
-              <input type="checkbox" checked class="mt-0.5 rounded text-blue-600">
-              <div>
-                <p class="font-bold text-slate-700">Draft, compose, and send replies</p>
-                <p class="text-[10px] text-slate-400">auth/gmail.send, auth/gmail.compose</p>
-              </div>
-            </div>
-            <div class="flex items-start gap-2.5">
-              <input type="checkbox" checked class="mt-0.5 rounded text-blue-600">
-              <div>
-                <p class="font-bold text-slate-700">Manage labels and modify parameters</p>
-                <p class="text-[10px] text-slate-400">auth/gmail.labels, auth/gmail.modify</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="text-[10px] text-slate-400 text-center leading-normal">
-            By clicking Continue, you authorize SalesPilot to securely manage tokens in-memory. Access keys expire after 3600 seconds and are never saved to disk.
-          </div>
-        </div>
-
-        <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
-          <button id="oauth_cancel" class="px-3.5 py-1.5 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-600 cursor-pointer">Cancel</button>
-          <button id="oauth_submit" class="px-5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm cursor-pointer">Agree & Continue</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(mockOAuthWindow);
-
-    // Click listeners
-    const closeBtn = document.getElementById('oauth_close');
-    const cancelBtn = document.getElementById('oauth_cancel');
-    const submitBtn = document.getElementById('oauth_submit');
-
-    const cleanUp = () => {
-      const el = document.getElementById('google_oauth_iframe_mock');
-      if (el) el.remove();
-    };
-
-    if (closeBtn) closeBtn.onclick = cleanUp;
-    if (cancelBtn) cancelBtn.onclick = cleanUp;
-    if (submitBtn) {
-      submitBtn.onclick = async () => {
-        cleanUp();
-        // Automatically inject a production-grade verified Google Workspace email connection!
-        try {
-          const res = await fetch('/gmail/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: 'workspace@horizonmedia.io',
-              fullName: 'Soham Kharat (Horizon Media)',
-              accessToken: 'ya29.a0AfB_workspace_demo_key_' + Date.now(),
-              refreshToken: '1//0g_refresh_oauth_code_secure',
-              expiresAt: new Date(Date.now() + 3600000).toISOString()
-            })
-          });
-          if (res.ok) {
-            logActivity('Connected Google Workspace Account: workspace@horizonmedia.io', 'Gmail Integration');
-            fetchGmailStatus();
-            setIsConnectModalOpen(false);
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      };
+  const triggerRealGoogleLogin = async () => {
+    try {
+      const res = await fetch('/api/auth/google/url');
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch Google Auth URL.');
+      }
+      const data = await res.json();
+      
+      const width = 500;
+      const height = 650;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popup = window.open(
+        data.url,
+        'google_oauth_popup',
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+      
+      if (!popup) {
+        alert('Popup blocker active. Please allow popups for this site to complete Google OAuth.');
+      }
+    } catch (err: any) {
+      console.error('Real Google OAuth Error:', err);
+      alert(`Production Google Connection Blocked:\n\n${err.message || String(err)}\n\nPlease ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are defined in your environment variables via the Settings tab in AI Studio or Vercel.`);
     }
   };
 
