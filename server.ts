@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import fs from 'fs';
 import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
@@ -4310,6 +4311,19 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return;
     }
 
+    // Validate attendee email only if provided and not empty
+    let cleanLeadEmail = '';
+    if (lead.email && lead.email.trim() !== '') {
+      const emailValidation = validateAndTrimEmail(lead.email);
+      if (!emailValidation.valid) {
+        console.warn(`[VALIDATION FAIL] Invalid attendee email detected: "${lead.email}" - ${emailValidation.error}`);
+        res.status(400).json({ error: `Google Calendar failed: Invalid attendee email: "${lead.email}". ${emailValidation.error}` });
+        return;
+      }
+      cleanLeadEmail = emailValidation.email!;
+    }
+    console.log(`[GOOGLE CALENDAR API REQUEST] Preparing to create event. Attendee email: ${cleanLeadEmail || 'None'}`);
+
     const tz = timezone || 'Asia/Kolkata';
     const startDateTime = new Date(dateTime || Date.now() + 24 * 60 * 60 * 1000);
     const endDateTime = new Date(startDateTime.getTime() + (durationMins || 30) * 60 * 1000);
@@ -4338,7 +4352,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               dateTime: endDateTime.toISOString(),
               timeZone: tz,
             },
-            attendees: [{ email: lead.email }],
+            attendees: cleanLeadEmail ? [{ email: cleanLeadEmail }] : [],
           };
 
           if (isOnline) {
@@ -4396,9 +4410,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const isRealGmailToken = gmailAcc && gmailAcc.accessToken && !gmailAcc.accessToken.startsWith('mock_');
     let gmailMessageId = '';
 
-    if (gmailAcc) {
+    if (gmailAcc && cleanLeadEmail) {
       if (isRealGmailToken) {
-        const gmailToken = await refreshGmailTokenIfNeeded(gmailAcc);
+        const gmailVerification = await verifyGmailCapability(gmailAcc);
+        if (!gmailVerification.valid) {
+          console.error(`[GMAIL API ERROR] Gmail capability validation failed for ${gmailAcc.email}: ${gmailVerification.error}`);
+          res.status(403).json({ error: `Gmail authorization check failed: ${gmailVerification.error}. Please reconnect your account and authorize the Gmail send permission.` });
+          return;
+        }
+        const gmailToken = gmailVerification.token;
         try {
           const emailSubject = `Scheduled: SalesPilot Demo Chat`;
           const emailBody = `
@@ -4451,6 +4471,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               const parsedJson = JSON.parse(gmailResText);
               parsedError = parsedJson.error?.message || gmailResText;
             } catch (_) {}
+
+            // Set REAUTH_NEEDED if scope is insufficient
+            if (gmailResText.includes('insufficientPermissions') || gmailResText.includes('insufficient authentication scopes') || gmailSendRes.status === 403) {
+              gmailAcc.status = 'REAUTH_NEEDED';
+              const calAcc = calendarAccounts.find(c => c.email === gmailAcc.email);
+              if (calAcc) calAcc.status = 'REAUTH_NEEDED';
+              saveAccountsToDisk();
+            }
+
             res.status(400).json({ error: `Gmail API failed to send invitation email: ${parsedError}` });
             return;
           }
@@ -5968,33 +5997,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
         try {
           const isRealGoogleToken = account.accessToken && !account.accessToken.startsWith('mock_');
+          let gmailToken = account.accessToken;
           
           if (isRealGoogleToken) {
-            // Check Token Expiration & Refresh Automatically
-            if (new Date(account.expiresAt).getTime() <= now && account.refreshToken) {
-              console.log(`[GOOGLE OAUTH] Token expired for ${account.email}. Attempting auto-refresh...`);
-              const response = await fetch('https://oauth2.googleapis.com/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                  client_id: process.env.GOOGLE_CLIENT_ID || '',
-                  client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-                  refresh_token: account.refreshToken,
-                  grant_type: 'refresh_token'
-                })
-              });
-              const tokenData = await response.json();
-              if (tokenData.access_token) {
-                account.accessToken = tokenData.access_token;
-                account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
-                account.status = 'CONNECTED';
-                console.log(`[GOOGLE OAUTH] Auto-refresh successful for ${account.email}`);
-              } else {
-                account.status = 'REAUTH_NEEDED';
-                throw new Error('Google OAuth token refresh failed or was revoked.');
-              }
+            const verification = await verifyGmailCapability(account);
+            if (!verification.valid) {
+              throw new Error(`Gmail authorization check failed: ${verification.error}`);
             }
+            gmailToken = verification.token;
+          }
 
+          if (isRealGoogleToken || account.accessToken) {
             // Real Gmail Send API call
             const emailHeadersAndBody = [
               `To: ${item.recipient}`,
@@ -6014,7 +6027,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             const gmailSendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${account.accessToken}`,
+                'Authorization': `Bearer ${gmailToken}`,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({ raw: encodedRawMessage })
@@ -6101,6 +6114,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           console.error(`[GMAIL QUEUE FAILURE] Delivery attempt failed for ${item.id}:`, err.message);
           account.retryCount++;
           
+          const isScopeError = err.message && (
+            err.message.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') ||
+            err.message.includes('insufficientPermissions') ||
+            err.message.includes('insufficient authentication scopes')
+          );
+          if (isScopeError) {
+            account.status = 'REAUTH_NEEDED';
+            const calAcc = calendarAccounts.find(c => c.email === account.email);
+            if (calAcc) calAcc.status = 'REAUTH_NEEDED';
+            saveAccountsToDisk();
+          }
+          
           if (item.retryAttempts < 3) {
             item.status = 'RETRYING';
             item.retryAttempts++;
@@ -6148,6 +6173,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       'https://www.googleapis.com/auth/gmail.send',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events',
       'openid',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile'
@@ -6209,7 +6235,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       }
 
       const tokenData = await tokenRes.json() as any;
-      const { access_token, refresh_token, expires_in } = tokenData;
+      const { access_token, refresh_token, expires_in, scope } = tokenData;
 
       // Fetch user profile info
       const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -6224,6 +6250,68 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const email = userData.email;
       const name = userData.name || email.split('@')[0];
       const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
+
+      // Verify and log Gmail and Calendar permissions
+      const scopesArr = scope ? scope.split(' ') : [];
+      const hasGmailSend = scopesArr.includes('https://www.googleapis.com/auth/gmail.send');
+      const hasCalendar = scopesArr.includes('https://www.googleapis.com/auth/calendar');
+      const hasCalendarEvents = scopesArr.includes('https://www.googleapis.com/auth/calendar.events');
+
+      console.log(`[GOOGLE OAUTH VERIFICATION] Account: "${email}". Granted scopes:`, scopesArr);
+      console.log(`[GOOGLE OAUTH VERIFICATION] Permissions verification:
+        - Gmail Send: ${hasGmailSend ? 'VERIFIED' : 'MISSING (https://www.googleapis.com/auth/gmail.send)'}
+        - Calendar: ${hasCalendar ? 'VERIFIED' : 'MISSING (https://www.googleapis.com/auth/calendar)'}
+        - Calendar Events: ${hasCalendarEvents ? 'VERIFIED' : 'MISSING (https://www.googleapis.com/auth/calendar.events)'}`);
+
+      if (!hasGmailSend || !hasCalendar || !hasCalendarEvents) {
+        console.warn(`[GOOGLE OAUTH WARNING] Insufficient scopes granted by user: "${email}". Connection aborted.`);
+        return res.send(`
+          <html>
+            <body style="font-family: sans-serif; text-align: center; padding: 40px; background-color: #fef2f2; color: #991b1b; display: flex; align-items: center; justify-content: center; min-height: 80vh; margin: 0;">
+              <div style="max-width: 600px; width: 100%; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); border: 1px solid #fee2e2; text-align: left;">
+                <h2 style="color: #dc2626; margin-top: 0; font-size: 24px; border-bottom: 2px solid #fee2e2; padding-bottom: 12px; display: flex; align-items: center;">
+                  <span style="margin-right: 10px; font-size: 28px;">⚠️</span> Authorization Scopes Missing
+                </h2>
+                <p style="color: #4b5563; line-height: 1.6; font-size: 15px; margin-top: 15px;">
+                  Your Google Account was authenticated successfully, but you did not grant all required permissions. 
+                  SalesPilot requires these permissions to schedule appointments, inject Google Meet conference links, and dispatch real-time email invitations.
+                </p>
+                
+                <div style="background-color: #fbfbfe; padding: 18px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #dc2626; font-size: 14px; color: #374151; font-family: monospace;">
+                  <strong style="display: block; margin-bottom: 10px; font-family: sans-serif; font-size: 15px; color: #1e293b;">Missing Scopes:</strong>
+                  ${!hasGmailSend ? '<div style="margin-bottom: 6px; color: #b91c1c;">❌ <code>https://www.googleapis.com/auth/gmail.send</code> (Send emails on your behalf)</div>' : ''}
+                  ${!hasCalendar ? '<div style="margin-bottom: 6px; color: #b91c1c;">❌ <code>https://www.googleapis.com/auth/calendar</code> (Manage your Google Calendar)</div>' : ''}
+                  ${!hasCalendarEvents ? '<div style="margin-bottom: 6px; color: #b91c1c;">❌ <code>https://www.googleapis.com/auth/calendar.events</code> (Manage individual events)</div>' : ''}
+                </div>
+
+                <div style="margin: 25px 0; font-size: 14px; color: #4b5563; line-height: 1.5; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
+                  <strong style="color: #15803d; font-size: 15px; display: block; margin-bottom: 6px;">How to resolve this immediately:</strong>
+                  <ol style="margin-top: 4px; padding-left: 20px; margin-bottom: 0;">
+                    <li style="margin-bottom: 6px;">Click the button below to close this window.</li>
+                    <li style="margin-bottom: 6px;">In SalesPilot, click <strong>Connect Google Account</strong> again.</li>
+                    <li style="margin-bottom: 6px;">On the Google sign-in / consent prompt, <strong>make sure to check the checkbox next to every requested permission</strong> (especially the option to send emails on your behalf).</li>
+                    <li style="margin-bottom: 0;">If those checkboxes do not appear, go to your <strong>Google Cloud Console</strong> &rarr; <strong>OAuth Consent Screen</strong>, ensure the requested scopes are enabled under the <strong>Scopes</strong> list, and make sure your app is in testing mode with your user added as a test user.</li>
+                  </ol>
+                </div>
+
+                <div style="text-align: center; margin-top: 25px;">
+                  <button onclick="window.close()" style="background-color: #dc2626; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; transition: background-color 0.2s; box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.3);">
+                    Close Window & Retry
+                  </button>
+                </div>
+              </div>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({ 
+                    type: 'GOOGLE_AUTH_FAILURE', 
+                    error: 'Required authorization scopes were not granted by the user.' 
+                  }, '*');
+                }
+              </script>
+            </body>
+          </html>
+        `);
+      }
 
       // Connect user to Gmail Account on server
       const existingGmail = gmailAccounts.find(a => a.email === email);
@@ -6268,6 +6356,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           createdAt: new Date().toISOString()
         });
       }
+
+      // Persist the newly authenticated accounts to disk
+      saveAccountsToDisk();
 
       // Respond to popup window, sending postMessage and closing
       res.send(`
@@ -6349,6 +6440,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     };
 
     gmailAccounts.push(newAcc);
+    saveAccountsToDisk();
     res.json({ 
       message: 'Gmail account connected successfully to SalesPilot.', 
       account: newAcc 
@@ -6362,7 +6454,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(400).json({ error: 'Missing account email parameter' });
     }
     gmailAccounts = gmailAccounts.filter(a => a.email !== email);
-    res.json({ success: true, message: `Account ${email} disconnected successfully.` });
+    calendarAccounts = calendarAccounts.filter(c => c.email !== email);
+    saveAccountsToDisk();
+    res.json({ success: true, message: `Account ${email} disconnected successfully from both Gmail and Google Calendar.` });
   });
 
   // Sends an Email or Saves a Draft
@@ -6567,74 +6661,340 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   let calendarAccounts: CalendarAccount[] = [];
 
-  // Helper to refresh Google Calendar Access Token if expired
-  async function refreshCalendarTokenIfNeeded(account: CalendarAccount): Promise<string> {
-    const now = Date.now();
-    const isRealGoogleToken = account.accessToken && !account.accessToken.startsWith('mock_');
-    
-    if (isRealGoogleToken && new Date(account.expiresAt).getTime() <= now && account.refreshToken) {
-      console.log(`[GOOGLE CALENDAR OAUTH] Token expired for ${account.email}. Attempting auto-refresh...`);
-      try {
-        const response = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: process.env.GOOGLE_CLIENT_ID || '',
-            client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-            refresh_token: account.refreshToken,
-            grant_type: 'refresh_token'
-          })
-        });
-        const tokenData = await response.json();
-        if (tokenData.access_token) {
-          account.accessToken = tokenData.access_token;
-          account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
-          account.status = 'CONNECTED';
-          console.log(`[GOOGLE CALENDAR OAUTH] Auto-refresh successful for ${account.email}`);
-        } else {
-          account.status = 'REAUTH_NEEDED';
-          console.warn(`[GOOGLE CALENDAR OAUTH] Auto-refresh failed:`, tokenData);
+  // Persistence helpers for Google Accounts (survives dev server restarts)
+  const ACCOUNTS_STORE_PATH = path.join(process.cwd(), 'google_accounts_store.json');
+
+  function synchronizeUnifiedAccounts() {
+    // 1. Sync every calendarAccount to gmailAccounts
+    for (const cal of calendarAccounts) {
+      let g = gmailAccounts.find(x => x.email === cal.email);
+      if (!g) {
+        g = {
+          email: cal.email,
+          fullName: cal.fullName,
+          accessToken: cal.accessToken,
+          refreshToken: cal.refreshToken,
+          expiresAt: cal.expiresAt,
+          status: cal.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED',
+          sendingLimit: 500,
+          sentToday: 0,
+          bounceCount: 0,
+          retryCount: 0,
+          createdAt: cal.createdAt || new Date().toISOString()
+        };
+        gmailAccounts.push(g);
+        console.log(`[PERSISTENCE] Sync-created Gmail account for email ${cal.email} from Calendar connection.`);
+      } else {
+        // If it exists, make sure the credentials and state match!
+        let changed = false;
+        if (g.accessToken !== cal.accessToken) { g.accessToken = cal.accessToken; changed = true; }
+        if (g.refreshToken !== cal.refreshToken && cal.refreshToken) { g.refreshToken = cal.refreshToken; changed = true; }
+        if (g.expiresAt !== cal.expiresAt) { g.expiresAt = cal.expiresAt; changed = true; }
+        const targetStatus = cal.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED';
+        if (g.status !== targetStatus) { g.status = targetStatus; changed = true; }
+        if (changed) {
+          console.log(`[PERSISTENCE] Sync-updated Gmail credentials for ${cal.email} from Calendar connection.`);
         }
-      } catch (err: any) {
-        console.error(`[GOOGLE CALENDAR OAUTH] Auto-refresh failed:`, err.message);
       }
     }
+
+    // 2. Sync every gmailAccount to calendarAccounts
+    for (const g of gmailAccounts) {
+      let cal = calendarAccounts.find(x => x.email === g.email);
+      if (!cal) {
+        cal = {
+          email: g.email,
+          fullName: g.fullName,
+          accessToken: g.accessToken,
+          refreshToken: g.refreshToken,
+          expiresAt: g.expiresAt,
+          status: g.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED',
+          createdAt: g.createdAt || new Date().toISOString()
+        };
+        calendarAccounts.push(cal);
+        console.log(`[PERSISTENCE] Sync-created Calendar account for email ${g.email} from Gmail connection.`);
+      } else {
+        // If it exists, make sure credentials and state match!
+        let changed = false;
+        if (cal.accessToken !== g.accessToken) { cal.accessToken = g.accessToken; changed = true; }
+        if (cal.refreshToken !== g.refreshToken && g.refreshToken) { cal.refreshToken = g.refreshToken; changed = true; }
+        if (cal.expiresAt !== g.expiresAt) { cal.expiresAt = g.expiresAt; changed = true; }
+        const targetStatus = g.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED';
+        if (cal.status !== targetStatus) { cal.status = targetStatus; changed = true; }
+        if (changed) {
+          console.log(`[PERSISTENCE] Sync-updated Calendar credentials for ${g.email} from Gmail connection.`);
+        }
+      }
+    }
+  }
+
+  function saveAccountsToDisk() {
+    try {
+      synchronizeUnifiedAccounts();
+      fs.writeFileSync(ACCOUNTS_STORE_PATH, JSON.stringify({
+        calendarAccounts,
+        gmailAccounts
+      }, null, 2), 'utf8');
+      console.log('[PERSISTENCE] Successfully saved Google Accounts to disk.');
+    } catch (err: any) {
+      console.error('[PERSISTENCE] Error saving accounts:', err.message);
+    }
+  }
+
+  async function verifyTokenScopesOnServer(accessToken: string): Promise<{ valid: boolean; scopes: string[]; error?: string }> {
+    try {
+      const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`);
+      if (!res.ok) {
+        const text = await res.text();
+        return { valid: false, scopes: [], error: `Tokeninfo API returned status ${res.status}: ${text}` };
+      }
+      const data = await res.json() as any;
+      if (data.error) {
+        return { valid: false, scopes: [], error: data.error_description || data.error };
+      }
+      const scopes = data.scope ? data.scope.split(' ') : [];
+      return { valid: true, scopes };
+    } catch (err: any) {
+      return { valid: false, scopes: [], error: err.message || String(err) };
+    }
+  }
+
+  async function verifyAndInvalidateAccountsIfNeeded() {
+    console.log('[GOOGLE OAUTH] Starting background verification of loaded accounts...');
+    let changed = false;
+    
+    for (const acc of calendarAccounts) {
+      const isReal = acc.accessToken && !acc.accessToken.startsWith('mock_');
+      if (!isReal) continue;
+      
+      let token = acc.accessToken;
+      if (acc.refreshToken && new Date(acc.expiresAt).getTime() <= Date.now()) {
+        try {
+          token = await refreshCalendarTokenIfNeeded(acc);
+        } catch (_) {}
+      }
+      
+      const verification = await verifyTokenScopesOnServer(token);
+      if (verification.valid) {
+        const scopes = verification.scopes;
+        const hasGmailSend = scopes.includes('https://www.googleapis.com/auth/gmail.send');
+        const hasCalendar = scopes.includes('https://www.googleapis.com/auth/calendar');
+        const hasCalendarEvents = scopes.includes('https://www.googleapis.com/auth/calendar.events');
+        
+        console.log(`[GOOGLE OAUTH VERIFICATION] Verified scopes for ${acc.email}:`, scopes);
+        if (!hasGmailSend || !hasCalendar || !hasCalendarEvents) {
+          console.warn(`[GOOGLE OAUTH VERIFICATION] Account ${acc.email} is missing required scopes. Setting status to REAUTH_NEEDED.`);
+          acc.status = 'REAUTH_NEEDED';
+          changed = true;
+        } else {
+          if (acc.status !== 'CONNECTED') {
+            acc.status = 'CONNECTED';
+            changed = true;
+          }
+        }
+      } else {
+        console.warn(`[GOOGLE OAUTH VERIFICATION] Tokeninfo verification failed for ${acc.email}: ${verification.error}. Setting status to REAUTH_NEEDED.`);
+        acc.status = 'REAUTH_NEEDED';
+        changed = true;
+      }
+    }
+    
+    if (changed) {
+      saveAccountsToDisk();
+    }
+  }
+
+  async function verifyGmailCapability(account: GmailAccount): Promise<{ valid: boolean; token: string; error?: string }> {
+    if (!account.accessToken) {
+      return { valid: false, token: '', error: 'Gmail account has no access token.' };
+    }
+    
+    // Invalidate if token is mock
+    if (account.accessToken.startsWith('mock_')) {
+      return { valid: true, token: account.accessToken }; // For mock/sandbox testing
+    }
+    
+    // Refresh if expired using centralized logic
+    let token = account.accessToken;
+    try {
+      token = await ensureAndRefreshGoogleToken(account, 'Gmail');
+    } catch (err: any) {
+      return { valid: false, token: '', error: `Token verification/refresh failed: ${err.message || String(err)}` };
+    }
+    
+    // Verify scopes on the token
+    const verification = await verifyTokenScopesOnServer(token);
+    if (!verification.valid) {
+      account.status = 'REAUTH_NEEDED';
+      saveAccountsToDisk();
+      return { valid: false, token: '', error: `Failed to verify token: ${verification.error}` };
+    }
+    
+    const scopes = verification.scopes;
+    const hasGmailSend = scopes.includes('https://www.googleapis.com/auth/gmail.send');
+    if (!hasGmailSend) {
+      account.status = 'REAUTH_NEEDED';
+      saveAccountsToDisk();
+      return { valid: false, token: '', error: 'Gmail send scope is missing. Please click Connect to re-authenticate and check the send emails checkbox.' };
+    }
+    
+    return { valid: true, token };
+  }
+
+  function loadAccountsFromDisk() {
+    try {
+      if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
+        const raw = fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8');
+        const data = JSON.parse(raw);
+        if (data.calendarAccounts) {
+          calendarAccounts = data.calendarAccounts.map((c: any) => {
+            const isReal = c.accessToken && !c.accessToken.startsWith('mock_');
+            const isExpired = c.expiresAt && new Date(c.expiresAt).getTime() <= Date.now();
+            if (isReal && isExpired && !c.refreshToken) {
+              return { ...c, status: 'REAUTH_NEEDED' };
+            }
+            return c;
+          });
+        }
+        if (data.gmailAccounts) {
+          gmailAccounts = data.gmailAccounts.map((g: any) => {
+            const isReal = g.accessToken && !g.accessToken.startsWith('mock_');
+            const isExpired = g.expiresAt && new Date(g.expiresAt).getTime() <= Date.now();
+            if (isReal && isExpired && !g.refreshToken) {
+              return { ...g, status: 'REAUTH_NEEDED' };
+            }
+            return g;
+          });
+        }
+        synchronizeUnifiedAccounts();
+        console.log(`[PERSISTENCE] Loaded ${calendarAccounts.length} calendar and ${gmailAccounts.length} gmail accounts from disk.`);
+        
+        // Trigger background verification of scopes
+        verifyAndInvalidateAccountsIfNeeded().catch(err => {
+          console.error('[GOOGLE OAUTH] Background verification failed:', err);
+        });
+      }
+    } catch (err: any) {
+      console.error('[PERSISTENCE] Error loading accounts:', err.message);
+    }
+  }
+
+  function validateAndTrimEmail(emailInput: any): { valid: boolean; email?: string; error?: string } {
+    if (emailInput === null || emailInput === undefined) {
+      return { valid: false, error: 'Email address is missing (null or undefined).' };
+    }
+    if (typeof emailInput !== 'string') {
+      return { valid: false, error: `Invalid email type: ${typeof emailInput}` };
+    }
+    const trimmed = emailInput.trim();
+    if (trimmed === '') {
+      return { valid: false, error: 'Email address is empty.' };
+    }
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    if (!emailRegex.test(trimmed)) {
+      return { valid: false, error: `Invalid email format: "${trimmed}"` };
+    }
+    return { valid: true, email: trimmed };
+  }
+
+  // Load persisted accounts on start
+  loadAccountsFromDisk();
+
+  // Shared helper to verify and auto-refresh Google tokens
+  async function ensureAndRefreshGoogleToken(account: CalendarAccount | GmailAccount, serviceName: string): Promise<string> {
+    const email = account.email;
+    const now = Date.now();
+    
+    // 1. Check if token is missing
+    if (!account.accessToken) {
+      console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Missing for ${email}`);
+      account.status = 'REAUTH_NEEDED';
+      saveAccountsToDisk();
+      throw new Error(`Google OAuth token is missing for ${email}. Please reconnect your account.`);
+    }
+
+    const isRealGoogleToken = !account.accessToken.startsWith('mock_');
+    if (!isRealGoogleToken) {
+      // Mock tokens are always valid for development / sandbox
+      return account.accessToken;
+    }
+
+    // 2. Check if token is expired
+    const isExpired = new Date(account.expiresAt).getTime() <= now;
+    if (isExpired) {
+      console.log(`[GOOGLE AUTH - ${serviceName}] Token status: Expired for ${email}. Expiration: ${account.expiresAt}. Current: ${new Date(now).toISOString()}`);
+      
+      // Attempt refresh if refresh token exists
+      if (account.refreshToken) {
+        console.log(`[GOOGLE AUTH - ${serviceName}] Attempting automatic token refresh for ${email}...`);
+        try {
+          const response = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: process.env.GOOGLE_CLIENT_ID || '',
+              client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+              refresh_token: account.refreshToken,
+              grant_type: 'refresh_token'
+            })
+          });
+          const tokenData = await response.json();
+          if (tokenData.access_token) {
+            account.accessToken = tokenData.access_token;
+            account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
+            account.status = 'CONNECTED';
+            console.log(`[GOOGLE AUTH - ${serviceName}] Token status: Refreshed successfully for ${email}`);
+            
+            // Sync across lists (Calendar <-> Gmail)
+            if (serviceName === 'Calendar') {
+              const matchedGmail = gmailAccounts.find(g => g.email === email);
+              if (matchedGmail) {
+                matchedGmail.accessToken = account.accessToken;
+                matchedGmail.expiresAt = account.expiresAt;
+                matchedGmail.status = 'CONNECTED';
+              }
+            } else {
+              const matchedCalendar = calendarAccounts.find(c => c.email === email);
+              if (matchedCalendar) {
+                matchedCalendar.accessToken = account.accessToken;
+                matchedCalendar.expiresAt = account.expiresAt;
+                matchedCalendar.status = 'CONNECTED';
+              }
+            }
+            saveAccountsToDisk();
+            return account.accessToken;
+          } else {
+            console.warn(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid (Auto-refresh failed with error)`, tokenData);
+            account.status = 'REAUTH_NEEDED';
+            saveAccountsToDisk();
+            throw new Error(`Google refresh token has been revoked or is invalid: ${JSON.stringify(tokenData)}`);
+          }
+        } catch (err: any) {
+          console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid (Refresh network/API failed: ${err.message || String(err)})`);
+          account.status = 'REAUTH_NEEDED';
+          saveAccountsToDisk();
+          throw new Error(`Failed to refresh expired Google OAuth token: ${err.message}`);
+        }
+      } else {
+        console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Expired without refresh token for ${email}`);
+        account.status = 'REAUTH_NEEDED';
+        saveAccountsToDisk();
+        throw new Error(`Google OAuth token is expired and no refresh token is available for ${email}. Please reconnect your account.`);
+      }
+    }
+
+    console.log(`[GOOGLE AUTH - ${serviceName}] Token status: Valid (unexpired, expires at ${account.expiresAt})`);
     return account.accessToken;
+  }
+
+  // Helper to refresh Google Calendar Access Token if expired
+  async function refreshCalendarTokenIfNeeded(account: CalendarAccount): Promise<string> {
+    return ensureAndRefreshGoogleToken(account, 'Calendar');
   }
 
   // Helper to refresh Gmail Access Token if expired
   async function refreshGmailTokenIfNeeded(account: GmailAccount): Promise<string> {
-    const now = Date.now();
-    const isRealGoogleToken = account.accessToken && !account.accessToken.startsWith('mock_');
-    
-    if (isRealGoogleToken && new Date(account.expiresAt).getTime() <= now && account.refreshToken) {
-      console.log(`[GOOGLE GMAIL OAUTH] Token expired for ${account.email}. Attempting auto-refresh...`);
-      try {
-        const response = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: process.env.GOOGLE_CLIENT_ID || '',
-            client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-            refresh_token: account.refreshToken,
-            grant_type: 'refresh_token'
-          })
-        });
-        const tokenData = await response.json();
-        if (tokenData.access_token) {
-          account.accessToken = tokenData.access_token;
-          account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
-          account.status = 'CONNECTED';
-          console.log(`[GOOGLE GMAIL OAUTH] Auto-refresh successful for ${account.email}`);
-        } else {
-          account.status = 'REAUTH_NEEDED';
-          console.warn(`[GOOGLE GMAIL OAUTH] Auto-refresh failed:`, tokenData);
-        }
-      } catch (err: any) {
-        console.error(`[GOOGLE GMAIL OAUTH] Auto-refresh failed:`, err.message);
-      }
-    }
-    return account.accessToken;
+    return ensureAndRefreshGoogleToken(account, 'Gmail');
   }
 
   // GET /calendar/accounts
@@ -6655,10 +7015,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const { email } = req.body;
     if (email) {
       calendarAccounts = calendarAccounts.filter(c => c.email !== email);
+      gmailAccounts = gmailAccounts.filter(a => a.email !== email);
     } else {
       calendarAccounts = [];
+      gmailAccounts = [];
     }
-    res.json({ success: true, message: 'Google Calendar account disconnected.' });
+    saveAccountsToDisk();
+    res.json({ success: true, message: 'Google Calendar and Gmail account disconnected.' });
   });
 
   // POST /calendar/connect
@@ -6677,6 +7040,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       existing.expiresAt = expiresTimestamp;
       existing.status = 'CONNECTED';
       existing.fullName = fullName || existing.fullName || email.split('@')[0];
+      saveAccountsToDisk();
       return res.json({ success: true, message: 'Google Calendar connection updated.', account: existing });
     }
 
@@ -6690,6 +7054,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       createdAt: new Date().toISOString()
     };
     calendarAccounts.push(newAcc);
+    saveAccountsToDisk();
     res.json({ success: true, message: 'Google Calendar connected successfully.', account: newAcc });
   });
 
@@ -6701,6 +7066,25 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const lead = leads.find(l => l.id === leadId);
     
     const attendeeEmails = attendees || (lead ? [lead.email] : []);
+
+    // Validate each attendee email individually
+    const rawEmails = (Array.isArray(attendeeEmails) 
+      ? attendeeEmails 
+      : (typeof attendeeEmails === 'string' ? [attendeeEmails] : []))
+      .filter((e): e is string => typeof e === 'string' && e.trim() !== '');
+
+    const validatedEmails: string[] = [];
+    for (const emailInput of rawEmails) {
+      const result = validateAndTrimEmail(emailInput);
+      if (!result.valid) {
+        console.warn(`[VALIDATION FAIL] Invalid attendee email detected: "${emailInput}" - ${result.error}`);
+        return res.status(400).json({ error: `Google Calendar failed: Invalid attendee email: "${emailInput}". ${result.error}` });
+      }
+      validatedEmails.push(result.email!);
+    }
+
+    console.log(`[GOOGLE CALENDAR API REQUEST] Preparing to create event. Attendee emails: ${validatedEmails.join(', ')}`);
+
     const eventTimezone = timezone || 'Asia/Kolkata';
     const startDateTime = new Date(dateTime || Date.now());
     const endDateTime = new Date(startDateTime.getTime() + (durationMins || 30) * 60 * 1000);
@@ -6729,7 +7113,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               dateTime: endDateTime.toISOString(),
               timeZone: eventTimezone,
             },
-            attendees: attendeeEmails.map((email: string) => ({ email })),
+            attendees: validatedEmails.map((email: string) => ({ email })),
           };
 
           if (isOnline) {
@@ -6867,6 +7251,25 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const token = await refreshCalendarTokenIfNeeded(activeAcc);
       try {
         const attendeeEmails = attendees || [apt.email];
+
+        // Validate each attendee email individually
+        const rawEmails = (Array.isArray(attendeeEmails) 
+          ? attendeeEmails 
+          : (typeof attendeeEmails === 'string' ? [attendeeEmails] : []))
+          .filter((e): e is string => typeof e === 'string' && e.trim() !== '');
+
+        const validatedEmails: string[] = [];
+        for (const emailInput of rawEmails) {
+          const result = validateAndTrimEmail(emailInput);
+          if (!result.valid) {
+            console.warn(`[VALIDATION FAIL] Invalid attendee email detected: "${emailInput}" - ${result.error}`);
+            return res.status(400).json({ error: `Google Calendar failed: Invalid attendee email: "${emailInput}". ${result.error}` });
+          }
+          validatedEmails.push(result.email!);
+        }
+
+        console.log(`[GOOGLE CALENDAR API REQUEST] Preparing to update event. Attendee emails: ${validatedEmails.join(', ')}`);
+
         const patchPayload: any = {
           summary: eventSummary,
           description: eventDescription,
@@ -6878,7 +7281,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             dateTime: endDateTime.toISOString(),
             timeZone: eventTimezone
           },
-          attendees: attendeeEmails.map((email: string) => ({ email }))
+          attendees: validatedEmails.map((email: string) => ({ email }))
         };
 
         const gRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${gEventId}?sendUpdates=all`, {
@@ -7104,9 +7507,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       id: 'test_lead_id',
       firstName: 'E2E Test',
       lastName: 'Prospect',
-      email: 'salespilot.tester@gmail.com',
+      email: 'contact@dsense.in',
       company: 'Test Enterprise'
     };
+
+    // Validate attendee email before calling Google Calendar API
+    const emailValidation = validateAndTrimEmail(testLead.email);
+    if (!emailValidation.valid) {
+      log(`FAIL: Attendee email is invalid: "${testLead.email}" - ${emailValidation.error}`);
+      return res.status(400).json({
+        success: false,
+        error: `Google Calendar failed: Invalid attendee email: "${testLead.email}". ${emailValidation.error}`,
+        logs
+      });
+    }
+    const cleanEmail = emailValidation.email!;
+    log(`Attendee email verified. Logged attendee email being sent to Google Calendar: ${cleanEmail}`);
 
     const startDateTime = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours in future
     const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000); // 30 mins duration
@@ -7134,7 +7550,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           dateTime: endDateTime.toISOString(),
           timeZone: 'Asia/Kolkata',
         },
-        attendees: [{ email: testLead.email }],
+        attendees: [{ email: cleanEmail }],
         conferenceData: {
           createRequest: {
             requestId: `test_meet_${Date.now()}`,
@@ -7214,7 +7630,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         if (isRealGmailToken) {
           log('Step 3.5: Verifying Gmail sending capability by sending an E2E test email...');
           try {
-            const gmailToken = await refreshGmailTokenIfNeeded(gmailAcc);
+            const verification = await verifyGmailCapability(gmailAcc);
+            if (!verification.valid) {
+              log(`FAIL: Gmail capability check failed: ${verification.error}`);
+              throw new Error(`Gmail authorization check failed: ${verification.error}. Please reconnect your account and authorize the Gmail send permission.`);
+            }
+            const gmailToken = verification.token;
             const emailSubject = `SalesPilot E2E Integration Test: Gmail Verified`;
             const emailBody = `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -7259,15 +7680,61 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             const gmailResText = await gmailSendRes.text();
             log(`Gmail API response status: ${gmailSendRes.status}. Body: ${gmailResText}`);
 
+            let gmailE2EError = '';
             if (gmailSendRes.ok) {
               const gmailData = JSON.parse(gmailResText);
               testGmailMessageId = gmailData.id;
               log(`SUCCESS: Real Gmail email sent! Message ID: ${testGmailMessageId}`);
             } else {
               log(`FAIL: Gmail API responded with error status ${gmailSendRes.status}. Error: ${gmailResText}`);
+              
+              let parsedError = gmailResText;
+              try {
+                const parsedJson = JSON.parse(gmailResText);
+                parsedError = parsedJson.error?.message || gmailResText;
+              } catch (_) {}
+              gmailE2EError = `Gmail API failed to send invitation email: ${parsedError}`;
+
+              // Set REAUTH_NEEDED if scope is insufficient
+              if (gmailResText.includes('insufficientPermissions') || gmailResText.includes('insufficient authentication scopes') || gmailSendRes.status === 403) {
+                gmailAcc.status = 'REAUTH_NEEDED';
+                const calAcc = calendarAccounts.find(c => c.email === gmailAcc.email);
+                if (calAcc) calAcc.status = 'REAUTH_NEEDED';
+                saveAccountsToDisk();
+                log(`[PERSISTENCE] Automatically updated status to REAUTH_NEEDED for ${gmailAcc.email} due to insufficient scopes.`);
+              }
+            }
+
+            if (gmailE2EError) {
+              // Ensure we delete the event before returning error
+              try {
+                log(`Step 4 (Emergency Cleanup): Cleaning up. Deleting the test event ${createdEventId} from Google Calendar...`);
+                await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${createdEventId}?sendUpdates=all`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+              } catch (_) {}
+              return res.status(400).json({
+                success: false,
+                error: gmailE2EError,
+                logs
+              });
             }
           } catch (err: any) {
             log(`FAIL: Gmail API exception during E2E: ${err.message || String(err)}`);
+            // Ensure we delete the event before returning error
+            try {
+              log(`Step 4 (Emergency Cleanup): Cleaning up. Deleting the test event ${createdEventId} from Google Calendar...`);
+              await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${createdEventId}?sendUpdates=all`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+            } catch (_) {}
+            return res.status(500).json({
+              success: false,
+              error: `Gmail API exception: ${err.message || String(err)}`,
+              logs
+            });
           }
         } else {
           log('WARNING: Real Gmail token is not available. Skipping Gmail E2E test step.');

@@ -80,6 +80,29 @@ export function SchedulerView({
     checkConnectionStatus();
   }, []);
 
+  // Listen for Google Auth callback success postMessages from popup
+  useEffect(() => {
+    const handleGoogleAuthMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return;
+      }
+      
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        const email = event.data.email;
+        setGoogleCalendarConnected(true);
+        setGoogleCalendarEmail(email);
+        alert(`Successfully connected Google Account: ${email}.\nGmail and Calendar integrations are now fully synchronized with offline refresh support.`);
+        checkConnectionStatus();
+      } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
+        alert(`Google Authentication Failed: ${event.data.error || 'Unknown error'}`);
+      }
+    };
+
+    window.addEventListener('message', handleGoogleAuthMessage);
+    return () => window.removeEventListener('message', handleGoogleAuthMessage);
+  }, []);
+
   // Fetch Google Calendar External Events
   const fetchExternalEvents = async () => {
     if (!googleCalendarConnected || !googleCalendarEmail) return;
@@ -122,51 +145,26 @@ export function SchedulerView({
   const handleConnectCalendar = async () => {
     setLoadingId('connect-calendar');
     try {
-      // 1. Initialize Firebase App securely (if not already initialized)
-      const firebaseConfig = await import('../../firebase-applet-config.json');
-      const { initializeApp, getApps, getApp } = await import('firebase/app');
-      const { getAuth, signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-
-      const app = getApps().length === 0 ? initializeApp(firebaseConfig.default || firebaseConfig) : getApp();
-      const auth = getAuth(app);
-
-      // 2. Set up Google Auth Provider with requested Google Calendar scopes
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/calendar');
-      provider.addScope('https://www.googleapis.com/auth/calendar.events');
-
-      // 3. Trigger sign-in popup to authorize Google Calendar scopes
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (!credential || !credential.accessToken) {
-        throw new Error('Failed to retrieve the Google OAuth Access Token.');
+      const res = await fetch('/api/auth/google/url');
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to fetch Google Auth URL.');
       }
-
-      const emailInput = result.user.email;
-      if (!emailInput) {
-        throw new Error('Could not retrieve user email from authenticated profile.');
-      }
-
-      // 4. Send the credentials to the backend /calendar/connect
-      const res = await fetch('/calendar/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailInput,
-          fullName: result.user.displayName || emailInput.split('@')[0],
-          accessToken: credential.accessToken,
-          expiresAt: new Date(Date.now() + 3600000).toISOString()
-        })
-      });
-
-      if (res.ok) {
-        setGoogleCalendarEmail(emailInput);
-        setGoogleCalendarConnected(true);
-        alert(`Successfully synchronized secure Google Calendar with ${emailInput}.`);
-        fetchExternalEvents();
-      } else {
-        const errText = await res.text();
-        throw new Error(`Server failed to register the Google Calendar connection: ${errText}`);
+      const data = await res.json();
+      
+      const width = 550;
+      const height = 650;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popup = window.open(
+        data.url,
+        'google_oauth_popup',
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+      
+      if (!popup) {
+        alert('Popup blocker active. Please allow popups for this site to complete Google OAuth.');
       }
     } catch (err: any) {
       console.error('[CALENDAR OAUTH ERROR]', err);

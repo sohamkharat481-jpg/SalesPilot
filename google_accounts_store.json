@@ -1,0 +1,26 @@
+{
+  "calendarAccounts": [
+    {
+      "email": "sohamkharat481@gmail.com",
+      "fullName": "VISTORA",
+      "accessToken": "ya29.a0ARGnu0aM8x6B-zZM8CRCU8XFKs6IOlAaFBWyjsK-3aKxOI0TqrRpqk7XxVlU2012cdLn8YiRL2ClFuoKIUyQ8vSnWmU7XFFbZdBI1PRhOZ4r2qFr_MFD-64bap0UExNHsxeSi2dneW6x2B5uEuamff4dwvgB5s50uZ7B57sreiDMDn0bnFPbum7iCHXi9tC5kvmKKzD4yZ2g17ASST95ASqZQxvA06dPm9VpR2_u0rs1lVJSzUcQfB6x8xJVG_Z4tAULC43CgiXGEIFz7o0zOZIUpwaCgYKAeISARQSFQHGX2Mi0atWMaXIIUvUUB2gUOgyBg0289",
+      "expiresAt": "2026-07-14T10:37:45.535Z",
+      "status": "REAUTH_NEEDED",
+      "createdAt": "2026-07-14T09:37:45.037Z"
+    }
+  ],
+  "gmailAccounts": [
+    {
+      "email": "sohamkharat481@gmail.com",
+      "fullName": "VISTORA",
+      "accessToken": "ya29.a0ARGnu0aM8x6B-zZM8CRCU8XFKs6IOlAaFBWyjsK-3aKxOI0TqrRpqk7XxVlU2012cdLn8YiRL2ClFuoKIUyQ8vSnWmU7XFFbZdBI1PRhOZ4r2qFr_MFD-64bap0UExNHsxeSi2dneW6x2B5uEuamff4dwvgB5s50uZ7B57sreiDMDn0bnFPbum7iCHXi9tC5kvmKKzD4yZ2g17ASST95ASqZQxvA06dPm9VpR2_u0rs1lVJSzUcQfB6x8xJVG_Z4tAULC43CgiXGEIFz7o0zOZIUpwaCgYKAeISARQSFQHGX2Mi0atWMaXIIUvUUB2gUOgyBg0289",
+      "expiresAt": "2026-07-14T10:37:45.535Z",
+      "status": "REAUTH_NEEDED",
+      "sendingLimit": 500,
+      "sentToday": 0,
+      "bounceCount": 0,
+      "retryCount": 0,
+      "createdAt": "2026-07-14T09:37:45.037Z"
+    }
+  ]
+}

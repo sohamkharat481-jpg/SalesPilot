@@ -901,6 +901,28 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
     }
   }, [activeSubTab, selectedGmailAccount, activeGmailLabel, activeThreadId]);
 
+  // Listen for Google Auth callback success postMessages from popup
+  React.useEffect(() => {
+    const handleGoogleAuthMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return;
+      }
+      
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        const email = event.data.email;
+        alert(`Successfully connected Google Account: ${email}.\nGmail and Calendar integrations are now fully synchronized with offline refresh support.`);
+        fetchGmailStatus();
+        fetchGmailInbox();
+      } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
+        alert(`Google Authentication Failed: ${event.data.error || 'Unknown error'}`);
+      }
+    };
+
+    window.addEventListener('message', handleGoogleAuthMessage);
+    return () => window.removeEventListener('message', handleGoogleAuthMessage);
+  }, []);
+
   const handleConnectAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customEmail) return;
