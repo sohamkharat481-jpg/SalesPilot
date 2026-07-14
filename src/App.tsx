@@ -316,6 +316,12 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadId, dateTime, notes })
       });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to book meeting');
+      }
+
       const newApt = await response.json();
       setAppointments(prev => [newApt, ...prev]);
       
@@ -337,8 +343,10 @@ export default function App() {
         setActivities(prev => [{ id: `act-${Date.now()}`, text: `Google Meet scheduled with ${updatedLead.fullName}.`, time: 'Just now', icon: 'Calendar', color: 'text-emerald-500' }, ...prev]);
         setNotifications(prev => [{ id: `not-${Date.now()}`, text: `Meeting scheduled with ${updatedLead.fullName}.`, time: 'Just now', read: false }, ...prev]);
       }
-    } catch (err) {
-      console.error(err);
+      return newApt;
+    } catch (err: any) {
+      console.error('Booking failed:', err);
+      throw err;
     }
   };
 

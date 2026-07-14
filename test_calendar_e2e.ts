@@ -35,6 +35,7 @@ async function runTest() {
       console.log(`  🔹 Event Subject:       ${data.summary.summary}`);
       console.log(`  🔹 Google Event ID:     ${data.summary.eventId}`);
       console.log(`  🔹 Google Meet Link:    ${data.summary.meetLink || 'N/A'}`);
+      console.log(`  🔹 Gmail Message ID:    ${data.summary.gmailMessageId || 'N/A'}`);
       console.log(`  🔹 Enrolled Attendees:  ${data.summary.attendee}`);
       console.log(`  🔹 Email Invites Sent:  Automatically via sendUpdates=all`);
       console.log(`  🔹 Local CRM Sync:      Confirmed`);

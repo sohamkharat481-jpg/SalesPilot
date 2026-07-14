@@ -74,6 +74,8 @@ async function generateContentWithFallback(
 }
 
 const PORT = 3000;
+const app = express();
+export { app };
 
 // Initialize in-memory mock database state representing the Supabase state.
 // Since database must be persistent and robust, this state persists for the session.
@@ -1550,7 +1552,7 @@ function rateLimiter(limit: number, windowMs: number = 60000) {
 }
 
 async function startServer() {
-  const app = express();
+  // Use global app variable
   
   // Security Headers Middleware
   app.use((req, res, next) => {
@@ -4389,6 +4391,99 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return;
     }
 
+    // Real-time Gmail notification dispatch
+    const gmailAcc = gmailAccounts.find(a => a.email === activeAcc.email) || gmailAccounts[0];
+    const isRealGmailToken = gmailAcc && gmailAcc.accessToken && !gmailAcc.accessToken.startsWith('mock_');
+    let gmailMessageId = '';
+
+    if (gmailAcc) {
+      if (isRealGmailToken) {
+        const gmailToken = await refreshGmailTokenIfNeeded(gmailAcc);
+        try {
+          const emailSubject = `Scheduled: SalesPilot Demo Chat`;
+          const emailBody = `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <h2 style="color: #0f172a; margin-top: 0;">SalesPilot Demo Scheduled</h2>
+              <p>Hi ${lead.firstName},</p>
+              <p>Your demo chat has been scheduled and synced with Google Calendar.</p>
+              <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> ${startDateTime.toLocaleString('en-US', { timeZone: tz, dateStyle: 'full', timeStyle: 'short' })} (${tz})</p>
+                <p style="margin: 0 0 8px 0;"><strong>Duration:</strong> ${durationMins || 30} minutes</p>
+                <p style="margin: 0 0 8px 0;"><strong>Google Meet Link:</strong> <a href="${meetingLink}" style="color: #2563eb; text-decoration: underline;">${meetingLink}</a></p>
+                ${eventDescription ? `<p style="margin: 0;"><strong>Notes:</strong> ${eventDescription}</p>` : ''}
+              </div>
+              <p>If you need to make any changes, please reply to this email.</p>
+              <p style="color: #64748b; font-size: 14px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px;">Best regards,<br>The SalesPilot Team</p>
+            </div>
+          `;
+
+          const emailHeadersAndBody = [
+            `To: ${lead.email}`,
+            `Subject: ${emailSubject}`,
+            'Content-Type: text/html; charset=utf-8',
+            'MIME-Version: 1.0',
+            '',
+            emailBody
+          ].join('\r\n');
+
+          const encodedRawMessage = Buffer.from(emailHeadersAndBody)
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+          console.log(`[GMAIL API REQUEST] Sending appointment confirmation to ${lead.email} from ${gmailAcc.email}...`);
+          const gmailSendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${gmailToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ raw: encodedRawMessage })
+          });
+
+          const gmailResText = await gmailSendRes.text();
+          console.log(`[GMAIL API RESPONSE] Status: ${gmailSendRes.status}, Body: ${gmailResText}`);
+
+          if (!gmailSendRes.ok) {
+            let parsedError = gmailResText;
+            try {
+              const parsedJson = JSON.parse(gmailResText);
+              parsedError = parsedJson.error?.message || gmailResText;
+            } catch (_) {}
+            res.status(400).json({ error: `Gmail API failed to send invitation email: ${parsedError}` });
+            return;
+          }
+
+          const gmailData = JSON.parse(gmailResText);
+          gmailMessageId = gmailData.id;
+          gmailAcc.sentToday++;
+
+          // Log to emailLogs
+          emailLogs.unshift({
+            id: `log_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            accountId: gmailAcc.email,
+            recipient: lead.email,
+            subject: emailSubject,
+            status: 'SUCCESS',
+            attempts: 1,
+            details: `Delivered successfully. Gmail Message ID: ${gmailMessageId}`
+          });
+        } catch (err: any) {
+          console.error('[GMAIL API SEND ERROR]', err);
+          res.status(500).json({ error: `Gmail integration exception while sending email: ${err.message || String(err)}` });
+          return;
+        }
+      } else {
+        res.status(400).json({ error: 'Real Gmail token is not connected. Real booking requires a verified OAuth Gmail account.' });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: 'No connected Gmail account matching Google Calendar was found. Please connect Google.' });
+      return;
+    }
+
     const newApt: Appointment = {
       id: `apt_${Date.now()}`,
       leadId,
@@ -4402,14 +4497,16 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       notes: eventDescription,
       timezone: tz,
       googleSynced: true,
+      googleEventId,
+      gmailMessageId,
       reminderSent: false,
       timelineList: [
         { id: `tl_sub_${Date.now()}_1`, event: 'Meeting Scheduled', details: `Booked via CRM scheduler panel for timezone ${tz}.`, createdAt: new Date().toISOString() },
-        { id: `tl_sub_${Date.now()}_2`, event: 'Google Calendar Invite', details: `Synced with Google Calendar. Unique Google Meet link generated: ${meetingLink}. Invites dispatched. Google Event ID: ${googleEventId}`, createdAt: new Date().toISOString() }
+        { id: `tl_sub_${Date.now()}_2`, event: 'Google Calendar Invite', details: `Synced with Google Calendar. Unique Google Meet link generated: ${meetingLink}. Invites dispatched. Google Event ID: ${googleEventId}`, createdAt: new Date().toISOString() },
+        { id: `tl_sub_${Date.now()}_3`, event: 'Gmail Invitation Sent', details: `Outgoing appointment notification delivered from ${gmailAcc.email}. Message ID: ${gmailMessageId}`, createdAt: new Date().toISOString() }
       ]
     };
 
-    (newApt as any).googleEventId = googleEventId;
     appointments.unshift(newApt);
 
     // Automatically transition lead status to contacted/qualified
@@ -6468,16 +6565,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     createdAt: string;
   }
 
-  let calendarAccounts: CalendarAccount[] = [
-    {
-      email: 'sohamkharat481@gmail.com',
-      fullName: 'Soham Kharat',
-      accessToken: 'mock_access_token_soham_calendar',
-      expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      status: 'CONNECTED',
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-    }
-  ];
+  let calendarAccounts: CalendarAccount[] = [];
 
   // Helper to refresh Google Calendar Access Token if expired
   async function refreshCalendarTokenIfNeeded(account: CalendarAccount): Promise<string> {
@@ -6509,6 +6597,41 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         }
       } catch (err: any) {
         console.error(`[GOOGLE CALENDAR OAUTH] Auto-refresh failed:`, err.message);
+      }
+    }
+    return account.accessToken;
+  }
+
+  // Helper to refresh Gmail Access Token if expired
+  async function refreshGmailTokenIfNeeded(account: GmailAccount): Promise<string> {
+    const now = Date.now();
+    const isRealGoogleToken = account.accessToken && !account.accessToken.startsWith('mock_');
+    
+    if (isRealGoogleToken && new Date(account.expiresAt).getTime() <= now && account.refreshToken) {
+      console.log(`[GOOGLE GMAIL OAUTH] Token expired for ${account.email}. Attempting auto-refresh...`);
+      try {
+        const response = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: process.env.GOOGLE_CLIENT_ID || '',
+            client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+            refresh_token: account.refreshToken,
+            grant_type: 'refresh_token'
+          })
+        });
+        const tokenData = await response.json();
+        if (tokenData.access_token) {
+          account.accessToken = tokenData.access_token;
+          account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
+          account.status = 'CONNECTED';
+          console.log(`[GOOGLE GMAIL OAUTH] Auto-refresh successful for ${account.email}`);
+        } else {
+          account.status = 'REAUTH_NEEDED';
+          console.warn(`[GOOGLE GMAIL OAUTH] Auto-refresh failed:`, tokenData);
+        }
+      } catch (err: any) {
+        console.error(`[GOOGLE GMAIL OAUTH] Auto-refresh failed:`, err.message);
       }
     }
     return account.accessToken;
@@ -6992,6 +7115,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     let createdEventId = '';
     let hangoutLink = '';
+    let testGmailMessageId = '';
 
     if (isRealToken) {
       log('Attempting to request a secure refresh token if needed...');
@@ -7083,6 +7207,72 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           });
         }
 
+        // Step 3.5: Send E2E test confirmation email via connected Gmail API
+        const gmailAcc = gmailAccounts.find(a => a.email === activeAcc.email) || gmailAccounts[0];
+        const isRealGmailToken = gmailAcc && gmailAcc.accessToken && !gmailAcc.accessToken.startsWith('mock_');
+
+        if (isRealGmailToken) {
+          log('Step 3.5: Verifying Gmail sending capability by sending an E2E test email...');
+          try {
+            const gmailToken = await refreshGmailTokenIfNeeded(gmailAcc);
+            const emailSubject = `SalesPilot E2E Integration Test: Gmail Verified`;
+            const emailBody = `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <h2 style="color: #10b981; margin-top: 0;">SalesPilot Gmail E2E Verified</h2>
+                <p>Hello tester,</p>
+                <p>This is an automated high-fidelity test confirming that your Gmail API integration is fully functional.</p>
+                <div style="background-color: #f0fdf4; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #10b981;">
+                  <p style="margin: 0 0 8px 0;"><strong>Sender Account:</strong> ${gmailAcc.email}</p>
+                  <p style="margin: 0 0 8px 0;"><strong>Recipient:</strong> ${testLead.email}</p>
+                  <p style="margin: 0 0 8px 0;"><strong>Google Meet URL:</strong> <a href="${hangoutLink}">${hangoutLink}</a></p>
+                  <p style="margin: 0;"><strong>Timestamp:</strong> ${timestamp()}</p>
+                </div>
+                <p>All checks passed. Real-time Meet link injection & email invite dispatch are working in perfect sync!</p>
+              </div>
+            `;
+
+            const emailHeadersAndBody = [
+              `To: ${testLead.email}`,
+              `Subject: ${emailSubject}`,
+              'Content-Type: text/html; charset=utf-8',
+              'MIME-Version: 1.0',
+              '',
+              emailBody
+            ].join('\r\n');
+
+            const encodedRawMessage = Buffer.from(emailHeadersAndBody)
+              .toString('base64')
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=+$/, '');
+
+            log(`Sending POST request to Gmail API users/me/messages/send...`);
+            const gmailSendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${gmailToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ raw: encodedRawMessage })
+            });
+
+            const gmailResText = await gmailSendRes.text();
+            log(`Gmail API response status: ${gmailSendRes.status}. Body: ${gmailResText}`);
+
+            if (gmailSendRes.ok) {
+              const gmailData = JSON.parse(gmailResText);
+              testGmailMessageId = gmailData.id;
+              log(`SUCCESS: Real Gmail email sent! Message ID: ${testGmailMessageId}`);
+            } else {
+              log(`FAIL: Gmail API responded with error status ${gmailSendRes.status}. Error: ${gmailResText}`);
+            }
+          } catch (err: any) {
+            log(`FAIL: Gmail API exception during E2E: ${err.message || String(err)}`);
+          }
+        } else {
+          log('WARNING: Real Gmail token is not available. Skipping Gmail E2E test step.');
+        }
+
         // Step 4: Delete the event to keep the user's calendar perfectly clean
         try {
           log(`Step 4: Cleaning up. Deleting the test event ${createdEventId} from Google Calendar...`);
@@ -7103,7 +7293,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       log('FAIL: Mock validation mode is disabled. E2E tests can only be run with real connected OAuth Accounts.');
       return res.status(400).json({
         success: false,
-        error: 'Real Google Calendar token is not connected. Real booking requires a verified OAuth Calendar account.',
+        error: 'Real Google Calendar token is not connected. Real booking/E2E testing requires a verified OAuth Calendar account.',
         logs
       });
     }
@@ -7117,7 +7307,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         eventId: createdEventId,
         meetLink: hangoutLink,
         attendee: testLead.email,
-        summary: eventSummary
+        summary: eventSummary,
+        gmailMessageId: testGmailMessageId || 'N/A'
       },
       logs
     });
@@ -8512,9 +8703,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   console.log('[SERVER] CRM AI research profile seeding complete.');
 
   // Listen on Port 3000 (bind to 0.0.0.0 as required by the environment)
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 SalesPilot backend and client server online at http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 SalesPilot backend and client server online at http://localhost:${PORT}`);
+    });
+  } else {
+    console.log('[SERVER] Running in Vercel Serverless environment. Listen skipped.');
+  }
 }
 
 startServer();

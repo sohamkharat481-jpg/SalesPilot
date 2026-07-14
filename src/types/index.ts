@@ -259,6 +259,8 @@ export interface Appointment {
   notes?: string;
   timezone?: string;
   googleSynced?: boolean;
+  googleEventId?: string;
+  gmailMessageId?: string;
   reminderSent?: boolean;
   timelineList?: { id: string; event: string; details: string; createdAt: string }[];
 }

@@ -943,14 +943,16 @@ export function LeadsView({
     const fullDateTime = new Date(`${meetingDate}T${meetingTime}`).toISOString();
     try {
       await onBookMeeting(bookingLeadId, fullDateTime, meetingNotes);
-      // Update local stage
+      // Update local stage only on successful Google Calendar confirmation
       setLeads(prev => prev.map(l => l.id === bookingLeadId ? { ...l, status: 'MEETING_BOOKED', lastUpdated: new Date().toISOString() } : l));
       setBookingLeadId(null);
       setMeetingDate('');
       setMeetingTime('');
       setMeetingNotes('');
-    } catch (err) {
+      alert('Success: Meeting booked and synced with Google Calendar!');
+    } catch (err: any) {
       console.error(err);
+      alert(`Booking Failed: ${err.message || String(err)}`);
     } finally {
       setActionLoading(false);
     }
