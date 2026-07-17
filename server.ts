@@ -3127,317 +3127,305 @@ Ensure the output is strictly valid JSON format.`;
       requestLogs.push(`[SYSTEM] API key status check: Google Maps Key: ${formatKeyLog(gmapsKey)}, Serper Key: ${formatKeyLog(serperKey)}.`);
 
       let candidates: any[] = [];
-      let usedProvider = '';
+      const seenCompanies = new Set<string>();
+      const seenWebsites = new Set<string>();
 
-      // --- PROVIDER: GOOGLE MAPS (OR SERPER MAPS FALLBACK) ---
+      const normalizeString = (str: string): string => {
+        if (!str) return '';
+        return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      };
+
+      const addCandidate = (cand: any) => {
+        const normCompany = normalizeString(cand.company);
+        const normWebsite = normalizeString(cand.website);
+        
+        if (normCompany && seenCompanies.has(normCompany)) {
+          requestLogs.push(`[DEDUPLICATED] Skipped "${cand.company}" as company name is already sourced.`);
+          return false;
+        }
+        if (normWebsite && seenWebsites.has(normWebsite)) {
+          requestLogs.push(`[DEDUPLICATED] Skipped "${cand.company}" (${cand.website}) as website domain is already sourced.`);
+          return false;
+        }
+        
+        if (normCompany) seenCompanies.add(normCompany);
+        if (normWebsite) seenWebsites.add(normWebsite);
+        candidates.push(cand);
+        return true;
+      };
+
       let mapsErrorText = '';
       let serperMapsErrorText = '';
+      const query = `${industry || 'Software'} in ${city || 'Bengaluru'}, ${country || 'India'}`;
 
-      if (candidates.length === 0) {
-        console.log('[LEAD ENGINE] Sourcing via Google Places API (New)...');
-        requestLogs.push('[GOOGLE MAPS] Sourcing local businesses matching criteria using Places API (New)...');
+      // --- STAGE 1: GOOGLE PLACES API (NEW) ---
+      console.log('[LEAD ENGINE] Provider Chain Step 1: Querying Google Places API (New)...');
+      requestLogs.push('[PROVIDER CHAIN] [1] Querying Google Places API (New)...');
+      let gmapsPlaces: any[] = [];
 
-        const query = `${industry || 'Software'} in ${city || 'Bengaluru'}, ${country || 'India'}`;
+      if (!gmapsKey) {
+        mapsErrorText = 'Google Maps API key is missing.';
+        console.warn('[LEAD ENGINE] Google Places API key not configured.');
+        requestLogs.push('[GOOGLE MAPS] API key not found. Skipping Google Places step.');
+      } else {
         const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
+        try {
+          const response = await fetch(textSearchUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': gmapsKey,
+              'X-Goog-FieldMask': 'places.id,places.displayName'
+            },
+            body: JSON.stringify({ textQuery: query })
+          });
+          const status = response.status;
+          const responseText = await response.text();
+          requestLogs.push(`[GOOGLE MAPS RESPONSE] Status: ${status} | Body length: ${responseText.length}`);
 
-        console.log(`\n=========================================`);
-        console.log(`[GOOGLE MAPS API REQUEST (NEW)]`);
-        console.log(`1. Endpoint: ${textSearchUrl}`);
-        console.log(`2. Query: "${query}"`);
-        console.log(`=========================================`);
-        requestLogs.push(`[GOOGLE MAPS REQUEST] POST ${textSearchUrl} with query: "${query}"`);
+          if (!response.ok) {
+            throw new Error(`Google Places API Text Search failed with status ${status}: ${responseText}`);
+          }
 
-        let gmapsSuccess = false;
-        let gmapsPlaces: any[] = [];
+          const data = JSON.parse(responseText);
+          gmapsPlaces = data.places || [];
+          
+          if (gmapsPlaces.length > 0) {
+            console.log(`[LEAD ENGINE] Google Places returned ${gmapsPlaces.length} raw places. Fetching details...`);
+            requestLogs.push(`[GOOGLE MAPS] Found ${gmapsPlaces.length} places. Fetching detailed records...`);
+            
+            const processedCount = Math.min(gmapsPlaces.length, countToGenerate * 2);
+            for (let i = 0; i < processedCount; i++) {
+              const place = gmapsPlaces[i];
+              const placeId = place.id;
+              if (!placeId) continue;
 
-        if (!gmapsKey) {
-          mapsErrorText = 'Google Maps API key is missing.';
-          console.warn('[LEAD ENGINE] Google Maps API key is missing. Falling back to Serper Maps.');
-          requestLogs.push('[GOOGLE MAPS] API key not found. Sourcing from Serper Maps...');
+              const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`;
+              try {
+                const detailResponse = await fetch(detailsUrl, {
+                  method: 'GET',
+                  headers: {
+                    'X-Goog-Api-Key': gmapsKey,
+                    'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,websiteUri,nationalPhoneNumber,primaryType'
+                  }
+                });
+                if (detailResponse.ok) {
+                  const details = await detailResponse.json() as any;
+                  const added = addCandidate({
+                    source: 'Google Places API (New)',
+                    company: details.displayName?.text || place.displayName?.text || 'Local Business',
+                    website: details.websiteUri || '',
+                    phone: details.nationalPhoneNumber || '',
+                    address: details.formattedAddress || '',
+                    lat: details.location?.latitude,
+                    lng: details.location?.longitude,
+                    placeId: placeId,
+                    originalData: details
+                  });
+                  if (added) {
+                    console.log(`[GOOGLE MAPS] Sourced candidate: "${details.displayName?.text || 'Local Business'}"`);
+                  }
+                } else {
+                  const detailErr = await detailResponse.text();
+                  console.error(`[LEAD ENGINE] Failed to fetch details for place ID ${placeId}: Status ${detailResponse.status} - ${detailErr}`);
+                }
+              } catch (err) {
+                console.error(`[LEAD ENGINE] Failed to fetch details for place ID ${placeId}:`, err);
+              }
+            }
+            requestLogs.push(`[GOOGLE MAPS SUCCESS] Successfully processed and added Google Places candidates. Sourced count so far: ${candidates.length}`);
+          } else {
+            requestLogs.push('[GOOGLE MAPS] Sourced 0 results from Google Places (New). Continuing chain.');
+          }
+        } catch (err: any) {
+          mapsErrorText = err.message || err;
+          console.error('[LEAD ENGINE] Google Places API (New) Text Search call failed:', err);
+          requestLogs.push(`[GOOGLE MAPS FAILED] Error: ${mapsErrorText}. Continuing to next provider in chain.`);
+        }
+      }
+
+      // --- STAGE 2: SERPER MAPS API ---
+      if (candidates.length < countToGenerate) {
+        console.log('[LEAD ENGINE] Provider Chain Step 2: Querying Serper Maps API...');
+        requestLogs.push(`[PROVIDER CHAIN] [2] Sourcing via Serper Maps API (Current candidates count: ${candidates.length})...`);
+        
+        if (!serperKey) {
+          serperMapsErrorText = 'Serper API key is missing.';
+          console.warn('[LEAD ENGINE] Serper API key not configured.');
+          requestLogs.push('[SERPER MAPS] API key not found. Skipping Serper Maps step.');
         } else {
+          const serperMapsUrl = 'https://google.serper.dev/maps';
+          const requestBody = { q: query, num: Math.min(countToGenerate * 2, 20) };
+          requestLogs.push(`[SERPER MAPS REQUEST] POST ${serperMapsUrl} | Body: ${JSON.stringify(requestBody)}`);
+
           try {
-            const response = await fetch(textSearchUrl, {
+            const response = await fetch(serperMapsUrl, {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
-                'X-Goog-Api-Key': gmapsKey,
-                'X-Goog-FieldMask': 'places.id,places.displayName'
+                'X-API-KEY': serperKey,
+                'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ textQuery: query })
+              body: JSON.stringify(requestBody)
             });
+
             const status = response.status;
             const responseText = await response.text();
-            
-            console.log(`\n=========================================`);
-            console.log(`[GOOGLE MAPS API RESPONSE (NEW)]`);
-            console.log(`3. Response Status: ${status}`);
-            console.log(`4. Response Body:`, responseText.substring(0, 1500) + (responseText.length > 1500 ? '... (truncated)' : ''));
-            console.log(`=========================================`);
-            requestLogs.push(`[GOOGLE MAPS RESPONSE] Status: ${status} | Body length: ${responseText.length}`);
+            requestLogs.push(`[SERPER MAPS RESPONSE] Status: ${status} | Body length: ${responseText.length}`);
 
             if (!response.ok) {
-              throw new Error(`Google Places API (New) Text Search failed with status ${status}: ${responseText}`);
+              throw new Error(`Serper Maps API failed with status ${status}: ${responseText}`);
             }
 
             const data = JSON.parse(responseText);
-            gmapsPlaces = data.places || [];
-            
-            if (gmapsPlaces.length > 0) {
-              gmapsSuccess = true;
+            const serperPlaces = data.maps || [];
+
+            if (serperPlaces.length === 0) {
+              requestLogs.push('[SERPER MAPS] Serper Maps API returned 0 results.');
             } else {
-              requestLogs.push('[GOOGLE MAPS] Scraped 0 results from Places (New) text search.');
+              let serperAddedCount = 0;
+              for (const p of serperPlaces) {
+                const added = addCandidate({
+                  source: 'Serper Maps API',
+                  company: p.title,
+                  website: p.website || '',
+                  phone: p.phoneNumber || '',
+                  address: p.address || '',
+                  lat: p.latitude,
+                  lng: p.longitude,
+                  placeId: p.placeId,
+                  originalData: p
+                });
+                if (added) serperAddedCount++;
+              }
+              requestLogs.push(`[SERPER MAPS SUCCESS] Sourced ${serperPlaces.length} from Serper Maps, added ${serperAddedCount} deduplicated candidates. Total count: ${candidates.length}`);
             }
           } catch (err: any) {
-            mapsErrorText = err.message || err;
-            console.error('[LEAD ENGINE] Google Places API (New) Text Search call failed:', err);
-            requestLogs.push(`[GOOGLE MAPS FAILED] Error: ${mapsErrorText}. Automatically falling back to Serper Local Maps API.`);
+            serperMapsErrorText = err.message || err;
+            console.error('[LEAD ENGINE] Serper Local Maps failed:', err);
+            requestLogs.push(`[SERPER MAPS FAILED] Error: ${serperMapsErrorText}. Continuing to next provider in chain.`);
           }
-        }
-
-        // --- SERPER MAPS FALLBACK ---
-        // If Google Maps failed or returned 0 results, we query Serper's Local Maps API as an alternative Google Maps scraper!
-        if (!gmapsSuccess) {
-          if (!serperKey) {
-            serperMapsErrorText = 'Serper API key is missing.';
-            console.warn('[LEAD ENGINE] Serper API key is missing. Cannot perform Serper Maps fallback.');
-            requestLogs.push('[SERPER MAPS] Serper API key is not configured. Fallback skipped.');
-          } else {
-            console.log('[LEAD ENGINE] Querying Serper Local Maps API as fallback...');
-            requestLogs.push('[SERPER MAPS] Executing local Google Maps search via Serper developer engine...');
-
-            const serperMapsUrl = 'https://google.serper.dev/maps';
-            const requestBody = { q: query, num: Math.min(countToGenerate * 2, 20) };
-
-            console.log(`\n=========================================`);
-            console.log(`[SERPER MAPS API REQUEST]`);
-            console.log(`1. Endpoint: ${serperMapsUrl}`);
-            console.log(`2. Body:`, JSON.stringify(requestBody, null, 2));
-            console.log(`=========================================`);
-            requestLogs.push(`[SERPER MAPS REQUEST] POST ${serperMapsUrl} | Body: ${JSON.stringify(requestBody)}`);
-
-            try {
-              const response = await fetch(serperMapsUrl, {
-                method: 'POST',
-                headers: {
-                  'X-API-KEY': serperKey,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-              });
-
-              const status = response.status;
-              const responseText = await response.text();
-
-              console.log(`\n=========================================`);
-              console.log(`[SERPER MAPS API RESPONSE]`);
-              console.log(`3. Status: ${status}`);
-              console.log(`4. Body length: ${responseText.length}`);
-              console.log(`=========================================`);
-              requestLogs.push(`[SERPER MAPS RESPONSE] Status: ${status} | Body length: ${responseText.length}`);
-
-              if (!response.ok) {
-                throw new Error(`Serper Maps API failed with status ${status}: ${responseText}`);
-              }
-
-              const data = JSON.parse(responseText);
-              const serperPlaces = data.maps || [];
-
-              if (serperPlaces.length === 0) {
-                throw new Error('Serper Maps returned 0 local business matches.');
-              }
-
-              candidates = serperPlaces.map((p: any) => ({
-                source: 'Serper Maps',
-                company: p.title,
-                website: p.website || '',
-                phone: p.phoneNumber || '',
-                address: p.address || '',
-                lat: p.latitude,
-                lng: p.longitude,
-                placeId: p.placeId,
-                originalData: p
-              }));
-
-              usedProvider = 'serper-maps';
-              requestLogs.push(`[SERPER MAPS] Successfully sourced ${candidates.length} candidate businesses.`);
-            } catch (err: any) {
-              serperMapsErrorText = err.message || err;
-              console.error('[LEAD ENGINE] Serper Local Maps fallback failed:', err);
-              requestLogs.push(`[SERPER MAPS FAILED] Error: ${serperMapsErrorText}`);
-            }
-          }
-        } else {
-          // Process Google Maps places to candidates
-          console.log(`[LEAD ENGINE] Processing details for ${gmapsPlaces.length} Google Maps places using Place Details (New)...`);
-          requestLogs.push(`[GOOGLE MAPS] Sourcing Place details for ${gmapsPlaces.length} locations via Place Details (New)...`);
-
-          const processedCount = Math.min(gmapsPlaces.length, countToGenerate * 2);
-          for (let i = 0; i < processedCount; i++) {
-            const place = gmapsPlaces[i];
-            const placeId = place.id;
-            if (!placeId) continue;
-
-            const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`;
-            console.log(`[GOOGLE MAPS DETAILS REQUEST] GET ${detailsUrl}`);
-
-            try {
-              const detailResponse = await fetch(detailsUrl, {
-                method: 'GET',
-                headers: {
-                  'X-Goog-Api-Key': gmapsKey,
-                  'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,websiteUri,nationalPhoneNumber,primaryType'
-                }
-              });
-              if (detailResponse.ok) {
-                const details = await detailResponse.json() as any;
-                candidates.push({
-                  source: 'Google Maps',
-                  company: details.displayName?.text || place.displayName?.text || 'Local Business',
-                  website: details.websiteUri || '',
-                  phone: details.nationalPhoneNumber || '',
-                  address: details.formattedAddress || '',
-                  lat: details.location?.latitude,
-                  lng: details.location?.longitude,
-                  placeId: placeId,
-                  originalData: details
-                });
-              } else {
-                const detailErr = await detailResponse.text();
-                console.error(`[LEAD ENGINE] Failed to fetch details for place ID ${placeId}: Status ${detailResponse.status} - ${detailErr}`);
-              }
-            } catch (err) {
-              console.error(`[LEAD ENGINE] Failed to fetch details for place ID ${placeId}:`, err);
-            }
-          }
-          usedProvider = 'google-maps';
-          requestLogs.push(`[GOOGLE MAPS] Sourced ${candidates.length} candidate businesses.`);
         }
       }
 
-      // If candidates are empty, trigger our robust fallback generator
-      if (candidates.length === 0) {
-        console.log('[LEAD ENGINE] Sourcing API providers returned 0 candidates. Triggering high-quality B2B AI/Heuristic fallback generation...');
-        requestLogs.push('[FALLBACK] Sourcing API providers returned 0 candidates (possibly due to missing/invalid API keys or strict query limits). Triggering high-quality B2B AI/Heuristic fallback generation...');
+      // --- STAGE 3: ANY OTHER CONFIGURED REAL PROVIDERS ---
+      if (candidates.length < countToGenerate) {
+        console.log('[LEAD ENGINE] Provider Chain Step 3: Checking other configured real providers...');
+        requestLogs.push(`[PROVIDER CHAIN] [3] Sourcing via other configured real providers (Current candidates count: ${candidates.length})...`);
+        
+        const otherProvidersList = [
+          { id: 'google-search', keyName: 'SERPER_API_KEY', keyVal: serperKey },
+          { id: 'crunchbase', keyName: 'CRUNCHBASE_API_KEY', keyVal: process.env.CRUNCHBASE_API_KEY || pluginCredentials['crunchbase']?.apiKey },
+          { id: 'peopledatalabs', keyName: 'PDL_API_KEY', keyVal: process.env.PDL_API_KEY || pluginCredentials['peopledatalabs']?.apiKey },
+          { id: 'clearbit', keyName: 'CLEARBIT_API_KEY', keyVal: process.env.CLEARBIT_API_KEY || pluginCredentials['clearbit']?.apiKey },
+          { id: 'hunter', keyName: 'HUNTER_API_KEY', keyVal: process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey }
+        ];
 
-        const geminiKeyForSourcing = process.env.GEMINI_API_KEY || customApiKey;
-        let aiSourcedCandidates = false;
+        for (const provInfo of otherProvidersList) {
+          if (candidates.length >= countToGenerate) {
+            break;
+          }
 
-        if (geminiKeyForSourcing) {
+          const provider = LeadProviderRegistry.getProvider(provInfo.id);
+          if (!provider) {
+            console.warn(`[LEAD ENGINE] Provider "${provInfo.id}" not found in registry.`);
+            continue;
+          }
+
+          if (!provInfo.keyVal) {
+            console.log(`[LEAD ENGINE] Provider "${provider.name}" is not configured (missing ${provInfo.keyName}).`);
+            requestLogs.push(`[OTHER PROVIDERS] "${provider.name}" is not configured.`);
+            continue;
+          }
+
+          console.log(`[LEAD ENGINE] Querying other provider: "${provider.name}" (${provider.id})...`);
+          requestLogs.push(`[OTHER PROVIDERS] Querying "${provider.name}"...`);
+
           try {
-            console.log('[LEAD ENGINE] Using Gemini to generate target-rich candidate B2B leads...');
-            requestLogs.push('[GEMINI AI SOURCER] Generating verified prospect candidate businesses...');
+            const params = {
+              campaignName,
+              country: country || 'India',
+              industry: industry || 'Software',
+              companySize,
+              employeeRange,
+              revenueRange,
+              jobTitles: jobTitles || 'Operations Director',
+              keywords: keywords || `${industry || 'Software'} in ${city || 'Bengaluru'}`,
+              maxLeads: countToGenerate,
+              priority,
+              customApiKey: provInfo.keyVal, // Pass the configured key
+              city: city || 'Bengaluru',
+              techStack,
+              department,
+              businessType,
+              yearsInBusiness,
+              decisionMakerOnly,
+              language
+            };
 
-            const ai = new GoogleGenAI({
-              apiKey: geminiKeyForSourcing,
-              httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-            });
-
-            const sourcingPrompt = `You are an elite B2B sales development representative. 
-Generate a list of exactly ${countToGenerate} realistic and highly relevant prospective businesses matching this target:
-- Industry: ${industry || 'Software'}
-- City: ${city || 'Bengaluru'}
-- Country: ${country || 'India'}
-- Target Job Titles: ${jobTitles || 'Operations Director, CEO, Founder'}
-- Target Company Size: ${companySize || '11-50 employees'}
-- Target Tech Stack: ${techStack || 'WordPress, CRM'}
-
-Your output MUST be a valid JSON array containing exactly ${countToGenerate} objects, with no markdown code blocks or formatting. Do not wrap in \`\`\`json. Each object must have these exact fields and types:
-- company: "Name of a highly realistic business that would exist in this city and industry (e.g. 'TechFlow Solutions' or 'Innovate Labs')"
-- website: "A professional and realistic domain name for them (e.g. 'techflowsolutions.com' or 'innovatelabs.io'). Make sure the domain name matches the company name and is realistic."
-- phone: "A realistic business phone number matching the local format (e.g., +91 98765 43210)"
-- address: "A realistic office address in ${city || 'Bengaluru'}, ${country || 'India'}"
-- firstName: "First name of a contact person (e.g., 'Ananya' or 'Rahul')"
-- lastName: "Last name of the contact person (e.g., 'Sharma' or 'Patel')"
-- title: "The exact job title matching one of: ${jobTitles || 'Operations Director, CEO, Founder'}"
-- email: "Professional business email for that contact (e.g., 'ananya.sharma@techflowsolutions.com')"
-- techStack: ["List of 3 realistic softwares they use"]
-- companyOverview: "A 2-3 sentence strategic description of their business operations."
-- lat: a realistic latitude number for ${city || 'Bengaluru'} (e.g., around 12.97)
-- lng: a realistic longitude number for ${city || 'Bengaluru'} (e.g., around 77.59)
-
-Return ONLY the JSON array.`;
-
-            const response = await generateContentWithFallback(ai, {
-              primaryModel: 'gemini-3.5-flash',
-              contents: sourcingPrompt,
-              config: {
-                responseMimeType: 'application/json'
-              }
-            });
-
-            const text = response.text || '[]';
-            const parsed = JSON.parse(text.trim());
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              candidates = parsed.map(p => ({
-                source: 'AI Lead Spider',
-                company: p.company,
-                website: p.website,
-                phone: p.phone,
-                address: p.address,
-                firstName: p.firstName,
-                lastName: p.lastName,
-                title: p.title,
-                email: p.email,
-                lat: p.lat,
-                lng: p.lng,
-                enrichment: {
-                  techStack: p.techStack || [],
-                  companyOverview: p.companyOverview || ''
-                }
-              }));
-              aiSourcedCandidates = true;
-              usedProvider = 'ai-spider';
-              requestLogs.push(`[GEMINI AI SOURCER] Successfully generated ${candidates.length} target-matching prospective leads.`);
-            }
-          } catch (geminiErr: any) {
-            console.error('[LEAD ENGINE] Gemini AI Sourcing generation failed, falling back to heuristics:', geminiErr);
-            requestLogs.push(`[GEMINI AI SOURCER FAILED] Error: ${geminiErr.message || geminiErr}. Transitioning to heuristic generation engine.`);
-          }
-        }
-
-        if (!aiSourcedCandidates) {
-          console.log('[LEAD ENGINE] Using smart heuristic lead generator to construct high-quality, target-matching prospective businesses...');
-          requestLogs.push('[HEURISTIC SOURCER] Generating high-quality target-matching prospective businesses...');
-
-          const localFirstNames = ['Rajesh', 'Priya', 'Amit', 'Neha', 'Sanjay', 'Kavita', 'Arjun', 'Deepa', 'Rahul', 'Ananya'];
-          const localLastNames = ['Sharma', 'Patel', 'Rao', 'Nair', 'Mehta', 'Iyer', 'Joshi', 'Reddy', 'Das', 'Sen'];
-          const companySuffixes = ['Solutions', 'Technologies', 'Labs', 'Digital', 'Systems', 'Consulting', 'Partners', 'Dynamics', 'Services', 'Hub'];
-
-          const cleanIndustry = (industry || 'Software').trim();
-          const cleanCity = (city || 'Bengaluru').trim();
-          const cleanCountry = (country || 'India').trim();
-
-          const baseWord = cleanIndustry.split(' ')[0].replace(/[^a-zA-Z]/g, '');
-          
-          for (let i = 0; i < countToGenerate; i++) {
-            const firstName = localFirstNames[Math.floor(Math.random() * localFirstNames.length)];
-            const lastName = localLastNames[Math.floor(Math.random() * localLastNames.length)];
-            const companyName = `${cleanCity} ${baseWord} ${companySuffixes[i % companySuffixes.length]}`;
-            const domain = `${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
-            const businessEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${domain}`;
+            const partialLeads = await provider.generateLeads(params);
             
-            candidates.push({
-              source: 'Heuristic B2B Index',
-              company: companyName,
-              website: domain,
-              phone: cleanCountry.toLowerCase().includes('india') ? `+91 9845${Math.floor(100000 + Math.random() * 900000)}` : `+1 (555) 019-${1000 + i}`,
-              address: `Tower ${i + 1}, Tech Park Phase 2, ${cleanCity}, ${cleanCountry}`,
-              firstName: firstName,
-              lastName: lastName,
-              title: jobTitles ? jobTitles.split(',')[0].trim() : 'Operations Director',
-              email: businessEmail,
-              lat: cleanCity.toLowerCase().includes('bengaluru') ? 12.9716 + (Math.random() - 0.5) * 0.05 : 20.0 + (Math.random() - 0.5) * 5,
-              lng: cleanCity.toLowerCase().includes('bengaluru') ? 77.5946 + (Math.random() - 0.5) * 0.05 : 77.0 + (Math.random() - 0.5) * 5,
-              enrichment: {
-                techStack: ['WordPress', 'Google Analytics', 'HubSpot', 'WhatsApp Business'],
-                companyOverview: `${companyName} is a premier enterprise provider operating in the ${cleanIndustry} sector, offering bespoke solutions to regional and global clients.`
+            if (partialLeads && partialLeads.length > 0) {
+              let addedCount = 0;
+              for (const pl of partialLeads) {
+                const added = addCandidate({
+                  source: provider.name,
+                  company: pl.company || 'Enterprise Partner',
+                  website: pl.enrichment?.website || '',
+                  phone: pl.phone || '',
+                  address: pl.enrichment?.address || '',
+                  lat: pl.enrichment?.latitude,
+                  lng: pl.enrichment?.longitude,
+                  placeId: pl.enrichment?.googlePlaceId,
+                  firstName: pl.firstName,
+                  lastName: pl.lastName,
+                  title: pl.title,
+                  email: pl.email,
+                  confidenceScore: pl.confidenceScore,
+                  scoreReason: pl.scoreReason,
+                  enrichment: pl.enrichment
+                });
+                if (added) addedCount++;
               }
-            });
+              requestLogs.push(`[OTHER PROVIDER SUCCESS] "${provider.name}" returned ${partialLeads.length} leads, added ${addedCount} deduplicated candidates. Total count: ${candidates.length}`);
+            } else {
+              requestLogs.push(`[OTHER PROVIDER] "${provider.name}" returned 0 leads.`);
+            }
+          } catch (err: any) {
+            console.error(`[LEAD ENGINE] Provider "${provider.name}" call failed:`, err);
+            requestLogs.push(`[OTHER PROVIDER FAILED] "${provider.name}" failed: ${err.message || err}`);
           }
-          usedProvider = 'heuristic-engine';
-          requestLogs.push(`[HEURISTIC SOURCER] Generated ${candidates.length} target-matching prospective leads.`);
         }
       }
+
+      // If candidates are empty, we return an informative error instead of generating fake businesses
+      if (candidates.length === 0) {
+        let exactReason = `Sourcing completed with 0 results from real external data sources. No real businesses were found matching the criteria (Industry: "${industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
+        let errParts = [];
+        if (mapsErrorText) errParts.push(`Google Places API error: "${mapsErrorText}"`);
+        if (serperMapsErrorText) errParts.push(`Serper Maps API error: "${serperMapsErrorText}"`);
+        if (errParts.length > 0) {
+          exactReason += ` API error logs: ${errParts.join('; ')}.`;
+        }
+        console.error(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
+        requestLogs.push(`[SYSTEM_ERROR] Sourcing completed with 0 results. Reason: ${exactReason}`);
+
+        return res.status(400).json({
+          success: false,
+          count: 0,
+          leads: [],
+          error: 'No Verified Leads Found',
+          message: exactReason,
+          providerLogs: requestLogs.map((logLine, index) => ({
+            id: `log_${Date.now()}_${index}`,
+            provider: 'Lead Engine Debugger',
+            status: 'FAILED',
+            message: logLine
+          })),
+          validationSummary: []
+        });
+      }
+
+      const usedProvider = Array.from(new Set(candidates.map(c => c.source))).join(', ') || 'Multi-Provider Chain';
 
       // --- VERIFICATION AND ENRICHMENT ENGINE ---
       const results: Lead[] = [];
@@ -3457,44 +3445,37 @@ Return ONLY the JSON array.`;
         const lng = cand.lng;
         const placeId = cand.placeId;
 
-        // Skip candidates only if they are missing business name
-        if (!businessName) {
-          const skipReason = `Missing required business name.`;
-          console.warn(`[VALIDATION] Skipping: ${skipReason}`);
+        // Every lead must include a verifiable business name, website, address, and source
+        const sourceName = cand.source;
+        if (!businessName || !website || !address || !sourceName) {
+          const skipReason = `Missing required fields: name (${!!businessName}), website (${!!website}), address (${!!address}), source (${!!sourceName}).`;
+          console.warn(`[VALIDATION] Discarding lead for "${businessName || 'Unnamed'}" due to: ${skipReason}`);
+          requestLogs.push(`[DISCARDED] "${businessName || 'Unnamed'}": Missing required fields (website, address, or source).`);
           continue;
         }
 
-        // DNS & HTTP Response Validation (Save only verified websites!)
+        // DNS & HTTP Response Validation (Save only verified websites! Discard if invalid)
         let verifiedWebsite = '';
         let finalDomain = '';
-        if (website) {
-          console.log(`[VALIDATION] Validating website "${website}" for "${businessName}"...`);
-          const validation = await validateWebsite(website);
-          
-          validationSummary.push({ 
-            name: businessName, 
-            website: website, 
-            isValid: validation.isValid, 
-            reason: validation.reason 
-          });
+        console.log(`[VALIDATION] Validating website "${website}" for "${businessName}"...`);
+        const validation = await validateWebsite(website);
+        
+        validationSummary.push({ 
+          name: businessName, 
+          website: website, 
+          isValid: validation.isValid, 
+          reason: validation.reason 
+        });
 
-          if (validation.isValid) {
-            verifiedWebsite = website;
-            finalDomain = validation.domain || '';
-            console.log(`[VALIDATION] Successfully verified "${businessName}"!`);
-            requestLogs.push(`[VERIFIED] "${businessName}": Website resolves successfully (${validation.reason}).`);
-          } else {
-            console.warn(`[VALIDATION] Website invalid for "${businessName}": ${validation.reason}. Clearing website.`);
-            requestLogs.push(`[INVALID WEBSITE] "${businessName}": Website verification failed (${validation.reason}). Clearing website.`);
-          }
+        if (validation.isValid) {
+          verifiedWebsite = website;
+          finalDomain = validation.domain || '';
+          console.log(`[VALIDATION] Successfully verified "${businessName}"!`);
+          requestLogs.push(`[VERIFIED] "${businessName}": Website resolves successfully (${validation.reason}).`);
         } else {
-          validationSummary.push({ 
-            name: businessName, 
-            website: '', 
-            isValid: false, 
-            reason: 'Website not provided' 
-          });
-          requestLogs.push(`[NO WEBSITE] "${businessName}": Sourced without website.`);
+          console.warn(`[VALIDATION] Website invalid for "${businessName}": ${validation.reason}. Discarding lead.`);
+          requestLogs.push(`[DISCARDED] "${businessName}": Website verification failed (${validation.reason}). Lead discarded.`);
+          continue;
         }
 
         // Serper Enrichment (Organic overview search if Serper Key is configured)
