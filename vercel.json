@@ -3,31 +3,35 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/api/v1/:path*"
+    },
+    {
+      "source": "/api/debug/:path*",
+      "destination": "/api/index?path=/api/debug/:path*"
     },
     {
       "source": "/api/auth/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/api/auth/:path*"
     },
     {
       "source": "/auth/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/auth/:path*"
     },
     {
       "source": "/gmail/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/gmail/:path*"
     },
     {
       "source": "/calendar/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/calendar/:path*"
     },
     {
       "source": "/organization/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/organization/:path*"
     },
     {
       "source": "/team/:path*",
-      "destination": "/api/index"
+      "destination": "/api/index?path=/team/:path*"
     },
     {
       "source": "/((?!api/|auth/|gmail/|calendar/|organization/|team/|assets/|static/|favicon.ico|_next|vite.svg|.*\\..*$).*)",

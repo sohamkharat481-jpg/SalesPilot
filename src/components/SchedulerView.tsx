@@ -53,6 +53,7 @@ export function SchedulerView({
   // Google Calendar Integration States
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
   const [googleCalendarEmail, setGoogleCalendarEmail] = useState('');
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState('CONNECTED');
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [externalEvents, setExternalEvents] = useState<any[]>([]);
 
@@ -66,9 +67,11 @@ export function SchedulerView({
           const acc = data.accounts[0];
           setGoogleCalendarConnected(true);
           setGoogleCalendarEmail(acc.email);
+          setGoogleCalendarStatus(acc.status || 'CONNECTED');
         } else {
           setGoogleCalendarConnected(false);
           setGoogleCalendarEmail('');
+          setGoogleCalendarStatus('DISCONNECTED');
         }
       }
     } catch (err) {
@@ -143,20 +146,26 @@ export function SchedulerView({
   };
 
   const handleConnectCalendar = async () => {
-    setLoadingId('connect-calendar');
+    const isReconnect = googleCalendarStatus === 'REAUTH_NEEDED';
+    console.log(`[GOOGLE OAUTH] Starting ${isReconnect ? 'RECONNECT' : 'CONNECT'} flow...`);
+    setLoadingId(isReconnect ? 'reconnect-calendar' : 'connect-calendar');
     try {
+      console.log(`[GOOGLE OAUTH] Fetching auth URL from /api/auth/google/url...`);
       const res = await fetch('/api/auth/google/url');
       if (!res.ok) {
         const errData = await res.json();
+        console.error(`[GOOGLE OAUTH] Server returned error fetching auth URL:`, errData);
         throw new Error(errData.error || 'Failed to fetch Google Auth URL.');
       }
       const data = await res.json();
+      console.log(`[GOOGLE OAUTH] Successfully fetched auth URL:`, data.url);
       
       const width = 550;
       const height = 650;
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
       
+      console.log(`[GOOGLE OAUTH] Attempting to open popup for Google authorization...`);
       const popup = window.open(
         data.url,
         'google_oauth_popup',
@@ -164,10 +173,13 @@ export function SchedulerView({
       );
       
       if (!popup) {
-        alert('Popup blocker active. Please allow popups for this site to complete Google OAuth.');
+        console.warn(`[GOOGLE OAUTH] Popup blocked or failed. Redirecting browser window directly to Google OAuth:`, data.url);
+        window.location.href = data.url;
+      } else {
+        console.log(`[GOOGLE OAUTH] Popup successfully opened.`);
       }
     } catch (err: any) {
-      console.error('[CALENDAR OAUTH ERROR]', err);
+      console.error(`[GOOGLE OAUTH ERROR]`, err);
       alert(`Authorization failed: ${err.message || String(err)}`);
     } finally {
       setLoadingId(null);
@@ -630,26 +642,39 @@ export function SchedulerView({
         {googleCalendarConnected ? (
           <>
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-600 rounded-lg text-white">
+              <div className={`p-2.5 rounded-lg text-white ${googleCalendarStatus === 'REAUTH_NEEDED' ? 'bg-rose-600' : 'bg-blue-600'}`}>
                 <CalendarIcon className="w-5 h-5" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   Google Calendar Sync Hub
-                  <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                    CONNECTED
-                  </span>
+                  {googleCalendarStatus === 'REAUTH_NEEDED' ? (
+                    <span className="text-[10px] bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 animate-pulse">
+                      <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                      REAUTH NEEDED
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                      CONNECTED
+                    </span>
+                  )}
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Secure OAuth 2.0 connected to <strong className="text-slate-700 dark:text-slate-200">{googleCalendarEmail}</strong>. Real-time Meet link injection & invite dispatches active.
-                </p>
+                {googleCalendarStatus === 'REAUTH_NEEDED' ? (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 font-semibold">
+                    ⚠️ Connection Expired: Your Google integration requires re-authentication. Please reconnect to restore sync.
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Secure OAuth 2.0 connected to <strong className="text-slate-700 dark:text-slate-200">{googleCalendarEmail}</strong>. Real-time Meet link injection & invite dispatches active.
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
               <button
                 onClick={handleRunE2ETest}
-                disabled={isRunningTest}
+                disabled={isRunningTest || googleCalendarStatus === 'REAUTH_NEEDED'}
                 className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/40 border border-blue-150 dark:border-blue-900/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isRunningTest ? 'animate-pulse' : ''}`} />
@@ -657,17 +682,17 @@ export function SchedulerView({
               </button>
               <button
                 onClick={handleSyncCalendar}
-                disabled={isSyncingCalendar}
+                disabled={isSyncingCalendar || googleCalendarStatus === 'REAUTH_NEEDED'}
                 className="px-3.5 py-1.5 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-250 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCalendar ? 'animate-spin' : ''}`} />
                 {isSyncingCalendar ? 'Syncing...' : 'Force Calendar Sync'}
               </button>
               <button
-                onClick={handleDisconnectCalendar}
+                onClick={googleCalendarStatus === 'REAUTH_NEEDED' ? handleConnectCalendar : handleDisconnectCalendar}
                 className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 border border-rose-150 dark:border-rose-900/30 text-xs font-semibold rounded-lg transition cursor-pointer"
               >
-                Disconnect
+                {googleCalendarStatus === 'REAUTH_NEEDED' ? 'Reconnect' : 'Disconnect'}
               </button>
             </div>
           </>

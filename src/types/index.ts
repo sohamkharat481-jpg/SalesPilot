@@ -204,6 +204,7 @@ export interface Lead {
   tasksList?: LeadTask[];
   timelineList?: LeadTimelineEvent[];
   source?: string;
+  provider?: string;
 }
 
 export type SequenceType = 'EMAIL' | 'LINKEDIN_MESSAGE' | 'LINKEDIN_CONNECT';

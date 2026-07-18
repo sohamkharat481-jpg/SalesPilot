@@ -329,7 +329,11 @@ export class GoogleMapsLeadProvider implements LeadProvider {
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || params.customApiKey;
+    const apiKeyExists = !!apiKey;
+    console.log(`[DEBUG] [Google Maps Local Scraper] API Key Exists: ${apiKeyExists}`);
+
     if (!apiKey) {
+      console.log(`[DEBUG] [Google Maps Local Scraper] Sourcing completed with 0 results. Reason: API Key is missing.`);
       throw new Error('Google Maps API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
@@ -338,6 +342,8 @@ export class GoogleMapsLeadProvider implements LeadProvider {
     try {
       const query = `${params.industry} in ${params.city || 'Bengaluru'}, ${params.country}`;
       const url = 'https://places.googleapis.com/v1/places:searchText';
+      console.log(`[DEBUG] [Google Maps Local Scraper] Request: POST ${url} | Headers: Content-Type: application/json, X-Goog-FieldMask: places.id,places.displayName | Body: ${JSON.stringify({ textQuery: query })}`);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -348,20 +354,30 @@ export class GoogleMapsLeadProvider implements LeadProvider {
         body: JSON.stringify({ textQuery: query })
       });
       
+      console.log(`[DEBUG] [Google Maps Local Scraper] Response Status: ${response.status}`);
+
       if (!response.ok) {
+        console.log(`[DEBUG] [Google Maps Local Scraper] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
         throw new Error(`Google Places API (New) Text Search failed with status ${response.status}`);
       }
 
       const data = await response.json() as any;
       const places = data.places || [];
+      console.log(`[DEBUG] [Google Maps Local Scraper] Businesses returned: ${places.length}`);
+
       const results: Partial<Lead>[] = [];
+      let rejectedCount = 0;
 
       for (const place of places) {
         const placeId = place.id;
-        if (!placeId) continue;
+        if (!placeId) {
+          rejectedCount++;
+          continue;
+        }
 
         // Fetch place details for website & phone using Place Details (New)
         const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`;
+        console.log(`[DEBUG] [Google Maps Local Scraper] Request Details: GET ${detailsUrl} | Headers: X-Goog-FieldMask: id,displayName,formattedAddress,websiteUri,nationalPhoneNumber,rating`);
         const detailResponse = await fetch(detailsUrl, {
           method: 'GET',
           headers: {
@@ -370,7 +386,10 @@ export class GoogleMapsLeadProvider implements LeadProvider {
           }
         });
 
+        console.log(`[DEBUG] [Google Maps Local Scraper] Response Details Status for placeId "${placeId}": ${detailResponse.status}`);
+
         if (!detailResponse.ok) {
+          rejectedCount++;
           continue;
         }
 
@@ -385,6 +404,9 @@ export class GoogleMapsLeadProvider implements LeadProvider {
           if (validation.isValid) {
             verifiedWebsite = website;
             domainName = validation.domain || '';
+          } else {
+            console.log(`[DEBUG] [Google Maps Local Scraper] Website validation rejected for "${details.displayName?.text || place.displayName?.text}": ${validation.reason}`);
+            rejectedCount++;
           }
         }
 
@@ -429,9 +451,15 @@ export class GoogleMapsLeadProvider implements LeadProvider {
         }
       }
 
+      console.log(`[DEBUG] [Google Maps Local Scraper] Businesses rejected after validation: ${rejectedCount}`);
+      if (results.length === 0) {
+        console.log(`[DEBUG] [Google Maps Local Scraper] Sourcing completed with 0 results. Reason: No businesses matched validation rules or query returned no places.`);
+      }
+
       return results;
     } catch (err: any) {
       console.error('[GOOGLE MAPS API ERROR] Sourcing failed:', err);
+      console.log(`[DEBUG] [Google Maps Local Scraper] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Google Maps API error: ${err.message || err}`);
     }
   }
@@ -449,7 +477,11 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
     const apiKey = process.env.PDL_API_KEY || params.customApiKey;
+    const apiKeyExists = !!apiKey;
+    console.log(`[DEBUG] [People Data Labs Index] API Key Exists: ${apiKeyExists}`);
+
     if (!apiKey) {
+      console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: API Key is missing.`);
       throw new Error('PDL API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
@@ -468,7 +500,10 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
         size: params.maxLeads
       };
 
-      const response = await fetch('https://api.peopledatalabs.com/v5/person/search', {
+      const url = 'https://api.peopledatalabs.com/v5/person/search';
+      console.log(`[DEBUG] [People Data Labs Index] Request: POST ${url} | Headers: Content-Type: application/json | Body: ${JSON.stringify(queryPayload)}`);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -477,26 +512,41 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
         body: JSON.stringify(queryPayload)
       });
 
+      console.log(`[DEBUG] [People Data Labs Index] Response Status: ${response.status}`);
+
       if (!response.ok) {
+        console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
         throw new Error(`PDL Person Search API failed with status ${response.status}`);
       }
 
       const data = await response.json() as any;
       const records = data.data || [];
+      console.log(`[DEBUG] [People Data Labs Index] Businesses returned: ${records.length}`);
+
       const results: Partial<Lead>[] = [];
+      let rejectedCount = 0;
 
       for (const item of records) {
         const companyUrl = item.job_company_website || '';
-        if (!companyUrl) continue;
+        if (!companyUrl) {
+          rejectedCount++;
+          continue;
+        }
 
         const validation = await validateWebsite(companyUrl);
         if (!validation.isValid) {
           console.warn(`[PDL VALIDATOR] Rejecting record: ${item.fullName} at ${item.job_company_name} due to invalid domain: ${validation.reason}`);
+          console.log(`[DEBUG] [People Data Labs Index] Website validation rejected for company "${item.job_company_name}": ${validation.reason}`);
+          rejectedCount++;
           continue;
         }
 
         const email = item.work_email || (item.emails && item.emails[0]?.address) || '';
-        if (!email) continue;
+        if (!email) {
+          console.log(`[DEBUG] [People Data Labs Index] Rejected record for company "${item.job_company_name}" due to: Missing email address.`);
+          rejectedCount++;
+          continue;
+        }
 
         const hunterStatus = await verifyEmail(email);
 
@@ -535,9 +585,15 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
+      console.log(`[DEBUG] [People Data Labs Index] Businesses rejected after validation: ${rejectedCount}`);
+      if (results.length === 0) {
+        console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: No businesses matched validation rules or query returned no records.`);
+      }
+
       return results;
     } catch (err: any) {
       console.error('[PDL API ERROR] Sourcing failed:', err);
+      console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`People Data Labs service error: ${err.message || err}`);
     }
   }
@@ -555,39 +611,58 @@ export class ClearbitLeadProvider implements LeadProvider {
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
     const apiKey = process.env.CLEARBIT_API_KEY || params.customApiKey;
+    const apiKeyExists = !!apiKey;
+    console.log(`[DEBUG] [Clearbit Enrichment Crawler] API Key Exists: ${apiKeyExists}`);
+
     if (!apiKey) {
+      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: API Key is missing.`);
       throw new Error('Clearbit API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
     console.log(`[LEAD PROVIDER - CLEARBIT] Invoking Clearbit Prospector...`);
 
     try {
-      const response = await fetch(`https://prospector.clearbit.com/v1/people/search`, {
+      const url = `https://prospector.clearbit.com/v1/people/search`;
+      const requestBody = {
+        domain: params.keywords.includes('.') ? params.keywords : `${params.keywords}.com`,
+        role: params.jobTitles.split(',')[0].trim(),
+        limit: params.maxLeads
+      };
+      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Request: POST ${url} | Headers: Authorization: Bearer [MASKED], Content-Type: application/json | Body: ${JSON.stringify(requestBody)}`);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          domain: params.keywords.includes('.') ? params.keywords : `${params.keywords}.com`,
-          role: params.jobTitles.split(',')[0].trim(),
-          limit: params.maxLeads
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Response Status: ${response.status}`);
+
       if (!response.ok) {
+        console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
         throw new Error(`Clearbit API failed with status ${response.status}`);
       }
 
       const records = await response.json() as any;
+      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Businesses returned: ${records.length}`);
+
       const results: Partial<Lead>[] = [];
+      let rejectedCount = 0;
 
       for (const item of records) {
         const website = item.company?.domain || '';
-        if (!website) continue;
+        if (!website) {
+          rejectedCount++;
+          continue;
+        }
 
         const validation = await validateWebsite(website);
         if (!validation.isValid) {
+          console.log(`[DEBUG] [Clearbit Enrichment Crawler] Website validation rejected for company "${item.company?.name}": ${validation.reason}`);
+          rejectedCount++;
           continue;
         }
 
@@ -629,9 +704,15 @@ export class ClearbitLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
+      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Businesses rejected after validation: ${rejectedCount}`);
+      if (results.length === 0) {
+        console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: No records matched validation rules or query returned no records.`);
+      }
+
       return results;
     } catch (err: any) {
       console.error('[CLEARBIT API ERROR] Sourcing failed:', err);
+      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Clearbit service error: ${err.message || err}`);
     }
   }
@@ -649,7 +730,11 @@ export class HunterLeadProvider implements LeadProvider {
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
     const apiKey = process.env.HUNTER_API_KEY || params.customApiKey;
+    const apiKeyExists = !!apiKey;
+    console.log(`[DEBUG] [Hunter.io Domain Sourcing] API Key Exists: ${apiKeyExists}`);
+
     if (!apiKey) {
+      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: API Key is missing.`);
       throw new Error('Hunter API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
@@ -657,9 +742,14 @@ export class HunterLeadProvider implements LeadProvider {
 
     try {
       const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(params.keywords)}&api_key=${apiKey}&limit=${params.maxLeads}`;
+      const logUrl = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(params.keywords)}&api_key=[MASKED]&limit=${params.maxLeads}`;
+      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Request: GET ${logUrl}`);
+
       const response = await fetch(url);
+      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Response Status: ${response.status}`);
       
       if (!response.ok) {
+        console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
         throw new Error(`Hunter API failed with status ${response.status}`);
       }
 
@@ -667,20 +757,25 @@ export class HunterLeadProvider implements LeadProvider {
       const emailsList = data.data?.emails || [];
       const companyName = data.data?.organization || params.keywords.split('.')[0];
       const website = `www.${data.data?.domain || params.keywords}`;
+      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Businesses returned: ${emailsList.length}`);
 
       // DNS & HTTP responder validation
       const validation = await validateWebsite(website);
       if (!validation.isValid) {
+        console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: Domain "${website}" failed safety validation: ${validation.reason}`);
         throw new Error(`Hunter.io matched domain "${website}" failed safety validation: ${validation.reason}`);
       }
 
       const results: Partial<Lead>[] = [];
+      let rejectedCount = 0;
 
       for (const item of emailsList) {
         const email = item.value || '';
         const isDM = params.jobTitles.split(',').some(t => item.position?.toLowerCase().includes(t.trim().toLowerCase()));
         
         if (params.decisionMakerOnly && !isDM && item.position) {
+          console.log(`[DEBUG] [Hunter.io Domain Sourcing] Contact rejected (not DM): "${email}" (${item.position})`);
+          rejectedCount++;
           // Skip if strict decision makers only
           continue;
         }
@@ -720,9 +815,15 @@ export class HunterLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
+      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Businesses rejected after validation: ${rejectedCount}`);
+      if (results.length === 0) {
+        console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: No contacts matched validation rules or query returned no emails.`);
+      }
+
       return results;
     } catch (err: any) {
       console.error('[HUNTER API ERROR] Sourcing failed:', err);
+      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Hunter.io service error: ${err.message || err}`);
     }
   }
@@ -740,35 +841,49 @@ export class CrunchbaseLeadProvider implements LeadProvider {
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
     const apiKey = process.env.CRUNCHBASE_API_KEY || params.customApiKey;
+    const apiKeyExists = !!apiKey;
+    console.log(`[DEBUG] [Crunchbase Venture Tracker] API Key Exists: ${apiKeyExists}`);
+
     if (!apiKey) {
+      console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: API Key is missing.`);
       throw new Error('Crunchbase API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
     console.log(`[LEAD PROVIDER - CRUNCHBASE] Querying Crunchbase organization search...`);
 
     try {
-      const response = await fetch('https://api.crunchbase.com/api/v4/searches/organizations', {
+      const url = 'https://api.crunchbase.com/api/v4/searches/organizations';
+      const requestBody = {
+        field_ids: ['name', 'website_url', 'short_description', 'employee_count', 'funding_total', 'linkedin'],
+        query: [
+          { type: 'predicate', field_id: 'categories', operator: 'includes', values: [params.industry] }
+        ],
+        limit: params.maxLeads
+      };
+      console.log(`[DEBUG] [Crunchbase Venture Tracker] Request: POST ${url} | Headers: X-Cb-User-Key: [MASKED], Content-Type: application/json | Body: ${JSON.stringify(requestBody)}`);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'X-Cb-User-Key': apiKey,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          field_ids: ['name', 'website_url', 'short_description', 'employee_count', 'funding_total', 'linkedin'],
-          query: [
-            { type: 'predicate', field_id: 'categories', operator: 'includes', values: [params.industry] }
-          ],
-          limit: params.maxLeads
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      console.log(`[DEBUG] [Crunchbase Venture Tracker] Response Status: ${response.status}`);
+
       if (!response.ok) {
+        console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
         throw new Error(`Crunchbase API failed with status ${response.status}`);
       }
 
       const data = await response.json() as any;
       const cards = data.entities || [];
+      console.log(`[DEBUG] [Crunchbase Venture Tracker] Businesses returned: ${cards.length}`);
+
       const results: Partial<Lead>[] = [];
+      let rejectedCount = 0;
 
       for (const card of cards) {
         const properties = card.properties || {};
@@ -781,7 +896,12 @@ export class CrunchbaseLeadProvider implements LeadProvider {
           if (validation.isValid) {
             verifiedWebsite = website;
             domain = validation.domain || '';
+          } else {
+            console.log(`[DEBUG] [Crunchbase Venture Tracker] Website validation rejected for company "${properties.name}": ${validation.reason}`);
+            rejectedCount++;
           }
+        } else {
+          rejectedCount++;
         }
 
         const prospect: Partial<Lead> = {
@@ -819,9 +939,15 @@ export class CrunchbaseLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
+      console.log(`[DEBUG] [Crunchbase Venture Tracker] Businesses rejected after validation: ${rejectedCount}`);
+      if (results.length === 0) {
+        console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: No organizations matched validation rules or query returned no entities.`);
+      }
+
       return results;
     } catch (err: any) {
       console.error('[CRUNCHBASE API ERROR] Sourcing failed:', err);
+      console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Crunchbase service error: ${err.message || err}`);
     }
   }
@@ -840,7 +966,11 @@ export class GoogleSearchLeadProvider implements LeadProvider {
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
     const apiKey = process.env.SERPER_API_KEY || params.customApiKey;
+    const apiKeyExists = !!apiKey;
+    console.log(`[DEBUG] [Google Search Web Scraper] API Key Exists: ${apiKeyExists}`);
+
     if (!apiKey) {
+      console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API Key is missing.`);
       throw new Error('Serper.dev API key not configured. Please connect Serper via the Integrations panel.');
     }
 
@@ -854,7 +984,10 @@ export class GoogleSearchLeadProvider implements LeadProvider {
       console.log(`2. Provider Used: "${this.name}" (${this.id})`);
       console.log(`=========================================`);
 
-      const response = await fetch('https://google.serper.dev/search', {
+      const url = 'https://google.serper.dev/search';
+      console.log(`[DEBUG] [Google Search Web Scraper] Request: POST ${url} | Headers: X-API-KEY: [MASKED], Content-Type: application/json | Body: ${JSON.stringify({ q, num: params.maxLeads })}`);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'X-API-KEY': apiKey,
@@ -863,8 +996,11 @@ export class GoogleSearchLeadProvider implements LeadProvider {
         body: JSON.stringify({ q, num: params.maxLeads })
       });
 
+      console.log(`[DEBUG] [Google Search Web Scraper] Response Status: ${response.status}`);
+
       if (!response.ok) {
         console.error(`[LEAD ENGINE PIPELINE] Google Search failed: API status ${response.status}`);
+        console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
         throw new Error(`Serper API returned status ${response.status}`);
       }
 
@@ -876,6 +1012,7 @@ export class GoogleSearchLeadProvider implements LeadProvider {
       const organic = data.organic || [];
       const totalReturned = organic.length;
       console.log(`4. Number of businesses/contacts returned from API: ${totalReturned}`);
+      console.log(`[DEBUG] [Google Search Web Scraper] Businesses returned: ${totalReturned}`);
 
       const results: Partial<Lead>[] = [];
       let totalDiscarded = 0;
@@ -929,8 +1066,15 @@ export class GoogleSearchLeadProvider implements LeadProvider {
             if (validation.isValid) {
               website = searchWebsite;
               domain = validation.domain || '';
+            } else {
+              console.log(`[DEBUG] [Google Search Web Scraper] Website validation rejected for company "${company}": ${validation.reason}`);
+              totalDiscarded++;
             }
+          } else {
+            totalDiscarded++;
           }
+        } else {
+          totalDiscarded++;
         }
 
         const email = domain ? `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/\s/g, '')}@${domain}` : '';
@@ -984,9 +1128,15 @@ export class GoogleSearchLeadProvider implements LeadProvider {
       }
       console.log(`=========================================\n`);
 
+      console.log(`[DEBUG] [Google Search Web Scraper] Businesses rejected after validation: ${totalDiscarded}`);
+      if (results.length === 0) {
+        console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: No businesses matched validation rules or search query returned no contacts.`);
+      }
+
       return results;
     } catch (err: any) {
       console.error('[SERPER API ERROR] Sourcing failed:', err);
+      console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Serper Google Search error: ${err.message || err}`);
     }
   }
@@ -1003,12 +1153,17 @@ export class WebsiteCrawlingLeadProvider implements LeadProvider {
   public requiresApiKey = false;
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
+    console.log(`[DEBUG] [Universal Website Crawler] API Key Exists: false (Not required)`);
     console.log(`[LEAD PROVIDER - WEB CRAWLER] Parsing target corporate domain: ${params.keywords}`);
 
     const domain = params.keywords.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].split('?')[0].trim();
     const website = `http://${domain}`;
 
+    console.log(`[DEBUG] [Universal Website Crawler] Request: GET ${website}`);
     const validation = await validateWebsite(website);
+    console.log(`[DEBUG] [Universal Website Crawler] Website validation response isValid: ${validation.isValid} | Reason: ${validation.reason || 'None'}`);
+
+    let rejectedCount = 0;
     if (!validation.isValid) {
       console.warn(`[CRAWLER WARNING] Target URL "${website}" failed DNS/HTTP validation: ${validation.reason}. Continuing anyway with available business data.`);
     }
@@ -1047,6 +1202,9 @@ export class WebsiteCrawlingLeadProvider implements LeadProvider {
     prospect.leadScore = scoring.score;
     prospect.confidenceScore = scoring.numericScore;
     prospect.scoreReason = scoring.reason;
+
+    console.log(`[DEBUG] [Universal Website Crawler] Businesses returned: 1`);
+    console.log(`[DEBUG] [Universal Website Crawler] Businesses rejected after validation: ${rejectedCount}`);
 
     return [prospect];
   }
