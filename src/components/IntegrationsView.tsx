@@ -905,7 +905,7 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
   React.useEffect(() => {
     const handleGoogleAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      if (!origin.endsWith('.run.app') && !origin.endsWith('.vercel.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
         return;
       }
       

@@ -6735,7 +6735,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     console.log(`[GOOGLE CALLBACK FLOW] Constructed redirect_uri: ${redirectUri}`);
 
     try {
-      console.log('[GOOGLE CALLBACK FLOW] Exchanging authorization code for OAuth tokens...');
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] Initiating token exchange fetch with Google OAuth servers...');
       // Exchange code for tokens
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -6751,22 +6751,29 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       if (!tokenRes.ok) {
         const errText = await tokenRes.text();
-        console.error(`[GOOGLE CALLBACK FLOW] ERROR: Token exchange failed: ${errText}`);
+        console.error(`[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] [FAILED] HTTP Error ${tokenRes.status}: ${errText}`);
         throw new Error(`Google exchange failed: ${errText}`);
       }
 
       const tokenData = await tokenRes.json() as any;
       const { access_token, refresh_token, expires_in, scope } = tokenData;
-      console.log('[GOOGLE CALLBACK FLOW] Successfully retrieved tokens from Google.');
+      
+      console.log(`[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] [SUCCESS] Successfully retrieved OAuth tokens:
+        - Access Token present: ${!!access_token} (Length: ${access_token?.length || 0})
+        - Refresh Token present: ${!!refresh_token} (Length: ${refresh_token?.length || 0})
+        - Expires In: ${expires_in} seconds
+        - Scopes returned: "${scope || ''}"`);
 
       // Fetch user profile info
-      console.log('[GOOGLE CALLBACK FLOW] Fetching user profile information...');
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] Retrieving Google user profile info...');
       const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: { 'Authorization': `Bearer ${access_token}` }
       });
 
       if (!userRes.ok) {
-        throw new Error('Failed to fetch user info from Google');
+        const userErr = await userRes.text();
+        console.error(`[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] [FAILED] Profile fetch failed with status ${userRes.status}: ${userErr}`);
+        throw new Error(`Failed to fetch user info: ${userErr}`);
       }
 
       const userData = await userRes.json() as any;
@@ -6774,20 +6781,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const name = userData.name || email.split('@')[0];
       const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
 
+      console.log(`[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] [SUCCESS] Profile loaded: Email="${email}", Name="${name}", Token ExpiresAt="${expiresAt}"`);
+
       // Verify and log Gmail and Calendar permissions
       const scopesArr = scope ? scope.split(' ') : [];
       const hasGmailSend = scopesArr.includes('https://www.googleapis.com/auth/gmail.send');
       const hasCalendar = scopesArr.includes('https://www.googleapis.com/auth/calendar');
       const hasCalendarEvents = scopesArr.includes('https://www.googleapis.com/auth/calendar.events');
 
-      console.log(`[GOOGLE OAUTH VERIFICATION] Account: "${email}". Granted scopes:`, scopesArr);
-      console.log(`[GOOGLE OAUTH VERIFICATION] Permissions verification:
-        - Gmail Send: ${hasGmailSend ? 'VERIFIED' : 'MISSING (https://www.googleapis.com/auth/gmail.send)'}
-        - Calendar: ${hasCalendar ? 'VERIFIED' : 'MISSING (https://www.googleapis.com/auth/calendar)'}
-        - Calendar Events: ${hasCalendarEvents ? 'VERIFIED' : 'MISSING (https://www.googleapis.com/auth/calendar.events)'}`);
+      console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Verifying required API scopes for account "${email}":
+        - https://www.googleapis.com/auth/gmail.send: ${hasGmailSend ? 'GRANTED ✅' : 'MISSING ❌'}
+        - https://www.googleapis.com/auth/calendar: ${hasCalendar ? 'GRANTED ✅' : 'MISSING ❌'}
+        - https://www.googleapis.com/auth/calendar.events: ${hasCalendarEvents ? 'GRANTED ✅' : 'MISSING ❌'}`);
 
       if (!hasGmailSend || !hasCalendar || !hasCalendarEvents) {
-        console.warn(`[GOOGLE OAUTH WARNING] Insufficient scopes granted by user: "${email}". Connection aborted.`);
+        console.warn(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] [FAILED] User "${email}" did not grant all required scopes. Aborting integration.`);
         return res.send(`
           <html>
             <body style="font-family: sans-serif; text-align: center; padding: 40px; background-color: #fef2f2; color: #991b1b; display: flex; align-items: center; justify-content: center; min-height: 80vh; margin: 0;">
@@ -6810,10 +6818,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                 <div style="margin: 25px 0; font-size: 14px; color: #4b5563; line-height: 1.5; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
                   <strong style="color: #15803d; font-size: 15px; display: block; margin-bottom: 6px;">How to resolve this immediately:</strong>
                   <ol style="margin-top: 4px; padding-left: 20px; margin-bottom: 0;">
-                    <li style="margin-bottom: 6px;">Click the button below to close this window.</li>
-                    <li style="margin-bottom: 6px;">In SalesPilot, click <strong>Connect Google Account</strong> again.</li>
-                    <li style="margin-bottom: 6px;">On the Google sign-in / consent prompt, <strong>make sure to check the checkbox next to every requested permission</strong> (especially the option to send emails on your behalf).</li>
-                    <li style="margin-bottom: 0;">If those checkboxes do not appear, go to your <strong>Google Cloud Console</strong> &rarr; <strong>OAuth Consent Screen</strong>, ensure the requested scopes are enabled under the <strong>Scopes</strong> list, and make sure your app is in testing mode with your user added as a test user.</li>
+                     <li style="margin-bottom: 6px;">Click the button below to close this window.</li>
+                     <li style="margin-bottom: 6px;">In SalesPilot, click <strong>Connect Google Account</strong> again.</li>
+                     <li style="margin-bottom: 6px;">On the Google sign-in / consent prompt, <strong>make sure to check the checkbox next to every requested permission</strong> (especially the option to send emails on your behalf).</li>
+                     <li style="margin-bottom: 0;">If those checkboxes do not appear, go to your <strong>Google Cloud Console</strong> &rarr; <strong>OAuth Consent Screen</strong>, ensure the requested scopes are enabled under the <strong>Scopes</strong> list, and make sure your app is in testing mode with your user added as a test user.</li>
                   </ol>
                 </div>
 
@@ -6836,6 +6844,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         `);
       }
 
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Saving account and setting CONNECTED status...');
       // Connect user to Gmail Account on server
       const existingGmail = gmailAccounts.find(a => a.email === email);
       if (existingGmail) {
@@ -6844,6 +6853,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         existingGmail.expiresAt = expiresAt;
         existingGmail.status = 'CONNECTED';
         existingGmail.fullName = name;
+        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Updated existing Gmail account record for ${email}. Status: CONNECTED.`);
       } else {
         gmailAccounts.push({
           email,
@@ -6858,6 +6868,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           retryCount: 0,
           createdAt: new Date().toISOString()
         });
+        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Created new Gmail account record for ${email}. Status: CONNECTED.`);
       }
 
       // Connect user to Calendar Account on server
@@ -6868,6 +6879,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         existingCalendar.expiresAt = expiresAt;
         existingCalendar.status = 'CONNECTED';
         existingCalendar.fullName = name;
+        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Updated existing Calendar account record for ${email}. Status: CONNECTED.`);
       } else {
         calendarAccounts.push({
           email,
@@ -6878,11 +6890,41 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           status: 'CONNECTED',
           createdAt: new Date().toISOString()
         });
+        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Created new Calendar account record for ${email}. Status: CONNECTED.`);
       }
 
-      // Persist the newly authenticated accounts to disk
+      // Sync and save updated accounts
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering account synchronizations and database disk-persistence...');
       saveAccountsToDisk();
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Disk write complete.');
 
+      // Immediate Readback/Verification to ensure they are persisted and correct
+      try {
+        if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
+          const verifyData = JSON.parse(fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8'));
+          const foundGmail = verifyData.gmailAccounts?.find((a: any) => a.email === email);
+          const foundCalendar = verifyData.calendarAccounts?.find((c: any) => c.email === email);
+          
+          if (foundGmail && foundGmail.status === 'CONNECTED' && foundCalendar && foundCalendar.status === 'CONNECTED') {
+            console.log(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [SUCCESS] All credentials and integration statuses successfully saved:
+              - Account Email: "${email}"
+              - Gmail Integration Status: "${foundGmail.status}" (CONNECTED)
+              - Calendar Integration Status: "${foundCalendar.status}" (CONNECTED)
+              - Gmail Access Token persisted: ${!!foundGmail.accessToken} (Length: ${foundGmail.accessToken?.length || 0})
+              - Calendar Access Token persisted: ${!!foundCalendar.accessToken} (Length: ${foundCalendar.accessToken?.length || 0})
+              - Refresh Token persisted: ${!!foundGmail.refreshToken} (Length: ${foundGmail.refreshToken?.length || 0})
+              - Expiry date: "${foundGmail.expiresAt}"`);
+          } else {
+            console.error(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [FAILED] Saved account state mismatch on validation read! Gmail: ${foundGmail?.status || 'NOT_FOUND'}, Calendar: ${foundCalendar?.status || 'NOT_FOUND'}`);
+          }
+        } else {
+          console.error(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [FAILED] Store file is missing at path: "${ACCOUNTS_STORE_PATH}"`);
+        }
+      } catch (verifyErr: any) {
+        console.error(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [EXCEPTION] Verification error:`, verifyErr);
+      }
+
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Preparing success response and closing authentication popup...');
       // Respond to popup window, sending postMessage and closing
       res.send(`
         <html>
@@ -6906,7 +6948,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         </html>
       `);
     } catch (err: any) {
-      console.error('[GOOGLE AUTH EXCH ERROR]', err);
+      console.error('[GOOGLE CALLBACK FLOW] [FATAL EXCEPTION ERROR] Google Auth flow crashed:', err);
       res.send(`
         <html>
           <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
