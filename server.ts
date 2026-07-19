@@ -6554,12 +6554,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Helper to dynamically construct the Google OAuth redirect URI
   const getGoogleRedirectUri = (req: any): string => {
     let baseUrl = '';
-    if (process.env.APP_URL) {
-      baseUrl = process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '');
-      console.log(`[GOOGLE OAUTH REDIRECT] Using APP_URL from environment variables: "${baseUrl}"`);
+    const envAppUrl = process.env.APP_URL ? process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '') : '';
+
+    if (envAppUrl) {
+      baseUrl = envAppUrl;
+      console.log(`[GOOGLE OAUTH REDIRECT] Strictly using APP_URL from environment: "${baseUrl}"`);
     } else {
-      const host = (req.headers.host || 'localhost:3000').trim();
-      const proto = (req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).trim();
+      const host = (req?.headers?.host || 'localhost:3000').trim();
+      const proto = (req?.headers?.['x-forwarded-proto'] || (req?.secure ? 'https' : 'http')).trim();
       baseUrl = `${proto}://${host}`;
       console.log(`[GOOGLE OAUTH REDIRECT] No APP_URL found, generated dynamic baseUrl from headers: "${baseUrl}"`);
     }
@@ -9747,6 +9749,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   })().catch(err => {
     console.error('❌ Async seeding error:', err);
   });
+
+  // Print resolved startup environment info
+  const startupAppUrl = process.env.APP_URL ? process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '') : '';
+  const startupRedirectUri = getGoogleRedirectUri(null);
+  console.log(`[STARTUP AUDIT] Resolved APP_URL from environment variables: "${startupAppUrl || '(not configured)'}"`);
+  console.log(`[STARTUP AUDIT] Configured/Expected Google Redirect URI: "${startupRedirectUri}"`);
 
   // Listen on Port 3000 (bind to 0.0.0.0 as required by the environment)
   if (!process.env.VERCEL) {
