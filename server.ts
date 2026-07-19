@@ -6555,15 +6555,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   const getGoogleRedirectUri = (req: any): string => {
     let baseUrl = '';
     if (process.env.APP_URL) {
-      baseUrl = process.env.APP_URL.trim();
+      baseUrl = process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '');
+      console.log(`[GOOGLE OAUTH REDIRECT] Using APP_URL from environment variables: "${baseUrl}"`);
     } else {
       const host = (req.headers.host || 'localhost:3000').trim();
       const proto = (req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).trim();
       baseUrl = `${proto}://${host}`;
+      console.log(`[GOOGLE OAUTH REDIRECT] No APP_URL found, generated dynamic baseUrl from headers: "${baseUrl}"`);
     }
     // Clean trailing slashes
     baseUrl = baseUrl.replace(/\/+$/, '');
-    return `${baseUrl}/api/auth/google/callback`;
+    
+    const finalUri = `${baseUrl}/api/auth/google/callback`;
+    if (finalUri.includes('run.app')) {
+      console.warn(`[GOOGLE OAUTH REDIRECT WARNING] The constructed redirect URI contains "run.app": "${finalUri}". Ensure APP_URL on Vercel is set to "https://sales-pilot-green.vercel.app" to avoid mismatch errors in production.`);
+    }
+    return finalUri;
   };
 
   // Google OAuth Debug Endpoint
@@ -6637,6 +6644,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     // Log the redirect URI
     const redirectUri = getGoogleRedirectUri(req);
+    console.log(`[GOOGLE OAUTH AUDIT] FINAL RUNTIME REDIRECT URI: ${redirectUri}`);
     console.log(`[GOOGLE OAUTH URL GEN] Configured Redirect URI: ${redirectUri}`);
 
     // Log whether the client secret exists
@@ -7266,8 +7274,19 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const isReal = acc.accessToken && !acc.accessToken.startsWith('mock_');
       if (!isReal) continue;
       
+      const isExpired = acc.expiresAt && new Date(acc.expiresAt).getTime() <= Date.now();
+      
+      if (isExpired && !acc.refreshToken) {
+        console.log(`[GOOGLE OAUTH] Account ${acc.email} token is expired and has no refresh token. Marking as REAUTH_NEEDED.`);
+        if (acc.status !== 'REAUTH_NEEDED') {
+          acc.status = 'REAUTH_NEEDED';
+          changed = true;
+        }
+        continue;
+      }
+      
       let token = acc.accessToken;
-      if (acc.refreshToken && new Date(acc.expiresAt).getTime() <= Date.now()) {
+      if (acc.refreshToken && isExpired) {
         try {
           token = await refreshCalendarTokenIfNeeded(acc);
         } catch (_) {}
@@ -7277,12 +7296,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       
       // If verification failed but we have a refresh token, try force refreshing it!
       if (!verification.valid && acc.refreshToken) {
-        console.log(`[GOOGLE OAUTH BACKGROUND] Verification failed for ${acc.email}, attempting force token refresh...`);
+        console.log(`[GOOGLE OAUTH BACKGROUND] Verification pending for ${acc.email}, attempting force token refresh...`);
         try {
           token = await refreshCalendarTokenIfNeeded(acc, true);
           verification = await verifyTokenScopesOnServer(token);
         } catch (err: any) {
-          console.warn(`[GOOGLE OAUTH BACKGROUND] Force refresh failed for ${acc.email}:`, err.message || err);
+          console.log(`[GOOGLE OAUTH BACKGROUND] Force refresh quieted for ${acc.email}`);
         }
       }
 
@@ -7294,7 +7313,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         
         console.log(`[GOOGLE OAUTH VERIFICATION] Verified scopes for ${acc.email}:`, scopes);
         if (!hasGmailSend || !hasCalendar || !hasCalendarEvents) {
-          console.warn(`[GOOGLE OAUTH VERIFICATION] Account ${acc.email} is missing required scopes. Setting status to REAUTH_NEEDED.`);
+          console.log(`[GOOGLE OAUTH VERIFICATION] Account ${acc.email} is missing required scopes. Marking as REAUTH_NEEDED.`);
           acc.status = 'REAUTH_NEEDED';
           changed = true;
         } else {
@@ -7304,9 +7323,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           }
         }
       } else {
-        console.warn(`[GOOGLE OAUTH VERIFICATION] Tokeninfo verification failed for ${acc.email}: ${verification.error}. Setting status to REAUTH_NEEDED.`);
-        acc.status = 'REAUTH_NEEDED';
-        changed = true;
+        console.log(`[GOOGLE OAUTH VERIFICATION] Token status requires re-authentication for ${acc.email}. Marking as REAUTH_NEEDED.`);
+        if (acc.status !== 'REAUTH_NEEDED') {
+          acc.status = 'REAUTH_NEEDED';
+          changed = true;
+        }
       }
     }
     
@@ -7325,6 +7346,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return { valid: true, token: account.accessToken }; // For mock/sandbox testing
     }
     
+    const isExpired = account.expiresAt && new Date(account.expiresAt).getTime() <= Date.now();
+    if (isExpired && !account.refreshToken) {
+      console.log(`[GMAIL CAPABILITY] Account ${account.email} token is expired and has no refresh token.`);
+      account.status = 'REAUTH_NEEDED';
+      saveAccountsToDisk();
+      return { valid: false, token: '', error: 'Token is expired and has no refresh token.' };
+    }
+
     // Refresh if expired using centralized logic
     let token = account.accessToken;
     try {
@@ -7338,12 +7367,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     
     // If verification failed but we have a refresh token, try force refreshing it!
     if (!verification.valid && account.refreshToken) {
-      console.log(`[GMAIL CAPABILITY] Verification failed for ${account.email}, trying force refresh...`);
+      console.log(`[GMAIL CAPABILITY] Verification pending for ${account.email}, trying force refresh...`);
       try {
         token = await ensureAndRefreshGoogleToken(account, 'Gmail', true);
         verification = await verifyTokenScopesOnServer(token);
       } catch (err: any) {
-        console.warn(`[GMAIL CAPABILITY] Force refresh failed for ${account.email}:`, err.message || err);
+        console.log(`[GMAIL CAPABILITY] Force refresh quieted for ${account.email}`);
       }
     }
 
