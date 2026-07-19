@@ -11,7 +11,7 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   LeadStatus, DealStage, CampaignStatus, SequenceStep, WorkspaceUser,
-  LeadResearchProfile, SubscriptionTier
+  LeadResearchProfile, SubscriptionTier, TeamMember, UserRole
 } from './src/types';
 import { LeadProviderRegistry, validateWebsite, calculateLeadScore } from './src/backend/leadProviders';
 import { 
@@ -104,73 +104,16 @@ interface ActivityLogEntry {
   device: string;
 }
 
-let serverUsers: any[] = [
-  {
-    id: 'usr_81927391',
-    email: 'sohamkharat481@gmail.com',
-    fullName: 'Soham Kharat',
-    companyName: '',
-    industry: '',
-    tier: 'STARTER',
-    role: 'OWNER',
-    createdAt: new Date().toISOString(),
-    isVerified: true,
-    phone: '',
-    timezone: 'Asia/Kolkata',
-    language: 'English',
-    notificationPrefs: { email: true, push: true, weeklyReport: true },
-    password: 'password123',
-    apiKeys: []
-  },
-  {
-    id: 'usr_demo_101',
-    email: 'soham@gmail.com',
-    fullName: 'Soham Kharat',
-    companyName: '',
-    industry: '',
-    tier: 'STARTER',
-    role: 'OWNER',
-    createdAt: new Date().toISOString(),
-    isVerified: true,
-    phone: '',
-    timezone: 'Asia/Kolkata',
-    language: 'English',
-    notificationPrefs: { email: true, push: true, weeklyReport: true },
-    password: 'password123',
-    apiKeys: []
-  }
-];
+import { LocalDB } from './src/database/localDb';
+import bcrypt from 'bcryptjs';
 
-let serverOrganizations: any[] = [];
+const localDb = LocalDB.getInstance();
 
-let serverTeamMembers: any[] = [];
-
-let serverLoginHistory: LoginHistoryEntry[] = [
-  {
-    id: 'lh_1',
-    userId: 'usr_81927391',
-    email: 'sohamkharat481@gmail.com',
-    ipAddress: '157.51.92.14',
-    browser: 'Chrome 122.0.0',
-    os: 'macOS Sonoma',
-    country: 'India',
-    device: 'Desktop',
-    loginTime: new Date(Date.now() - 3600000).toISOString()
-  }
-];
-
-let serverActivityLogs: ActivityLogEntry[] = [
-  {
-    id: 'al_1',
-    userId: 'usr_81927391',
-    action: 'Workspace Configured',
-    module: 'System',
-    timestamp: new Date(Date.now() - 3500000).toISOString(),
-    browser: 'Chrome',
-    ipAddress: '157.51.92.14',
-    device: 'Desktop'
-  }
-];
+let serverUsers = localDb.getUsers();
+let serverOrganizations = localDb.getOrganizations();
+let serverTeamMembers = localDb.getTeamMembers();
+let serverLoginHistory = localDb.getLoginHistory();
+let serverActivityLogs = localDb.getActivityLogs();
 
 let serverSessions: Record<string, { user: any; expiresAt: number }> = {};
 let failedLoginAttempts: Record<string, { count: number; lockedUntil?: number }> = {};
@@ -452,7 +395,7 @@ let defaultUser: WorkspaceUser = {
   subscriptionStatus: 'LIFETIME'
 };
 
-let leads: Lead[] = [];
+let leads: Lead[] = localDb.getAllLeads();
 let dummyLeads: any[] = [];
 const unusedDummyLeads: any[] = [];
 const ignoreUnusedDummyLeads = [
@@ -664,7 +607,7 @@ const ignoreUnusedDummyLeads = [
   }
 ];
 
-let campaigns: Campaign[] = [];
+let campaigns: Campaign[] = localDb.getAllCampaigns();
 let dummyCampaigns: any[] = [];
 const unusedDummyCampaigns = [
   {
@@ -736,7 +679,7 @@ const unusedDummyCampaigns = [
   }
 ];
 
-let deals: Deal[] = [];
+let deals: Deal[] = localDb.getAllDeals();
 let dummyDeals: any[] = [];
 const unusedDummyDeals = [
   {
@@ -761,7 +704,7 @@ const unusedDummyDeals = [
   }
 ];
 
-let appointments: Appointment[] = [];
+let appointments: Appointment[] = localDb.getAllAppointments();
 let dummyAppointments: any[] = [];
 const unusedDummyAppointments = [
   {
@@ -1801,6 +1744,38 @@ async function startServer() {
     if (serverActivityLogs.length > 100) serverActivityLogs.pop();
   };
 
+  // Save DB helper
+  const saveDb = () => {
+    localDb.save();
+  };
+
+  // Auth resolver helper
+  const getAuthenticatedUser = (req: any) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const session = localDb.getSession(token);
+      if (session && session.expiresAt > Date.now()) {
+        const user = localDb.getUserById(session.userId);
+        if (user) {
+          // Sliding session extension: renew the expiration date on activity
+          session.expiresAt = Date.now() + 2 * 3600 * 1000; // extend by 2 hours
+          localDb.save();
+          return user;
+        }
+      }
+    }
+
+    const email = req.query?.email || req.body?.email;
+    if (email) {
+      const user = localDb.getUserByEmail(email);
+      if (user) return user;
+    }
+
+    const defaultUserObj = localDb.getUserByEmail(defaultUser.email);
+    return defaultUserObj || localDb.getUsers()[0];
+  };
+
   // AUTH API: Email Signup
   const handleSignup = async (req: any, res: any) => {
     const { email, password, fullName, role } = req.body;
@@ -1815,6 +1790,8 @@ async function startServer() {
     }
 
     const isFounderUser = emailLower === FOUNDER_EMAIL.toLowerCase();
+    const salt = bcrypt.genSaltSync(10);
+    const passwordHash = bcrypt.hashSync(password, salt);
 
     const newUser = {
       id: `usr_${Date.now()}`,
@@ -1830,11 +1807,12 @@ async function startServer() {
       timezone: 'Asia/Kolkata',
       language: 'English',
       notificationPrefs: { email: true, push: true, weeklyReport: true },
-      password,
+      passwordHash,
       apiKeys: []
     };
 
     serverUsers.push(newUser);
+    saveDb();
     logServerActivity(newUser.id, 'Registered new account (Verification Required)', 'Authentication', req);
     
     // Simulate Welcome & Verification Email
@@ -1842,6 +1820,7 @@ async function startServer() {
     
     if (isFounderUser) {
       await applyFounderPrivileges(newUser);
+      saveDb();
     }
 
     res.status(201).json({ 
@@ -1874,9 +1853,11 @@ async function startServer() {
     // Accept standard test code "123456" or any 6-digit number
     if (token === '123456' || token.length === 6) {
       userObj.isVerified = true;
+      saveDb();
       logServerActivity(userObj.id, 'Completed email OTP verification', 'Authentication', req);
       
       await applyFounderPrivileges(userObj);
+      saveDb();
 
       // Update global session defaultUser
       defaultUser.id = userObj.id;
@@ -1918,7 +1899,23 @@ async function startServer() {
 
     const userObj = serverUsers.find(u => u.email.toLowerCase() === emailLower);
     
-    if (!userObj || userObj.password !== password) {
+    let isPasswordValid = false;
+    if (userObj) {
+      if (userObj.passwordHash) {
+        isPasswordValid = bcrypt.compareSync(password, userObj.passwordHash);
+      } else if (userObj.password) {
+        isPasswordValid = userObj.password === password;
+        if (isPasswordValid) {
+          // Auto-migrate plaintext password to passwordHash
+          const salt = bcrypt.genSaltSync(10);
+          userObj.passwordHash = bcrypt.hashSync(password, salt);
+          delete userObj.password;
+          saveDb();
+        }
+      }
+    }
+
+    if (!userObj || !isPasswordValid) {
       // Record failed attempts
       const currentCount = attempt ? attempt.count + 1 : 1;
       let lockedUntil: number | undefined;
@@ -1940,6 +1937,7 @@ async function startServer() {
 
     // Apply Founder checks dynamically on the backend
     await applyFounderPrivileges(userObj);
+    saveDb();
 
     // Check verification block
     if (!userObj.isVerified) {
@@ -1952,9 +1950,11 @@ async function startServer() {
 
     // Create session token
     const token = `jwt_token_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
+    const durationMs = rememberMe ? 30 * 24 * 3600 * 1000 : 2 * 3600 * 1000;
+    localDb.createSession(token, userObj.id, durationMs);
     serverSessions[token] = {
       user: userObj,
-      expiresAt: Date.now() + (rememberMe ? 30 * 24 * 3600 * 1000 : 2 * 3600 * 1000) // 30 days vs 2 hours
+      expiresAt: Date.now() + durationMs
     };
 
     // Store login history
@@ -1971,6 +1971,7 @@ async function startServer() {
       loginTime: new Date().toISOString()
     };
     serverLoginHistory.unshift(historyEntry);
+    saveDb();
 
     // Sync global defaultUser state
     defaultUser.id = userObj.id;
@@ -2121,7 +2122,11 @@ async function startServer() {
       return res.status(404).json({ error: 'User account not found.' });
     }
 
-    userObj.password = password;
+    const salt = bcrypt.genSaltSync(10);
+    userObj.passwordHash = bcrypt.hashSync(password, salt);
+    if (userObj.password) delete userObj.password;
+    saveDb();
+    
     logServerActivity(userObj.id, 'Updated credentials password successfully', 'Authentication', req);
     res.json({ success: true, message: 'Password recovery completed. Account is now ready to sign in.' });
   };
@@ -2130,9 +2135,7 @@ async function startServer() {
 
   // AUTH API: Retrieve Profile
   const handleGetProfile = async (req: any, res: any) => {
-    const { email } = req.query;
-    const targetEmail = email || defaultUser.email;
-    const userObj = serverUsers.find(u => u.email.toLowerCase() === targetEmail.toLowerCase()) || serverUsers[0];
+    const userObj = getAuthenticatedUser(req);
     
     await applyFounderPrivileges(userObj);
     
@@ -2383,6 +2386,7 @@ async function startServer() {
       console.log('[SERVER] Running in Offline Replica Sandbox Mode. Supabase sync skipped.');
     }
 
+    saveDb();
     res.json({ success: true, organization: newOrg, user: userObj });
   };
   app.post('/organization/create', handleCreateOrg);
@@ -2585,6 +2589,7 @@ async function startServer() {
       console.log('[SERVER] Running in Offline Replica Sandbox Mode. Supabase sync skipped.');
     }
 
+    saveDb();
     res.json({ success: true, organization: newOrg, user: userObj });
   };
   app.post('/api/v1/auth/profile-setup', handleProfileSetup);
@@ -2610,6 +2615,7 @@ async function startServer() {
     if (logo !== undefined) org.logo = logo;
 
     logServerActivity(defaultUser.id || 'usr_81927391', `Updated organization profile parameters`, 'Organization Settings', req);
+    saveDb();
     res.json({ success: true, organization: org });
   };
   app.put('/organization/update', handleUpdateOrg);
@@ -2623,11 +2629,11 @@ async function startServer() {
     }
 
     const resolvedName = fullName || email.split('@')[0];
-    const newMember = {
+    const newMember: TeamMember = {
       id: `tm_sim_${Date.now()}`,
       fullName: resolvedName,
       email: email.toLowerCase(),
-      role: role || 'SALES',
+      role: (role || 'SALES') as UserRole,
       status: 'INVITED',
       joinedAt: new Date().toISOString()
     };
@@ -2637,6 +2643,7 @@ async function startServer() {
     
     console.log(`✉️ Dispatched workspace invitation to ${email}`);
 
+    saveDb();
     res.json({ success: true, member: newMember, teamMembers: serverTeamMembers });
   };
   app.post('/team/invite', handleInviteTeam);
@@ -2658,6 +2665,7 @@ async function startServer() {
     if (status !== undefined) member.status = status;
 
     logServerActivity(defaultUser.id || 'usr_81927391', `Updated member ${member.email} status to ${status || role}`, 'Team Management', req);
+    saveDb();
     res.json({ success: true, member, teamMembers: serverTeamMembers });
   };
   app.put('/team/role', handleUpdateTeamRole);
@@ -2677,6 +2685,7 @@ async function startServer() {
 
     const deleted = serverTeamMembers.splice(index, 1)[0];
     logServerActivity(defaultUser.id || 'usr_81927391', `Removed team member ${deleted.email}`, 'Team Management', req);
+    saveDb();
     res.json({ success: true, teamMembers: serverTeamMembers });
   };
   app.delete('/team/remove', handleRemoveTeam);
@@ -2684,7 +2693,10 @@ async function startServer() {
 
   // Fetch Leads List
   app.get('/api/v1/leads', (req, res) => {
-    res.json({ leads });
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const filteredLeads = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId);
+    res.json({ leads: filteredLeads });
   });
 
   // Create a Lead
@@ -2695,8 +2707,12 @@ async function startServer() {
       return;
     }
 
-    const newLead: Lead = {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const newLead: Lead & { organizationId?: string } = {
       id: `ld_${Date.now()}`,
+      organizationId: orgId,
       firstName,
       lastName: lastName || '',
       email,
@@ -2732,6 +2748,7 @@ async function startServer() {
     });
 
     leads.unshift(newLead);
+    saveDb();
     triggerOutreachAutomation(newLead.id);
     res.json(newLead);
   });
@@ -4191,7 +4208,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
 
   // Fetch Campaigns
   app.get('/api/v1/campaigns', (req, res) => {
-    res.json({ campaigns });
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const filteredCampaigns = campaigns.filter(c => !(c as any).organizationId || (c as any).organizationId === orgId);
+    res.json({ campaigns: filteredCampaigns });
   });
 
   // Create Campaign
@@ -4202,8 +4222,12 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       return;
     }
 
-    const newCampaign: Campaign = {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const newCampaign: Campaign & { organizationId?: string } = {
       id: `camp_${Date.now()}`,
+      organizationId: orgId,
       name,
       targetAudience: targetAudience || 'GENERAL',
       status: 'DRAFT',
@@ -4215,6 +4239,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     };
 
     campaigns.unshift(newCampaign);
+    saveDb();
     res.json(newCampaign);
   });
 
@@ -4731,7 +4756,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetch Pipeline Deals
   app.get('/api/v1/deals', (req, res) => {
-    res.json({ deals });
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const filteredDeals = deals.filter(d => !(d as any).organizationId || (d as any).organizationId === orgId);
+    res.json({ deals: filteredDeals });
   });
 
   // Update Deal Stage
@@ -4749,6 +4777,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (valueInr !== undefined) deal.valueInr = Number(valueInr);
     deal.updatedAt = new Date().toISOString();
 
+    saveDb();
     res.json(deal);
   });
 
@@ -4761,8 +4790,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return;
     }
 
-    const newDeal: Deal = {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const newDeal: Deal & { organizationId?: string } = {
       id: `dl_${Date.now()}`,
+      organizationId: orgId,
       leadId,
       leadName: `${lead.firstName} ${lead.lastName}`,
       company: lead.company,
@@ -4773,6 +4806,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     };
 
     deals.push(newDeal);
+    saveDb();
     res.json(newDeal);
   });
 
@@ -4892,7 +4926,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetch Scheduled Appointments
   app.get('/api/v1/appointments', (req, res) => {
-    res.json({ appointments });
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const filteredAppointments = appointments.filter(a => !(a as any).organizationId || (a as any).organizationId === orgId);
+    res.json({ appointments: filteredAppointments });
   });
 
   // Book Appointment
@@ -5130,8 +5167,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       }
 
-      const newApt: Appointment = {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+      const newApt: Appointment & { organizationId?: string } = {
         id: `apt_${Date.now()}`,
+        organizationId: orgId,
         leadId,
         leadName: `${lead.firstName} ${lead.lastName}`,
         company: lead.company,
@@ -5166,6 +5207,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         createdAt: new Date().toISOString()
       });
 
+      saveDb();
       res.json(newApt);
     } catch (outerErr: any) {
       console.error('[APPOINTMENTS ENDPOINT UNEXPECTED ERROR]', outerErr);
@@ -5240,6 +5282,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
     }
 
+    saveDb();
     res.json(apt);
   });
 
@@ -5263,6 +5306,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       createdAt: new Date().toISOString()
     });
 
+    saveDb();
     res.json(apt);
   });
 

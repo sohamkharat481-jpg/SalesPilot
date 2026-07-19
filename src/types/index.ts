@@ -11,6 +11,18 @@ export interface Organization {
   name: string;
   domain?: string;
   industry?: string;
+  companyName?: string;
+  slug?: string;
+  owner?: string;
+  website?: string;
+  gstNumber?: string;
+  country?: string;
+  timezone?: string;
+  currency?: string;
+  logo?: string;
+  ownerId?: string;
+  subscriptionPlan?: string;
+  status?: string;
   createdAt: string;
 }
 
