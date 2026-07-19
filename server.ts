@@ -6553,19 +6553,26 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Helper to dynamically construct the Google OAuth redirect URI
   const getGoogleRedirectUri = (req: any): string => {
+    let baseUrl = '';
     if (process.env.APP_URL) {
-      return `${process.env.APP_URL.replace(/\/$/, '')}/api/auth/google/callback`;
+      baseUrl = process.env.APP_URL.trim();
+    } else {
+      const host = (req.headers.host || 'localhost:3000').trim();
+      const proto = (req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).trim();
+      baseUrl = `${proto}://${host}`;
     }
-    const host = req.headers.host || 'localhost:3000';
-    const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
-    return `${proto}://${host}/api/auth/google/callback`;
+    // Clean trailing slashes
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    return `${baseUrl}/api/auth/google/callback`;
   };
 
   // Google OAuth Debug Endpoint
   app.get('/api/debug/google-oauth', (req, res) => {
     console.log('[DEBUG ENDPOINT] Executing Google OAuth diagnostics...');
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const rawClientId = process.env.GOOGLE_CLIENT_ID || '';
+    const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+    const clientId = rawClientId.trim().replace(/^['"]|['"]$/g, '');
+    const clientSecret = rawClientSecret.trim().replace(/^['"]|['"]$/g, '');
 
     const clientIdExists = !!clientId;
     const clientSecretExists = !!clientSecret;
@@ -6601,11 +6608,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Google OAuth URL generation
   app.get('/api/auth/google/url', (req, res) => {
     console.log('[GOOGLE OAUTH URL GEN] Starting URL generation flow...');
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) {
+    const rawClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!rawClientId) {
       console.error('[GOOGLE OAUTH URL GEN] ERROR: GOOGLE_CLIENT_ID is not configured in server environment variables.');
       return res.status(400).json({ error: 'GOOGLE_CLIENT_ID is not configured on the server. Please add GOOGLE_CLIENT_ID to your environment variables.' });
     }
+    const clientId = rawClientId.trim().replace(/^['"]|['"]$/g, '');
     
     // Log the exact GOOGLE_CLIENT_ID value being used (mask the middle 60%, show first 15 and last 15 characters)
     let maskedClientId = clientId;
@@ -6620,6 +6628,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       maskedClientId = clientId.substring(0, half) + '...' + clientId.substring(len - half);
     }
     console.log(`[GOOGLE OAUTH URL GEN] GOOGLE_CLIENT_ID: ${maskedClientId}`);
+    
+    // Explicit Audit Logs
+    console.log('[GOOGLE OAUTH AUDIT] Reading environment variable name: GOOGLE_CLIENT_ID');
+    const auditPrefix = len >= 15 ? clientId.substring(0, 15) : clientId;
+    const auditSuffix = len >= 15 ? clientId.substring(len - 15) : clientId;
+    console.log(`[GOOGLE OAUTH AUDIT] Runtime GOOGLE_CLIENT_ID characters: [First 15: "${auditPrefix}"] [Last 15: "${auditSuffix}"]`);
 
     // Log the redirect URI
     const redirectUri = getGoogleRedirectUri(req);
@@ -6646,8 +6660,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       response_type: 'code',
       scope: scopes.join(' '),
       access_type: 'offline',
-      prompt: 'consent',
-      approval_prompt: 'force'
+      prompt: 'consent'
     });
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     
@@ -6661,8 +6674,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   app.get('/api/auth/google/callback', async (req, res) => {
     console.log('[GOOGLE CALLBACK FLOW] Received request on callback handler.');
     const code = req.query.code as string;
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const rawClientId = process.env.GOOGLE_CLIENT_ID;
+    const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    
+    const clientId = rawClientId ? rawClientId.trim().replace(/^['"]|['"]$/g, '') : '';
+    const clientSecret = rawClientSecret ? rawClientSecret.trim().replace(/^['"]|['"]$/g, '') : '';
     
     if (!code) {
       console.error('[GOOGLE CALLBACK FLOW] ERROR: No auth code provided in query string.');
@@ -7435,12 +7451,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       if (account.refreshToken) {
         console.log(`[GOOGLE AUTH - ${serviceName}] Attempting automatic token refresh for ${email}...`);
         try {
+          const rawClientId = process.env.GOOGLE_CLIENT_ID || '';
+          const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+          const cleanClientId = rawClientId.trim().replace(/^['"]|['"]$/g, '');
+          const cleanClientSecret = rawClientSecret.trim().replace(/^['"]|['"]$/g, '');
+
           const response = await fetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-              client_id: process.env.GOOGLE_CLIENT_ID || '',
-              client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+              client_id: cleanClientId,
+              client_secret: cleanClientSecret,
               refresh_token: account.refreshToken,
               grant_type: 'refresh_token'
             })
@@ -7607,8 +7628,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     if (activeAcc) {
       if (isRealToken) {
-        const token = await refreshCalendarTokenIfNeeded(activeAcc);
         try {
+          const token = await refreshCalendarTokenIfNeeded(activeAcc);
           const googleEventPayload: any = {
             summary: eventSummary,
             description: eventDescription,
@@ -7755,8 +7776,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
 
     if (isRealToken && gEventId && !gEventId.startsWith('mock_')) {
-      const token = await refreshCalendarTokenIfNeeded(activeAcc);
       try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
         const attendeeEmails = attendees || [apt.email];
 
         // Validate each attendee email individually
@@ -7857,8 +7878,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
 
     if (isRealToken && gEventId && !gEventId.startsWith('mock_')) {
-      const token = await refreshCalendarTokenIfNeeded(activeAcc);
       try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
         const gRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${gEventId}?sendUpdates=all`, {
           method: 'DELETE',
           headers: {
@@ -7912,8 +7933,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
 
     if (isRealToken) {
-      const token = await refreshCalendarTokenIfNeeded(activeAcc);
       try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
         const gRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=' + new Date().toISOString() + '&singleEvents=true&orderBy=startTime', {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -7933,9 +7954,16 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             isGoogleEvent: true
           }));
           return res.json({ events: externalEvents });
+        } else {
+          const errText = await gRes.text();
+          console.warn('[GOOGLE CALENDAR API ERROR] non-ok response:', errText);
         }
       } catch (err: any) {
         console.error('[GOOGLE CALENDAR API ERROR]', err);
+        if (err.message && (err.message.includes('expired') || err.message.includes('refresh') || err.message.includes('reconnect'))) {
+          activeAcc.status = 'REAUTH_NEEDED';
+          saveAccountsToDisk();
+        }
       }
     }
 
@@ -8042,8 +8070,19 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     if (isRealToken) {
       log('Attempting to request a secure refresh token if needed...');
-      const token = await refreshCalendarTokenIfNeeded(activeAcc);
-      log('Refresh check completed successfully.');
+      let token = '';
+      try {
+        token = await refreshCalendarTokenIfNeeded(activeAcc);
+        log('Refresh check completed successfully.');
+      } catch (err: any) {
+        log(`FAIL: Refresh check failed. Error: ${err.message || String(err)}`);
+        return res.status(401).json({
+          success: false,
+          error: `Google Calendar Auth failure: ${err.message || String(err)}`,
+          status: 'REAUTH_NEEDED',
+          logs
+        });
+      }
 
       log('Step 1: Creating a real Google Calendar event payload with attendee & Google Meet request...');
       const googleEventPayload: any = {
