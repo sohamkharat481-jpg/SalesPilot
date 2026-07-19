@@ -6555,14 +6555,28 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   const getGoogleRedirectUri = (req: any): string => {
     let baseUrl = '';
     const envAppUrl = process.env.APP_URL ? process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '') : '';
+    const host = (req?.headers?.host || '').trim();
+
+    // Log Vercel-specific and APP_URL environment variables to assist auditing
+    console.log(`[GOOGLE OAUTH REDIRECT AUDIT] Environment diagnostics:`, {
+      APP_URL_env: process.env.APP_URL || '(empty)',
+      VERCEL_env: process.env.VERCEL || '(empty)',
+      VERCEL_URL_env: process.env.VERCEL_URL || '(empty)',
+      VERCEL_ENV_env: process.env.VERCEL_ENV || '(empty)',
+      runtime_host_header: host || '(empty)'
+    });
 
     if (envAppUrl) {
       baseUrl = envAppUrl;
-      console.log(`[GOOGLE OAUTH REDIRECT] Strictly using APP_URL from environment: "${baseUrl}"`);
+      console.log(`[GOOGLE OAUTH REDIRECT] Strictly using APP_URL from environment variables: "${baseUrl}"`);
+    } else if (process.env.VERCEL || host.includes('vercel.app')) {
+      // Vercel environment detected but APP_URL is missing/ignored. 
+      // Force production URL to match Google Cloud Console configuration as requested.
+      baseUrl = 'https://sales-pilot-green.vercel.app';
+      console.log(`[GOOGLE OAUTH REDIRECT] Vercel environment or vercel.app host detected but APP_URL is not set/ignored. Overriding and using production fallback base URL: "${baseUrl}"`);
     } else {
-      const host = (req?.headers?.host || 'localhost:3000').trim();
       const proto = (req?.headers?.['x-forwarded-proto'] || (req?.secure ? 'https' : 'http')).trim();
-      baseUrl = `${proto}://${host}`;
+      baseUrl = `${proto}://${host || 'localhost:3000'}`;
       console.log(`[GOOGLE OAUTH REDIRECT] No APP_URL found, generated dynamic baseUrl from headers: "${baseUrl}"`);
     }
     // Clean trailing slashes
