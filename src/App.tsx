@@ -8,7 +8,7 @@ import {
   Sparkles, Layers, Users, Award, Calendar, CreditCard, 
   Settings, Loader2, LogOut, Check, ChevronRight, ChevronLeft, Menu, X, ArrowUpRight, ShieldAlert,
   Bell, Search, Bot, FileText, TrendingUp, Sun, Moon, Clock, Activity, Send, Briefcase, ShieldCheck,
-  Rocket
+  Rocket, Building2, Terminal
 } from 'lucide-react';
 import { Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   WorkspaceUser, SubscriptionTier, DealStage, SequenceStep 
@@ -28,9 +28,12 @@ import { OpenAiSuiteView } from './components/OpenAiSuiteView';
 import { ClientPortalView } from './components/ClientPortalView';
 import { SuperAdminView } from './components/SuperAdminView';
 import { LaunchCenterView } from './components/LaunchCenterView';
+import WorkspaceView from './components/WorkspaceView';
 import { useAuth } from './authentication/AuthContext';
 import { AuthView } from './components/AuthView';
 import { OnboardingWizard } from './components/OnboardingWizard';
+import { AutomationView } from './components/AutomationView';
+import { DeveloperPortalView } from './components/DeveloperPortalView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -431,6 +434,7 @@ export default function App() {
     { id: 'leads', label: 'Lead Engine', icon: Users, badge: leads.length },
     { id: 'openai-suite', label: 'Research', icon: Sparkles },
     { id: 'campaigns', label: 'Campaigns', icon: Sparkles },
+    { id: 'automation', label: 'Workflows', icon: Activity },
     { id: 'outreach', label: 'Outreach', icon: Send },
     { id: 'scheduler', label: 'Appointments', icon: Calendar, badge: appointments.filter(a => a.status === 'SCHEDULED').length },
     { id: 'pipeline', label: 'CRM', icon: Award },
@@ -439,7 +443,9 @@ export default function App() {
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'integrations', label: 'Integrations', icon: Settings },
+    { id: 'developer-portal', label: 'API & Developer Hub', icon: Terminal },
     { id: 'launch-center', label: 'Enterprise Launch', icon: Rocket },
+    { id: 'workspace', label: 'Workspace Hub', icon: Building2 },
     { id: 'client-portal', label: 'Client Portal', icon: Briefcase },
     ...((user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') ? [{ id: 'super-admin', label: 'Admin (Owner Only)', icon: ShieldCheck }] : [])
   ] : [
@@ -914,6 +920,10 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'automation' && (
+            <AutomationView />
+          )}
+
           {activeTab === 'outreach' && (
             <OutreachView />
           )}
@@ -974,6 +984,16 @@ export default function App() {
             <LaunchCenterView />
           )}
 
+          {activeTab === 'workspace' && (
+            <WorkspaceView 
+              user={user} 
+              onRefreshUser={async () => {
+                // Trigger profile refresh if needed
+                console.log('Refreshing user context in Workspace Hub');
+              }}
+            />
+          )}
+
           {activeTab === 'billing' && (
             <BillingView 
               user={user} 
@@ -986,6 +1006,10 @@ export default function App() {
               credentials={integrations} 
               onSaveCredentials={handleSaveCredentials} 
             />
+          )}
+
+          {activeTab === 'developer-portal' && (
+            <DeveloperPortalView />
           )}
         </main>
 

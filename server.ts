@@ -11,8 +11,15 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   LeadStatus, DealStage, CampaignStatus, SequenceStep, WorkspaceUser,
-  LeadResearchProfile, SubscriptionTier, TeamMember, UserRole
+  LeadResearchProfile, SubscriptionTier, TeamMember, UserRole,
+  AiCompanyResearch, AiContactProfile, AiScore, AiEmailGeneration,
+  AiFollowup, AiMeetingBrief, AiProposal,
+  Organization, OrgRole, OrgPermission, OrgMemberPermission,
+  OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
+  AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory
 } from './src/types';
+import { WorkflowRunner } from './src/lib/workflowRunner';
+import { WorkflowScheduler } from './src/lib/workflowScheduler';
 import { LeadProviderRegistry, validateWebsite, calculateLeadScore } from './src/backend/leadProviders';
 import { 
   executeAiCompletion, 
@@ -24,6 +31,14 @@ import {
   resetAiUsageStats, 
   getOrCreateChatSession
 } from './src/backend/openaiService';
+
+import { 
+  handleCommandInput, 
+  executeTaskPipeline, 
+  processApprovalRequest, 
+  initializeDefaultAgentsAndPermissions,
+  logAgentAction
+} from './src/backend/brainEngine';
 
 let geminiCooldownExpiry = 0;
 
@@ -2749,6 +2764,12 @@ async function startServer() {
 
     leads.unshift(newLead);
     saveDb();
+
+    // Trigger Workflow Engine NEW_LEAD event
+    WorkflowRunner.triggerEvent(orgId, 'NEW_LEAD', newLead).catch(err => {
+      console.error('Failed to trigger NEW_LEAD workflows:', err);
+    });
+
     triggerOutreachAutomation(newLead.id);
     res.json(newLead);
   });
@@ -2762,6 +2783,1680 @@ async function startServer() {
     }
     const validation = await validateWebsite(website);
     res.json(validation);
+  });
+
+  // --- AI SDR MODULE OPERATIONS AND ENDPOINTS WITH TENANT ISOLATION ---
+
+  async function runAiSdrResearch(leadId: string, orgId: string, customApiKey?: string) {
+    const lead = leads.find(l => l.id === leadId);
+    if (!lead) return null;
+
+    let profile = lead.researchProfile;
+    if (!profile) {
+      profile = await generateResearchProfile(lead, customApiKey);
+      lead.researchProfile = profile;
+      saveDb();
+    }
+
+    // Deconstruct and save to ai_company_research
+    const companyResearchId = `comp_res_${leadId}`;
+    const companyResearchItem: AiCompanyResearch = {
+      id: companyResearchId,
+      leadId: leadId,
+      organizationId: orgId,
+      summary: profile.companySummary || `${lead.company} is a leading organization in their sector, operating with strong professional competency.`,
+      industry: profile.businessCategory || lead.enrichment?.industryGroup || 'Technology & Professional Services',
+      productsServices: profile.products || profile.services || [],
+      websiteAnalysis: profile.websiteAnalysis || 'Likely standard modern web presence with corporate landing pages.',
+      teamSize: profile.businessSize || lead.enrichment?.companySize || '10-50 employees',
+      technologies: profile.techStack || lead.enrichment?.techStack || [],
+      painPoints: profile.painPoints || ['Outbound scaling friction', 'CRM organization efficiency', 'Lead qualification lead times'],
+      recentNews: profile.buyingSignals || [],
+      icpFitScore: profile.salesOppScore || 85,
+      createdAt: new Date().toISOString()
+    };
+    localDb.addAiCompanyResearch(companyResearchItem);
+
+    // Deconstruct and save to ai_contact_profiles
+    const contactProfileId = `cont_prof_${leadId}`;
+    const contactProfileItem: AiContactProfile = {
+      id: contactProfileId,
+      leadId: leadId,
+      organizationId: orgId,
+      name: `${lead.firstName} ${lead.lastName || ''}`.trim(),
+      role: lead.title || 'Decision Maker',
+      decisionMakerScore: profile.dmInfluenceScore || 80,
+      buyingIntentEstimate: (profile.dmBuyingAuthority === 'SOLE_DECISION_MAKER' || profile.dmBuyingAuthority === 'HIGH') ? 'HIGH' : 'MEDIUM',
+      talkingPoints: profile.salesAngleSuggestions || ['Address operational efficiency challenges with SalesPilot', 'Highlight quick integration with their current technology stack'],
+      createdAt: new Date().toISOString()
+    };
+    localDb.addAiContactProfile(contactProfileItem);
+
+    // Create four scores in ai_scores
+    const scoresToCreate = [
+      { type: 'ICP' as const, val: companyResearchItem.icpFitScore, reason: 'Based on company profile, revenue estimate, and industry match.' },
+      { type: 'DECISION_MAKER' as const, val: contactProfileItem.decisionMakerScore, reason: `Evaluation of ${lead.firstName}'s title and direct buying authority.` },
+      { type: 'BUYING_INTENT' as const, val: contactProfileItem.buyingIntentEstimate === 'HIGH' ? 90 : (contactProfileItem.buyingIntentEstimate === 'MEDIUM' ? 60 : 30), reason: 'Determined based on website signal highlights and digital tech usage.' },
+      { type: 'OVERALL' as const, val: Math.round((companyResearchItem.icpFitScore + contactProfileItem.decisionMakerScore + (contactProfileItem.buyingIntentEstimate === 'HIGH' ? 90 : 60)) / 3), reason: 'Combined index score representing SDR outreach priority.' }
+    ];
+
+    for (const s of scoresToCreate) {
+      const scoreItem: AiScore = {
+        id: `score_${leadId}_${s.type.toLowerCase()}`,
+        leadId: leadId,
+        organizationId: orgId,
+        scoreType: s.type,
+        scoreValue: s.val,
+        reasoning: s.reason,
+        createdAt: new Date().toISOString()
+      };
+      localDb.addAiScore(scoreItem);
+    }
+
+    return {
+      research: companyResearchItem,
+      contact: contactProfileItem,
+      scores: scoresToCreate
+    };
+  }
+
+  // 1. Fetch Company Research & Contact Intel
+  app.get('/api/v1/ai/research/:leadId', (req, res) => {
+    const { leadId } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    const research = localDb.getAiCompanyResearchByLeadId(leadId);
+    const contact = localDb.getAiContactProfileByLeadId(leadId);
+    const scores = localDb.getAiScoresByLeadId(leadId);
+
+    res.json({
+      research,
+      contact,
+      scores
+    });
+  });
+
+  // 2. Trigger Company Research & Contact Intel manually
+  app.post('/api/v1/ai/research/:leadId', async (req, res) => {
+    const { leadId } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    try {
+      lead.researchProfile = undefined;
+      const results = await runAiSdrResearch(leadId, orgId, process.env.GEMINI_API_KEY);
+      res.json(results);
+    } catch (error: any) {
+      console.error('[AI SDR RESEARCH ERROR]', error);
+      res.status(500).json({ error: error.message || 'Failed to generate AI research.' });
+    }
+  });
+
+  // 3. AI Email Writer
+  app.post('/api/v1/ai/email/generate', async (req, res) => {
+    const { leadId, tone, goal, offer, customPrompt } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    let research = localDb.getAiCompanyResearchByLeadId(leadId);
+    let contact = localDb.getAiContactProfileByLeadId(leadId);
+
+    if (!research || !contact) {
+      const autoRes = await runAiSdrResearch(leadId, orgId, geminiKey);
+      if (autoRes) {
+        research = autoRes.research;
+        contact = autoRes.contact;
+      }
+    }
+
+    const selectedTone = tone || 'Formal';
+    const selectedGoal = goal || 'Schedule a 15-minute introductory meeting';
+    const selectedOffer = offer || 'SalesPilot Outbound Platform';
+
+    let subject = '';
+    let body = '';
+
+    if (!geminiKey) {
+      subject = `Quick question regarding outbound sales at ${lead.company}`;
+      body = `Hi ${lead.firstName},\n\nI was reviewing ${lead.company}'s digital setup and noticed your work as ${lead.title || 'Director'}.\n\nGiven the operational demands in the ${research?.industry || 'industry'} sector, I thought you might find our automation solutions at SalesPilot valuable. We help companies like yours tackle key challenges, such as: ${research?.painPoints?.slice(0, 2).join(' and ') || 'scaling sales outreach'}.\n\nWould you be open to a brief conversation next week to see if we might be a fit?\n\nBest regards,\n${user?.fullName || 'Soham Kharat'}\nSalesPilot`;
+    } else {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey: geminiKey,
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+        });
+
+        const prompt = `You are an elite outbound B2B Sales Development Representative (SDR).
+Generate a highly personalized cold outreach email to this prospect:
+- Name: ${lead.firstName} ${lead.lastName || ''}
+- Role: ${lead.title || 'Decision Maker'}
+- Company: ${lead.company}
+- Industry: ${research?.industry}
+- Pain Points: ${JSON.stringify(research?.painPoints)}
+- Technologies: ${JSON.stringify(research?.technologies)}
+- Talking Points to include: ${JSON.stringify(contact?.talkingPoints)}
+
+Custom Email Constraints:
+- Tone: ${selectedTone}
+- Outbound Goal: ${selectedGoal}
+- Value Offer: ${selectedOffer}
+- Custom Instructions/Context: ${customPrompt || 'None'}
+
+Rules:
+- Keep the subject short, catchy, and hyper-personalized (no spammy clickbait).
+- Keep the body concise (less than 150 words), conversational, with a single clear Call-to-Action.
+- Avoid robotic or cheesy corporate phrases.
+- Format the response as a strictly valid JSON object with fields: "subject" and "body" only. Do not wrap in markdown \`\`\`json blocks. Use JSON response mode.`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json'
+          }
+        });
+
+        const text = response.text || '';
+        const parsed = JSON.parse(text);
+        subject = parsed.subject || `Outreach to ${lead.company}`;
+        body = parsed.body || `Hi ${lead.firstName}, ...`;
+      } catch (err) {
+        console.error('[AI EMAIL GENERATION ERROR]', err);
+        subject = `Outreach regarding ${lead.company}`;
+        body = `Hi ${lead.firstName},\n\nHope this finds you well. I wanted to reach out regarding outbound sales solutions at ${lead.company}. Let me know if you have time for a brief call next week.\n\nBest,`;
+      }
+    }
+
+    const emailGenItem: AiEmailGeneration = {
+      id: `em_gen_${Date.now()}`,
+      leadId,
+      organizationId: orgId,
+      subject,
+      body,
+      tone: selectedTone as any,
+      promptUsed: customPrompt || null,
+      status: 'DRAFT',
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addAiEmailGeneration(emailGenItem);
+    res.json(emailGenItem);
+  });
+
+  // 4. Fetch generated emails
+  app.get('/api/v1/ai/email/generations/:leadId', (req, res) => {
+    const { leadId } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const gens = localDb.getAiEmailGenerationsByLeadId(leadId).filter(e => e.organizationId === orgId);
+    res.json(gens);
+  });
+
+  // 5. Update Email generation status
+  app.post('/api/v1/ai/email/status', (req, res) => {
+    const { id, status, body, subject } = req.body;
+    if (!id || !status) {
+      res.status(400).json({ error: 'id and status are required.' });
+      return;
+    }
+
+    const success = localDb.updateAiEmailGeneration(id, { status, body, subject });
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Generation not found.' });
+    }
+  });
+
+  // 6. AI Follow-up Generator
+  app.post('/api/v1/ai/followups/generate', async (req, res) => {
+    const { leadId, sequenceId, stepsCount } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const steps = stepsCount ? parseInt(stepsCount) : 3;
+
+    let research = localDb.getAiCompanyResearchByLeadId(leadId);
+    if (!research) {
+      const autoRes = await runAiSdrResearch(leadId, orgId, geminiKey);
+      if (autoRes) research = autoRes.research;
+    }
+
+    const createdFollowups: AiFollowup[] = [];
+
+    for (let i = 1; i <= steps; i++) {
+      let subject = `RE: Outbound sales at ${lead.company} (Follow-up #${i})`;
+      let body = '';
+      const delayDays = i * 3;
+
+      if (!geminiKey) {
+        body = `Hi ${lead.firstName},\n\nHope you're having a great week.\n\nI wanted to follow up on my previous message. I know you're busy managing operations at ${lead.company}, but I'd love to share how our team at SalesPilot helps companies like yours streamline their outbound workflows.\n\nDo you have 5 minutes for a quick chat next week?\n\nBest,`;
+      } else {
+        try {
+          const ai = new GoogleGenAI({
+            apiKey: geminiKey,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+          });
+
+          const prompt = `You are an elite B2B Sales Development Representative (SDR).
+Write follow-up email #${i} for a campaign sequence.
+Lead details:
+- Name: ${lead.firstName} ${lead.lastName || ''}
+- Role: ${lead.title || 'Decision Maker'}
+- Company: ${lead.company}
+- Industry: ${research?.industry}
+- Pain points: ${JSON.stringify(research?.painPoints)}
+
+Sequence context:
+- This is follow-up email step #${i} in the sequence.
+- Delay days from start: ${delayDays} days.
+- Ensure step #1 asks for a quick chat, step #2 adds a specific case study/value metric, and step #3 is a polite final break-up email.
+
+Rules:
+- Keep the follow-up very short, friendly, and non-intrusive.
+- Do not repeat the original pitch; build on it or change the angle.
+- Format the response as a strictly valid JSON object with fields: "subject" and "body" only. Do not wrap in markdown \`\`\`json blocks. Use JSON response mode.`;
+
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.5-flash',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json'
+            }
+          });
+
+          const text = response.text || '';
+          const parsed = JSON.parse(text);
+          subject = parsed.subject || subject;
+          body = parsed.body || `Hi ${lead.firstName}, following up regarding my previous note...`;
+        } catch (err) {
+          console.error('[FOLLOWUP GEN ERROR]', err);
+          body = `Hi ${lead.firstName},\n\nJust following up on my previous email. Let me know if you have a moment to connect.`;
+        }
+      }
+
+      const followupItem: AiFollowup = {
+        id: `fol_${Date.now()}_${i}`,
+        leadId,
+        organizationId: orgId,
+        sequenceId: sequenceId || `seq_${Date.now()}`,
+        stepNumber: i,
+        subject,
+        body,
+        delayDays,
+        status: 'PENDING',
+        createdAt: new Date().toISOString()
+      };
+
+      localDb.addAiFollowup(followupItem);
+      createdFollowups.push(followupItem);
+    }
+
+    res.json(createdFollowups);
+  });
+
+  // 7. Fetch follow-ups
+  app.get('/api/v1/ai/followups/:leadId', (req, res) => {
+    const { leadId } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const followups = localDb.getAiFollowupsByLeadId(leadId).filter(f => f.organizationId === orgId);
+    res.json(followups);
+  });
+
+  // 8. Update Follow-up status
+  app.post('/api/v1/ai/followups/status', (req, res) => {
+    const { id, status, body, subject } = req.body;
+    if (!id || !status) {
+      res.status(400).json({ error: 'id and status are required.' });
+      return;
+    }
+
+    const success = localDb.updateAiFollowup(id, { status, body, subject });
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Followup not found.' });
+    }
+  });
+
+  // 9. AI Meeting Prep Brief
+  app.get('/api/v1/ai/meeting-brief/:appointmentId', async (req, res) => {
+    const { appointmentId } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const appt = appointments.find(a => a.id === appointmentId && (!(a as any).organizationId || (a as any).organizationId === orgId));
+    if (!appt) {
+      res.status(404).json({ error: 'Appointment not found.' });
+      return;
+    }
+
+    let brief = localDb.getAiMeetingBriefByAppointmentId(appointmentId);
+    if (brief) {
+      res.json(brief);
+      return;
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const lead = leads.find(l => l.id === appt.leadId);
+
+    let companyOverview = `${appt.company || 'The prospect company'} is scheduled for a business call.`;
+    let contactOverview = `${appt.leadName || 'The prospect decision maker'} is joining the meeting.`;
+    let keyDiscussionPoints = ['Outline operational challenges and current workflows', 'Introduce SalesPilot outbound automation and metrics'];
+    let suggestedQuestions = ['What are your current booking rates?', 'How much time does your team spend sourcing and research?'];
+    let possibleObjections = ['Price friction', 'Integration complexity with current stack'];
+    let meetingStrategy = 'Consultative demo focusing on quick-wins, leading with automated outbound workflows.';
+
+    if (lead) {
+      let research = localDb.getAiCompanyResearchByLeadId(lead.id);
+      let contact = localDb.getAiContactProfileByLeadId(lead.id);
+
+      if (!research) {
+        const autoRes = await runAiSdrResearch(lead.id, orgId, geminiKey);
+        if (autoRes) {
+          research = autoRes.research;
+          contact = autoRes.contact;
+        }
+      }
+
+      if (geminiKey) {
+        try {
+          const ai = new GoogleGenAI({
+            apiKey: geminiKey,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+          });
+
+          const prompt = `You are an elite sales consultant. Create a detailed briefing document for an upcoming scheduled meeting.
+Meeting details:
+- Title: ${appt.notes || 'Sales Introduction'}
+- Lead: ${appt.leadName} (${appt.email})
+- Company: ${appt.company}
+- Industry: ${research?.industry}
+- Key Technologies Sourced: ${JSON.stringify(research?.technologies)}
+- Company Pain Points: ${JSON.stringify(research?.painPoints)}
+- Decision-maker authority level: ${contact?.buyingIntentEstimate} intent
+
+Format your output as a strictly valid JSON object with the following fields:
+{
+  "companyOverview": "A professional executive-level synthesis of their company, business model, and strategic position.",
+  "contactOverview": "A synthesis of ${appt.leadName}'s title, likely role responsibilities, and how to engage them.",
+  "keyDiscussionPoints": ["An array of exactly 5 high-impact, strategic discussion points for the meeting."],
+  "suggestedQuestions": ["An array of 4 custom questions to ask during the call."],
+  "possibleObjections": ["An array of 3 possible objections + solid counters for each objection."],
+  "meetingStrategy": "A detailed strategy outlining the flow of the conversation, key features to demo, and how to close them on next steps."
+}
+Return only JSON without markdown wrappers.`;
+
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.1-pro-preview',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json'
+            }
+          });
+
+          const text = response.text || '';
+          const parsed = JSON.parse(text);
+          companyOverview = parsed.companyOverview || companyOverview;
+          contactOverview = parsed.contactOverview || contactOverview;
+          keyDiscussionPoints = parsed.keyDiscussionPoints || keyDiscussionPoints;
+          suggestedQuestions = parsed.suggestedQuestions || suggestedQuestions;
+          possibleObjections = parsed.possibleObjections || possibleObjections;
+          meetingStrategy = parsed.meetingStrategy || meetingStrategy;
+        } catch (err) {
+          console.error('[AI BRIEF GENERATION ERROR]', err);
+        }
+      } else {
+        companyOverview = research?.summary || companyOverview;
+        contactOverview = `${lead.firstName} ${lead.lastName || ''} (${lead.title || 'Decision Maker'}). Focus on: ${contact?.talkingPoints?.join(', ') || 'outbound automated workflows'}`;
+      }
+    }
+
+    const briefItem: AiMeetingBrief = {
+      id: `brief_${Date.now()}`,
+      appointmentId,
+      organizationId: orgId,
+      companyOverview,
+      contactOverview,
+      keyDiscussionPoints,
+      suggestedQuestions,
+      possibleObjections,
+      meetingStrategy,
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addAiMeetingBrief(briefItem);
+    res.json(briefItem);
+  });
+
+  // 10. AI Proposal Generator
+  app.post('/api/v1/ai/proposal/generate', async (req, res) => {
+    const { leadId, title, scope, pricingSummary, nextSteps } = req.body;
+    if (!leadId || !title || !scope) {
+      res.status(400).json({ error: 'leadId, title, and scope are required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    let markdownContent = '';
+
+    if (!geminiKey) {
+      markdownContent = `# B2B Business Proposal: ${title}\n\n**Prepared for:** ${lead.company}\n**Prepared by:** ${user?.fullName || 'SalesPilot Team'}\n**Date:** ${new Date().toLocaleDateString()}\n\n## 1. Executive Summary\nWe are pleased to submit this proposal to help ${lead.company} automate outreach and scale their outbound sales pipeline.\n\n## 2. Scope of Work\n${scope}\n\n## 3. Financial Summary\n${pricingSummary || 'Standard subscription fee: ₹45,000 INR / month'}\n\n## 4. Next Steps\n${nextSteps || '1. Sign service agreement.\n2. Initiate onboarding sequence.\n3. Configure dynamic campaign steps.'}`;
+    } else {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey: geminiKey,
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+        });
+
+        const prompt = `You are an elite enterprise B2B sales solution architect.
+Write a highly professional, beautifully formatted, comprehensive Markdown-based B2B Sales Proposal.
+Lead Details:
+- Company: ${lead.company}
+- Decision Maker: ${lead.firstName} ${lead.lastName || ''} (${lead.title || 'Director'})
+
+Proposal Metadata:
+- Title: ${title}
+- Custom Scope of Work: ${scope}
+- Custom Pricing Details: ${pricingSummary}
+- Custom Next Steps: ${nextSteps}
+
+Rules:
+- Provide an exceptionally professional executive summary that matches their business coordinates.
+- Break down the proposed outbound workflow optimization steps.
+- Present scope of work and pricing in elegant markdown tables.
+- End with persuasive next steps and standard terms.
+- Output ONLY the formatted markdown text. No JSON wrapper, no markdown blocks enclosing the response.`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.1-pro-preview',
+          contents: prompt
+        });
+
+        markdownContent = response.text || '';
+      } catch (err) {
+        console.error('[PROPOSAL GEN ERROR]', err);
+        markdownContent = `# Business Proposal\n\nFailed to generate custom AI proposal. Scope requested: ${scope}`;
+      }
+    }
+
+    const proposalItem: AiProposal = {
+      id: `prop_${Date.now()}`,
+      leadId,
+      organizationId: orgId,
+      title,
+      scope,
+      pricingSummary: pricingSummary || '₹45,000 INR / month',
+      nextSteps: nextSteps || 'Sign contract',
+      markdownContent,
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addAiProposal(proposalItem);
+    res.json(proposalItem);
+  });
+
+  // 11. Fetch Proposals
+  app.get('/api/v1/ai/proposals/:leadId', (req, res) => {
+    const { leadId } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const props = localDb.getAiProposalsByLeadId(leadId).filter(p => p.organizationId === orgId);
+    res.json(props);
+  });
+
+  // 12. CRM Automation Auto-Update
+  app.post('/api/v1/ai/crm/auto-update', (req, res) => {
+    const { leadId, actionType, notes } = req.body;
+    if (!leadId || !actionType) {
+      res.status(400).json({ error: 'leadId and actionType are required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    if (actionType === 'EMAIL_SENT') {
+      lead.status = 'CONTACTED';
+      lead.confidenceScore = Math.min(100, (lead.confidenceScore || 40) + 5);
+      lead.researchStatusText = 'Outbound sequence initiated successfully';
+    } else if (actionType === 'EMAIL_REPLIED') {
+      lead.status = 'QUALIFIED';
+      lead.confidenceScore = Math.min(100, (lead.confidenceScore || 40) + 20);
+      lead.researchStatusText = 'Positive reply tracked - hot opportunity';
+      
+      const newTask = {
+        id: `tsk_${Date.now()}`,
+        organizationId: orgId,
+        title: `Follow up with hot lead: ${lead.firstName} (${lead.company})`,
+        description: `Lead replied positively to outreach email. Notes: ${notes || 'Analyze reply and schedule intro call.'}`,
+        dueDate: new Date(Date.now() + 24 * 3600000).toISOString(),
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      
+      if (!(localDb as any).db.tasks) (localDb as any).db.tasks = [];
+      (localDb as any).db.tasks.push(newTask);
+      localDb.save();
+    } else if (actionType === 'MEETING_BOOKED') {
+      lead.status = 'QUALIFIED';
+      lead.confidenceScore = 90;
+      lead.researchStatusText = 'Introductory meeting scheduled';
+    }
+
+    lead.lastUpdated = new Date().toISOString();
+    saveDb();
+
+    res.json({ success: true, lead });
+  });
+
+  // ==================================================
+  // ENTERPRISE TEAM WORKSPACE SYSTEM ENDPOINTS
+  // ==================================================
+
+  // --- Dynamic Permission Resolver & Overrides ---
+  const hasPermission = (userId: string, orgId: string, permissionName: string): boolean => {
+    const user = localDb.getUsers().find(u => u.id === userId);
+    if (!user) return false;
+
+    // Founder/Owner always has all permissions
+    if (user.email.toLowerCase() === FOUNDER_EMAIL.toLowerCase() || user.role === 'OWNER') {
+      return true;
+    }
+
+    // Resolve member role first
+    const member = localDb.getTeamMembers(orgId).find((m: any) => m.userId === userId);
+    const memberRoleName = member ? member.role : user.role;
+
+    // Let's resolve standard roles' permission mappings:
+    const standardRolePermissions: Record<string, string[]> = {
+      'OWNER': ['View CRM', 'Edit CRM', 'Delete CRM', 'Manage Campaigns', 'Manage Billing', 'Manage AI', 'Manage Integrations', 'View Reports', 'Manage Team', 'Manage Settings'],
+      'ADMIN': ['View CRM', 'Edit CRM', 'Delete CRM', 'Manage Campaigns', 'Manage AI', 'Manage Integrations', 'View Reports', 'Manage Team', 'Manage Settings'],
+      'MANAGER': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports', 'Manage Team'],
+      'SALES': ['View CRM', 'Edit CRM', 'Manage AI'],
+      'SALES_REP': ['View CRM', 'Edit CRM', 'Manage AI'],
+      'MARKETING': ['View CRM', 'Manage Campaigns'],
+      'SUPPORT': ['View CRM', 'Manage Integrations'],
+      'VIEWER': ['View CRM', 'View Reports']
+    };
+
+    // Check custom member permissions overrides
+    if (member) {
+      const customPerms = localDb.getMemberPermissions(member.id);
+      const matchedCustom = customPerms.find(p => {
+        const permObj = localDb.getPermissions().find(pe => pe.id === p.permissionId);
+        return permObj && permObj.name.toLowerCase() === permissionName.toLowerCase();
+      });
+      if (matchedCustom) {
+        return matchedCustom.allowed;
+      }
+    }
+
+    // Fallback to role-based standard permissions
+    const normalizedRole = String(memberRoleName).toUpperCase().replace(/\s+/g, '_');
+    const allowedPerms = standardRolePermissions[normalizedRole] || standardRolePermissions['SALES'] || [];
+    return allowedPerms.some(p => p.toLowerCase() === permissionName.toLowerCase());
+  };
+
+  // --- Utility Activity & Audit Logger ---
+  const logAuditAndActivity = (userId: string, orgId: string, email: string, action: string, details: string, req: any) => {
+    // 1. Audit Log
+    const auditLog: OrgAuditLog = {
+      id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      organizationId: orgId,
+      userId,
+      userEmail: email,
+      action,
+      details,
+      ipAddress: getClientMetadata(req).ipAddress,
+      createdAt: new Date().toISOString()
+    };
+    localDb.addAuditLog(auditLog);
+
+    // 2. Team Activity Feed
+    const userObj = localDb.getUsers().find(u => u.id === userId);
+    const teamAct: OrgTeamActivity = {
+      id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      organizationId: orgId,
+      userId,
+      userName: userObj ? userObj.fullName : email.split('@')[0],
+      actionType: action,
+      details,
+      createdAt: new Date().toISOString()
+    };
+    localDb.addTeamActivity(teamAct);
+  };
+
+  // --- 1. ORGANIZATIONS ENDPOINTS ---
+  app.get('/api/v1/workspace/organizations', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgs = localDb.getOrganizations();
+    if (user.email.toLowerCase() === FOUNDER_EMAIL.toLowerCase()) {
+      res.json({ success: true, organizations: orgs });
+    } else {
+      const userOrg = orgs.filter(o => o.id === user.organizationId);
+      res.json({ success: true, organizations: userOrg });
+    }
+  });
+
+  app.post('/api/v1/workspace/organizations', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const { name, domain, industry, website, logo } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Organization Name is required.' });
+    }
+
+    const orgId = `org_${Date.now()}`;
+    const newOrg: Organization = {
+      id: orgId,
+      name,
+      domain: domain || name.toLowerCase().replace(/\s+/g, '') + '.com',
+      industry: industry || 'SaaS & Software',
+      logo: logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60',
+      ownerId: user.id,
+      subscriptionPlan: 'STARTER',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.saveOrganization(newOrg);
+    
+    // Auto add as a team member with OWNER role
+    const memberId = `tm_${Date.now()}`;
+    const newMember: TeamMember = {
+      id: memberId,
+      email: user.email.toLowerCase(),
+      fullName: user.fullName,
+      role: 'OWNER',
+      status: 'ACTIVE',
+      joinedAt: new Date().toISOString(),
+      organizationId: orgId,
+      userId: user.id
+    } as any;
+    localDb.saveTeamMember(newMember);
+
+    // Update user active org
+    user.organizationId = orgId;
+    user.role = 'OWNER';
+    localDb.saveUser(user);
+
+    logAuditAndActivity(user.id, orgId, user.email, 'Organization created', `Created organization ${name}`, req);
+    res.json({ success: true, organization: newOrg });
+  });
+
+  app.put('/api/v1/workspace/organizations/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = req.params;
+    const { name, domain, logo, settings, subscriptionPlan, status, billingOwnerId } = req.body;
+
+    const org = localDb.getOrganizations().find(o => o.id === id);
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found.' });
+    }
+
+    // Permission check
+    if (!hasPermission(user.id, id, 'Manage Settings')) {
+      return res.status(403).json({ error: 'Unauthorized. Requires Manage Settings permission.' });
+    }
+
+    if (name !== undefined) org.name = name;
+    if (domain !== undefined) org.domain = domain;
+    if (logo !== undefined) org.logo = logo;
+    if (settings !== undefined) org.settings = settings;
+    if (subscriptionPlan !== undefined) org.subscriptionPlan = subscriptionPlan;
+    if (status !== undefined) org.status = status;
+    if (billingOwnerId !== undefined) org.ownerId = billingOwnerId;
+
+    localDb.saveOrganization(org);
+    logAuditAndActivity(user.id, id, user.email, 'Settings changes', `Updated settings for organization ${org.name}`, req);
+    res.json({ success: true, organization: org });
+  });
+
+  app.post('/api/v1/workspace/organizations/:id/transfer-ownership', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = req.params;
+    const { targetUserId } = req.body;
+
+    const org = localDb.getOrganizations().find(o => o.id === id);
+    if (!org) {
+      return res.status(404).json({ error: 'Organization not found.' });
+    }
+
+    if (org.ownerId !== user.id && user.email.toLowerCase() !== FOUNDER_EMAIL.toLowerCase()) {
+      return res.status(403).json({ error: 'Only the current Owner or Founder can transfer ownership.' });
+    }
+
+    const targetUser = localDb.getUsers().find(u => u.id === targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Target user not found.' });
+    }
+
+    // Update Organization Owner
+    org.ownerId = targetUser.id;
+    localDb.saveOrganization(org);
+
+    // Update roles
+    const currentMember = localDb.getTeamMembers(id).find((m: any) => m.userId === user.id);
+    if (currentMember) {
+      currentMember.role = 'ADMIN' as any;
+      localDb.saveTeamMember(currentMember);
+    }
+    const targetMember = localDb.getTeamMembers(id).find((m: any) => m.userId === targetUser.id);
+    if (targetMember) {
+      targetMember.role = 'OWNER' as any;
+      localDb.saveTeamMember(targetMember);
+    }
+
+    targetUser.role = 'OWNER';
+    localDb.saveUser(targetUser);
+
+    logAuditAndActivity(user.id, id, user.email, 'Role changes', `Transferred ownership of organization to ${targetUser.email}`, req);
+    res.json({ success: true, message: 'Ownership transferred successfully.' });
+  });
+
+  // --- 2. INVITATIONS ENDPOINTS ---
+  app.get('/api/v1/workspace/invitations', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const list = localDb.getInvitations(orgId);
+    res.json({ success: true, invitations: list });
+  });
+
+  app.post('/api/v1/workspace/invitations', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { email, role } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    if (!hasPermission(user.id, orgId, 'Manage Team')) {
+      return res.status(403).json({ error: 'Unauthorized. Requires Manage Team permission.' });
+    }
+
+    // Check if teammate is already a member
+    const existingMember = localDb.getTeamMembers(orgId).find(m => m.email.toLowerCase() === email.toLowerCase());
+    if (existingMember) {
+      return res.status(400).json({ error: 'This user is already a team member.' });
+    }
+
+    const invitationId = `inv_${Date.now()}`;
+    const newInvitation: OrgInvitation = {
+      id: invitationId,
+      organizationId: orgId,
+      email: email.toLowerCase(),
+      role: role || 'Sales Representative',
+      invitedBy: user.fullName || user.email,
+      status: 'PENDING',
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addInvitation(newInvitation);
+
+    // Save mock team member record to backward support existing team screens
+    const resolvedName = email.split('@')[0];
+    const mockMember: TeamMember = {
+      id: `tm_sim_${Date.now()}`,
+      fullName: resolvedName,
+      email: email.toLowerCase(),
+      role: (role || 'SALES') as any,
+      status: 'INVITED',
+      joinedAt: new Date().toISOString(),
+      organizationId: orgId
+    } as any;
+    localDb.saveTeamMember(mockMember);
+
+    // Sync backport to in-memory team list
+    serverTeamMembers.push(mockMember);
+
+    logAuditAndActivity(user.id, orgId, user.email, 'Campaign changes', `Invited teammate ${email} as ${role}`, req);
+
+    // Trigger Notification for the invited user (simulated)
+    const invitedUser = localDb.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (invitedUser) {
+      localDb.addNotification({
+        id: `nt_${Date.now()}`,
+        organizationId: orgId,
+        userId: invitedUser.id,
+        title: 'New Workspace Invitation',
+        message: `You have been invited to join the organization workspace as a ${role}.`,
+        type: 'general',
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    res.json({ success: true, invitation: newInvitation, teamMembers: serverTeamMembers });
+  });
+
+  app.post('/api/v1/workspace/invitations/:id/respond', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const { id } = req.params;
+    const { action } = req.body; // 'ACCEPTED' | 'DECLINED'
+
+    if (action !== 'ACCEPTED' && action !== 'DECLINED') {
+      return res.status(400).json({ error: 'Invalid action. Must be ACCEPTED or DECLINED.' });
+    }
+
+    const inv = (localDb as any).db.invitations?.find((i: any) => i.id === id);
+    if (!inv) {
+      return res.status(404).json({ error: 'Invitation not found.' });
+    }
+
+    localDb.updateInvitationStatus(id, action);
+
+    if (action === 'ACCEPTED') {
+      // Find the teammate sim record and update status to ACTIVE
+      const member = localDb.getTeamMembers(inv.organizationId).find(m => m.email.toLowerCase() === inv.email.toLowerCase());
+      if (member) {
+        member.status = 'ACTIVE';
+        (member as any).userId = user.id;
+        localDb.saveTeamMember(member);
+      } else {
+        const newMember: TeamMember = {
+          id: `tm_${Date.now()}`,
+          fullName: user.fullName || inv.email.split('@')[0],
+          email: inv.email,
+          role: inv.role as any,
+          status: 'ACTIVE',
+          joinedAt: new Date().toISOString(),
+          organizationId: inv.organizationId,
+          userId: user.id
+        } as any;
+        localDb.saveTeamMember(newMember);
+      }
+
+      // Update user active org & role
+      user.organizationId = inv.organizationId;
+      user.role = inv.role.toUpperCase().replace(/\s+/g, '_') as any;
+      localDb.saveUser(user);
+
+      logAuditAndActivity(user.id, inv.organizationId, user.email, 'Role changes', `Accepted invitation and joined organization`, req);
+    } else {
+      // Declined: remove simulated member
+      const list = localDb.getTeamMembers(inv.organizationId);
+      const matched = list.find(m => m.email.toLowerCase() === inv.email.toLowerCase());
+      if (matched) {
+        localDb.removeTeamMember(matched.id);
+      }
+    }
+
+    res.json({ success: true, status: action });
+  });
+
+  // ==================================================
+  // --- WORKFLOW AUTOMATION ENGINE ENDPOINTS ---
+  // ==================================================
+
+  // GET /api/v1/workflows
+  app.get('/api/v1/workflows', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const list = localDb.getWorkflows(orgId);
+      res.json({ success: true, workflows: list });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/v1/workflows
+  app.post('/api/v1/workflows', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { name, description, triggerType, triggerConfig, nodes, edges } = req.body;
+
+      if (!name || !triggerType) {
+        return res.status(400).json({ error: 'Name and triggerType are required.' });
+      }
+
+      const newWorkflow: AutomationWorkflow = {
+        id: 'wf_' + Math.random().toString(36).substring(2, 11),
+        organizationId: orgId,
+        name,
+        description: description || '',
+        status: 'DRAFT',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        triggerType,
+        triggerConfig: triggerConfig || {},
+        nodes: nodes || [
+          { id: 'node_trigger', type: 'trigger', label: triggerType, config: { triggerType } },
+          { id: 'node_end', type: 'end', label: 'End Node', config: {} }
+        ],
+        edges: edges || [
+          { id: 'edge_1', source: 'node_trigger', target: 'node_end' }
+        ]
+      };
+
+      localDb.addWorkflow(newWorkflow);
+
+      // Save initial version
+      localDb.addWorkflowVersion({
+        id: 'ver_' + Math.random().toString(36).substring(2, 11),
+        workflowId: newWorkflow.id,
+        versionNumber: 1,
+        name: 'Initial Draft',
+        nodes: newWorkflow.nodes,
+        edges: newWorkflow.edges,
+        updatedAt: newWorkflow.createdAt
+      });
+
+      // Log action
+      localDb.addAutomationHistory({
+        id: 'hist_' + Math.random().toString(36).substring(2, 11),
+        organizationId: orgId,
+        userId: user?.id || 'usr_81927391',
+        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        workflowId: newWorkflow.id,
+        workflowName: newWorkflow.name,
+        action: 'CREATE',
+        details: `Created new workflow "${newWorkflow.name}"`,
+        createdAt: new Date().toISOString()
+      });
+
+      res.status(201).json({ success: true, workflow: newWorkflow });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/v1/workflows/:id
+  app.patch('/api/v1/workflows/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+      const { name, description, status, triggerType, triggerConfig, nodes, edges } = req.body;
+
+      const workflow = localDb.getWorkflowById(id);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found or access denied.' });
+      }
+
+      const updatedData: any = {};
+      if (name !== undefined) updatedData.name = name;
+      if (description !== undefined) updatedData.description = description;
+      if (triggerType !== undefined) updatedData.triggerType = triggerType;
+      if (triggerConfig !== undefined) updatedData.triggerConfig = triggerConfig;
+      if (nodes !== undefined) updatedData.nodes = nodes;
+      if (edges !== undefined) updatedData.edges = edges;
+
+      let createNewVersion = false;
+      let actionType: any = 'UPDATE';
+
+      if (status !== undefined && status !== workflow.status) {
+        updatedData.status = status;
+        if (status === 'PUBLISHED') {
+          actionType = 'PUBLISH';
+          createNewVersion = true;
+        } else if (status === 'PAUSED') {
+          actionType = 'PAUSE';
+        } else {
+          actionType = 'RESUME';
+        }
+      }
+
+      // If visual structures changed, auto-increment version
+      if (nodes !== undefined || edges !== undefined) {
+        updatedData.version = workflow.version + 1;
+        createNewVersion = true;
+      }
+
+      localDb.updateWorkflow(id, updatedData);
+      const reloaded = localDb.getWorkflowById(id)!;
+
+      if (createNewVersion) {
+        localDb.addWorkflowVersion({
+          id: 'ver_' + Math.random().toString(36).substring(2, 11),
+          workflowId: id,
+          versionNumber: reloaded.version,
+          name: status === 'PUBLISHED' ? `Published Version ${reloaded.version}` : `Revision ${reloaded.version}`,
+          nodes: reloaded.nodes,
+          edges: reloaded.edges,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      localDb.addAutomationHistory({
+        id: 'hist_' + Math.random().toString(36).substring(2, 11),
+        organizationId: orgId,
+        userId: user?.id || 'usr_81927391',
+        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        workflowId: id,
+        workflowName: reloaded.name,
+        action: actionType,
+        details: `Updated workflow fields (status: ${reloaded.status}, version: ${reloaded.version})`,
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, workflow: reloaded });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/v1/workflows/:id
+  app.delete('/api/v1/workflows/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+
+      const workflow = localDb.getWorkflowById(id);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found or access denied.' });
+      }
+
+      localDb.deleteWorkflow(id);
+
+      localDb.addAutomationHistory({
+        id: 'hist_' + Math.random().toString(36).substring(2, 11),
+        organizationId: orgId,
+        userId: user?.id || 'usr_81927391',
+        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        workflowId: id,
+        workflowName: workflow.name,
+        action: 'DELETE',
+        details: `Deleted workflow "${workflow.name}"`,
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, message: 'Workflow deleted successfully.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/v1/workflows/run
+  app.post('/api/v1/workflows/run', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { workflowId, contextData } = req.body;
+
+      const workflow = localDb.getWorkflowById(workflowId);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found or access denied.' });
+      }
+
+      // Start execution flow
+      const runId = await WorkflowRunner.startWorkflowRun(workflow, contextData || {});
+
+      res.json({ success: true, runId, message: 'Workflow run started.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/v1/workflows/logs
+  app.get('/api/v1/workflows/logs', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { workflowId, runId } = req.query;
+
+      const logs = localDb.getWorkflowLogs(workflowId as string, runId as string);
+      res.json({ success: true, logs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/v1/workflows/:id/runs
+  app.get('/api/v1/workflows/:id/runs', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+
+      const runs = localDb.getWorkflowRuns(orgId).filter(r => r.workflowId === id);
+      res.json({ success: true, runs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/v1/workflows/:id/versions
+  app.get('/api/v1/workflows/:id/versions', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+
+      const workflow = localDb.getWorkflowById(id);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found.' });
+      }
+
+      const list = localDb.getWorkflowVersions(id);
+      res.json({ success: true, versions: list });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/v1/workflows/:id/versions/restore
+  app.post('/api/v1/workflows/:id/versions/restore', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+      const { versionNumber } = req.body;
+
+      const workflow = localDb.getWorkflowById(id);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found.' });
+      }
+
+      const versions = localDb.getWorkflowVersions(id);
+      const targetVersion = versions.find(v => v.versionNumber === Number(versionNumber));
+      if (!targetVersion) {
+        return res.status(404).json({ error: 'Specified version not found.' });
+      }
+
+      localDb.updateWorkflow(id, {
+        nodes: targetVersion.nodes,
+        edges: targetVersion.edges,
+        version: workflow.version + 1
+      });
+
+      localDb.addAutomationHistory({
+        id: 'hist_' + Math.random().toString(36).substring(2, 11),
+        organizationId: orgId,
+        userId: user?.id || 'usr_81927391',
+        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        workflowId: id,
+        workflowName: workflow.name,
+        action: 'VERSION_RESTORE',
+        details: `Restored workflow layout to version ${versionNumber}`,
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, message: `Successfully restored layout to version ${versionNumber}` });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/v1/workflows/:id/clone
+  app.post('/api/v1/workflows/:id/clone', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+
+      const workflow = localDb.getWorkflowById(id);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found.' });
+      }
+
+      const clonedId = 'wf_' + Math.random().toString(36).substring(2, 11);
+      const cloned: AutomationWorkflow = {
+        ...workflow,
+        id: clonedId,
+        name: `${workflow.name} (Copy)`,
+        status: 'DRAFT',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1
+      };
+
+      localDb.addWorkflow(cloned);
+
+      localDb.addWorkflowVersion({
+        id: 'ver_' + Math.random().toString(36).substring(2, 11),
+        workflowId: clonedId,
+        versionNumber: 1,
+        name: 'Initial cloned copy',
+        nodes: cloned.nodes,
+        edges: cloned.edges,
+        updatedAt: cloned.createdAt
+      });
+
+      localDb.addAutomationHistory({
+        id: 'hist_' + Math.random().toString(36).substring(2, 11),
+        organizationId: orgId,
+        userId: user?.id || 'usr_81927391',
+        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        workflowId: clonedId,
+        workflowName: cloned.name,
+        action: 'CLONE',
+        details: `Cloned workflow from "${workflow.name}"`,
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, workflow: cloned });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/v1/workflows/:id/export
+  app.get('/api/v1/workflows/:id/export', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { id } = req.params;
+
+      const workflow = localDb.getWorkflowById(id);
+      if (!workflow || workflow.organizationId !== orgId) {
+        return res.status(404).json({ error: 'Workflow not found.' });
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="workflow_${id}.json"`);
+      res.send(JSON.stringify(workflow, null, 2));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/v1/workflows/import
+  app.post('/api/v1/workflows/import', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { workflowJson } = req.body;
+
+      const parsed = typeof workflowJson === 'string' ? JSON.parse(workflowJson) : workflowJson;
+      if (!parsed.name || !parsed.triggerType || !parsed.nodes) {
+        return res.status(400).json({ error: 'Invalid workflow JSON format.' });
+      }
+
+      const importedId = 'wf_' + Math.random().toString(36).substring(2, 11);
+      const imported: AutomationWorkflow = {
+        id: importedId,
+        organizationId: orgId,
+        name: `${parsed.name} (Imported)`,
+        description: parsed.description || '',
+        status: 'DRAFT',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        triggerType: parsed.triggerType,
+        triggerConfig: parsed.triggerConfig || {},
+        nodes: parsed.nodes,
+        edges: parsed.edges || []
+      };
+
+      localDb.addWorkflow(imported);
+
+      localDb.addWorkflowVersion({
+        id: 'ver_' + Math.random().toString(36).substring(2, 11),
+        workflowId: importedId,
+        versionNumber: 1,
+        name: 'Initial Import',
+        nodes: imported.nodes,
+        edges: imported.edges,
+        updatedAt: imported.createdAt
+      });
+
+      res.status(201).json({ success: true, workflow: imported });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/v1/workflows/history
+  app.get('/api/v1/workflows/history', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const history = localDb.getAutomationHistory(orgId);
+      res.json({ success: true, history });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- 3. ROLES ENDPOINTS ---
+  app.get('/api/v1/workspace/roles', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const list = localDb.getRoles(orgId);
+    res.json({ success: true, roles: list });
+  });
+
+  app.post('/api/v1/workspace/roles', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { name, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Role name is required.' });
+    }
+
+    if (!hasPermission(user.id, orgId, 'Manage Settings')) {
+      return res.status(403).json({ error: 'Unauthorized. Requires Manage Settings permission.' });
+    }
+
+    const newRole: OrgRole = {
+      id: `role_custom_${Date.now()}`,
+      organizationId: orgId,
+      name,
+      description,
+      isCustom: true,
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addRole(newRole);
+    logAuditAndActivity(user.id, orgId, user.email, 'Role changes', `Created custom role: ${name}`, req);
+    res.json({ success: true, role: newRole });
+  });
+
+  app.delete('/api/v1/workspace/roles/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { id } = req.params;
+
+    if (!hasPermission(user.id, orgId, 'Manage Settings')) {
+      return res.status(403).json({ error: 'Unauthorized. Requires Manage Settings permission.' });
+    }
+
+    const roleObj = localDb.getRoles(orgId).find(r => r.id === id);
+    if (!roleObj) {
+      return res.status(404).json({ error: 'Role not found.' });
+    }
+
+    if (!roleObj.isCustom) {
+      return res.status(400).json({ error: 'System defined default roles cannot be deleted.' });
+    }
+
+    localDb.deleteRole(id);
+    logAuditAndActivity(user.id, orgId, user.email, 'Role changes', `Deleted custom role: ${roleObj.name}`, req);
+    res.json({ success: true });
+  });
+
+  // --- 4. PERMISSIONS ENDPOINTS ---
+  app.get('/api/v1/workspace/permissions', (req, res) => {
+    const list = localDb.getPermissions();
+    res.json({ success: true, permissions: list });
+  });
+
+  app.get('/api/v1/workspace/permissions/matrix', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+
+    // Fetch team member matrix
+    const members = localDb.getTeamMembers(orgId);
+    const permsList = localDb.getPermissions();
+    
+    const matrix = members.map(m => {
+      const customPerms = localDb.getMemberPermissions(m.id);
+      
+      const permissionsMap = permsList.reduce((acc, p) => {
+        const customOverride = customPerms.find(cp => cp.permissionId === p.id);
+        const isAllowed = customOverride ? customOverride.allowed : hasPermission((m as any).userId || '', orgId, p.name);
+        acc[p.id] = isAllowed;
+        return acc;
+      }, {} as Record<string, boolean>);
+
+      return {
+        memberId: m.id,
+        fullName: m.fullName,
+        email: m.email,
+        role: m.role,
+        permissions: permissionsMap
+      };
+    });
+
+    res.json({ success: true, matrix });
+  });
+
+  app.post('/api/v1/workspace/permissions/matrix', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { memberId, permissions } = req.body; // permissions: Array<{ permissionId: string, allowed: boolean }>
+
+    if (!memberId || !permissions) {
+      return res.status(400).json({ error: 'memberId and permissions mapping are required.' });
+    }
+
+    if (!hasPermission(user.id, orgId, 'Manage Team')) {
+      return res.status(403).json({ error: 'Unauthorized. Requires Manage Team permission.' });
+    }
+
+    const memberObj = localDb.getTeamMembers(orgId).find(m => m.id === memberId);
+    if (!memberObj) {
+      return res.status(404).json({ error: 'Team member not found.' });
+    }
+
+    const updatedPerms = permissions.map((p: any) => ({
+      id: `m_perm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      memberId,
+      permissionId: p.permissionId,
+      allowed: !!p.allowed
+    }));
+
+    localDb.saveMemberPermissions(memberId, updatedPerms);
+    logAuditAndActivity(user.id, orgId, user.email, 'Settings changes', `Updated granular permission overrides for teammate ${memberObj.email}`, req);
+    res.json({ success: true });
+  });
+
+  // --- 5. NOTIFICATIONS ENDPOINTS ---
+  app.get('/api/v1/workspace/notifications', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const list = localDb.getNotifications(user.id);
+    res.json({ success: true, notifications: list });
+  });
+
+  app.post('/api/v1/workspace/notifications/:id/read', (req, res) => {
+    const { id } = req.params;
+    localDb.markNotificationRead(id);
+    res.json({ success: true });
+  });
+
+  app.post('/api/v1/workspace/notifications', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { targetUserId, title, message, type } = req.body;
+
+    if (!targetUserId || !title || !message) {
+      return res.status(400).json({ error: 'targetUserId, title, and message are required.' });
+    }
+
+    const newNotification: OrgNotification = {
+      id: `nt_${Date.now()}`,
+      organizationId: orgId,
+      userId: targetUserId,
+      title,
+      message,
+      type: type || 'general',
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addNotification(newNotification);
+    res.json({ success: true, notification: newNotification });
+  });
+
+  // --- 6. AUDIT LOGS ENDPOINTS ---
+  app.get('/api/v1/workspace/audit-logs', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const list = localDb.getAuditLogs(orgId);
+    res.json({ success: true, auditLogs: list });
+  });
+
+  // --- 7. SHARED CRM OPERATIONS ---
+  app.post('/api/v1/workspace/crm/assign', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { targetId, targetType, assigneeMemberId } = req.body; // targetType: 'lead' | 'deal' | 'meeting'
+
+    if (!targetId || !targetType || !assigneeMemberId) {
+      return res.status(400).json({ error: 'targetId, targetType, and assigneeMemberId are required.' });
+    }
+
+    const assignee = localDb.getTeamMembers(orgId).find(m => m.id === assigneeMemberId);
+    if (!assignee) {
+      return res.status(404).json({ error: 'Assignee team member not found.' });
+    }
+
+    let targetName = '';
+
+    if (targetType === 'lead') {
+      const lead = leads.find((l: any) => l.id === targetId);
+      if (lead) {
+        (lead as any).assignedToId = assigneeMemberId;
+        (lead as any).assignedToName = assignee.fullName;
+        targetName = `${lead.firstName} ${lead.lastName || ''}`;
+        localDb.save();
+      }
+    } else if (targetType === 'deal') {
+      const deal = (localDb as any).db.deals?.find((d: any) => d.id === targetId);
+      if (deal) {
+        deal.assignedToId = assigneeMemberId;
+        deal.assignedToName = assignee.fullName;
+        targetName = deal.leadName;
+        localDb.save();
+      }
+    } else if (targetType === 'meeting') {
+      const appt = (localDb as any).db.appointments?.find((a: any) => a.id === targetId);
+      if (appt) {
+        appt.assignedToId = assigneeMemberId;
+        appt.assignedToName = assignee.fullName;
+        targetName = appt.notes || appt.leadName;
+        localDb.save();
+      }
+    }
+
+    logAuditAndActivity(user.id, orgId, user.email, 'Lead creation', `Assigned ${targetType} (${targetName}) to teammate ${assignee.fullName}`, req);
+
+    // Notify assignee
+    if ((assignee as any).userId) {
+      localDb.addNotification({
+        id: `nt_${Date.now()}`,
+        organizationId: orgId,
+        userId: (assignee as any).userId,
+        title: `New CRM Assignment: ${targetType}`,
+        message: `Teammate ${user.fullName} assigned a ${targetType} (${targetName}) to you.`,
+        type: 'assignment',
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    res.json({ success: true, message: `Successfully assigned ${targetType} to ${assignee.fullName}` });
+  });
+
+  app.post('/api/v1/workspace/crm/comment', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const { targetId, targetType, text, mentions } = req.body; // targetType: 'lead' | 'deal' | 'meeting', mentions: Array<string> (emails)
+
+    if (!targetId || !targetType || !text) {
+      return res.status(400).json({ error: 'targetId, targetType, and comment text are required.' });
+    }
+
+    // Append to timeline of the entity
+    let targetEntity: any = null;
+    let targetName = '';
+
+    if (targetType === 'lead') {
+      targetEntity = leads.find((l: any) => l.id === targetId);
+      if (targetEntity) {
+        if (!targetEntity.timelineList) targetEntity.timelineList = [];
+        targetEntity.timelineList.push({
+          id: `tme_${Date.now()}`,
+          event: 'Teammate Comment',
+          details: `${user.fullName}: "${text}"`,
+          createdAt: new Date().toISOString()
+        });
+        targetName = `${targetEntity.firstName} ${targetEntity.lastName || ''}`;
+        localDb.save();
+      }
+    }
+
+    logAuditAndActivity(user.id, orgId, user.email, 'Lead creation', `Added teammate comment on ${targetType} (${targetName})`, req);
+
+    // Trigger Notifications for mentioned team members
+    if (mentions && Array.isArray(mentions)) {
+      for (const mEmail of mentions) {
+        const uObj = localDb.getUsers().find(u => u.email.toLowerCase() === mEmail.toLowerCase());
+        if (uObj) {
+          localDb.addNotification({
+            id: `nt_${Date.now()}_${Math.random()}`,
+            organizationId: orgId,
+            userId: uObj.id,
+            title: `You were mentioned by ${user.fullName}`,
+            message: `Mentioned in ${targetType} (${targetName}): "${text}"`,
+            type: 'alert',
+            read: false,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Comment added and mentions notified.' });
+  });
+
+  app.get('/api/v1/workspace/crm/activities', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    const list = localDb.getTeamActivities(orgId);
+    res.json({ success: true, activities: list });
   });
 
   // AI-Powered Lead Enrichment with Gemini
@@ -10048,7 +11743,1383 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     });
   });
 
+  // =========================================================================
+  // --- INTEGRATED DEV PORTAL, PUBLIC API, WEBHOOKS & MARKETPLACE ENDPOINTS ---
+  // =========================================================================
+
+  // In-memory rate-limiter store for Public API Key/Token requests
+  const apiRateLimits = new Map<string, { count: number; resetAt: number }>();
+
+  const checkRateLimit = (keyOrToken: string, limitPerMinute: number): boolean => {
+    const now = Date.now();
+    const state = apiRateLimits.get(keyOrToken);
+    
+    if (!state || now > state.resetAt) {
+      apiRateLimits.set(keyOrToken, { count: 1, resetAt: now + 60000 });
+      return true;
+    }
+    
+    if (state.count >= limitPerMinute) {
+      return false;
+    }
+    
+    state.count += 1;
+    return true;
+  };
+
+  // 1. PUBLIC API AUTHENTICATION MIDDLEWARE
+  const apiAuthMiddleware = (req: any, res: any, next: any) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid authorization header.' });
+    }
+    const token = authHeader.split(' ')[1];
+    
+    // Check API Keys
+    const apiKey = localDb.getApiKeyBySecret(token);
+    if (apiKey) {
+      if (apiKey.status !== 'ACTIVE') {
+        return res.status(403).json({ error: 'Forbidden: API Key is disabled.' });
+      }
+      if (apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date()) {
+        return res.status(403).json({ error: 'Forbidden: API Key has expired.' });
+      }
+      
+      // Enforce Rate Limit
+      const rateLimit = apiKey.rateLimit || 60;
+      if (!checkRateLimit(token, rateLimit)) {
+        return res.status(429).json({ error: `Too Many Requests: Rate limit exceeded. (Limit: ${rateLimit} req/min)` });
+      }
+
+      req.apiKey = apiKey;
+      req.organizationId = apiKey.organizationId;
+      req.scopes = apiKey.scopes;
+      
+      localDb.addDeveloperLog({
+        id: 'log_' + crypto.randomBytes(6).toString('hex'),
+        organizationId: apiKey.organizationId,
+        type: 'API_REQUEST',
+        method: req.method,
+        path: req.path,
+        statusCode: 200,
+        ipAddress: req.ip || '127.0.0.1',
+        message: `API Key request using key: "${apiKey.name}"`,
+        createdAt: new Date().toISOString()
+      });
+      return next();
+    }
+
+    // Check OAuth Access Tokens
+    const oauthToken = localDb.getOAuthTokenByAccessToken(token);
+    if (oauthToken) {
+      if (new Date(oauthToken.expiresAt) < new Date()) {
+        return res.status(403).json({ error: 'Forbidden: OAuth access token has expired.' });
+      }
+      
+      if (!checkRateLimit(token, 120)) { // Standard OAuth limit
+        return res.status(429).json({ error: 'Too Many Requests: Rate limit exceeded.' });
+      }
+
+      req.oauthToken = oauthToken;
+      req.organizationId = oauthToken.organizationId;
+      req.scopes = oauthToken.scopes;
+      
+      localDb.addDeveloperLog({
+        id: 'log_' + crypto.randomBytes(6).toString('hex'),
+        organizationId: oauthToken.organizationId,
+        type: 'API_REQUEST',
+        method: req.method,
+        path: req.path,
+        statusCode: 200,
+        ipAddress: req.ip || '127.0.0.1',
+        message: `OAuth Access token request for client ID: "${oauthToken.clientId}"`,
+        createdAt: new Date().toISOString()
+      });
+      return next();
+    }
+
+    return res.status(401).json({ error: 'Unauthorized: Invalid API Key or OAuth Token.' });
+  };
+
+  // Helper helper to validate scopes
+  const validateScope = (requiredScope: string) => {
+    return (req: any, res: any, next: any) => {
+      const userScopes = req.scopes || [];
+      if (userScopes.includes('*') || userScopes.includes(requiredScope)) {
+        return next();
+      }
+      return res.status(403).json({
+        error: `Forbidden: Missing required scope "${requiredScope}". Authorized scopes: ${userScopes.join(', ')}`
+      });
+    };
+  };
+
+  // 2. WEBHOOK TRIGGERS IMPLEMENTATION
+  const triggerWebhook = async (organizationId: string, event: string, data: any) => {
+    const endpoints = localDb.getWebhookEndpoints(organizationId).filter(
+      e => e.status === 'ACTIVE' && (e.events.includes(event) || e.events.includes('*'))
+    );
+    
+    for (const endpoint of endpoints) {
+      const payloadObj = {
+        id: 'evt_' + crypto.randomBytes(8).toString('hex'),
+        event,
+        timestamp: new Date().toISOString(),
+        organizationId,
+        data
+      };
+      const payload = JSON.stringify(payloadObj);
+      
+      // Calculate authentic webhook HMAC signature using signing secret
+      const signature = crypto.createHmac('sha256', endpoint.secret).update(payload).digest('hex');
+
+      const deliveryId = 'dlv_' + crypto.randomBytes(6).toString('hex');
+      const delivery: any = {
+        id: deliveryId,
+        endpointId: endpoint.id,
+        organizationId,
+        event,
+        payload,
+        attemptNumber: 1,
+        status: 'RETRYING',
+        createdAt: new Date().toISOString()
+      };
+      localDb.addWebhookDelivery(delivery);
+
+      // Perform non-blocking async fetch request with retry-exponential-backoff
+      deliverWebhookWithRetry(endpoint.url, payload, signature, delivery);
+    }
+  };
+
+  const deliverWebhookWithRetry = async (url: string, payload: string, signature: string, delivery: any) => {
+    let attempt = 1;
+    const maxAttempts = 3;
+    let delay = 1000;
+
+    while (attempt <= maxAttempts) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SalesPilot-Signature': signature,
+            'X-SalesPilot-Event': delivery.event
+          },
+          body: payload,
+          signal: AbortSignal.timeout(5000)
+        }).catch(e => {
+          return { status: 504, text: () => Promise.resolve(`Gateway Timeout: ${e.message}`) } as any;
+        });
+
+        const text = await response.text();
+        const success = response.status >= 200 && response.status < 300;
+
+        localDb.updateWebhookDelivery(delivery.id, {
+          statusCode: response.status,
+          responseBody: text.substring(0, 1000),
+          attemptNumber: attempt,
+          status: success ? 'SUCCESS' : (attempt === maxAttempts ? 'FAILED' : 'RETRYING')
+        });
+
+        localDb.addDeveloperLog({
+          id: 'log_' + crypto.randomBytes(6).toString('hex'),
+          organizationId: delivery.organizationId,
+          type: 'WEBHOOK_DELIVERY',
+          statusCode: response.status,
+          message: `Webhook ${delivery.event} delivery to ${url} - Status ${response.status} (${success ? 'SUCCESS' : 'FAILED'})`,
+          details: `Payload: ${payload.substring(0, 500)}\n\nResponse: ${text.substring(0, 500)}`,
+          createdAt: new Date().toISOString()
+        });
+
+        if (success) break;
+      } catch (err: any) {
+        localDb.updateWebhookDelivery(delivery.id, {
+          statusCode: 500,
+          responseBody: `Exception: ${err.message}`,
+          attemptNumber: attempt,
+          status: attempt === maxAttempts ? 'FAILED' : 'RETRYING'
+        });
+      }
+
+      if (attempt < maxAttempts) {
+        attempt++;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+      } else {
+        break;
+      }
+    }
+  };
+
+  // 3. FRONTEND DEVELOPER PORTAL ENDPOINTS
+  app.get('/api/v1/developer/keys', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    res.json({ success: true, apiKeys: localDb.getApiKeys(orgId) });
+  });
+
+  app.post('/api/v1/developer/keys', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { name, scopes = ['*'], expiresAt, rateLimit = 60 } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'API Key Name is required.' });
+    }
+
+    const cleartextKey = `sp_live_${crypto.randomBytes(24).toString('hex')}`;
+    const newKey: any = {
+      id: 'key_' + crypto.randomBytes(6).toString('hex'),
+      organizationId: orgId,
+      name,
+      keyPrefix: cleartextKey.substring(0, 10) + '...',
+      secretKey: cleartextKey,
+      scopes,
+      status: 'ACTIVE',
+      rateLimit,
+      expiresAt: expiresAt || undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addApiKey(newKey);
+    res.json({ success: true, apiKey: newKey });
+  });
+
+  app.put('/api/v1/developer/keys/:id', (req, res) => {
+    const { id } = req.params;
+    const { status, rotate, name, scopes } = req.body;
+    const updates: any = {};
+
+    if (name) updates.name = name;
+    if (scopes) updates.scopes = scopes;
+    if (status) updates.status = status;
+    if (rotate) {
+      const cleartextKey = `sp_live_${crypto.randomBytes(24).toString('hex')}`;
+      updates.secretKey = cleartextKey;
+      updates.keyPrefix = cleartextKey.substring(0, 10) + '...';
+    }
+
+    const success = localDb.updateApiKey(id, updates);
+    res.json({ success, message: success ? 'API Key updated successfully.' : 'Key not found.' });
+  });
+
+  app.delete('/api/v1/developer/keys/:id', (req, res) => {
+    const { id } = req.params;
+    const success = localDb.deleteApiKey(id);
+    res.json({ success, message: success ? 'API Key revoked successfully.' : 'Key not found.' });
+  });
+
+  app.get('/api/v1/developer/webhooks', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    res.json({
+      success: true,
+      endpoints: localDb.getWebhookEndpoints(orgId),
+      deliveries: localDb.getWebhookDeliveries(orgId)
+    });
+  });
+
+  app.post('/api/v1/developer/webhooks', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { url, events = ['*'] } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'Endpoint Target URL is required.' });
+    }
+
+    const newEndpoint: any = {
+      id: 'wh_' + crypto.randomBytes(6).toString('hex'),
+      organizationId: orgId,
+      url,
+      secret: `sp_whsec_${crypto.randomBytes(16).toString('hex')}`,
+      events,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addWebhookEndpoint(newEndpoint);
+    res.json({ success: true, endpoint: newEndpoint });
+  });
+
+  app.put('/api/v1/developer/webhooks/:id', (req, res) => {
+    const { id } = req.params;
+    const { url, events, status } = req.body;
+    const updates: any = {};
+    if (url) updates.url = url;
+    if (events) updates.events = events;
+    if (status) updates.status = status;
+
+    const success = localDb.updateWebhookEndpoint(id, updates);
+    res.json({ success, message: success ? 'Webhook updated.' : 'Webhook not found.' });
+  });
+
+  app.delete('/api/v1/developer/webhooks/:id', (req, res) => {
+    const { id } = req.params;
+    const success = localDb.deleteWebhookEndpoint(id);
+    res.json({ success, message: success ? 'Webhook deleted.' : 'Webhook not found.' });
+  });
+
+  app.post('/api/v1/developer/webhooks/:id/test', async (req, res) => {
+    const { id } = req.params;
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    
+    const endpoints = localDb.getWebhookEndpoints(orgId);
+    const endpoint = endpoints.find(e => e.id === id);
+    if (!endpoint) {
+      return res.status(404).json({ success: false, error: 'Endpoint not found.' });
+    }
+
+    const sampleLead = {
+      id: 'ld_test_999',
+      firstName: 'Testy',
+      lastName: 'McTester',
+      email: 'testy@example.com',
+      company: 'Test Labs Corp',
+      status: 'NEW',
+      createdAt: new Date().toISOString()
+    };
+
+    await triggerWebhook(orgId, 'lead.created', sampleLead);
+    res.json({ success: true, message: 'Test webhook event (lead.created) successfully queued.' });
+  });
+
+  // 4. THIRD-PARTY DEVELOPER OAUTH CLIENT ENDPOINTS
+  app.get('/api/v1/developer/oauth-clients', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    res.json({ success: true, oauthClients: localDb.getOAuthClients(orgId) });
+  });
+
+  app.post('/api/v1/developer/oauth-clients', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { name, description, redirectUris, scopes = ['leads:read'] } = req.body;
+
+    if (!name || !redirectUris || redirectUris.length === 0) {
+      return res.status(400).json({ success: false, error: 'Client Name and Redirect URIs are required.' });
+    }
+
+    const newClient: any = {
+      id: `sp_client_${crypto.randomBytes(12).toString('hex')}`,
+      secret: `sp_secret_${crypto.randomBytes(24).toString('hex')}`,
+      organizationId: orgId,
+      name,
+      description: description || '',
+      redirectUris: Array.isArray(redirectUris) ? redirectUris : [redirectUris],
+      scopes,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addOAuthClient(newClient);
+    res.json({ success: true, client: newClient });
+  });
+
+  app.put('/api/v1/developer/oauth-clients/:id', (req, res) => {
+    const { id } = req.params;
+    const { name, description, redirectUris, scopes, status } = req.body;
+    const updates: any = {};
+    if (name) updates.name = name;
+    if (description) updates.description = description;
+    if (redirectUris) updates.redirectUris = redirectUris;
+    if (scopes) updates.scopes = scopes;
+    if (status) updates.status = status;
+
+    const success = localDb.updateOAuthClient(id, updates);
+    res.json({ success, message: success ? 'Client updated.' : 'Client not found.' });
+  });
+
+  app.delete('/api/v1/developer/oauth-clients/:id', (req, res) => {
+    const { id } = req.params;
+    const success = localDb.deleteOAuthClient(id);
+    res.json({ success, message: success ? 'Client deleted.' : 'Client not found.' });
+  });
+
+  // OAUTH FLOW: INTERACTIVE AUTHORIZATION SCREEN
+  app.get('/oauth/authorize', (req, res) => {
+    const { client_id, redirect_uri, scope, state } = req.query as any;
+    
+    const client = localDb.getOAuthClientById(client_id);
+    if (!client) {
+      return res.status(404).send('<h1>OAuth Error</h1><p>Client ID not found.</p>');
+    }
+
+    if (client.status !== 'ACTIVE') {
+      return res.status(403).send('<h1>OAuth Error</h1><p>This application is disabled.</p>');
+    }
+
+    // Serve custom, clean, styled responsive HTML Consent page
+    const requestedScopes = scope ? scope.split(' ') : client.scopes;
+    const scopesListHtml = requestedScopes.map((s: string) => `
+      <li style="display: flex; align-items: center; margin-bottom: 8px;">
+        <span style="color: #10b981; margin-right: 8px; font-weight: bold;">✓</span>
+        <code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace;">${s}</code>
+      </li>
+    `).join('');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Authorize ${client.name} - SalesPilot</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+        <style>
+          body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 16px;
+          }
+          .card {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            max-width: 440px;
+            width: 100%;
+            border: 1px solid #e2e8f0;
+          }
+          .title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #0f172a;
+          }
+          .desc {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 24px;
+          }
+          .scopes-box {
+            background-color: #f8fafc;
+            border: 1px solid #f1f5f9;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+          }
+          .scopes-title {
+            font-weight: 500;
+            font-size: 0.875rem;
+            margin-bottom: 12px;
+            color: #475569;
+          }
+          ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.875rem;
+          }
+          .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            box-sizing: border-box;
+          }
+          .btn-primary {
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            margin-bottom: 8px;
+          }
+          .btn-primary:hover { background-color: #0369a1; }
+          .btn-secondary {
+            background-color: transparent;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+          }
+          .btn-secondary:hover { background-color: #f1f5f9; }
+          .footer {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 16px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div style="font-weight: bold; color: #0284c7; margin-bottom: 12px; font-size: 1.1rem;">SalesPilot</div>
+          <div class="title">Connect with ${client.name}</div>
+          <div class="desc">${client.description || 'This third-party application wants to securely connect with your SalesPilot CRM database.'}</div>
+          
+          <div class="scopes-box">
+            <div class="scopes-title">This application will be able to:</div>
+            <ul>
+              ${scopesListHtml}
+            </ul>
+          </div>
+
+          <form action="/oauth/authorize/approve" method="POST">
+            <input type="hidden" name="client_id" value="${client_id}">
+            <input type="hidden" name="redirect_uri" value="${redirect_uri || ''}">
+            <input type="hidden" name="scope" value="${scope || ''}">
+            <input type="hidden" name="state" value="${state || ''}">
+            <button type="submit" name="approved" value="true" class="btn btn-primary">Authorize Access</button>
+            <button type="submit" name="approved" value="false" class="btn btn-secondary">Deny</button>
+          </form>
+
+          <div class="footer">Redirects securely to ${redirect_uri || 'your browser'}</div>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+
+  // OAUTH FLOW: POST APPROVAL
+  app.post('/oauth/authorize/approve', express.urlencoded({ extended: true }), (req, res) => {
+    const { client_id, redirect_uri, scope, state, approved } = req.body;
+
+    if (approved !== 'true') {
+      const redirectWithErr = redirect_uri 
+        ? `${redirect_uri}?error=access_denied&state=${state || ''}`
+        : `/api/v1/public/error?error=access_denied`;
+      return res.redirect(redirectWithErr);
+    }
+
+    const client = localDb.getOAuthClientById(client_id);
+    if (!client) {
+      return res.status(404).send('Client not found.');
+    }
+
+    // Generate unique authorization code
+    const authorizationCode = `auth_code_${crypto.randomBytes(16).toString('hex')}`;
+    
+    // Store authorization code temporarily linked to client & default org
+    const targetRedirect = redirect_uri || client.redirectUris[0];
+    const finalRedirectUrl = `${targetRedirect}?code=${authorizationCode}&state=${state || ''}`;
+
+    // Store in-memory token link for the code trade
+    (app as any)._pendingAuthCodes = (app as any)._pendingAuthCodes || {};
+    (app as any)._pendingAuthCodes[authorizationCode] = {
+      clientId: client_id,
+      organizationId: client.organizationId,
+      scopes: scope ? scope.split(' ') : client.scopes
+    };
+
+    res.redirect(finalRedirectUrl);
+  });
+
+  // OAUTH FLOW: EXCHANGE TOKENS
+  app.post('/oauth/token', express.json(), express.urlencoded({ extended: true }), (req, res) => {
+    const { client_id, client_secret, code, grant_type, refresh_token } = req.body;
+
+    // Support code grant type
+    if (grant_type === 'authorization_code') {
+      const pendingCodes = (app as any)._pendingAuthCodes || {};
+      const pendingData = pendingCodes[code];
+
+      if (!pendingData) {
+        return res.status(400).json({ error: 'invalid_grant', error_description: 'The authorization code is invalid or expired.' });
+      }
+
+      const client = localDb.getOAuthClientById(client_id);
+      if (!client || client.secret !== client_secret) {
+        return res.status(401).json({ error: 'invalid_client', error_description: 'Client authentication failed.' });
+      }
+
+      // Clean pending code
+      delete pendingCodes[code];
+
+      // Generate actual access and refresh tokens
+      const accessToken = `sp_access_${crypto.randomBytes(32).toString('hex')}`;
+      const refreshTokenObj = `sp_refresh_${crypto.randomBytes(32).toString('hex')}`;
+
+      const tokenPayload: any = {
+        id: 'tok_' + crypto.randomBytes(6).toString('hex'),
+        clientId: client_id,
+        organizationId: pendingData.organizationId,
+        accessToken,
+        refreshToken: refreshTokenObj,
+        scopes: pendingData.scopes,
+        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour expiry
+        createdAt: new Date().toISOString()
+      };
+
+      localDb.addOAuthToken(tokenPayload);
+
+      localDb.addDeveloperLog({
+        id: 'log_' + crypto.randomBytes(6).toString('hex'),
+        organizationId: pendingData.organizationId,
+        type: 'OAUTH_FLOW',
+        message: `Successfully issued OAuth tokens for Client ID: ${client_id}`,
+        createdAt: new Date().toISOString()
+      });
+
+      return res.json({
+        access_token: accessToken,
+        refresh_token: refreshTokenObj,
+        token_type: 'Bearer',
+        expires_in: 3600,
+        scope: pendingData.scopes.join(' ')
+      });
+    }
+
+    // Support refresh token grant type
+    if (grant_type === 'refresh_token') {
+      if (!refresh_token) {
+        return res.status(400).json({ error: 'invalid_request', error_description: 'Missing refresh token.' });
+      }
+
+      // Check current token details
+      const oldToken = localDb.db.oauthTokens?.find(t => t.refreshToken === refresh_token);
+      if (!oldToken) {
+        return res.status(400).json({ error: 'invalid_grant', error_description: 'Invalid refresh token.' });
+      }
+
+      const accessToken = `sp_access_${crypto.randomBytes(32).toString('hex')}`;
+      const newRefreshToken = `sp_refresh_${crypto.randomBytes(32).toString('hex')}`;
+
+      const tokenPayload: any = {
+        id: 'tok_' + crypto.randomBytes(6).toString('hex'),
+        clientId: oldToken.clientId,
+        organizationId: oldToken.organizationId,
+        accessToken,
+        refreshToken: newRefreshToken,
+        scopes: oldToken.scopes,
+        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+        createdAt: new Date().toISOString()
+      };
+
+      localDb.addOAuthToken(tokenPayload);
+
+      return res.json({
+        access_token: accessToken,
+        refresh_token: newRefreshToken,
+        token_type: 'Bearer',
+        expires_in: 3600,
+        scope: oldToken.scopes.join(' ')
+      });
+    }
+
+    return res.status(400).json({ error: 'unsupported_grant_type', error_description: 'Grant type not supported.' });
+  });
+
+  // 5. INTEGRATION MARKETPLACE CONNECTIONS
+  app.get('/api/v1/developer/marketplace', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    res.json({ success: true, apps: localDb.getMarketplaceApps(orgId) });
+  });
+
+  app.post('/api/v1/developer/marketplace/:appId/install', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { appId } = req.params;
+    const { settings = {} } = req.body;
+
+    const newConfig: any = {
+      id: `int_${appId}_${crypto.randomBytes(4).toString('hex')}`,
+      organizationId: orgId,
+      integrationId: appId,
+      status: 'CONNECTED',
+      settings,
+      updatedAt: new Date().toISOString()
+    };
+
+    localDb.addIntegrationConfig(newConfig);
+
+    localDb.addDeveloperLog({
+      id: 'log_' + crypto.randomBytes(6).toString('hex'),
+      organizationId: orgId,
+      type: 'OAUTH_FLOW',
+      message: `Marketplace App installed: "${appId}"`,
+      createdAt: new Date().toISOString()
+    });
+
+    res.json({ success: true, message: `Application ${appId} installed successfully.`, config: newConfig });
+  });
+
+  app.delete('/api/v1/developer/marketplace/:appId/uninstall', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { appId } = req.params;
+
+    const success = localDb.deleteIntegrationConfig(orgId, appId);
+    res.json({ success, message: success ? `Application ${appId} uninstalled successfully.` : 'App configuration not found.' });
+  });
+
+  app.put('/api/v1/developer/marketplace/:appId/settings', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { appId } = req.params;
+    const { settings } = req.body;
+
+    const success = localDb.updateIntegrationConfig(orgId, appId, {
+      settings,
+      updatedAt: new Date().toISOString()
+    });
+
+    res.json({ success, message: success ? 'Settings updated.' : 'App not connected.' });
+  });
+
+  app.get('/api/v1/developer/logs', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    res.json({ success: true, logs: localDb.getDeveloperLogs(orgId) });
+  });
+
+  // ===================================================
+  // --- CORE PUBLIC REST API FOR END-USERS (v1) ---
+  // ===================================================
+
+  // Me Endpoint
+  app.get('/api/v1/public/auth/me', apiAuthMiddleware, (req: any, res) => {
+    res.json({
+      success: true,
+      organizationId: req.organizationId,
+      scopes: req.scopes,
+      authenticatedVia: req.apiKey ? 'API_KEY' : 'OAUTH_TOKEN',
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Organizations Endpoint
+  app.get('/api/v1/public/organizations', apiAuthMiddleware, validateScope('org:read'), (req: any, res) => {
+    const org = localDb.getOrganizations().find(o => o.id === req.organizationId) || {
+      id: req.organizationId,
+      name: 'Default Lifetime Organization',
+      subscriptionTier: 'Scale',
+      createdAt: new Date().toISOString()
+    };
+    res.json({ success: true, organization: org });
+  });
+
+  // Leads CRUD
+  app.get('/api/v1/public/leads', apiAuthMiddleware, validateScope('leads:read'), (req: any, res) => {
+    const { page = 1, limit = 10, sortBy = 'firstName', sortOrder = 'asc', search, status } = req.query;
+    
+    // Read and filter leads
+    let filtered = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
+
+    if (search) {
+      const q = String(search).toLowerCase();
+      filtered = filtered.filter(l => 
+        l.firstName.toLowerCase().includes(q) ||
+        (l.lastName || '').toLowerCase().includes(q) ||
+        l.company.toLowerCase().includes(q) ||
+        l.email.toLowerCase().includes(q)
+      );
+    }
+
+    if (status) {
+      filtered = filtered.filter(l => l.status === status);
+    }
+
+    // Sort
+    filtered.sort((a: any, b: any) => {
+      const valA = String(a[sortBy] || '').toLowerCase();
+      const valB = String(b[sortBy] || '').toLowerCase();
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    // Pagination
+    const p = parseInt(page as string);
+    const l = parseInt(limit as string);
+    const startIdx = (p - 1) * l;
+    const paginated = filtered.slice(startIdx, startIdx + l);
+
+    res.json({
+      success: true,
+      totalCount: filtered.length,
+      page: p,
+      limit: l,
+      leads: paginated
+    });
+  });
+
+  app.post('/api/v1/public/leads', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
+    const { firstName, lastName = '', email, phone = '', company, title = 'Lead', status = 'NEW', source = 'API' } = req.body;
+
+    if (!firstName || !email || !company) {
+      return res.status(400).json({ error: 'firstName, email, and company are required fields.' });
+    }
+
+    const newLead: any = {
+      id: `ld_pub_${crypto.randomBytes(6).toString('hex')}`,
+      organizationId: req.organizationId,
+      firstName,
+      lastName,
+      email,
+      phone,
+      company,
+      title,
+      status,
+      source,
+      createdAt: new Date().toISOString()
+    };
+
+    leads.push(newLead);
+    localDb.db.leads = leads;
+    localDb.save();
+
+    // Trigger Lead Created Webhook
+    await triggerWebhook(req.organizationId, 'lead.created', newLead);
+
+    res.status(201).json({ success: true, lead: newLead });
+  });
+
+  app.put('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
+    const { id } = req.params;
+    const idx = leads.findIndex(l => l.id === id && (!(l as any).organizationId || (l as any).organizationId === req.organizationId));
+    
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Lead not found.' });
+    }
+
+    leads[idx] = { ...leads[idx], ...req.body, id, organizationId: req.organizationId };
+    localDb.db.leads = leads;
+    localDb.save();
+
+    // Trigger Lead Updated Webhook
+    await triggerWebhook(req.organizationId, 'lead.updated', leads[idx]);
+
+    res.json({ success: true, lead: leads[idx] });
+  });
+
+  app.post('/api/v1/public/leads/bulk', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: 'items is required and must be an array.' });
+    }
+
+    const createdLeads: any[] = [];
+    for (const item of items) {
+      if (item.firstName && item.email && item.company) {
+        const newLead: any = {
+          id: `ld_pub_${crypto.randomBytes(6).toString('hex')}`,
+          organizationId: req.organizationId,
+          firstName: item.firstName,
+          lastName: item.lastName || '',
+          email: item.email,
+          phone: item.phone || '',
+          company: item.company,
+          title: item.title || 'Director',
+          status: item.status || 'NEW',
+          source: item.source || 'Bulk API',
+          createdAt: new Date().toISOString()
+        };
+        leads.push(newLead);
+        createdLeads.push(newLead);
+        await triggerWebhook(req.organizationId, 'lead.created', newLead);
+      }
+    }
+
+    localDb.db.leads = leads;
+    localDb.save();
+
+    res.json({ success: true, createdCount: createdLeads.length, items: createdLeads });
+  });
+
+  app.delete('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), (req: any, res) => {
+    const { id } = req.params;
+    const initialLen = leads.length;
+    
+    leads = leads.filter(l => !(l.id === id && (!(l as any).organizationId || (l as any).organizationId === req.organizationId)));
+    
+    if (leads.length === initialLen) {
+      return res.status(404).json({ error: 'Lead not found.' });
+    }
+
+    localDb.db.leads = leads;
+    localDb.save();
+    res.json({ success: true, message: 'Lead deleted successfully.' });
+  });
+
+  // Contacts Endpoint (Extracted from leads list)
+  app.get('/api/v1/public/contacts', apiAuthMiddleware, validateScope('leads:read'), (req: any, res) => {
+    const filteredLeads = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
+    const contacts = filteredLeads.map(l => ({
+      id: 'cnt_' + l.id.substring(3),
+      leadId: l.id,
+      firstName: l.firstName,
+      lastName: l.lastName,
+      email: l.email,
+      phone: l.phone,
+      title: l.title,
+      company: l.company,
+      createdAt: l.createdAt
+    }));
+    res.json({ success: true, contacts });
+  });
+
+  // Companies Endpoint (Extracted from leads)
+  app.get('/api/v1/public/companies', apiAuthMiddleware, validateScope('leads:read'), (req: any, res) => {
+    const filteredLeads = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
+    const uniqueCompanyNames = Array.from(new Set(filteredLeads.map(l => l.company)));
+    const companiesList = uniqueCompanyNames.map((name, idx) => {
+      const match = filteredLeads.find(l => l.company === name);
+      return {
+        id: 'comp_' + idx,
+        name,
+        website: (match as any)?.website || `${name.toLowerCase().replace(/\s+/g, '')}.com`,
+        industry: 'Technology',
+        createdAt: match?.createdAt || new Date().toISOString()
+      };
+    });
+    res.json({ success: true, companies: companiesList });
+  });
+
+  // Deals & Pipelines
+  app.get('/api/v1/public/deals', apiAuthMiddleware, validateScope('deals:read'), (req: any, res) => {
+    const filteredDeals = deals.filter(d => !(d as any).organizationId || (d as any).organizationId === req.organizationId);
+    res.json({ success: true, deals: filteredDeals });
+  });
+
+  app.post('/api/v1/public/deals', apiAuthMiddleware, validateScope('deals:write'), (req: any, res) => {
+    const { name, value, stage, leadId } = req.body;
+    if (!name || !value) {
+      return res.status(400).json({ error: 'Deal Name and Value are required.' });
+    }
+
+    const newDeal: any = {
+      id: `dl_pub_${crypto.randomBytes(6).toString('hex')}`,
+      organizationId: req.organizationId,
+      name,
+      value: Number(value),
+      stage: stage || 'DISCOVERY',
+      leadId,
+      createdAt: new Date().toISOString()
+    };
+
+    deals.push(newDeal);
+    localDb.db.deals = deals;
+    localDb.save();
+
+    res.json({ success: true, deal: newDeal });
+  });
+
+  app.put('/api/v1/public/deals/:id', apiAuthMiddleware, validateScope('deals:write'), async (req: any, res) => {
+    const { id } = req.params;
+    const idx = deals.findIndex(d => d.id === id && (!(d as any).organizationId || (d as any).organizationId === req.organizationId));
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Deal not found.' });
+    }
+
+    const oldDeal = deals[idx];
+    deals[idx] = { ...deals[idx], ...req.body, id, organizationId: req.organizationId };
+    localDb.db.deals = deals;
+    localDb.save();
+
+    // Trigger Webhook if Won
+    if (req.body.stage === 'CLOSED_WON' && oldDeal.stage !== 'CLOSED_WON') {
+      await triggerWebhook(req.organizationId, 'deal.won', deals[idx]);
+    }
+
+    res.json({ success: true, deal: deals[idx] });
+  });
+
+  app.get('/api/v1/public/pipelines', apiAuthMiddleware, (req, res) => {
+    res.json({
+      success: true,
+      pipelines: [
+        { id: 'standard', name: 'Standard Sales Pipeline', stages: ['DISCOVERY', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'] }
+      ]
+    });
+  });
+
+  // Campaigns
+  app.get('/api/v1/public/campaigns', apiAuthMiddleware, validateScope('campaigns:read'), (req: any, res) => {
+    const filteredCampaigns = campaigns.filter(c => !(c as any).organizationId || (c as any).organizationId === req.organizationId);
+    res.json({ success: true, campaigns: filteredCampaigns });
+  });
+
+  app.post('/api/v1/public/campaigns', apiAuthMiddleware, validateScope('campaigns:write'), async (req: any, res) => {
+    const { name, type = 'EMAIL', subject, body } = req.body;
+    if (!name) return res.status(400).json({ error: 'Campaign Name is required.' });
+
+    const newCampaign: any = {
+      id: `camp_pub_${crypto.randomBytes(6).toString('hex')}`,
+      organizationId: req.organizationId,
+      name,
+      type,
+      subject,
+      body,
+      status: 'ACTIVE',
+      leadsCount: 1,
+      createdAt: new Date().toISOString()
+    };
+
+    campaigns.push(newCampaign);
+    localDb.db.campaigns = campaigns;
+    localDb.save();
+
+    await triggerWebhook(req.organizationId, 'campaign.started', newCampaign);
+
+    res.json({ success: true, campaign: newCampaign });
+  });
+
+  // Emails list & simulate reply
+  app.get('/api/v1/public/emails', apiAuthMiddleware, validateScope('emails:read'), (req: any, res) => {
+    const orgGens = (localDb.db.aiEmailGenerations || []).filter(e => e.organizationId === req.organizationId);
+    res.json({ success: true, emails: orgGens });
+  });
+
+  app.post('/api/v1/public/emails/reply', apiAuthMiddleware, validateScope('emails:write'), async (req: any, res) => {
+    const { leadId, replyBody } = req.body;
+    if (!leadId || !replyBody) {
+      return res.status(400).json({ error: 'leadId and replyBody are required.' });
+    }
+
+    const replyPayload = {
+      leadId,
+      replyBody,
+      receivedAt: new Date().toISOString()
+    };
+
+    await triggerWebhook(req.organizationId, 'email.replied', replyPayload);
+    res.json({ success: true, message: 'Simulated email reply webhook successfully dispatched.' });
+  });
+
+  // Meetings
+  app.get('/api/v1/public/meetings', apiAuthMiddleware, validateScope('meetings:read'), (req: any, res) => {
+    const filteredAppts = appointments.filter(a => !(a as any).organizationId || (a as any).organizationId === req.organizationId);
+    res.json({ success: true, meetings: filteredAppts });
+  });
+
+  app.post('/api/v1/public/meetings', apiAuthMiddleware, validateScope('meetings:write'), async (req: any, res) => {
+    const { title, date, leadId, attendeeEmail } = req.body;
+    if (!title || !date || !leadId) {
+      return res.status(400).json({ error: 'title, date, and leadId are required.' });
+    }
+
+    const newAppt: any = {
+      id: `appt_pub_${crypto.randomBytes(6).toString('hex')}`,
+      organizationId: req.organizationId,
+      title,
+      dateTime: date,
+      leadId,
+      attendeeEmail: attendeeEmail || 'client@example.com',
+      status: 'SCHEDULED',
+      createdAt: new Date().toISOString()
+    };
+
+    appointments.push(newAppt);
+    localDb.db.appointments = appointments;
+    localDb.save();
+
+    await triggerWebhook(req.organizationId, 'meeting.scheduled', newAppt);
+
+    res.json({ success: true, meeting: newAppt });
+  });
+
+  // Tasks
+  app.get('/api/v1/public/tasks', apiAuthMiddleware, validateScope('tasks:read'), (req: any, res) => {
+    // Generate simulated in-progress tasks
+    const tasksList = [
+      { id: 'tsk_1', title: 'Prepare sales summary brochure', priority: 'HIGH', status: 'IN_PROGRESS', organizationId: req.organizationId },
+      { id: 'tsk_2', title: 'Schedule initial introduction brief', priority: 'MEDIUM', status: 'TODO', organizationId: req.organizationId },
+      { id: 'tsk_3', title: 'Validate domain verification credentials', priority: 'LOW', status: 'DONE', organizationId: req.organizationId }
+    ];
+    res.json({ success: true, tasks: tasksList });
+  });
+
+  // AI SDR (Research & profiles)
+  app.get('/api/v1/public/ai-sdr/profiles', apiAuthMiddleware, validateScope('ai_sdr:read'), (req: any, res) => {
+    const profiles = (localDb.db.aiContactProfiles || []).filter(p => p.organizationId === req.organizationId);
+    const researches = (localDb.db.aiCompanyResearch || []).filter(r => r.organizationId === req.organizationId);
+    res.json({ success: true, contactProfiles: profiles, companyResearches: researches });
+  });
+
+  app.post('/api/v1/public/ai-sdr/research', apiAuthMiddleware, validateScope('ai_sdr:write'), async (req: any, res) => {
+    const { leadId, companyName } = req.body;
+    if (!leadId) return res.status(400).json({ error: 'leadId is required.' });
+
+    const mockResearch = {
+      id: `res_pub_${crypto.randomBytes(6).toString('hex')}`,
+      leadId,
+      organizationId: req.organizationId,
+      summary: `AI SDR Completed exhaustive competitor research on ${companyName || 'Lead Company'}. Competitors analyzed, pain points scored, ready for sales sequence.`,
+      createdAt: new Date().toISOString()
+    };
+
+    localDb.addAiCompanyResearch(mockResearch as any);
+    res.json({ success: true, research: mockResearch });
+  });
+
+  // Workflow engine list & manually trigger
+  app.get('/api/v1/public/workflows', apiAuthMiddleware, validateScope('workflows:read'), (req: any, res) => {
+    const list = (localDb.db.workflows || []).filter(w => w.organizationId === req.organizationId);
+    res.json({ success: true, workflows: list });
+  });
+
+  app.post('/api/v1/public/workflows/:id/trigger', apiAuthMiddleware, validateScope('workflows:write'), async (req: any, res) => {
+    const { id } = req.params;
+    const { contextData = {} } = req.body;
+
+    const list = (localDb.db.workflows || []);
+    const workflow = list.find(w => w.id === id && w.organizationId === req.organizationId);
+
+    if (!workflow) {
+      return res.status(404).json({ error: 'Workflow not found.' });
+    }
+
+    const runId = `run_pub_${crypto.randomBytes(6).toString('hex')}`;
+    const newRun: any = {
+      id: runId,
+      workflowId: id,
+      organizationId: req.organizationId,
+      status: 'COMPLETED',
+      triggerType: 'PUBLIC_API',
+      contextData,
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString()
+    };
+
+    if (!localDb.db.workflowRuns) localDb.db.workflowRuns = [];
+    localDb.db.workflowRuns.push(newRun);
+    localDb.save();
+
+    await triggerWebhook(req.organizationId, 'workflow.completed', newRun);
+
+    res.json({ success: true, message: 'Workflow triggered and executed successfully.', run: newRun });
+  });
+
+  // Billing & Subscriptions
+  app.get('/api/v1/public/billing/subscription', apiAuthMiddleware, validateScope('billing:read'), (req: any, res) => {
+    res.json({
+      success: true,
+      subscription: {
+        tier: 'Scale',
+        status: 'ACTIVE',
+        billingCycle: 'MONTHLY',
+        nextInvoiceDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+        paymentMethod: 'Visa Ending In 8888',
+        priceUsd: 149.00
+      }
+    });
+  });
+
+  // Helper test endpoints to simulate billing/payment webhooks easily
+  app.post('/api/v1/developer/simulate-payment-success', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    
+    const paymentPayload = {
+      transactionId: 'tx_sim_' + crypto.randomBytes(6).toString('hex'),
+      amountUsd: 149.00,
+      currency: 'USD',
+      status: 'COMPLETED',
+      timestamp: new Date().toISOString()
+    };
+
+    triggerWebhook(orgId, 'payment.success', paymentPayload);
+    res.json({ success: true, message: 'Simulated payment.success webhook dispatched.' });
+  });
+
+  app.post('/api/v1/developer/simulate-subscription-update', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const subPayload = {
+      previousTier: 'Growth',
+      newTier: 'Scale',
+      status: 'ACTIVE',
+      updatedAt: new Date().toISOString()
+    };
+
+    triggerWebhook(orgId, 'subscription.updated', subPayload);
+    res.json({ success: true, message: 'Simulated subscription.updated webhook dispatched.' });
+  });
+
   // Endpoints simulation complete
+
+  // =========================================================================
+  // --- MODULE: SALESPILOT BRAIN (AUTONOMOUS AI SALES AGENT PLATFORM) ---
+  // =========================================================================
+
+  // Helper to ensure default agents exist for current org context
+  app.post('/api/v1/brain/init', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      initializeDefaultAgentsAndPermissions(orgId);
+      res.json({ success: true, message: 'Default agents & security permissions successfully configured.' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // GET /api/brain/tasks (or v1) - Retrieve autonomous agent tasks with org isolation
+  const getBrainTasks = (req: any, res: any) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      
+      // Auto-init defaults if empty
+      initializeDefaultAgentsAndPermissions(orgId);
+
+      const tasks = (localDb.db.agentTasks || []).filter(t => t.organizationId === orgId);
+      const agents = (localDb.db.aiAgents || []).filter(a => a.organizationId === orgId);
+      const permissions = (localDb.db.agentPermissions || []).filter(p => p.organizationId === orgId);
+
+      res.json({ success: true, tasks, agents, permissions });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  };
+  app.get('/api/brain/tasks', getBrainTasks);
+  app.get('/api/v1/brain/tasks', getBrainTasks);
+
+  // POST /api/brain/chat (or v1) - AI Command Center Natural Language Trigger
+  const handleBrainChat = async (req: any, res: any) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const userId = user?.id || 'usr_default_salespilot';
+      const { command } = req.body;
+
+      if (!command || typeof command !== 'string' || !command.trim()) {
+        return res.status(400).json({ success: false, error: 'Command prompt parameter is required.' });
+      }
+
+      const task = await handleCommandInput(orgId, command.trim(), userId);
+      res.json({ success: true, message: 'Autonomous sequence dispatched successfully.', task });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  };
+  app.post('/api/brain/chat', handleBrainChat);
+  app.post('/api/v1/brain/chat', handleBrainChat);
+
+  // POST /api/brain/task (or v1) - Register manually formatted custom multi-step task
+  const handleBrainTaskRegister = async (req: any, res: any) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const userId = user?.id || 'usr_default_salespilot';
+      const { title, steps, description } = req.body;
+
+      if (!title || !Array.isArray(steps) || steps.length === 0) {
+        return res.status(400).json({ success: false, error: 'Invalid task format. Title and non-empty steps array are required.' });
+      }
+
+      const taskId = `task_${crypto.randomBytes(6).toString('hex')}`;
+      const taskSteps = steps.map((s: any, idx: number) => ({
+        id: s.id || `step_${idx + 1}`,
+        description: s.description || String(s),
+        status: 'pending'
+      }));
+
+      const newTask: any = {
+        id: taskId,
+        organizationId: orgId,
+        title,
+        description: description || title,
+        status: 'pending',
+        priority: 'high',
+        steps: taskSteps,
+        retryCount: 0,
+        maxRetries: 3,
+        createdAt: new Date().toISOString()
+      };
+
+      if (!localDb.db.agentTasks) localDb.db.agentTasks = [];
+      localDb.db.agentTasks.unshift(newTask);
+      localDb.save();
+
+      logAgentAction(
+        orgId,
+        'info',
+        `Manual task registered: "${title}"`,
+        `Direct custom task sequence of ${taskSteps.length} steps created.`,
+        taskId
+      );
+
+      // Trigger execution pipeline asynchronously
+      executeTaskPipeline(taskId, orgId, userId).catch(err => {
+        console.error(`[BrainEngine] Custom task failure:`, err);
+      });
+
+      res.json({ success: true, message: 'Custom task registered and executed.', task: newTask });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  };
+  app.post('/api/brain/task', handleBrainTaskRegister);
+  app.post('/api/v1/brain/task', handleBrainTaskRegister);
+
+  // GET /api/brain/history (or v1) - Retrieve logs, trace sequences, and memories with org isolation
+  const getBrainHistory = (req: any, res: any) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+      const logs = (localDb.db.agentLogs || []).filter(l => l.organizationId === orgId);
+      const memories = (localDb.db.agentMemories || []).filter(m => m.organizationId === orgId);
+
+      res.json({ success: true, logs, memories });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  };
+  app.get('/api/brain/history', getBrainHistory);
+  app.get('/api/v1/brain/history', getBrainHistory);
+
+  // POST /api/brain/approval (or v1) - Human oversight decision (approve or reject sensitive steps)
+  const handleBrainApproval = async (req: any, res: any) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const userName = user?.fullName || 'Human Overseer';
+      const { taskId, approvalId, approved, notes } = req.body;
+
+      if (!taskId || !approvalId || approved === undefined) {
+        return res.status(400).json({ success: false, error: 'taskId, approvalId, and approved status are required parameters.' });
+      }
+
+      const success = await processApprovalRequest(taskId, approvalId, approved, userName, notes);
+      if (!success) {
+        return res.status(404).json({ success: false, error: 'Target task or pending approval request not found/already processed.' });
+      }
+
+      res.json({ success: true, message: `Manual approval successfully processed. Decided: ${approved ? 'APPROVED' : 'REJECTED'}.` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  };
+  app.post('/api/brain/approval', handleBrainApproval);
+  app.post('/api/v1/brain/approval', handleBrainApproval);
+
+  // POST /api/v1/brain/permissions - Toggle/configure requiresApproval flags on the fly
+  app.post('/api/v1/brain/permissions', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const { permissions } = req.body; // Array of { action: string, requiresApproval: boolean }
+
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ success: false, error: 'Permissions parameter must be an array.' });
+      }
+
+      const dbPerms = localDb.db.agentPermissions || [];
+      permissions.forEach((p: any) => {
+        const found = dbPerms.find(dp => dp.organizationId === orgId && dp.action === p.action);
+        if (found) {
+          found.requiresApproval = !!p.requiresApproval;
+        }
+      });
+
+      localDb.save();
+      res.json({ success: true, message: 'Permissions updated successfully.' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
 
   // 2. VITE DEV OR PRODUCTION STATIC FILES MIDDLEWARE SETUP
   if (process.env.NODE_ENV !== 'production') {
@@ -10092,6 +13163,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   if (!process.env.VERCEL) {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 SalesPilot backend and client server online at http://localhost:${PORT}`);
+      try {
+        WorkflowScheduler.start();
+      } catch (err) {
+        console.error('Failed to start WorkflowScheduler:', err);
+      }
     });
   } else {
     console.log('[SERVER] Running in Vercel Serverless environment. Listen skipped.');

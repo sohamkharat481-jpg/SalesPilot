@@ -8,6 +8,7 @@ import {
   DollarSign, Flame, Filter, Users, CheckSquare, FileSpreadsheet, 
   Layers2, FileSignature, MessageSquare, Info, AlertTriangle, Eye, ArrowUpRight
 } from 'lucide-react';
+import { AiSdrWorkspace } from './AiSdrWorkspace';
 
 interface AIAgent {
   id: string;
@@ -28,7 +29,7 @@ interface AIAgent {
 }
 
 export function AiAgentsView() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'playgrounds' | 'workflows' | 'chat' | 'prompts' | 'knowledge' | 'recommendations'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'ai-sdr' | 'dashboard' | 'playgrounds' | 'workflows' | 'chat' | 'prompts' | 'knowledge' | 'recommendations'>('ai-sdr');
 
   // --- CORE SYSTEM STATE ---
   const [agents, setAgents] = useState<AIAgent[]>([
@@ -756,6 +757,7 @@ export function AiAgentsView() {
       {/* SUITE NAVIGATION TABS */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto gap-1 scrollbar-none">
         {[
+          { id: 'ai-sdr', label: 'AI SDR Workspace', icon: Brain },
           { id: 'dashboard', label: 'Fleet Dashboard', icon: Cpu },
           { id: 'playgrounds', label: 'Agent Playgrounds', icon: Sliders },
           { id: 'workflows', label: 'Autonomous Loops', icon: Zap },
@@ -1780,6 +1782,10 @@ export function AiAgentsView() {
             })}
           </div>
         </div>
+      )}
+
+      {activeTab === 'ai-sdr' && (
+        <AiSdrWorkspace />
       )}
 
     </div>

@@ -2,7 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { WorkspaceUser, Organization, TeamMember, Lead, Campaign, Deal, Appointment, UserRole } from '../types';
+import { 
+  WorkspaceUser, Organization, TeamMember, Lead, Campaign, Deal, Appointment, UserRole,
+  AiCompanyResearch, AiContactProfile, AiEmailGeneration, AiFollowup, AiMeetingBrief, AiProposal, AiScore,
+  OrgRole, OrgPermission, OrgMemberPermission, OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
+  AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory,
+  ApiKey, OAuthClient, OAuthToken, WebhookEndpoint, WebhookDelivery, IntegrationConfig, MarketplaceApp, DeveloperLog
+} from '../types';
+import { AIAgent, AgentTask, AgentMemory, AgentLog, AgentWorkflow, AgentPermission } from '../types/brain';
 
 const DB_FILE_PATH = path.join(process.cwd(), 'salespilot_db.json');
 const GOOGLE_ACCOUNTS_FILE_PATH = path.join(process.cwd(), 'google_accounts_store.json');
@@ -20,11 +27,45 @@ export interface DBStructure {
   loginHistory: any[];
   calendarAccounts: any[];
   gmailAccounts: any[];
+  aiCompanyResearch: AiCompanyResearch[];
+  aiContactProfiles: AiContactProfile[];
+  aiEmailGenerations: AiEmailGeneration[];
+  aiFollowups: AiFollowup[];
+  aiMeetingBriefs: AiMeetingBrief[];
+  aiProposals: AiProposal[];
+  aiScores: AiScore[];
+  roles?: OrgRole[];
+  permissions?: OrgPermission[];
+  memberPermissions?: OrgMemberPermission[];
+  notifications?: OrgNotification[];
+  auditLogs?: OrgAuditLog[];
+  teamActivities?: OrgTeamActivity[];
+  invitations?: OrgInvitation[];
+  workflows?: AutomationWorkflow[];
+  workflowVersions?: WorkflowVersion[];
+  workflowRuns?: WorkflowRun[];
+  workflowLogs?: WorkflowLog[];
+  scheduledJobs?: ScheduledJob[];
+  automationHistory?: AutomationHistory[];
+  apiKeys?: ApiKey[];
+  oauthClients?: OAuthClient[];
+  oauthTokens?: OAuthToken[];
+  webhookEndpoints?: WebhookEndpoint[];
+  webhookDeliveries?: WebhookDelivery[];
+  integrationConfigs?: IntegrationConfig[];
+  marketplaceApps?: MarketplaceApp[];
+  developerLogs?: DeveloperLog[];
+  aiAgents?: AIAgent[];
+  agentTasks?: AgentTask[];
+  agentMemories?: AgentMemory[];
+  agentLogs?: AgentLog[];
+  agentWorkflows?: AgentWorkflow[];
+  agentPermissions?: AgentPermission[];
 }
 
 export class LocalDB {
   private static instance: LocalDB;
-  private db: DBStructure = {
+  public db: DBStructure = {
     users: [],
     organizations: [],
     teamMembers: [],
@@ -36,7 +77,41 @@ export class LocalDB {
     activityLogs: [],
     loginHistory: [],
     calendarAccounts: [],
-    gmailAccounts: []
+    gmailAccounts: [],
+    aiCompanyResearch: [],
+    aiContactProfiles: [],
+    aiEmailGenerations: [],
+    aiFollowups: [],
+    aiMeetingBriefs: [],
+    aiProposals: [],
+    aiScores: [],
+    roles: [],
+    permissions: [],
+    memberPermissions: [],
+    notifications: [],
+    auditLogs: [],
+    teamActivities: [],
+    invitations: [],
+    workflows: [],
+    workflowVersions: [],
+    workflowRuns: [],
+    workflowLogs: [],
+    scheduledJobs: [],
+    automationHistory: [],
+    apiKeys: [],
+    oauthClients: [],
+    oauthTokens: [],
+    webhookEndpoints: [],
+    webhookDeliveries: [],
+    integrationConfigs: [],
+    marketplaceApps: [],
+    developerLogs: [],
+    aiAgents: [],
+    agentTasks: [],
+    agentMemories: [],
+    agentLogs: [],
+    agentWorkflows: [],
+    agentPermissions: []
   };
 
   private supabase: SupabaseClient | null = null;
@@ -59,6 +134,43 @@ export class LocalDB {
       try {
         const data = fs.readFileSync(DB_FILE_PATH, 'utf-8');
         this.db = JSON.parse(data);
+        
+        // Ensure new AI collections exist to avoid undefined crashes
+        if (!this.db.aiCompanyResearch) this.db.aiCompanyResearch = [];
+        if (!this.db.aiContactProfiles) this.db.aiContactProfiles = [];
+        if (!this.db.aiEmailGenerations) this.db.aiEmailGenerations = [];
+        if (!this.db.aiFollowups) this.db.aiFollowups = [];
+        if (!this.db.aiMeetingBriefs) this.db.aiMeetingBriefs = [];
+        if (!this.db.aiProposals) this.db.aiProposals = [];
+        if (!this.db.aiScores) this.db.aiScores = [];
+        if (!this.db.roles) this.db.roles = [];
+        if (!this.db.permissions) this.db.permissions = [];
+        if (!this.db.memberPermissions) this.db.memberPermissions = [];
+        if (!this.db.notifications) this.db.notifications = [];
+        if (!this.db.auditLogs) this.db.auditLogs = [];
+        if (!this.db.teamActivities) this.db.teamActivities = [];
+        if (!this.db.invitations) this.db.invitations = [];
+        if (!this.db.workflows) this.db.workflows = [];
+        if (!this.db.workflowVersions) this.db.workflowVersions = [];
+        if (!this.db.workflowRuns) this.db.workflowRuns = [];
+        if (!this.db.workflowLogs) this.db.workflowLogs = [];
+        if (!this.db.scheduledJobs) this.db.scheduledJobs = [];
+        if (!this.db.automationHistory) this.db.automationHistory = [];
+        if (!this.db.apiKeys) this.db.apiKeys = [];
+        if (!this.db.oauthClients) this.db.oauthClients = [];
+        if (!this.db.oauthTokens) this.db.oauthTokens = [];
+        if (!this.db.webhookEndpoints) this.db.webhookEndpoints = [];
+        if (!this.db.webhookDeliveries) this.db.webhookDeliveries = [];
+        if (!this.db.integrationConfigs) this.db.integrationConfigs = [];
+        if (!this.db.marketplaceApps) this.db.marketplaceApps = [];
+        if (!this.db.developerLogs) this.db.developerLogs = [];
+        if (!this.db.aiAgents) this.db.aiAgents = [];
+        if (!this.db.agentTasks) this.db.agentTasks = [];
+        if (!this.db.agentMemories) this.db.agentMemories = [];
+        if (!this.db.agentLogs) this.db.agentLogs = [];
+        if (!this.db.agentWorkflows) this.db.agentWorkflows = [];
+        if (!this.db.agentPermissions) this.db.agentPermissions = [];
+
         console.log(`[LocalDB] Loaded database with ${this.db.users?.length || 0} users and ${this.db.leads?.length || 0} leads.`);
       } catch (err) {
         console.error('[LocalDB] Error reading local db file, fallback initialization:', err);
@@ -193,7 +305,40 @@ export class LocalDB {
         }
       ],
       calendarAccounts: [],
-      gmailAccounts: []
+      gmailAccounts: [],
+      aiCompanyResearch: [],
+      aiContactProfiles: [],
+      aiEmailGenerations: [],
+      aiFollowups: [],
+      aiMeetingBriefs: [],
+      aiProposals: [],
+      aiScores: [],
+      roles: [
+        { id: 'role_owner', organizationId: 'system', name: 'Owner', description: 'Full access to all settings and financial billing controls', isCustom: false, createdAt: new Date().toISOString() },
+        { id: 'role_admin', organizationId: 'system', name: 'Admin', description: 'Administrative controls excluding primary ownership changes', isCustom: false, createdAt: new Date().toISOString() },
+        { id: 'role_sales_manager', organizationId: 'system', name: 'Sales Manager', description: 'Directs lead distribution, deal pipelines, and CRM performance', isCustom: false, createdAt: new Date().toISOString() },
+        { id: 'role_sales_rep', organizationId: 'system', name: 'Sales Representative', description: 'Handles assigned outbound campaigns, lead enrichment, and booked introductions', isCustom: false, createdAt: new Date().toISOString() },
+        { id: 'role_marketing', organizationId: 'system', name: 'Marketing', description: 'Designs sequences and builds incoming lead campaign structures', isCustom: false, createdAt: new Date().toISOString() },
+        { id: 'role_support', organizationId: 'system', name: 'Support', description: 'Handles customer-facing tickets and helps debug configurations', isCustom: false, createdAt: new Date().toISOString() },
+        { id: 'role_viewer', organizationId: 'system', name: 'Viewer', description: 'Read-only access to dashboards, reports, and timeline streams', isCustom: false, createdAt: new Date().toISOString() }
+      ],
+      permissions: [
+        { id: 'perm_view_crm', name: 'View CRM', description: 'Can view leads, deals, and appointments' },
+        { id: 'perm_edit_crm', name: 'Edit CRM', description: 'Can create and update leads, deals, and appointments' },
+        { id: 'perm_delete_crm', name: 'Delete CRM', description: 'Can delete leads, deals, and appointments' },
+        { id: 'perm_manage_campaigns', name: 'Manage Campaigns', description: 'Can manage outbox sequence campaigns' },
+        { id: 'perm_manage_billing', name: 'Manage Billing', description: 'Can manage billing, invoices, and subscriptions' },
+        { id: 'perm_manage_ai', name: 'Manage AI', description: 'Can trigger research profiles and email generators' },
+        { id: 'perm_manage_integrations', name: 'Manage Integrations', description: 'Can connect Google and third-party keys' },
+        { id: 'perm_view_reports', name: 'View Reports', description: 'Can view organization dashboards and statistics' },
+        { id: 'perm_manage_team', name: 'Manage Team', description: 'Can invite, update, or remove workspace members' },
+        { id: 'perm_manage_settings', name: 'Manage Settings', description: 'Can change company domain, logo, and metadata' }
+      ],
+      memberPermissions: [],
+      notifications: [],
+      auditLogs: [],
+      teamActivities: [],
+      invitations: []
     };
 
     this.save();
@@ -893,10 +1038,6 @@ export class LocalDB {
   }
 
   // --- Users Operations ---
-  public getUsers(): any[] {
-    return this.db.users;
-  }
-
   public getUserByEmail(email: string): any | null {
     if (!email) return null;
     return this.db.users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
@@ -922,10 +1063,6 @@ export class LocalDB {
   }
 
   // --- Organizations Operations ---
-  public getOrganizations(): Organization[] {
-    return this.db.organizations;
-  }
-
   public getOrganizationById(id: string): Organization | null {
     return this.db.organizations.find(o => o.id === id) || null;
   }
@@ -946,10 +1083,6 @@ export class LocalDB {
   }
 
   // --- Team Members Operations ---
-  public getTeamMembers(): TeamMember[] {
-    return this.db.teamMembers;
-  }
-
   public addTeamMember(member: TeamMember): void {
     this.db.teamMembers.push(member);
     this.save();
@@ -1223,6 +1356,764 @@ export class LocalDB {
     } else {
       this.db.gmailAccounts.push(account);
     }
+    this.save();
+  }
+
+  // --- AI SDR Operations with Tenant Isolation ---
+  public getAiCompanyResearch(organizationId: string | undefined): AiCompanyResearch[] {
+    if (!organizationId) return [];
+    return this.db.aiCompanyResearch.filter(r => r.organizationId === organizationId);
+  }
+  public getAiCompanyResearchByLeadId(leadId: string): AiCompanyResearch | null {
+    return this.db.aiCompanyResearch.find(r => r.leadId === leadId) || null;
+  }
+  public addAiCompanyResearch(item: AiCompanyResearch): void {
+    const idx = this.db.aiCompanyResearch.findIndex(r => r.id === item.id || r.leadId === item.leadId);
+    if (idx !== -1) {
+      this.db.aiCompanyResearch[idx] = item;
+    } else {
+      this.db.aiCompanyResearch.push(item);
+    }
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_company_research').upsert({
+        id: item.id,
+        lead_id: item.leadId,
+        organization_id: item.organizationId,
+        summary: item.summary,
+        industry: item.industry,
+        products_services: item.productsServices,
+        website_analysis: item.websiteAnalysis,
+        team_size: item.teamSize || null,
+        technologies: item.technologies,
+        pain_points: item.painPoints,
+        recent_news: item.recentNews || [],
+        icp_fit_score: item.icpFitScore,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+
+  public getAiContactProfiles(organizationId: string | undefined): AiContactProfile[] {
+    if (!organizationId) return [];
+    return this.db.aiContactProfiles.filter(p => p.organizationId === organizationId);
+  }
+  public getAiContactProfileByLeadId(leadId: string): AiContactProfile | null {
+    return this.db.aiContactProfiles.find(p => p.leadId === leadId) || null;
+  }
+  public addAiContactProfile(item: AiContactProfile): void {
+    const idx = this.db.aiContactProfiles.findIndex(p => p.id === item.id || p.leadId === item.leadId);
+    if (idx !== -1) {
+      this.db.aiContactProfiles[idx] = item;
+    } else {
+      this.db.aiContactProfiles.push(item);
+    }
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_contact_profiles').upsert({
+        id: item.id,
+        lead_id: item.leadId,
+        organization_id: item.organizationId,
+        name: item.name,
+        role: item.role,
+        decision_maker_score: item.decisionMakerScore,
+        buying_intent_estimate: item.buyingIntentEstimate,
+        talking_points: item.talkingPoints,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+
+  public getAiEmailGenerations(organizationId: string | undefined): AiEmailGeneration[] {
+    if (!organizationId) return [];
+    return this.db.aiEmailGenerations.filter(e => e.organizationId === organizationId);
+  }
+  public getAiEmailGenerationsByLeadId(leadId: string): AiEmailGeneration[] {
+    return this.db.aiEmailGenerations.filter(e => e.leadId === leadId);
+  }
+  public addAiEmailGeneration(item: AiEmailGeneration): void {
+    this.db.aiEmailGenerations.push(item);
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_email_generations').insert({
+        id: item.id,
+        lead_id: item.leadId,
+        organization_id: item.organizationId,
+        subject: item.subject,
+        body: item.body,
+        tone: item.tone,
+        prompt_used: item.promptUsed || null,
+        status: item.status,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+  public updateAiEmailGeneration(id: string, data: Partial<AiEmailGeneration>): boolean {
+    const idx = this.db.aiEmailGenerations.findIndex(e => e.id === id);
+    if (idx !== -1) {
+      this.db.aiEmailGenerations[idx] = { ...this.db.aiEmailGenerations[idx], ...data };
+      this.save();
+      if (this.supabase) {
+        const item = this.db.aiEmailGenerations[idx];
+        this.supabase.from('ai_email_generations').update({
+          subject: item.subject,
+          body: item.body,
+          tone: item.tone,
+          status: item.status
+        }).eq('id', id).then();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  public getAiFollowups(organizationId: string | undefined): AiFollowup[] {
+    if (!organizationId) return [];
+    return this.db.aiFollowups.filter(f => f.organizationId === organizationId);
+  }
+  public getAiFollowupsByLeadId(leadId: string): AiFollowup[] {
+    return this.db.aiFollowups.filter(f => f.leadId === leadId);
+  }
+  public addAiFollowup(item: AiFollowup): void {
+    this.db.aiFollowups.push(item);
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_followups').insert({
+        id: item.id,
+        lead_id: item.leadId,
+        organization_id: item.organizationId,
+        sequence_id: item.sequenceId || null,
+        step_number: item.stepNumber,
+        subject: item.subject || null,
+        body: item.body,
+        delay_days: item.delayDays,
+        status: item.status,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+  public updateAiFollowup(id: string, data: Partial<AiFollowup>): boolean {
+    const idx = this.db.aiFollowups.findIndex(f => f.id === id);
+    if (idx !== -1) {
+      this.db.aiFollowups[idx] = { ...this.db.aiFollowups[idx], ...data };
+      this.save();
+      if (this.supabase) {
+        const item = this.db.aiFollowups[idx];
+        this.supabase.from('ai_followups').update({
+          status: item.status,
+          body: item.body,
+          subject: item.subject
+        }).eq('id', id).then();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  public getAiMeetingBriefs(organizationId: string | undefined): AiMeetingBrief[] {
+    if (!organizationId) return [];
+    return this.db.aiMeetingBriefs.filter(b => b.organizationId === organizationId);
+  }
+  public getAiMeetingBriefByAppointmentId(appointmentId: string): AiMeetingBrief | null {
+    return this.db.aiMeetingBriefs.find(b => b.appointmentId === appointmentId) || null;
+  }
+  public addAiMeetingBrief(item: AiMeetingBrief): void {
+    const idx = this.db.aiMeetingBriefs.findIndex(b => b.id === item.id || b.appointmentId === item.appointmentId);
+    if (idx !== -1) {
+      this.db.aiMeetingBriefs[idx] = item;
+    } else {
+      this.db.aiMeetingBriefs.push(item);
+    }
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_meeting_briefs').upsert({
+        id: item.id,
+        appointment_id: item.appointmentId,
+        organization_id: item.organizationId,
+        company_overview: item.companyOverview,
+        contact_overview: item.contactOverview,
+        key_discussion_points: item.keyDiscussionPoints,
+        suggested_questions: item.suggestedQuestions,
+        possible_objections: item.possibleObjections,
+        meeting_strategy: item.meetingStrategy,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+
+  public getAiProposals(organizationId: string | undefined): AiProposal[] {
+    if (!organizationId) return [];
+    return this.db.aiProposals.filter(p => p.organizationId === organizationId);
+  }
+  public getAiProposalsByLeadId(leadId: string): AiProposal[] {
+    return this.db.aiProposals.filter(p => p.leadId === leadId);
+  }
+  public addAiProposal(item: AiProposal): void {
+    this.db.aiProposals.push(item);
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_proposals').insert({
+        id: item.id,
+        lead_id: item.leadId,
+        organization_id: item.organizationId,
+        title: item.title,
+        scope: item.scope,
+        pricing_summary: item.pricingSummary,
+        next_steps: item.nextSteps,
+        markdown_content: item.markdownContent,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+
+  public getAiScores(organizationId: string | undefined): AiScore[] {
+    if (!organizationId) return [];
+    return this.db.aiScores.filter(s => s.organizationId === organizationId);
+  }
+  public getAiScoresByLeadId(leadId: string): AiScore[] {
+    return this.db.aiScores.filter(s => s.leadId === leadId);
+  }
+  public addAiScore(item: AiScore): void {
+    this.db.aiScores.push(item);
+    this.save();
+    if (this.supabase) {
+      this.supabase.from('ai_scores').insert({
+        id: item.id,
+        lead_id: item.leadId,
+        organization_id: item.organizationId,
+        score_type: item.scoreType,
+        score_value: item.scoreValue,
+        reasoning: item.reasoning,
+        created_at: item.createdAt
+      }).then();
+    }
+  }
+
+  // --- Enterprise Team Workspace Data Access Methods ---
+
+  public getOrganizations(): Organization[] {
+    return this.db.organizations || [];
+  }
+
+  public saveOrganization(org: Organization): void {
+    if (!this.db.organizations) this.db.organizations = [];
+    const idx = this.db.organizations.findIndex(o => o.id === org.id);
+    if (idx !== -1) {
+      this.db.organizations[idx] = org;
+    } else {
+      this.db.organizations.push(org);
+    }
+    this.save();
+  }
+
+  public getUsers(): any[] {
+    return this.db.users || [];
+  }
+
+  public saveUser(user: any): void {
+    if (!this.db.users) this.db.users = [];
+    const idx = this.db.users.findIndex(u => u.id === user.id);
+    if (idx !== -1) {
+      this.db.users[idx] = user;
+    } else {
+      this.db.users.push(user);
+    }
+    this.save();
+  }
+
+  public getTeamMembers(organizationId?: string): TeamMember[] {
+    const list = this.db.teamMembers || [];
+    if (organizationId) {
+      return list.filter((m: any) => m.organizationId === organizationId);
+    }
+    return list;
+  }
+
+  public saveTeamMember(member: TeamMember): void {
+    if (!this.db.teamMembers) this.db.teamMembers = [];
+    const idx = this.db.teamMembers.findIndex(m => m.id === member.id);
+    if (idx !== -1) {
+      this.db.teamMembers[idx] = member;
+    } else {
+      this.db.teamMembers.push(member);
+    }
+    this.save();
+  }
+
+  public removeTeamMember(id: string): void {
+    if (!this.db.teamMembers) this.db.teamMembers = [];
+    this.db.teamMembers = this.db.teamMembers.filter(m => m.id !== id);
+    this.save();
+  }
+
+  public getRoles(organizationId?: string): OrgRole[] {
+    const roles = this.db.roles || [];
+    if (organizationId) {
+      return roles.filter(r => r.organizationId === 'system' || r.organizationId === organizationId);
+    }
+    return roles;
+  }
+
+  public addRole(role: OrgRole): void {
+    if (!this.db.roles) this.db.roles = [];
+    this.db.roles.push(role);
+    this.save();
+  }
+
+  public deleteRole(id: string): void {
+    if (!this.db.roles) this.db.roles = [];
+    this.db.roles = this.db.roles.filter(r => r.id !== id);
+    this.save();
+  }
+
+  public getPermissions(): OrgPermission[] {
+    return this.db.permissions || [];
+  }
+
+  public getMemberPermissions(memberId: string): OrgMemberPermission[] {
+    const perms = this.db.memberPermissions || [];
+    return perms.filter(p => p.memberId === memberId);
+  }
+
+  public saveMemberPermissions(memberId: string, permissions: OrgMemberPermission[]): void {
+    if (!this.db.memberPermissions) this.db.memberPermissions = [];
+    // Remove existing
+    this.db.memberPermissions = this.db.memberPermissions.filter(p => p.memberId !== memberId);
+    // Add new
+    this.db.memberPermissions.push(...permissions);
+    this.save();
+  }
+
+  public getNotifications(userId: string): OrgNotification[] {
+    const notifications = this.db.notifications || [];
+    return notifications.filter(n => n.userId === userId);
+  }
+
+  public addNotification(notification: OrgNotification): void {
+    if (!this.db.notifications) this.db.notifications = [];
+    this.db.notifications.push(notification);
+    this.save();
+  }
+
+  public markNotificationRead(id: string): void {
+    if (!this.db.notifications) this.db.notifications = [];
+    const notification = this.db.notifications.find(n => n.id === id);
+    if (notification) {
+      notification.read = true;
+      this.save();
+    }
+  }
+
+  public getAuditLogs(organizationId: string): OrgAuditLog[] {
+    const logs = this.db.auditLogs || [];
+    return logs.filter(l => l.organizationId === organizationId);
+  }
+
+  public addAuditLog(log: OrgAuditLog): void {
+    if (!this.db.auditLogs) this.db.auditLogs = [];
+    this.db.auditLogs.push(log);
+    this.save();
+  }
+
+  public getTeamActivities(organizationId: string): OrgTeamActivity[] {
+    const acts = this.db.teamActivities || [];
+    return acts.filter(a => a.organizationId === organizationId);
+  }
+
+  public addTeamActivity(activity: OrgTeamActivity): void {
+    if (!this.db.teamActivities) this.db.teamActivities = [];
+    this.db.teamActivities.push(activity);
+    this.save();
+  }
+
+  public getInvitations(organizationId: string): OrgInvitation[] {
+    const invitations = this.db.invitations || [];
+    return invitations.filter(i => i.organizationId === organizationId);
+  }
+
+  public addInvitation(inv: OrgInvitation): void {
+    if (!this.db.invitations) this.db.invitations = [];
+    this.db.invitations.push(inv);
+    this.save();
+  }
+
+  public updateInvitationStatus(id: string, status: 'ACCEPTED' | 'DECLINED'): void {
+    if (!this.db.invitations) this.db.invitations = [];
+    const inv = this.db.invitations.find(i => i.id === id);
+    if (inv) {
+      inv.status = status;
+      this.save();
+    }
+  }
+
+  // --- Workflow Engine Operations ---
+  public getWorkflows(organizationId: string): AutomationWorkflow[] {
+    const list = this.db.workflows || [];
+    return list.filter(w => w.organizationId === organizationId);
+  }
+
+  public getWorkflowById(id: string): AutomationWorkflow | null {
+    const list = this.db.workflows || [];
+    return list.find(w => w.id === id) || null;
+  }
+
+  public addWorkflow(workflow: AutomationWorkflow): void {
+    if (!this.db.workflows) this.db.workflows = [];
+    this.db.workflows.push(workflow);
+    this.save();
+  }
+
+  public updateWorkflow(id: string, data: Partial<AutomationWorkflow>): boolean {
+    if (!this.db.workflows) this.db.workflows = [];
+    const idx = this.db.workflows.findIndex(w => w.id === id);
+    if (idx !== -1) {
+      this.db.workflows[idx] = { ...this.db.workflows[idx], ...data, updatedAt: new Date().toISOString() };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public deleteWorkflow(id: string): boolean {
+    if (!this.db.workflows) this.db.workflows = [];
+    const initialLen = this.db.workflows.length;
+    this.db.workflows = this.db.workflows.filter(w => w.id !== id);
+    if (this.db.workflows.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getWorkflowVersions(workflowId: string): WorkflowVersion[] {
+    const list = this.db.workflowVersions || [];
+    return list.filter(v => v.workflowId === workflowId);
+  }
+
+  public addWorkflowVersion(version: WorkflowVersion): void {
+    if (!this.db.workflowVersions) this.db.workflowVersions = [];
+    this.db.workflowVersions.push(version);
+    this.save();
+  }
+
+  public getWorkflowRuns(organizationId: string): WorkflowRun[] {
+    const list = this.db.workflowRuns || [];
+    return list.filter(r => r.organizationId === organizationId);
+  }
+
+  public getWorkflowRunById(id: string): WorkflowRun | null {
+    const list = this.db.workflowRuns || [];
+    return list.find(r => r.id === id) || null;
+  }
+
+  public addWorkflowRun(run: WorkflowRun): void {
+    if (!this.db.workflowRuns) this.db.workflowRuns = [];
+    this.db.workflowRuns.push(run);
+    this.save();
+  }
+
+  public updateWorkflowRun(id: string, data: Partial<WorkflowRun>): boolean {
+    if (!this.db.workflowRuns) this.db.workflowRuns = [];
+    const idx = this.db.workflowRuns.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      this.db.workflowRuns[idx] = { ...this.db.workflowRuns[idx], ...data };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getWorkflowLogs(workflowId?: string, runId?: string): WorkflowLog[] {
+    const list = this.db.workflowLogs || [];
+    return list.filter(log => {
+      if (workflowId && log.workflowId !== workflowId) return false;
+      if (runId && log.runId !== runId) return false;
+      return true;
+    });
+  }
+
+  public addWorkflowLog(log: WorkflowLog): void {
+    if (!this.db.workflowLogs) this.db.workflowLogs = [];
+    this.db.workflowLogs.push(log);
+    this.save();
+  }
+
+  public getScheduledJobs(organizationId: string): ScheduledJob[] {
+    const list = this.db.scheduledJobs || [];
+    return list.filter(j => j.organizationId === organizationId);
+  }
+
+  public getAllScheduledJobs(): ScheduledJob[] {
+    return this.db.scheduledJobs || [];
+  }
+
+  public addScheduledJob(job: ScheduledJob): void {
+    if (!this.db.scheduledJobs) this.db.scheduledJobs = [];
+    this.db.scheduledJobs.push(job);
+    this.save();
+  }
+
+  public updateScheduledJob(id: string, data: Partial<ScheduledJob>): boolean {
+    if (!this.db.scheduledJobs) this.db.scheduledJobs = [];
+    const idx = this.db.scheduledJobs.findIndex(j => j.id === id);
+    if (idx !== -1) {
+      this.db.scheduledJobs[idx] = { ...this.db.scheduledJobs[idx], ...data };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getAutomationHistory(organizationId: string): AutomationHistory[] {
+    const list = this.db.automationHistory || [];
+    return list.filter(h => h.organizationId === organizationId);
+  }
+
+  public addAutomationHistory(history: AutomationHistory): void {
+    if (!this.db.automationHistory) this.db.automationHistory = [];
+    this.db.automationHistory.push(history);
+    this.save();
+  }
+
+  // ==========================================
+  // Public API, Webhooks, OAuth, Integrations
+  // ==========================================
+
+  public getApiKeys(organizationId?: string): ApiKey[] {
+    if (!this.db.apiKeys) this.db.apiKeys = [];
+    if (organizationId) {
+      return this.db.apiKeys.filter(k => k.organizationId === organizationId);
+    }
+    return this.db.apiKeys;
+  }
+
+  public getApiKeyBySecret(secret: string): ApiKey | null {
+    if (!this.db.apiKeys) this.db.apiKeys = [];
+    return this.db.apiKeys.find(k => k.secretKey === secret && k.status === 'ACTIVE') || null;
+  }
+
+  public addApiKey(key: ApiKey): void {
+    if (!this.db.apiKeys) this.db.apiKeys = [];
+    this.db.apiKeys.push(key);
+    this.save();
+  }
+
+  public updateApiKey(id: string, updates: Partial<ApiKey>): boolean {
+    if (!this.db.apiKeys) this.db.apiKeys = [];
+    const idx = this.db.apiKeys.findIndex(k => k.id === id);
+    if (idx !== -1) {
+      this.db.apiKeys[idx] = { ...this.db.apiKeys[idx], ...updates };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public deleteApiKey(id: string): boolean {
+    if (!this.db.apiKeys) this.db.apiKeys = [];
+    const initialLen = this.db.apiKeys.length;
+    this.db.apiKeys = this.db.apiKeys.filter(k => k.id !== id);
+    if (this.db.apiKeys.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getOAuthClients(organizationId?: string): OAuthClient[] {
+    if (!this.db.oauthClients) this.db.oauthClients = [];
+    if (organizationId) {
+      return this.db.oauthClients.filter(c => c.organizationId === organizationId);
+    }
+    return this.db.oauthClients;
+  }
+
+  public getOAuthClientById(id: string): OAuthClient | null {
+    if (!this.db.oauthClients) this.db.oauthClients = [];
+    return this.db.oauthClients.find(c => c.id === id) || null;
+  }
+
+  public addOAuthClient(client: OAuthClient): void {
+    if (!this.db.oauthClients) this.db.oauthClients = [];
+    this.db.oauthClients.push(client);
+    this.save();
+  }
+
+  public updateOAuthClient(id: string, updates: Partial<OAuthClient>): boolean {
+    if (!this.db.oauthClients) this.db.oauthClients = [];
+    const idx = this.db.oauthClients.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      this.db.oauthClients[idx] = { ...this.db.oauthClients[idx], ...updates };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public deleteOAuthClient(id: string): boolean {
+    if (!this.db.oauthClients) this.db.oauthClients = [];
+    const initialLen = this.db.oauthClients.length;
+    this.db.oauthClients = this.db.oauthClients.filter(c => c.id !== id);
+    if (this.db.oauthClients.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getOAuthTokenByAccessToken(accessToken: string): OAuthToken | null {
+    if (!this.db.oauthTokens) this.db.oauthTokens = [];
+    return this.db.oauthTokens.find(t => t.accessToken === accessToken) || null;
+  }
+
+  public addOAuthToken(token: OAuthToken): void {
+    if (!this.db.oauthTokens) this.db.oauthTokens = [];
+    this.db.oauthTokens.push(token);
+    this.save();
+  }
+
+  public getWebhookEndpoints(organizationId?: string): WebhookEndpoint[] {
+    if (!this.db.webhookEndpoints) this.db.webhookEndpoints = [];
+    if (organizationId) {
+      return this.db.webhookEndpoints.filter(w => w.organizationId === organizationId);
+    }
+    return this.db.webhookEndpoints;
+  }
+
+  public addWebhookEndpoint(endpoint: WebhookEndpoint): void {
+    if (!this.db.webhookEndpoints) this.db.webhookEndpoints = [];
+    this.db.webhookEndpoints.push(endpoint);
+    this.save();
+  }
+
+  public updateWebhookEndpoint(id: string, updates: Partial<WebhookEndpoint>): boolean {
+    if (!this.db.webhookEndpoints) this.db.webhookEndpoints = [];
+    const idx = this.db.webhookEndpoints.findIndex(w => w.id === id);
+    if (idx !== -1) {
+      this.db.webhookEndpoints[idx] = { ...this.db.webhookEndpoints[idx], ...updates };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public deleteWebhookEndpoint(id: string): boolean {
+    if (!this.db.webhookEndpoints) this.db.webhookEndpoints = [];
+    const initialLen = this.db.webhookEndpoints.length;
+    this.db.webhookEndpoints = this.db.webhookEndpoints.filter(w => w.id !== id);
+    if (this.db.webhookEndpoints.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getWebhookDeliveries(organizationId?: string, endpointId?: string): WebhookDelivery[] {
+    if (!this.db.webhookDeliveries) this.db.webhookDeliveries = [];
+    return this.db.webhookDeliveries.filter(d => {
+      if (organizationId && d.organizationId !== organizationId) return false;
+      if (endpointId && d.endpointId !== endpointId) return false;
+      return true;
+    });
+  }
+
+  public addWebhookDelivery(delivery: WebhookDelivery): void {
+    if (!this.db.webhookDeliveries) this.db.webhookDeliveries = [];
+    this.db.webhookDeliveries.push(delivery);
+    this.save();
+  }
+
+  public updateWebhookDelivery(id: string, updates: Partial<WebhookDelivery>): boolean {
+    if (!this.db.webhookDeliveries) this.db.webhookDeliveries = [];
+    const idx = this.db.webhookDeliveries.findIndex(d => d.id === id);
+    if (idx !== -1) {
+      this.db.webhookDeliveries[idx] = { ...this.db.webhookDeliveries[idx], ...updates };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getIntegrationConfigs(organizationId: string): IntegrationConfig[] {
+    if (!this.db.integrationConfigs) this.db.integrationConfigs = [];
+    return this.db.integrationConfigs.filter(c => c.organizationId === organizationId);
+  }
+
+  public getIntegrationConfig(organizationId: string, integrationId: string): IntegrationConfig | null {
+    if (!this.db.integrationConfigs) this.db.integrationConfigs = [];
+    return this.db.integrationConfigs.find(c => c.organizationId === organizationId && c.integrationId === integrationId) || null;
+  }
+
+  public addIntegrationConfig(config: IntegrationConfig): void {
+    if (!this.db.integrationConfigs) this.db.integrationConfigs = [];
+    // Clean duplicates
+    this.db.integrationConfigs = this.db.integrationConfigs.filter(
+      c => !(c.organizationId === config.organizationId && c.integrationId === config.integrationId)
+    );
+    this.db.integrationConfigs.push(config);
+    this.save();
+  }
+
+  public updateIntegrationConfig(organizationId: string, integrationId: string, updates: Partial<IntegrationConfig>): boolean {
+    if (!this.db.integrationConfigs) this.db.integrationConfigs = [];
+    const idx = this.db.integrationConfigs.findIndex(
+      c => c.organizationId === organizationId && c.integrationId === integrationId
+    );
+    if (idx !== -1) {
+      this.db.integrationConfigs[idx] = { ...this.db.integrationConfigs[idx], ...updates };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public deleteIntegrationConfig(organizationId: string, integrationId: string): boolean {
+    if (!this.db.integrationConfigs) this.db.integrationConfigs = [];
+    const initialLen = this.db.integrationConfigs.length;
+    this.db.integrationConfigs = this.db.integrationConfigs.filter(
+      c => !(c.organizationId === organizationId && c.integrationId === integrationId)
+    );
+    if (this.db.integrationConfigs.length !== initialLen) {
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getMarketplaceApps(organizationId: string): MarketplaceApp[] {
+    // Return standard apps with enriched real-time installation status
+    const standardApps: Omit<MarketplaceApp, 'isInstalled'>[] = [
+      { id: 'slack', name: 'Slack Integration', description: 'Dispatches real-time alerts and notifications into slack channels upon CRM updates.', category: 'Communication', developer: 'SalesPilot Dev', requiredScopes: ['leads:read', 'deals:read'] },
+      { id: 'ms_teams', name: 'Microsoft Teams', description: 'Dispatches lead summaries and deal achievements directly to MS Teams rooms.', category: 'Communication', developer: 'SalesPilot Dev', requiredScopes: ['leads:read'] },
+      { id: 'notion', name: 'Notion Sync', description: 'Automatically syncs your CRM leads, pipeline changes, and activity notes to a master database.', category: 'Productivity', developer: 'SalesPilot Dev', requiredScopes: ['leads:read', 'leads:write'] },
+      { id: 'trello', name: 'Trello Cards', description: 'Converts won deals or scheduled appointments into visual Trello action items.', category: 'Productivity', developer: 'SalesPilot Dev', requiredScopes: ['deals:read', 'meetings:read'] },
+      { id: 'asana', name: 'Asana Workflows', description: 'Triggers new task templates inside Asana upon pipeline step updates.', category: 'Productivity', developer: 'SalesPilot Dev', requiredScopes: ['tasks:write'] },
+      { id: 'zapier', name: 'Zapier Webhook App', description: 'Connects your outbound outreach flow to thousands of third party SaaS apps.', category: 'Automation', developer: 'SalesPilot Dev', requiredScopes: ['leads:read', 'deals:read', 'meetings:read'] },
+      { id: 'make', name: 'Make.com Scenario Sync', description: 'Visual automation trigger to execute advanced multi-step outreach pathways.', category: 'Automation', developer: 'SalesPilot Dev', requiredScopes: ['leads:read', 'leads:write'] },
+      { id: 'hubspot', name: 'HubSpot Import/Export', description: 'Effortlessly import older CRM histories or export new deals to HubSpot Hubs.', category: 'CRM Sync', developer: 'SalesPilot Dev', requiredScopes: ['leads:read', 'leads:write', 'deals:all'] },
+      { id: 'salesforce', name: 'Salesforce Enterprise Sync', description: 'Bulk synchronizes companies, deal values, and contacts with Salesforce CRM.', category: 'CRM Sync', developer: 'SalesPilot Dev', requiredScopes: ['leads:read', 'leads:write', 'deals:all'] },
+      { id: 'google_drive', name: 'Google Drive Archiver', description: 'Saves drafted AI sales proposals, meeting briefs, and briefs to cloud storage.', category: 'Storage', developer: 'SalesPilot Dev', requiredScopes: ['proposals:read'] },
+      { id: 'dropbox', name: 'Dropbox Sync', description: 'Automatically archives generated PDF outlines and outlines straight to Dropbox.', category: 'Storage', developer: 'SalesPilot Dev', requiredScopes: ['proposals:read'] },
+      { id: 'whatsapp', name: 'WhatsApp Business API', description: 'Future-ready bulk notification dispatcher to text contacts directly over WhatsApp.', category: 'Outreach', developer: 'SalesPilot Dev', requiredScopes: ['leads:read'] }
+    ];
+
+    return standardApps.map(app => {
+      const config = this.getIntegrationConfig(organizationId, app.id);
+      return {
+        ...app,
+        isInstalled: config ? config.status === 'CONNECTED' : false
+      };
+    });
+  }
+
+  public getDeveloperLogs(organizationId: string): DeveloperLog[] {
+    if (!this.db.developerLogs) this.db.developerLogs = [];
+    return this.db.developerLogs.filter(l => l.organizationId === organizationId);
+  }
+
+  public addDeveloperLog(log: DeveloperLog): void {
+    if (!this.db.developerLogs) this.db.developerLogs = [];
+    this.db.developerLogs.push(log);
     this.save();
   }
 }

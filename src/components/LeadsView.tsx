@@ -99,6 +99,96 @@ export function LeadsView({
   const [campYearsInBusiness, setCampYearsInBusiness] = useState('3-5 years');
   const [campDecisionMakerOnly, setCampDecisionMakerOnly] = useState(true);
 
+  // --- Enterprise Workspace Collaboration States ---
+  const [teamMembersList, setTeamMembersList] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+
+  useEffect(() => {
+    fetch('/api/v1/workspace/permissions/matrix')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTeamMembersList(data.matrix.map((item: any) => ({
+            id: item.memberId,
+            fullName: item.fullName,
+            email: item.email,
+            role: item.role
+          })));
+        }
+      })
+      .catch(err => console.error('Error loading team for CRM:', err));
+  }, []);
+
+  const handleAssignLead = async (leadId: string, memberId: string) => {
+    if (!memberId) return;
+    try {
+      const res = await fetch('/api/v1/workspace/crm/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetId: leadId, targetType: 'lead', assigneeMemberId: memberId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const assignedMember = teamMembersList.find(m => m.id === memberId);
+        if (assignedMember) {
+          setLeads(prev => prev.map(l => l.id === leadId ? {
+            ...l,
+            assignedToId: memberId,
+            assignedToName: assignedMember.fullName
+          } as any : l));
+        }
+      }
+    } catch (err) {
+      console.error('Error assigning lead:', err);
+    }
+  };
+
+  const handleAddComment = async (leadId: string) => {
+    if (!newCommentText.trim()) return;
+
+    // Detect @mentions (e.g. emails in text)
+    const emailRegex = /@([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+    const matches = newCommentText.match(emailRegex) || [];
+    const parsedMentions = matches.map(m => m.substring(1)); // strip '@' prefix
+
+    try {
+      const res = await fetch('/api/v1/workspace/crm/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: leadId,
+          targetType: 'lead',
+          text: newCommentText,
+          mentions: parsedMentions
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLeads(prev => prev.map(l => {
+          if (l.id === leadId) {
+            const currentTimeline = l.timelineList || [];
+            return {
+              ...l,
+              timelineList: [
+                {
+                  id: `tme_${Date.now()}`,
+                  event: 'Teammate Comment',
+                  details: `${newCommentText}`,
+                  createdAt: new Date().toISOString()
+                },
+                ...currentTimeline
+              ]
+            };
+          }
+          return l;
+        }));
+        setNewCommentText('');
+      }
+    } catch (err) {
+      console.error('Error adding comment:', err);
+    }
+  };
+
   // Optional Providers Active State Toggles (Connect / Disconnect)
   const [connectedProviders, setConnectedProviders] = useState<Record<string, boolean>>({
     'linkedin-extractor': false,
@@ -2046,6 +2136,42 @@ export function LeadsView({
                       </div>
                     </div>
                   )}
+
+                  {/* 6. TEAM COLLABORATION MODULE: ASSIGNMENTS & MENTIONS */}
+                  <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div>
+                      <span className="block text-[9px] font-mono text-slate-400">Teammate Seat Assignment:</span>
+                      <select
+                        value={(selectedLead as any).assignedToId || ''}
+                        onChange={(e) => handleAssignLead(selectedLead.id, e.target.value)}
+                        className="w-full text-xs p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none text-slate-700 dark:text-slate-300"
+                      >
+                        <option value="">-- Unassigned --</option>
+                        {teamMembersList.map(m => (
+                          <option key={m.id} value={m.id}>{m.fullName} ({m.role})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="block text-[9px] font-mono text-slate-400">Collaborative Comments & Mentions:</span>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={newCommentText}
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          placeholder="Type comment (use @email to mention teammate)..."
+                          className="flex-1 text-xs p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none text-slate-700 dark:text-slate-300"
+                        />
+                        <button
+                          onClick={() => handleAddComment(selectedLead.id)}
+                          className="px-2.5 py-1 bg-slate-900 dark:bg-slate-850 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold"
+                        >
+                          Post
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
                 </div>
               </div>

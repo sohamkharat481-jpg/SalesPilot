@@ -479,3 +479,119 @@ CREATE POLICY billing_isolation ON billing FOR ALL TO public USING (true);
 CREATE POLICY subscriptions_isolation ON subscriptions FOR ALL TO public USING (true);
 CREATE POLICY api_keys_isolation ON api_keys FOR ALL TO public USING (true);
 CREATE POLICY audit_logs_isolation ON audit_logs FOR ALL TO public USING (true);
+
+-- AI SDR Module Tables
+CREATE TABLE IF NOT EXISTS ai_company_research (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    summary TEXT NOT NULL,
+    industry TEXT NOT NULL,
+    products_services TEXT[] DEFAULT '{}'::TEXT[],
+    website_analysis TEXT NOT NULL,
+    team_size TEXT,
+    technologies TEXT[] DEFAULT '{}'::TEXT[],
+    pain_points TEXT[] DEFAULT '{}'::TEXT[],
+    recent_news TEXT[] DEFAULT '{}'::TEXT[],
+    icp_fit_score INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_contact_profiles (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    decision_maker_score INTEGER DEFAULT 0,
+    buying_intent_estimate TEXT DEFAULT 'LOW', -- 'LOW', 'MEDIUM', 'HIGH'
+    talking_points TEXT[] DEFAULT '{}'::TEXT[],
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_email_generations (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    tone TEXT DEFAULT 'Formal', -- 'Formal', 'Friendly', 'Startup', 'Enterprise', 'Custom'
+    prompt_used TEXT,
+    status TEXT DEFAULT 'DRAFT', -- 'DRAFT', 'SENT', 'REJECTED'
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_followups (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    sequence_id TEXT,
+    step_number INTEGER DEFAULT 1,
+    subject TEXT,
+    body TEXT NOT NULL,
+    delay_days INTEGER DEFAULT 2,
+    status TEXT DEFAULT 'PENDING', -- 'PENDING', 'SENT', 'SKIPPED'
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_meeting_briefs (
+    id TEXT PRIMARY KEY,
+    appointment_id TEXT REFERENCES appointments(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    company_overview TEXT NOT NULL,
+    contact_overview TEXT NOT NULL,
+    key_discussion_points TEXT[] DEFAULT '{}'::TEXT[],
+    suggested_questions TEXT[] DEFAULT '{}'::TEXT[],
+    possible_objections TEXT[] DEFAULT '{}'::TEXT[],
+    meeting_strategy TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_proposals (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    pricing_summary TEXT NOT NULL,
+    next_steps TEXT NOT NULL,
+    markdown_content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_scores (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES leads(id) ON DELETE CASCADE,
+    organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE,
+    score_type TEXT NOT NULL, -- 'ICP', 'DECISION_MAKER', 'BUYING_INTENT', 'OVERALL'
+    score_value INTEGER DEFAULT 0,
+    reasoning TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Turn on RLS for AI SDR tables
+ALTER TABLE ai_company_research ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_contact_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_email_generations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_followups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_meeting_briefs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_proposals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_scores ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY ai_company_research_isolation ON ai_company_research FOR ALL TO public USING (true);
+CREATE POLICY ai_contact_profiles_isolation ON ai_contact_profiles FOR ALL TO public USING (true);
+CREATE POLICY ai_email_generations_isolation ON ai_email_generations FOR ALL TO public USING (true);
+CREATE POLICY ai_followups_isolation ON ai_followups FOR ALL TO public USING (true);
+CREATE POLICY ai_meeting_briefs_isolation ON ai_meeting_briefs FOR ALL TO public USING (true);
+CREATE POLICY ai_proposals_isolation ON ai_proposals FOR ALL TO public USING (true);
+CREATE POLICY ai_scores_isolation ON ai_scores FOR ALL TO public USING (true);
+
+-- Indexes for AI SDR tables
+CREATE INDEX IF NOT EXISTS idx_ai_company_research_org ON ai_company_research(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ai_contact_profiles_org ON ai_contact_profiles(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ai_email_generations_org ON ai_email_generations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ai_followups_org ON ai_followups(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ai_meeting_briefs_org ON ai_meeting_briefs(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ai_proposals_org ON ai_proposals(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ai_scores_org ON ai_scores(organization_id);
+
