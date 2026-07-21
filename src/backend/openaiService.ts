@@ -64,25 +64,35 @@ let currentUsage: UsageRecord = {
 
 // Default organization budgets based on user tiers
 const TIER_BUDGETS: Record<string, AiLimitSettings> = {
-  STARTER: {
-    dailyTokenLimit: 100000,
-    dailyCostLimitUsd: 2.00,
-    requestsPerMinuteLimit: 10
+  FREE_TRIAL: {
+    dailyTokenLimit: 1000000,
+    dailyCostLimitUsd: 20.00,
+    requestsPerMinuteLimit: 60
   },
-  PROFESSIONAL: {
-    dailyTokenLimit: 500000,
-    dailyCostLimitUsd: 10.00,
-    requestsPerMinuteLimit: 30
+  STARTER: {
+    dailyTokenLimit: 250000,
+    dailyCostLimitUsd: 5.00,
+    requestsPerMinuteLimit: 15
   },
   GROWTH: {
     dailyTokenLimit: 1000000,
     dailyCostLimitUsd: 20.00,
     requestsPerMinuteLimit: 60
   },
+  BUSINESS: {
+    dailyTokenLimit: 5000000,
+    dailyCostLimitUsd: 100.00,
+    requestsPerMinuteLimit: 150
+  },
+  PROFESSIONAL: {
+    dailyTokenLimit: 5000000,
+    dailyCostLimitUsd: 100.00,
+    requestsPerMinuteLimit: 150
+  },
   ENTERPRISE: {
-    dailyTokenLimit: 10000000,
-    dailyCostLimitUsd: 200.00,
-    requestsPerMinuteLimit: 200
+    dailyTokenLimit: 50000000,
+    dailyCostLimitUsd: 1000.00,
+    requestsPerMinuteLimit: 500
   }
 };
 

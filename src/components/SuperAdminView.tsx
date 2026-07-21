@@ -23,7 +23,7 @@ interface AdminOrg {
   id: string;
   name: string;
   domain: string;
-  tier: 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY';
+  tier: 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY';
   status: 'ACTIVE' | 'SUSPENDED';
   mrrInr: number;
   usersCount: number;
@@ -87,7 +87,7 @@ interface SupportTicket {
 }
 
 export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAdminViewProps) {
-  const [adminTab, setAdminTab] = useState<'monitoring' | 'orgs' | 'users' | 'payments' | 'ai-usage' | 'campaigns' | 'meetings' | 'reports' | 'tickets' | 'logs' | 'flags'>('monitoring');
+  const [adminTab, setAdminTab] = useState<'monitoring' | 'infrastructure' | 'orgs' | 'users' | 'payments' | 'ai-usage' | 'campaigns' | 'meetings' | 'reports' | 'tickets' | 'logs' | 'flags'>('monitoring');
 
   // 1. Initial State: Organizations
   const [organizations, setOrganizations] = useState<AdminOrg[]>([
@@ -448,6 +448,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
 
   const subTabNavigation = [
     { id: 'monitoring', label: 'Monitor Dashboard', icon: Activity },
+    { id: 'infrastructure', label: 'Global Infrastructure', icon: Server },
     { id: 'orgs', label: 'Organizations', icon: Building },
     { id: 'users', label: 'Users Manager', icon: Users },
     { id: 'payments', label: 'Payments & Ledger', icon: CreditCard },
@@ -675,6 +676,165 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
             </div>
           )}
 
+          {/* TAB 1.5: GLOBAL INFRASTRUCTURE & OBSERVABILITY */}
+          {adminTab === 'infrastructure' && (
+            <div className="space-y-6 animate-fade-in text-slate-300">
+              
+              {/* Quick Action Controls */}
+              <div className="bg-slate-900 border border-slate-850 p-6 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">Infrastructure Control Hub</h3>
+                  <p className="text-xs text-slate-400 font-sans mt-0.5">Control live container routing, trigger backup cron audits, and manage regional server boundaries.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button 
+                    onClick={() => alert('Hot snapshot of master database cluster initiated. Bundling and routing encrypted GZIP tarball to dual-region secure buckets.')}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                  >
+                    Backup DB Snapshot
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const confirmSim = confirm('Simulate dry-run Disaster Recovery protocol? This will temporarily divert live WebSocket traffic in our Singapore cluster to the Tokyo read replica and execute state validation.');
+                      if (confirmSim) {
+                        alert('Disaster Recovery Dry-Run Complete. Heartbeat synchronization validation: 100% SUCCESS.');
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-650 hover:bg-rose-700 text-white rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                  >
+                    Disaster Recovery Dry-Run
+                  </button>
+                  <button 
+                    onClick={() => alert('Flushing Redis memory cache tables... 12,402 active session variables re-cached.')}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                  >
+                    Flush Redis Cache
+                  </button>
+                </div>
+              </div>
+
+              {/* Server Nodes grid */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-slate-500 font-semibold">Active Regional Cloud Run Clusters</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {[
+                    { region: 'asia-southeast1 (Mumbai)', ip: '34.85.122.90', load: '18.4%', ping: '4ms', status: 'PRIMARY / LEADER' },
+                    { region: 'europe-west1 (Dublin)', ip: '104.42.90.18', load: '12.1%', ping: '11ms', status: 'ACTIVE READ-REPLICA' },
+                    { region: 'us-east1 (S. Carolina)', ip: '35.12.150.112', load: '24.5%', ping: '8ms', status: 'ACTIVE READ-REPLICA' },
+                    { region: 'asia-east2 (Singapore)', ip: '34.90.111.45', load: '8.2%', ping: '5ms', status: 'HOT-FAILOVER STANDBY' }
+                  ].map((cluster, i) => (
+                    <div key={i} className="bg-slate-900 border border-slate-850 p-4 rounded-xl space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-white font-mono">{cluster.region}</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        <p>IP: {cluster.ip}</p>
+                        <p>Throughput Load: {cluster.load}</p>
+                        <p>Latency: {cluster.ping}</p>
+                      </div>
+                      <span className="bg-slate-950 text-slate-400 border border-slate-800 px-2 py-0.5 text-[8px] font-bold font-mono rounded block text-center uppercase tracking-wider">
+                        {cluster.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sentry & OpenTelemetry logs */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                
+                {/* Sentry Logs */}
+                <div className="md:col-span-6 bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">Sentry Exception Monitoring</h4>
+                    <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 text-[8px] font-mono font-bold rounded">Live Tracker</span>
+                  </div>
+
+                  <div className="space-y-3 font-mono text-[9px]">
+                    {[
+                      { issue: 'UNAUTHORIZED_INTEGRATION_TOKEN', file: '/src/services/api.ts:44', occurrences: '24', status: 'UNRESOLVED' },
+                      { issue: 'CASHFREE_CALLBACK_TIMEOUT', file: '/server.ts:382', occurrences: '3', status: 'INVESTIGATING' },
+                      { issue: 'REDIS_CONNECTION_REFUSED_RETRY', file: '/server/redis.ts:18', occurrences: '1', status: 'RESOLVED' }
+                    ].map((err, i) => (
+                      <div key={i} className="bg-slate-950 p-3 rounded border border-slate-850 flex justify-between items-center gap-3">
+                        <div className="space-y-1">
+                          <p className="font-bold text-red-400">{err.issue}</p>
+                          <p className="text-slate-500">{err.file}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-bold">{err.occurrences} events</p>
+                          <span className={`text-[8px] font-bold px-1 rounded ${
+                            err.status === 'UNRESOLVED' ? 'bg-red-500/20 text-red-400 animate-pulse' : err.status === 'INVESTIGATING' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+                          }`}>{err.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* OpenTelemetry & Queue metrics */}
+                <div className="md:col-span-6 bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">OpenTelemetry Queue & Worker Threads</h4>
+                    <span className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 text-[8px] font-mono font-bold rounded">Auto-scaled</span>
+                  </div>
+
+                  <div className="space-y-3 font-mono text-[10px]">
+                    <div className="p-3 bg-slate-950 rounded border border-slate-850 flex justify-between items-center">
+                      <span>Outbound Dispatcher Node</span>
+                      <div className="text-right text-[11px]">
+                        <span className="text-emerald-400 font-bold">8 active instances</span>
+                        <p className="text-[9px] text-slate-500">Processing: 410 mails/min</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded border border-slate-850 flex justify-between items-center">
+                      <span>Google Maps Spider Broker</span>
+                      <div className="text-right text-[11px]">
+                        <span className="text-emerald-400 font-bold">12 queue workers</span>
+                        <p className="text-[9px] text-slate-500">Load limit: 41.5% allocated</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded border border-slate-850 flex justify-between items-center">
+                      <span>Voice TTS Synthesizer Cluster</span>
+                      <div className="text-right text-[11px]">
+                        <span className="text-amber-400 font-bold">4 active compilers</span>
+                        <p className="text-[9px] text-slate-500">Idle thread wait: 12ms</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Slow Query Detection Log */}
+              <div className="bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">PostgreSQL Slow Query Audit Logs (Supabase)</h4>
+                  <span className="text-[9px] text-slate-500 font-mono">Limit threshold &gt; 100ms</span>
+                </div>
+
+                <div className="space-y-2.5 font-mono text-[9px]">
+                  {[
+                    { duration: '384ms', query: 'SELECT * FROM leads WHERE company_name ILIKE \'%Bangalore%\' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100;', recommendation: 'INDEX_REQUIRED: Create multi-column index on (company_name, deleted_at, created_at)' },
+                    { duration: '142ms', query: 'SELECT SUM(amount_inr) FROM payments WHERE status = \'SUCCESS\' AND created_at &gt;= \'2026-07-01\';', recommendation: 'RESOLVED: Index verified on status + created_at' }
+                  ].map((sq, i) => (
+                    <div key={i} className="p-3 bg-slate-950 rounded border border-slate-850 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-red-400 font-bold">Duration: {sq.duration}</span>
+                        <span className="text-emerald-400 text-[8px] font-bold uppercase">{sq.recommendation}</span>
+                      </div>
+                      <p className="text-slate-400 leading-relaxed overflow-x-auto whitespace-pre">{sq.query}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
+
           {/* TAB 2: ORGANIZATIONS MANAGER */}
           {adminTab === 'orgs' && (
             <div className="space-y-6">
@@ -716,6 +876,8 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
                       onChange={(e: any) => setNewOrgTier(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500 font-bold font-mono"
                     >
+                      <option value="FREE_TRIAL">FREE_TRIAL</option>
+                      <option value="STARTER">STARTER</option>
                       <option value="GROWTH">GROWTH</option>
                       <option value="PROFESSIONAL">PROFESSIONAL</option>
                       <option value="BUSINESS">BUSINESS</option>

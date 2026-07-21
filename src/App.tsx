@@ -8,7 +8,7 @@ import {
   Sparkles, Layers, Users, Award, Calendar, CreditCard, 
   Settings, Loader2, LogOut, Check, ChevronRight, ChevronLeft, Menu, X, ArrowUpRight, ShieldAlert,
   Bell, Search, Bot, FileText, TrendingUp, Sun, Moon, Clock, Activity, Send, Briefcase, ShieldCheck,
-  Rocket, Building2, Terminal
+  Rocket, Building2, Terminal, HelpCircle, PhoneCall, Smartphone, Globe, Lock
 } from 'lucide-react';
 import { Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   WorkspaceUser, SubscriptionTier, DealStage, SequenceStep 
@@ -34,9 +34,88 @@ import { AuthView } from './components/AuthView';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { AutomationView } from './components/AutomationView';
 import { DeveloperPortalView } from './components/DeveloperPortalView';
+import { LaunchHelpCenter } from './components/LaunchHelpCenter';
+import { VoiceCallingView } from './components/VoiceCallingView';
+import { MobileHubView } from './components/MobileHubView';
+import { WhiteLabelView } from './components/WhiteLabelView';
+import { EnterpriseSecurityView } from './components/EnterpriseSecurityView';
+import { RevenueIntelligenceView } from './components/RevenueIntelligenceView';
+import { MarketplaceView } from './components/MarketplaceView';
+import { ComplianceView } from './components/ComplianceView';
+import { BetaProgramView } from './components/BetaProgramView';
+
+function RestrictedViewPlaceholder({ 
+  title, 
+  description, 
+  icon: Icon, 
+  onResumeSetup 
+}: { 
+  title: string; 
+  description: string; 
+  icon: any; 
+  onResumeSetup: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 px-6 max-w-md mx-auto text-center space-y-6 animate-fade-in">
+      <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-slate-900 border border-amber-100 dark:border-slate-800 flex items-center justify-center text-amber-500 shadow-sm">
+        <Icon className="w-8 h-8" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-base font-bold text-slate-900 dark:text-white">{title} Integration Required</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          {description}
+        </p>
+      </div>
+      <button
+        onClick={onResumeSetup}
+        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-500/10 transition-all flex items-center gap-1.5 cursor-pointer"
+      >
+        <Sparkles className="w-4 h-4 animate-pulse" />
+        Connect in Setup Wizard
+      </button>
+    </div>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [trialTimeRemaining, setTrialTimeRemaining] = useState(() => {
+    const saved = localStorage.getItem('salespilot_trial_time');
+    return saved ? parseInt(saved, 10) : 86400; // 24 hours in seconds
+  });
+  const [trialActive, setTrialActive] = useState(() => {
+    const saved = localStorage.getItem('salespilot_trial_active');
+    return saved === null ? true : saved === 'true';
+  });
+
+  // Simulated 1-Day Trial countdown interval timer
+  useEffect(() => {
+    if (!trialActive || trialTimeRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setTrialTimeRemaining(prev => {
+        const next = prev - 1;
+        localStorage.setItem('salespilot_trial_time', String(next));
+        if (next <= 0) {
+          clearInterval(interval);
+          setTrialActive(false);
+          localStorage.setItem('salespilot_trial_active', 'false');
+          // Automatically trigger redirect to billing
+          setActiveTab('billing');
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [trialActive, trialTimeRemaining]);
+
+  const formatTrialTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}h ${m}m ${s}s`;
+  };
+
   const { user, logout, isLoading: authLoading, isSandbox } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -44,6 +123,7 @@ export default function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [integrations, setIntegrations] = useState<IntegrationCredentials>({});
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') !== 'light');
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,12 +168,12 @@ export default function App() {
 
   // Redirect non-subscribers/non-founders to billing immediately
   useEffect(() => {
-    if (user && !user.isFounder && user.subscriptionStatus !== 'ACTIVE') {
+    if (user && !user.isFounder && user.subscriptionStatus !== 'ACTIVE' && user.subscriptionStatus !== 'TRIAL' && !trialActive) {
       if (activeTab !== 'billing') {
         setActiveTab('billing');
       }
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, trialActive]);
 
   // Synchronize Dark Mode on Document Element
   useEffect(() => {
@@ -403,16 +483,16 @@ export default function App() {
     }
   }
 
-  if (user && !user.companyName) {
+  if (user && !user.companyName && !user.onboardingCompleted) {
     return (
       <OnboardingWizard 
         user={user} 
         onComplete={(orgData) => {
           user.companyName = orgData.companyName;
           user.industry = orgData.industry;
+          user.onboardingCompleted = true;
           // Force state update to trigger re-render
-          setLeads([]);
-          setCampaigns([]);
+          setLeads([...leads]);
         }} 
       />
     );
@@ -427,7 +507,26 @@ export default function App() {
     );
   }
 
-  const isSubscriber = user?.isFounder || user?.subscriptionStatus === 'ACTIVE';
+  const checkIntegration = (id: 'gmail' | 'calendar' | 'ai' | 'cashfree') => {
+    if (!user?.onboardingProgress) return true; // Existing or legacy users are completely unrestricted
+    
+    if (id === 'gmail') {
+      return user.onboardingProgress.find((s: any) => s.id === 'gmail')?.status === 'COMPLETED';
+    }
+    if (id === 'calendar') {
+      return user.onboardingProgress.find((s: any) => s.id === 'calendar')?.status === 'COMPLETED';
+    }
+    if (id === 'ai') {
+      return user.onboardingProgress.find((s: any) => s.id === 'openai')?.status === 'COMPLETED' || 
+             user.onboardingProgress.find((s: any) => s.id === 'gemini')?.status === 'COMPLETED';
+    }
+    if (id === 'cashfree') {
+      return user.onboardingProgress.find((s: any) => s.id === 'cashfree')?.status === 'COMPLETED';
+    }
+    return true;
+  };
+
+  const isSubscriber = user?.isFounder || user?.subscriptionStatus === 'ACTIVE' || user?.subscriptionStatus === 'TRIAL' || trialActive;
 
   const navItems = isSubscriber ? [
     { id: 'dashboard', label: 'Dashboard', icon: Layers },
@@ -438,12 +537,20 @@ export default function App() {
     { id: 'outreach', label: 'Outreach', icon: Send },
     { id: 'scheduler', label: 'Appointments', icon: Calendar, badge: appointments.filter(a => a.status === 'SCHEDULED').length },
     { id: 'pipeline', label: 'CRM', icon: Award },
+    { id: 'voice-calling', label: 'AI Voice Calling', icon: PhoneCall },
+    { id: 'mobile-app', label: 'Mobile Workspace', icon: Smartphone },
     { id: 'ai-agents', label: 'AI Agents', icon: Bot },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'integrations', label: 'Integrations', icon: Settings },
     { id: 'developer-portal', label: 'API & Developer Hub', icon: Terminal },
+    { id: 'revenue-intelligence', label: 'AI Revenue Intel', icon: Sparkles },
+    { id: 'marketplace', label: 'App Marketplace', icon: Layers },
+    { id: 'white-label', label: 'White Labeling', icon: Globe },
+    { id: 'enterprise-security', label: 'Enterprise Security', icon: Lock },
+    { id: 'compliance', label: 'Compliance Center', icon: ShieldCheck },
+    { id: 'beta-program', label: 'Beta Control Center', icon: Rocket },
     { id: 'launch-center', label: 'Enterprise Launch', icon: Rocket },
     { id: 'workspace', label: 'Workspace Hub', icon: Building2 },
     { id: 'client-portal', label: 'Client Portal', icon: Briefcase },
@@ -454,6 +561,60 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
+      
+      {/* 1-Day Trial Status Banner Alert */}
+      {trialActive ? (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white px-6 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-inner">
+          <div className="flex items-center gap-2 font-mono">
+            <Sparkles className="w-3.5 h-3.5 text-blue-300 animate-pulse shrink-0" />
+            <span>
+              <strong>1-Day Free Trial (Active):</strong> Full feature access is unlocked. Connect Gmail and CRM to execute your outbound AI-SDR campaigns.
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="bg-white/10 px-2.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide border border-white/20">
+              ⏰ {formatTrialTime(trialTimeRemaining)} remaining
+            </div>
+            <button 
+              onClick={() => setActiveTab('billing')}
+              className="px-3 py-1 bg-white text-blue-700 hover:bg-slate-50 font-bold rounded font-sans text-[10px] transition cursor-pointer"
+            >
+              Upgrade Plan
+            </button>
+            <button
+              onClick={() => {
+                setTrialTimeRemaining(0);
+                setTrialActive(false);
+                localStorage.setItem('salespilot_trial_active', 'false');
+                localStorage.setItem('salespilot_trial_time', '0');
+                setActiveTab('billing');
+                alert("Trial has been ended. Secure subscription status to continue workspace access.");
+              }}
+              className="text-white/70 hover:text-white underline font-mono text-[9px] cursor-pointer"
+              title="Instantly expire trial to test checkout redirect and upgrade flow"
+            >
+              Test Expiry Redirect
+            </button>
+          </div>
+        </div>
+      ) : (
+        localStorage.getItem('salespilot_trial_time') === '0' && (
+          <div className="bg-red-600 text-white px-6 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-md">
+            <div className="flex items-center gap-2 font-mono">
+              <ShieldAlert className="w-4 h-4 text-red-200 animate-bounce shrink-0" />
+              <span>
+                <strong>Your 1-Day Free Trial has expired!</strong> Workspace features are locked. Secure a Subscription Plan via Cashfree gateway to resume campaign scheduling.
+              </span>
+            </div>
+            <button 
+              onClick={() => setActiveTab('billing')}
+              className="px-4 py-1.5 bg-white text-red-700 hover:bg-slate-50 font-bold rounded-xl font-sans text-xs shadow-md shadow-red-950/25 transition cursor-pointer animate-pulse"
+            >
+              Upgrade & Reactivate Workspace
+            </button>
+          </div>
+        )
+      )}
       
       {/* Top Header bar */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-4 h-16 flex items-center justify-between">
@@ -554,6 +715,16 @@ export default function App() {
               />
             )}
           </div>
+
+          {/* Help & Product Tour Hub button */}
+          <button 
+            onClick={() => setShowHelpCenter(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/15 text-blue-600 dark:text-blue-400 border border-blue-500/10 hover:bg-blue-600/25 rounded-lg font-bold text-[11px] transition cursor-pointer"
+            title="Launch Interactive Product Tour & Support Help Desk"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="hidden sm:inline">Help & Product Tour</span>
+          </button>
 
           {/* AI Assistant Button */}
           <button 
@@ -898,6 +1069,8 @@ export default function App() {
               deals={deals} 
               appointments={appointments} 
               setActiveTab={setActiveTab} 
+              user={user}
+              onReopenOnboarding={() => setShowOnboarding(true)}
             />
           )}
 
@@ -913,11 +1086,20 @@ export default function App() {
           )}
 
           {activeTab === 'campaigns' && (
-            <CampaignsView 
-              campaigns={campaigns} 
-              onAddCampaign={handleAddCampaign} 
-              onGenerateAISequence={handleGenerateAISequence} 
-            />
+            checkIntegration('gmail') ? (
+              <CampaignsView 
+                campaigns={campaigns} 
+                onAddCampaign={handleAddCampaign} 
+                onGenerateAISequence={handleGenerateAISequence} 
+              />
+            ) : (
+              <RestrictedViewPlaceholder 
+                title="Gmail Integration" 
+                description="Campaign orchestration, automatic sequence sending, and automated sequence drips require an active Gmail connection." 
+                icon={Send} 
+                onResumeSetup={() => setShowOnboarding(true)} 
+              />
+            )
           )}
 
           {activeTab === 'automation' && (
@@ -925,7 +1107,16 @@ export default function App() {
           )}
 
           {activeTab === 'outreach' && (
-            <OutreachView />
+            checkIntegration('gmail') ? (
+              <OutreachView />
+            ) : (
+              <RestrictedViewPlaceholder 
+                title="Gmail Connection" 
+                description="Sending personalized cold emails, answering lead threads, and checking inbox delivery require a connected Gmail account." 
+                icon={Send} 
+                onResumeSetup={() => setShowOnboarding(true)} 
+              />
+            )
           )}
 
           {activeTab === 'pipeline' && (
@@ -936,14 +1127,23 @@ export default function App() {
           )}
 
           {activeTab === 'scheduler' && (
-            <SchedulerView 
-              appointments={appointments} 
-              leads={leads}
-              setAppointments={setAppointments}
-              setLeads={setLeads}
-              setDeals={setDeals}
-              setActiveTab={setActiveTab} 
-            />
+            checkIntegration('calendar') ? (
+              <SchedulerView 
+                appointments={appointments} 
+                leads={leads}
+                setAppointments={setAppointments}
+                setLeads={setLeads}
+                setDeals={setDeals}
+                setActiveTab={setActiveTab} 
+              />
+            ) : (
+              <RestrictedViewPlaceholder 
+                title="Google Calendar Connection" 
+                description="Scheduling lead follow-ups, managing prospect bookings, and syncing real-time calendars require a Google Calendar connection." 
+                icon={Calendar} 
+                onResumeSetup={() => setShowOnboarding(true)} 
+              />
+            )
           )}
 
           {activeTab === 'analytics' && (
@@ -955,11 +1155,51 @@ export default function App() {
           )}
           
           {activeTab === 'openai-suite' && (
-            <OpenAiSuiteView />
+            checkIntegration('ai') ? (
+              <OpenAiSuiteView />
+            ) : (
+              <RestrictedViewPlaceholder 
+                title="AI Service Connection" 
+                description="AI lead enrichment, research tools, personalized email writing, and AI-assisted campaigns require a connected OpenAI or Gemini API key." 
+                icon={Sparkles} 
+                onResumeSetup={() => setShowOnboarding(true)} 
+              />
+            )
           )}
 
           {activeTab === 'ai-agents' && (
-            <AiAgentsView />
+            checkIntegration('ai') ? (
+              <AiAgentsView />
+            ) : (
+              <RestrictedViewPlaceholder 
+                title="AI SDR Agent Provider" 
+                description="Hiring or starting autonomous SDR agents like Astra or Vesper requires connecting an OpenAI or Gemini API key." 
+                icon={Bot} 
+                onResumeSetup={() => setShowOnboarding(true)} 
+              />
+            )
+          )}
+
+          {activeTab === 'voice-calling' && (
+            <VoiceCallingView 
+              leads={leads}
+              setLeads={setLeads}
+              appointments={appointments}
+              setAppointments={setAppointments}
+              deals={deals}
+              setDeals={setDeals}
+            />
+          )}
+
+          {activeTab === 'mobile-app' && (
+            <MobileHubView 
+              leads={leads}
+              setLeads={setLeads}
+              appointments={appointments}
+              setAppointments={setAppointments}
+              deals={deals}
+              setDeals={setDeals}
+            />
           )}
 
           {activeTab === 'client-portal' && (
@@ -980,6 +1220,40 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'white-label' && (
+            <WhiteLabelView />
+          )}
+
+          {activeTab === 'enterprise-security' && (
+            <EnterpriseSecurityView />
+          )}
+
+          {activeTab === 'revenue-intelligence' && (
+            <RevenueIntelligenceView />
+          )}
+
+          {activeTab === 'marketplace' && (
+            <MarketplaceView />
+          )}
+
+          {activeTab === 'compliance' && (
+            <ComplianceView />
+          )}
+
+          {activeTab === 'beta-program' && (
+            <BetaProgramView 
+              user={user}
+              leads={leads}
+              setLeads={setLeads}
+              campaigns={campaigns}
+              setCampaigns={setCampaigns}
+              deals={deals}
+              setDeals={setDeals}
+              onSelectTab={setActiveTab}
+              onShowOnboarding={() => setShowOnboarding(true)}
+            />
+          )}
+
           {activeTab === 'launch-center' && (
             <LaunchCenterView />
           )}
@@ -995,16 +1269,26 @@ export default function App() {
           )}
 
           {activeTab === 'billing' && (
-            <BillingView 
-              user={user} 
-              onUpdateTier={handleUpdateTier} 
-            />
+            checkIntegration('cashfree') ? (
+              <BillingView 
+                user={user} 
+                onUpdateTier={handleUpdateTier} 
+              />
+            ) : (
+              <RestrictedViewPlaceholder 
+                title="Cashfree Setup" 
+                description="SaaS billing management, checkout forms, custom invoices, and recurring subscription setup require an active Cashfree integration." 
+                icon={CreditCard} 
+                onResumeSetup={() => setShowOnboarding(true)} 
+              />
+            )
           )}
 
           {activeTab === 'integrations' && (
             <IntegrationsView 
               credentials={integrations} 
               onSaveCredentials={handleSaveCredentials} 
+              onReopenOnboarding={() => setShowOnboarding(true)}
             />
           )}
 
@@ -1209,6 +1493,46 @@ export default function App() {
         )}
 
       </div>
+
+      {showOnboarding && (
+        <div className="fixed inset-0 z-50 bg-slate-950 overflow-y-auto">
+          <div className="absolute top-4 right-4 z-50">
+            <button
+              onClick={() => setShowOnboarding(false)}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-slate-800 text-xs font-semibold shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              Exit Wizard
+            </button>
+          </div>
+          <OnboardingWizard
+            user={user}
+            onComplete={(orgData) => {
+              user.companyName = orgData.companyName;
+              user.industry = orgData.industry;
+              setShowOnboarding(false);
+              // Force state update to trigger re-render
+              setLeads([...leads]);
+            }}
+          />
+        </div>
+      )}
+
+      {showHelpCenter && (
+        <LaunchHelpCenter 
+          isOpen={showHelpCenter} 
+          onClose={() => setShowHelpCenter(false)} 
+          user={user} 
+          leads={leads}
+          setLeads={setLeads}
+          campaigns={campaigns}
+          setCampaigns={setCampaigns}
+          deals={deals}
+          setDeals={setDeals}
+          onSelectTab={(tabId) => setActiveTab(tabId)}
+          onShowOnboarding={() => setShowOnboarding(true)}
+          onTriggerToast={(msg) => alert(msg)}
+        />
+      )}
     </div>
   );
 }

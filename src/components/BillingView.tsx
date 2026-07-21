@@ -103,18 +103,17 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
 
   // Pricing calculations for currently selected checkouts
   const getSelectedPlanBasePrice = (planId: SubscriptionTier) => {
-    const basePrices = { 
-      STARTER: 4999, 
-      GROWTH: 9999, 
-      PROFESSIONAL: 19999, 
-      ENTERPRISE: 49999, 
-      AGENCY: 49999 
+    const prices = {
+      FREE_TRIAL: { monthly: 0, annual: 0 },
+      STARTER: { monthly: 2499, annual: 24990 },
+      GROWTH: { monthly: 5999, annual: 59990 },
+      BUSINESS: { monthly: 11999, annual: 119990 },
+      PROFESSIONAL: { monthly: 11999, annual: 119990 }, // Map to Business to avoid any breaking changes
+      ENTERPRISE: { monthly: 29999, annual: 249990 },
+      AGENCY: { monthly: 29999, annual: 249990 }
     };
-    const price = basePrices[planId] || 4999;
-    if (billingCycle === 'annual') {
-      return Math.round(price * 12 * 0.8);
-    }
-    return price;
+    const tierPrice = prices[planId] || prices.STARTER;
+    return billingCycle === 'annual' ? tierPrice.annual : tierPrice.monthly;
   };
 
   const getPriceBreakdown = (basePrice: number) => {
@@ -149,6 +148,20 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
 
   // Initiate Cashfree checkout
   const handleInitiateCashfreeCheckout = async (tier: SubscriptionTier, price: number) => {
+    if (tier === 'FREE_TRIAL') {
+      setLoadingPlanId(tier);
+      try {
+        onUpdateTier('FREE_TRIAL');
+        handleLogMessage(`Free Trial Activated: 1-Day Premium access unlocked successfully`, "success");
+        alert("Your 1-Day Free Trial has been activated successfully! You now have full premium feature access.");
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingPlanId(null);
+      }
+      return;
+    }
+
     setLoadingPlanId(tier);
     setCashfreeEnvelope(null);
     setPaymentVerified(false);
@@ -194,11 +207,14 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
         let tier: SubscriptionTier = 'STARTER';
         if (cashfreeEnvelope.order_id.includes('GROWTH')) {
           tier = 'GROWTH';
+        } else if (cashfreeEnvelope.order_id.includes('BUSINESS')) {
+          tier = 'BUSINESS';
         } else if (cashfreeEnvelope.order_id.includes('PROFESSIONAL')) {
-          tier = 'PROFESSIONAL';
+          tier = 'BUSINESS';
         } else if (cashfreeEnvelope.order_id.includes('ENTERPRISE') || cashfreeEnvelope.order_id.includes('AGENCY')) {
           tier = 'ENTERPRISE';
         }
+
         const basePrice = getSelectedPlanBasePrice(tier);
         const breakdown = getPriceBreakdown(basePrice);
 

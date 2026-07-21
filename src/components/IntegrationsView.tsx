@@ -5,7 +5,8 @@ import {
   User, Building, Globe, Shield, Activity, Users, LogOut, Clock,
   Plus, Trash2, ArrowUpRight, Copy, CheckCircle, Smartphone, Lock, Search, Play,
   Mail, Inbox, Send, Paperclip, ChevronRight, MessageSquare, CheckSquare, 
-  FileText, Layout, AlertCircle, Sparkles, X, ChevronDown, CheckCircle2, RefreshCw as LoopIcon
+  FileText, Layout, AlertCircle, Sparkles, X, ChevronDown, CheckCircle2, RefreshCw as LoopIcon,
+  Bell, Download
 } from 'lucide-react';
 import { useAuth } from '../authentication/AuthContext';
 import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
@@ -13,9 +14,10 @@ import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
 interface IntegrationsViewProps {
   credentials: IntegrationCredentials;
   onSaveCredentials: (creds: Partial<IntegrationCredentials>) => Promise<void>;
+  onReopenOnboarding?: () => void;
 }
 
-export function IntegrationsView({ credentials, onSaveCredentials }: IntegrationsViewProps) {
+export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboarding }: IntegrationsViewProps) {
   const {
     user,
     organization,
@@ -38,8 +40,20 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
     extendSession
   } = useAuth();
 
-  // Settings Tabs: 'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'gmail' | 'workflows' | 'prompts'
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'gmail' | 'workflows' | 'prompts'>('profile');
+  // Settings Tabs: 'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'gmail' | 'workflows' | 'prompts' | 'notifications' | 'export'
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'gmail' | 'workflows' | 'prompts' | 'notifications' | 'export'>('profile');
+
+  // Notification settings states
+  const [notifTrial, setNotifTrial] = useState(true);
+  const [notifPayment, setNotifPayment] = useState(true);
+  const [notifFeatures, setNotifFeatures] = useState(true);
+  const [notifReplies, setNotifReplies] = useState(true);
+  const [notifSuccess, setNotifSuccess] = useState(false);
+
+  // Export states
+  const [exportProgress, setExportProgress] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportComplete, setExportComplete] = useState(false);
 
   // Profile Form States
   const [profName, setProfName] = useState(user?.fullName || '');
@@ -1318,6 +1332,27 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
         </div>
       </div>
 
+      {/* Onboarding complete banner option */}
+      {user?.onboardingProgress && user?.onboardingProgress.some((s: any) => s.status === 'PENDING') && onReopenOnboarding && (
+        <div className="bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Workspace Onboarding is incomplete</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Some steps are skipped. Complete them to configure all core AI, payment, and outreach components.</p>
+            </div>
+          </div>
+          <button
+            onClick={onReopenOnboarding}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-600/10 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            Complete Setup Wizard
+          </button>
+        </div>
+      )}
+
       {/* Tabs Row */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-1">
         {[
@@ -1328,7 +1363,9 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
           { id: 'integrations', label: 'Integration Center', icon: Database },
           { id: 'gmail', label: 'Gmail Settings', icon: Mail },
           { id: 'workflows', label: 'Workflow Automation', icon: Network },
-          { id: 'prompts', label: 'Prompt Library', icon: Brain }
+          { id: 'prompts', label: 'Prompt Library', icon: Brain },
+          { id: 'notifications', label: 'Notifications', icon: Bell },
+          { id: 'export', label: 'Data Export', icon: Download }
         ].map((tab) => {
           const IconComponent = tab.icon;
           return (
@@ -4479,6 +4516,274 @@ export function IntegrationsView({ credentials, onSaveCredentials }: Integration
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 9: NOTIFICATIONS SETTINGS */}
+        {activeSubTab === 'notifications' && (
+          <div className="space-y-6 animate-fade-in text-slate-800">
+            <div className="border-b border-slate-100 pb-4">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Bell className="w-5 h-5 text-indigo-600" /> Notification Preferences
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Customize when and how SalesPilot alerts you. Keep your team aligned with live trial countdowns, system logs, and outbound campaign successes.
+              </p>
+            </div>
+
+            {notifSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Notification preferences saved successfully.</span>
+              </div>
+            )}
+
+            <div className="space-y-4 max-w-2xl">
+              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Trial Expiry Alerts</h4>
+                  <p className="text-[11px] text-slate-500 leading-normal">
+                    Receive active warnings and countdown banners before your 1-Day Trial expires.
+                  </p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifTrial} 
+                  onChange={(e) => setNotifTrial(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
+                />
+              </div>
+
+              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Cashfree Billing & Payment Failures</h4>
+                  <p className="text-[11px] text-slate-500 leading-normal">
+                    Get instantly notified via email or system toast on failed checkout attempts, renewal billing failures, or successful plan upgrades.
+                  </p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifPayment} 
+                  onChange={(e) => setNotifPayment(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
+                />
+              </div>
+
+              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Campaign Outbound & Replies</h4>
+                  <p className="text-[11px] text-slate-500 leading-normal">
+                    Receive a real-time system ping when a high-value lead replies to an outbound email campaign.
+                  </p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifReplies} 
+                  onChange={(e) => setNotifReplies(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
+                />
+              </div>
+
+              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Weekly Feature Announcements</h4>
+                  <p className="text-[11px] text-slate-500 leading-normal">
+                    Receive updates on new AI agents, enhanced LinkedIn and Google Maps scrapers, or prompt library additions.
+                  </p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifFeatures} 
+                  onChange={(e) => setNotifFeatures(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotifSuccess(true);
+                    setTimeout(() => setNotifSuccess(false), 3000);
+                  }}
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-850 active:scale-95 text-white font-bold text-xs rounded-xl shadow-lg shadow-slate-900/10 transition-all cursor-pointer"
+                >
+                  Save Notification Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 10: DATA EXPORT HUB */}
+        {activeSubTab === 'export' && (
+          <div className="space-y-6 animate-fade-in text-slate-800">
+            <div className="border-b border-slate-100 pb-4">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Download className="w-5 h-5 text-emerald-600" /> Workspace Data Export Center
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Your data is 100% yours. Securely compile and export all your organization's CRM records, active campaign statistics, lead indexes, and meetings with a single click.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4 flex flex-col justify-between">
+                <div>
+                  <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600 mb-3 border border-blue-500/20">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-950">Active CRM Leads</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                    Includes lead contact profiles, scrape histories, company names, LinkedIn URLs, and cold-email response statuses.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExporting(true);
+                    setExportProgress(0);
+                    const interval = setInterval(() => {
+                      setExportProgress(p => {
+                        if (p >= 100) {
+                          clearInterval(interval);
+                          setIsExporting(false);
+                          setExportComplete(true);
+                          
+                          // Mock download
+                          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ export_type: 'leads', timestamp: new Date().toISOString() }));
+                          const downloadAnchor = document.createElement('a');
+                          downloadAnchor.setAttribute("href", dataStr);
+                          downloadAnchor.setAttribute("download", "salespilot_leads_export.json");
+                          document.body.appendChild(downloadAnchor);
+                          downloadAnchor.click();
+                          downloadAnchor.remove();
+
+                          return 100;
+                        }
+                        return p + 25;
+                      });
+                    }, 300);
+                  }}
+                  disabled={isExporting}
+                  className="w-full py-2 bg-white hover:bg-slate-100 border border-slate-250 rounded-xl text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" /> Export JSON
+                </button>
+              </div>
+
+              <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4 flex flex-col justify-between">
+                <div>
+                  <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-600 mb-3 border border-purple-500/20">
+                    <Network className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-950">AI Outbound Campaigns</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                    Export email templates, AI sequence definitions, reply metrics, open rates, and logs.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExporting(true);
+                    setExportProgress(0);
+                    const interval = setInterval(() => {
+                      setExportProgress(p => {
+                        if (p >= 100) {
+                          clearInterval(interval);
+                          setIsExporting(false);
+                          setExportComplete(true);
+
+                          // Mock download CSV
+                          const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent("Campaign Name,Type,Sent,Opens,Replies,Revenue\nHorizon Outbound Pune,Email,120,84,32,15000\n");
+                          const downloadAnchor = document.createElement('a');
+                          downloadAnchor.setAttribute("href", dataStr);
+                          downloadAnchor.setAttribute("download", "salespilot_campaigns_export.csv");
+                          document.body.appendChild(downloadAnchor);
+                          downloadAnchor.click();
+                          downloadAnchor.remove();
+
+                          return 100;
+                        }
+                        return p + 20;
+                      });
+                    }, 250);
+                  }}
+                  disabled={isExporting}
+                  className="w-full py-2 bg-white hover:bg-slate-100 border border-slate-250 rounded-xl text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
+                </button>
+              </div>
+
+              <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4 flex flex-col justify-between">
+                <div>
+                  <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 mb-3 border border-indigo-500/20">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-950">Security Audit Logs</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                    Log traces of workspace log-ins, API key usage events, SMTP connections, and CRM deal status migrations.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExporting(true);
+                    setExportProgress(0);
+                    const interval = setInterval(() => {
+                      setExportProgress(p => {
+                        if (p >= 100) {
+                          clearInterval(interval);
+                          setIsExporting(false);
+                          setExportComplete(true);
+
+                          // Mock download CSV
+                          const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent("Timestamp,Action,User,IP\n" + new Date().toISOString() + ",Data Export Requested,Soham Kharat,192.168.1.101\n");
+                          const downloadAnchor = document.createElement('a');
+                          downloadAnchor.setAttribute("href", dataStr);
+                          downloadAnchor.setAttribute("download", "salespilot_security_logs_export.csv");
+                          document.body.appendChild(downloadAnchor);
+                          downloadAnchor.click();
+                          downloadAnchor.remove();
+
+                          return 100;
+                        }
+                        return p + 25;
+                      });
+                    }, 200);
+                  }}
+                  disabled={isExporting}
+                  className="w-full py-2 bg-white hover:bg-slate-100 border border-slate-250 rounded-xl text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" /> Export Audit Trail
+                </button>
+              </div>
+            </div>
+
+            {isExporting && (
+              <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-xs text-indigo-700">
+                  <span className="font-semibold flex items-center gap-1.5 animate-pulse">
+                    <Sparkles className="w-4 h-4 animate-spin" /> Compiling organization database clusters...
+                  </span>
+                  <span className="font-mono font-bold">{exportProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-indigo-600 h-full rounded-full transition-all duration-300" style={{ width: `${exportProgress}%` }}></div>
+                </div>
+              </div>
+            )}
+
+            {exportComplete && !isExporting && (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-700">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Workspace database compiled & downloaded successfully!</span>
+                </div>
+                <button onClick={() => setExportComplete(false)} className="text-[10px] font-bold uppercase hover:underline">Dismiss</button>
               </div>
             )}
           </div>

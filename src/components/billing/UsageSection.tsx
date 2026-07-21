@@ -13,6 +13,18 @@ export function UsageSection({ user }: UsageSectionProps) {
 
   // 10 requested metrics across all plans
   const planLimits: Record<string, Record<string, { limit: number | string; label: string; icon: any; unit: string }>> = {
+    FREE_TRIAL: {
+      searches: { limit: 1000, label: 'Lead Searches', icon: Zap, unit: 'searches' },
+      ai_requests: { limit: 100, label: 'AI Requests', icon: MessageSquare, unit: 'requests' },
+      ai_tokens: { limit: 500000, label: 'AI Tokens', icon: RefreshCw, unit: 'tokens' },
+      emails_sent: { limit: 100, label: 'AI Emails Sent', icon: Activity, unit: 'emails' },
+      meetings: { limit: 10, label: 'Meetings Booked', icon: Calendar, unit: 'slots' },
+      campaigns: { limit: 5, label: 'Campaign Sequences', icon: Layers, unit: 'campaigns' },
+      organizations: { limit: 2, label: 'Connected Orgs', icon: Folder, unit: 'orgs' },
+      users: { limit: 3, label: 'Team User Seats', icon: Users, unit: 'seats' },
+      storage: { limit: 2000, label: 'Cloud Storage', icon: Database, unit: 'MB' },
+      api_requests: { limit: 10000, label: 'Public API Calls', icon: Globe, unit: 'requests' },
+    },
     STARTER: {
       searches: { limit: 1000, label: 'Lead Searches', icon: Zap, unit: 'searches' },
       ai_requests: { limit: 500, label: 'AI Requests', icon: MessageSquare, unit: 'requests' },
@@ -36,6 +48,18 @@ export function UsageSection({ user }: UsageSectionProps) {
       users: { limit: 5, label: 'Team User Seats', icon: Users, unit: 'seats' },
       storage: { limit: 5000, label: 'Cloud Storage', icon: Database, unit: 'MB' },
       api_requests: { limit: 50000, label: 'Public API Calls', icon: Globe, unit: 'requests' },
+    },
+    BUSINESS: {
+      searches: { limit: 50000, label: 'Lead Searches', icon: Zap, unit: 'searches' },
+      ai_requests: { limit: 'Unlimited', label: 'AI Requests', icon: MessageSquare, unit: 'requests' },
+      ai_tokens: { limit: 'Unlimited', label: 'AI Tokens', icon: RefreshCw, unit: 'tokens' },
+      emails_sent: { limit: 'Unlimited', label: 'AI Emails Sent', icon: Activity, unit: 'emails' },
+      meetings: { limit: 'Unlimited', label: 'Meetings Booked', icon: Calendar, unit: 'slots' },
+      campaigns: { limit: 'Unlimited', label: 'Campaign Sequences', icon: Layers, unit: 'campaigns' },
+      organizations: { limit: 'Unlimited', label: 'Connected Orgs', icon: Folder, unit: 'orgs' },
+      users: { limit: 20, label: 'Team User Seats', icon: Users, unit: 'seats' },
+      storage: { limit: 20000, label: 'Cloud Storage', icon: Database, unit: 'MB' },
+      api_requests: { limit: 250000, label: 'Public API Calls', icon: Globe, unit: 'requests' },
     },
     PROFESSIONAL: {
       searches: { limit: 50000, label: 'Lead Searches', icon: Zap, unit: 'searches' },

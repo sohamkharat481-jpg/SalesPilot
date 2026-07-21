@@ -22,10 +22,27 @@ interface PlansSectionProps {
 
 export const PLANS: Plan[] = [
   {
+    id: 'FREE_TRIAL',
+    name: 'Free Trial',
+    priceInrMonthly: 0,
+    priceInrAnnual: 0,
+    description: 'Full feature access for 1 Day. No card or payment required.',
+    features: [
+      '1 Day Active Duration',
+      'Full Premium Feature Access',
+      'No Payment Card Required',
+      'SDR Agent Orchestrator',
+      'Lead Sourcing Scraper',
+      'Unified Mail Outbox Sync',
+      'Google Calendar Integration',
+      'Standard Support Ticket Setup'
+    ]
+  },
+  {
     id: 'STARTER',
     name: 'Starter Pilot',
-    priceInrMonthly: 1999,
-    priceInrAnnual: 19990,
+    priceInrMonthly: 2499,
+    priceInrAnnual: 24990,
     description: 'Perfect for early-stage outbound pioneers & single consultants.',
     features: [
       '1 Workspace User Seat',
@@ -43,8 +60,8 @@ export const PLANS: Plan[] = [
   {
     id: 'GROWTH',
     name: 'Growth Professional',
-    priceInrMonthly: 4999,
-    priceInrAnnual: 49990,
+    priceInrMonthly: 5999,
+    priceInrAnnual: 59990,
     description: 'The definitive sweet-spot for scaling B2B marketing teams.',
     features: [
       '5 Included User Seats',
@@ -63,10 +80,10 @@ export const PLANS: Plan[] = [
     popular: true
   },
   {
-    id: 'PROFESSIONAL',
-    name: 'Professional Scale',
-    priceInrMonthly: 9999,
-    priceInrAnnual: 99990,
+    id: 'BUSINESS',
+    name: 'Business Growth',
+    priceInrMonthly: 11999,
+    priceInrAnnual: 119990,
     description: 'Designed for high-frequency agencies and sales teams.',
     features: [
       '20 Included User Seats',
@@ -85,8 +102,8 @@ export const PLANS: Plan[] = [
   {
     id: 'ENTERPRISE',
     name: 'Enterprise Apex',
-    priceInrMonthly: 29999,
-    priceInrAnnual: 249990,
+    priceInrMonthly: 0, // Will display Custom Pricing
+    priceInrAnnual: 0,  // Will display Custom Pricing
     description: 'High-performance infrastructure, custom billing, & SLA compliance.',
     features: [
       'Unlimited User Seats',
@@ -218,7 +235,7 @@ export function PlansSection({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {PLANS.map((plan) => {
             const isCurrent = currentTier === plan.id;
             const planPrice = getPrice(plan);
@@ -249,16 +266,36 @@ export function PlansSection({
 
                   <div className="py-2 flex flex-col border-b border-slate-100 dark:border-slate-850">
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
-                        ₹{planPrice.toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-xs text-slate-500 font-mono">
-                        / {billingCycle === 'annual' ? 'Yr' : 'Mo'}
-                      </span>
+                      {plan.id === 'ENTERPRISE' ? (
+                        <span className="text-xl font-bold text-slate-900 dark:text-white font-mono">
+                          Custom Price
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono">
+                            ₹{planPrice.toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-xs text-slate-500 font-mono">
+                            / {plan.id === 'FREE_TRIAL' ? '1 Day' : billingCycle === 'annual' ? 'Yr' : 'Mo'}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    {billingCycle === 'annual' && savings > 0 && (
+                    {plan.id === 'FREE_TRIAL' ? (
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5 font-mono">
+                        No payment required
+                      </span>
+                    ) : plan.id === 'ENTERPRISE' ? (
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5 font-mono">
+                        Tailored for high volume
+                      </span>
+                    ) : billingCycle === 'annual' && savings > 0 ? (
                       <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5 font-mono">
                         Save ₹{savings.toLocaleString('en-IN')} / Yr compared to monthly
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-transparent select-none font-mono">
+                        Placeholder
                       </span>
                     )}
                   </div>
@@ -272,7 +309,7 @@ export function PlansSection({
                     ))}
                     {plan.features.length > 7 && (
                       <li className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-semibold pl-5">
-                        + {plan.features.length - 7} more advanced capabilities
+                        + {plan.features.length - 7} more capabilities
                       </li>
                     )}
                   </ul>
@@ -280,11 +317,21 @@ export function PlansSection({
 
                 <button
                   id={`btn_select_plan_${plan.id.toLowerCase()}`}
-                  onClick={() => onSelectPlan(plan.id, planPrice)}
-                  disabled={isCurrent || loadingPlanId !== null}
+                  onClick={() => {
+                    if (plan.id === 'ENTERPRISE') {
+                      alert("Our Enterprise outreach team has been notified. An executive will reach out to your registered email within 2 hours!");
+                    } else {
+                      onSelectPlan(plan.id, planPrice);
+                    }
+                  }}
+                  disabled={isCurrent || (loadingPlanId !== null && plan.id !== 'ENTERPRISE')}
                   className={`w-full py-2.5 mt-8 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     isCurrent
                       ? 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed font-mono'
+                      : plan.id === 'FREE_TRIAL'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                      : plan.id === 'ENTERPRISE'
+                      ? 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-700'
                       : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
                   }`}
                 >
@@ -294,6 +341,10 @@ export function PlansSection({
                     </>
                   ) : isCurrent ? (
                     'Your Active Tier'
+                  ) : plan.id === 'FREE_TRIAL' ? (
+                    '1-Day Free Trial'
+                  ) : plan.id === 'ENTERPRISE' ? (
+                    'Contact Sales'
                   ) : isHigher ? (
                     <>Upgrade to {plan.name}</>
                   ) : (
@@ -319,7 +370,7 @@ export function PlansSection({
                 <th className="p-4 font-semibold">Features & Quotas</th>
                 <th className="p-4 font-semibold text-center">Starter</th>
                 <th className="p-4 font-semibold text-center">Growth</th>
-                <th className="p-4 font-semibold text-center">Professional</th>
+                <th className="p-4 font-semibold text-center">Business</th>
                 <th className="p-4 font-semibold text-center">Enterprise</th>
               </tr>
             </thead>

@@ -5,7 +5,7 @@ import {
   Check, ArrowRight, Loader2, Info, ChevronRight, HelpCircle,
   AlertCircle, ShieldCheck, Globe, CheckCircle2
 } from 'lucide-react';
-import { WorkspaceUser } from '../types';
+import { WorkspaceUser, OnboardingStepProgress } from '../types';
 
 interface OnboardingWizardProps {
   user: WorkspaceUser;
@@ -18,8 +18,8 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Step 1: Org State
-  const [companyName, setCompanyName] = useState('');
-  const [industry, setIndustry] = useState('SaaS & Software');
+  const [companyName, setCompanyName] = useState(user.companyName || '');
+  const [industry, setIndustry] = useState(user.industry || 'SaaS & Software');
   const [website, setWebsite] = useState('');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [currency, setCurrency] = useState('INR');
@@ -50,6 +50,21 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
   const [targetAudience, setTargetAudience] = useState('Marketing Agencies');
   const [campaignLaunched, setCampaignLaunched] = useState(false);
 
+  // Onboarding progress per organization/user
+  const [progress, setProgress] = useState<OnboardingStepProgress[]>(() => {
+    return user.onboardingProgress && user.onboardingProgress.length > 0
+      ? user.onboardingProgress
+      : [
+          { id: 'organization', name: 'Organization Setup', status: 'PENDING' },
+          { id: 'gmail', name: 'Gmail Connection', status: 'PENDING' },
+          { id: 'calendar', name: 'Google Calendar Connection', status: 'PENDING' },
+          { id: 'openai', name: 'OpenAI API Key', status: 'PENDING' },
+          { id: 'gemini', name: 'Gemini API Key', status: 'PENDING' },
+          { id: 'cashfree', name: 'Cashfree Integration', status: 'PENDING' },
+          { id: 'campaign', name: 'First Campaign Setup', status: 'PENDING' },
+        ];
+  });
+
   const steps = [
     { number: 1, name: 'Organization', icon: Building, desc: 'Setup workspace profile' },
     { number: 2, name: 'Gmail', icon: Mail, desc: 'Connect outbound mailbox' },
@@ -60,11 +75,37 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
     { number: 7, name: 'First Campaign', icon: Rocket, desc: 'Launch active sequence' },
   ];
 
+  const syncProgressToBackend = async (updatedProgress: OnboardingStepProgress[], completed: boolean = false) => {
+    try {
+      const token = localStorage.getItem('salespilot_token');
+      await fetch('/auth/profile', {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          email: user.email, 
+          onboardingProgress: updatedProgress,
+          onboardingCompleted: completed
+        })
+      });
+    } catch (e) {
+      console.warn('Error syncing onboarding progress:', e);
+    }
+  };
+
   const handleNextStep = async () => {
     setError(null);
     setLoading(true);
 
     try {
+      const stepIds = ['organization', 'gmail', 'calendar', 'openai', 'gemini', 'cashfree', 'campaign'];
+      const currentStepId = stepIds[currentStep - 1];
+
+      let activeCompanyName = companyName || 'My Organization';
+      let activeIndustry = industry || 'SaaS & Software';
+
       if (currentStep === 1) {
         if (!companyName.trim()) {
           throw new Error('Company Name is required.');
@@ -77,14 +118,16 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
             fullName: user.fullName,
             title: 'Founder & CEO',
             avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-            companyName,
-            industry,
+            companyName: companyName.trim(),
+            industry: industry,
             website,
             timezone,
             currency
           })
         });
         if (!res.ok) throw new Error('Failed to configure organization. Please try again.');
+        activeCompanyName = companyName.trim();
+        activeIndustry = industry;
       }
 
       if (currentStep === 2 && !gmailConnected) {
@@ -151,7 +194,7 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
                 id: `step_${Date.now()}_1`,
                 stepNumber: 1,
                 type: 'EMAIL',
-                subject: `Solving client pipelines for ${companyName}`,
+                subject: `Solving client pipelines for ${companyName || 'My Organization'}`,
                 bodyTemplate: 'Hi {first_name},\n\nHope this finds you well. I was reviewing your work and wanted to ask: are you currently looking for high-value contracts?\n\nLet me know!\n\nBest,\n' + user.fullName,
                 delayDays: 0
               }
@@ -160,15 +203,124 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
         });
         if (!res.ok) throw new Error('Failed to instantiate outbound sequence.');
         setCampaignLaunched(true);
+
+        const updatedProgress = progress.map(p => 
+          p.id === currentStepId ? { ...p, status: 'COMPLETED' as const } : p
+        );
+        setProgress(updatedProgress);
+        await syncProgressToBackend(updatedProgress, true);
+
         setTimeout(() => {
-          onComplete({ companyName, industry });
+          onComplete({ companyName: activeCompanyName, industry: activeIndustry });
         }, 1200);
+        return;
+      }
+
+      const updatedProgress = progress.map(p => 
+        p.id === currentStepId ? { ...p, status: 'COMPLETED' as const } : p
+      );
+      setProgress(updatedProgress);
+      await syncProgressToBackend(updatedProgress, false);
+
+      setCurrentStep(prev => prev + 1);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during onboarding setup.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipStep = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const stepIds = ['organization', 'gmail', 'calendar', 'openai', 'gemini', 'cashfree', 'campaign'];
+      const currentStepId = stepIds[currentStep - 1];
+
+      // Update state for this step to PENDING (skipped means pending)
+      const updatedProgress = progress.map(p => 
+        p.id === currentStepId ? { ...p, status: 'PENDING' as const } : p
+      );
+      setProgress(updatedProgress);
+
+      let activeCompanyName = companyName || 'My Organization';
+      let activeIndustry = industry || 'SaaS & Software';
+
+      // Special action for Step 1 if skipped
+      if (currentStep === 1) {
+        activeCompanyName = companyName.trim() || 'My Organization';
+        activeIndustry = industry || 'SaaS & Software';
+        setCompanyName(activeCompanyName);
+        setIndustry(activeIndustry);
+
+        // Call backend to initialize organization
+        await fetch('/api/v1/auth/profile-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fullName: user.fullName,
+            title: 'Founder & CEO',
+            avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+            companyName: activeCompanyName,
+            industry: activeIndustry,
+            website,
+            timezone,
+            currency
+          })
+        });
+      }
+
+      await syncProgressToBackend(updatedProgress, false);
+
+      if (currentStep === 7) {
+        // Last step skipped, finish up
+        setTimeout(() => {
+          onComplete({ companyName: activeCompanyName, industry: activeIndustry });
+        }, 500);
         return;
       }
 
       setCurrentStep(prev => prev + 1);
     } catch (err: any) {
-      setError(err.message || 'An error occurred during onboarding setup.');
+      setError(err.message || 'An error occurred during onboarding skip.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipRemaining = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      let activeCompanyName = companyName.trim() || 'My Organization';
+      let activeIndustry = industry || 'SaaS & Software';
+
+      // Always ensure step 1 organization is registered if not yet done
+      if (!user.companyName && currentStep === 1) {
+        await fetch('/api/v1/auth/profile-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fullName: user.fullName,
+            title: 'Founder & CEO',
+            avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+            companyName: activeCompanyName,
+            industry: activeIndustry,
+            website,
+            timezone,
+            currency
+          })
+        });
+      }
+
+      // Keep whatever progress has been made, remaining are left as PENDING
+      await syncProgressToBackend(progress, true); // true sets onboardingCompleted
+
+      setTimeout(() => {
+        onComplete({ companyName: activeCompanyName, industry: activeIndustry });
+      }, 500);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred.');
     } finally {
       setLoading(false);
     }
@@ -199,15 +351,28 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
 
       {/* Title Header */}
       <div className="w-full max-w-4xl text-center mb-10 z-10">
-        <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-blue-400 font-mono tracking-wider uppercase">
-          Workspace Initializer
-        </span>
-        <h1 className="text-3xl font-extrabold text-white mt-3 tracking-tight">
-          Welcome to your SalesPilot AI Agent Team
-        </h1>
-        <p className="text-slate-400 text-sm mt-1 max-w-md mx-auto">
-          Complete these 7 fast steps to configure your autonomous B2B sales pipeline.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800/80 pb-6 max-w-2xl mx-auto">
+          <div className="text-left">
+            <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-blue-400 font-mono tracking-wider uppercase">
+              Workspace Initializer
+            </span>
+            <h1 className="text-2xl font-extrabold text-white mt-3 tracking-tight">
+              Welcome to your SalesPilot Team
+            </h1>
+            <p className="text-slate-400 text-xs mt-1 max-w-md">
+              Configure your autonomous B2B sales pipeline or skip to complete later.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSkipRemaining}
+            disabled={loading}
+            className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white text-xs font-semibold rounded-xl border border-slate-800 transition-all active:scale-95 shadow-sm"
+          >
+            Skip & Go to Dashboard
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Progress Steps Header */}
@@ -579,26 +744,37 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
             Back
           </button>
 
-          <button
-            type="button"
-            onClick={handleNextStep}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/15 transition-all disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : currentStep === 7 ? (
-              <>
-                Launch Platform
-                <Rocket className="w-4 h-4" />
-              </>
-            ) : (
-              <>
-                Continue
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSkipStep}
+              disabled={loading}
+              className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700 hover:text-white text-slate-300 text-xs font-semibold rounded-xl border border-slate-700/80 transition-all active:scale-95"
+            >
+              Skip for Now
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextStep}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/15 transition-all disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : currentStep === 7 ? (
+                <>
+                  Launch Platform
+                  <Rocket className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
       </div>

@@ -3,7 +3,7 @@
  * Represents the domain entities for the SaaS sales automation system.
  */
 
-export type SubscriptionTier = 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY';
+export type SubscriptionTier = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY';
 export type UserRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'SALES' | 'VIEWER' | 'SUPER_ADMIN' | 'CLIENT';
 
 export interface Organization {
@@ -46,6 +46,14 @@ export interface WorkspaceUser {
   createdAt: string;
   isFounder?: boolean;
   subscriptionStatus?: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'CANCELLED' | 'LIFETIME';
+  onboardingProgress?: OnboardingStepProgress[];
+  onboardingCompleted?: boolean;
+}
+
+export interface OnboardingStepProgress {
+  id: string; // e.g. 'organization', 'gmail', 'calendar', 'openai', 'gemini', 'cashfree', 'campaign'
+  name: string;
+  status: 'PENDING' | 'COMPLETED';
 }
 
 export interface TeamMember {

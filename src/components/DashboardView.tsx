@@ -12,7 +12,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
   Tooltip, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
-import { Lead, Campaign, Deal, Appointment } from '../types';
+import { Lead, Campaign, Deal, Appointment, WorkspaceUser } from '../types';
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -20,6 +20,8 @@ interface DashboardViewProps {
   deals: Deal[];
   appointments: Appointment[];
   setActiveTab: (tab: string) => void;
+  user?: WorkspaceUser;
+  onReopenOnboarding?: () => void;
 }
 
 interface WidgetConfig {
@@ -31,7 +33,7 @@ interface WidgetConfig {
   order: number;
 }
 
-export function DashboardView({ leads, campaigns, deals, appointments, setActiveTab }: DashboardViewProps) {
+export function DashboardView({ leads, campaigns, deals, appointments, setActiveTab, user, onReopenOnboarding }: DashboardViewProps) {
   // 1. Dashboard Layout Widgets Config State
   const [widgets, setWidgets] = useState<WidgetConfig[]>(() => {
     const saved = localStorage.getItem('salespilot_dashboard_layout_v1');
@@ -555,6 +557,111 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
         </div>
 
       </div>
+
+      {/* Onboarding Setup Progress Checklist */}
+      {(() => {
+        const onboardingSteps = user?.onboardingProgress || [
+          { id: 'organization', name: 'Organization Setup', status: 'PENDING' },
+          { id: 'gmail', name: 'Gmail Connection', status: 'PENDING' },
+          { id: 'calendar', name: 'Google Calendar Connection', status: 'PENDING' },
+          { id: 'openai', name: 'OpenAI API Key', status: 'PENDING' },
+          { id: 'gemini', name: 'Gemini API Key', status: 'PENDING' },
+          { id: 'cashfree', name: 'Cashfree Integration', status: 'PENDING' },
+          { id: 'campaign', name: 'First Campaign Setup', status: 'PENDING' },
+        ];
+        const completedSteps = onboardingSteps.filter(s => s.status === 'COMPLETED');
+        const pendingSteps = onboardingSteps.filter(s => s.status === 'PENDING');
+        const percent = Math.round((completedSteps.length / onboardingSteps.length) * 100);
+
+        if (pendingSteps.length === 0) return null;
+
+        return (
+          <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-950 border border-blue-100 dark:border-slate-800 rounded-2xl shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                    Onboarding Progress Checklist
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">{percent}% Complete</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5">
+                  Complete your workspace setup to unlock full platform capabilities
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  You skipped some setup steps. Features associated with pending steps are currently restricted.
+                </p>
+              </div>
+
+              {onReopenOnboarding && (
+                <button
+                  onClick={onReopenOnboarding}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/10 transition-all flex items-center gap-1.5 cursor-pointer self-start md:self-center"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Resume Setup Wizard
+                </button>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-slate-200 dark:bg-slate-850 h-2 rounded-full overflow-hidden mb-6">
+              <div 
+                className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+
+            {/* Checklist Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              {onboardingSteps.map((step, idx) => {
+                const isCompleted = step.status === 'COMPLETED';
+                return (
+                  <div 
+                    key={step.id} 
+                    className={`p-4 rounded-xl border flex flex-col justify-between h-28 transition-all ${
+                      isCompleted 
+                        ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/30' 
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-bold text-slate-400">0{idx+1}</span>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[80px]">
+                          {step.name.replace(' Connection', '').replace(' Setup', '').replace(' Integration', '').replace(' API Key', '')}
+                        </h4>
+                      </div>
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0 mt-1" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                      <span className={`text-[9px] font-bold ${
+                        isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {isCompleted ? 'READY' : 'PENDING'}
+                      </span>
+                      {!isCompleted && onReopenOnboarding && (
+                        <button
+                          onClick={onReopenOnboarding}
+                          className="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          Setup
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Primary Grid Layout - Responsive Column flow based on custom widgets layout settings */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

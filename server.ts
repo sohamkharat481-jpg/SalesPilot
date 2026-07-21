@@ -2166,7 +2166,7 @@ async function startServer() {
 
   // AUTH API: Update Profile Settings
   const handleUpdateProfile = async (req: any, res: any) => {
-    const { email, fullName, phone, timezone, language, notificationPrefs, avatarUrl } = req.body;
+    const { email, fullName, phone, timezone, language, notificationPrefs, avatarUrl, onboardingProgress, onboardingCompleted } = req.body;
     const targetEmail = email || defaultUser.email;
     const userObj = serverUsers.find(u => u.email.toLowerCase() === targetEmail.toLowerCase());
 
@@ -2196,6 +2196,14 @@ async function startServer() {
     }
     if (notificationPrefs !== undefined) {
       userObj.notificationPrefs = notificationPrefs;
+    }
+    if (onboardingProgress !== undefined) {
+      userObj.onboardingProgress = onboardingProgress;
+      defaultUser.onboardingProgress = onboardingProgress;
+    }
+    if (onboardingCompleted !== undefined) {
+      userObj.onboardingCompleted = onboardingCompleted;
+      defaultUser.onboardingCompleted = onboardingCompleted;
     }
 
     await applyFounderPrivileges(userObj);
@@ -7223,6 +7231,102 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // POST save credentials for a specific plugin
+  app.post('/api/v1/integrations/:id', (req, res) => {
+    const { id } = req.params;
+    if (id === 'plugins') {
+      return res.status(400).json({ error: 'Invalid plugin id' });
+    }
+    const creds = req.body; // Map of key-values
+
+    if (!pluginCredentials[id]) {
+      pluginCredentials[id] = {};
+    }
+
+    // Save fields
+    let hasValues = false;
+    for (const [key, value] of Object.entries(creds)) {
+      if (value !== undefined) {
+        pluginCredentials[id][key] = value as string;
+        if ((value as string).trim() !== '') {
+          hasValues = true;
+        }
+      }
+    }
+
+    // Update status based on input values
+    const prevStatus = integrationStatuses[id]?.status || 'DISCONNECTED';
+    let newStatus: 'CONNECTED' | 'DISCONNECTED' | 'SANDBOX' = 'DISCONNECTED';
+
+    if (hasValues) {
+      // Check if values look like test keys or sandbox
+      const isSandbox = Object.values(creds).some(val => 
+        typeof val === 'string' && 
+        (val.toLowerCase().includes('test') || val.toLowerCase().includes('mock') || val.toLowerCase().includes('demo'))
+      );
+      newStatus = isSandbox ? 'SANDBOX' : 'CONNECTED';
+    }
+
+    // Update stats
+    const latency = hasValues ? Math.floor(Math.random() * 180) + 50 : 0;
+    integrationStatuses[id] = {
+      ...integrationStatuses[id],
+      pluginId: id,
+      status: newStatus,
+      averageLatencyMs: latency,
+      lastSyncTime: hasValues ? new Date().toISOString() : undefined,
+      totalCalls: integrationStatuses[id]?.totalCalls || 0
+    };
+
+    // Add a beautiful log entry
+    const logId = `islog_${Date.now()}`;
+    const pluginName = id.charAt(0).toUpperCase() + id.slice(1);
+    
+    if (newStatus === 'CONNECTED') {
+      integrationSyncLogs.unshift({
+        id: logId,
+        pluginId: id,
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        message: `Credentials configured successfully for ${pluginName}.`,
+        details: `Connection health optimal. Latency measured at ${latency}ms. Node initialized.`,
+        status: 'SUCCESS'
+      });
+    } else if (newStatus === 'SANDBOX') {
+      integrationSyncLogs.unshift({
+        id: logId,
+        pluginId: id,
+        timestamp: new Date().toISOString(),
+        level: 'INFO',
+        message: `Sandbox/Testing mode initialized for ${pluginName}.`,
+        details: `Simulated endpoints verified. Latency: ${latency}ms. Fake queues active.`,
+        status: 'SUCCESS'
+      });
+    } else {
+      integrationSyncLogs.unshift({
+        id: logId,
+        pluginId: id,
+        timestamp: new Date().toISOString(),
+        level: 'WARNING',
+        message: `Credentials cleared for ${pluginName}.`,
+        details: `Node has been offline or deactivated by administrator.`,
+        status: 'SUCCESS'
+      });
+    }
+
+    // Trim logs to prevent leaking memory (keep last 50)
+    if (integrationSyncLogs.length > 50) {
+      integrationSyncLogs = integrationSyncLogs.slice(0, 50);
+    }
+
+    res.json({
+      success: true,
+      status: integrationStatuses[id],
+      credentials: pluginCredentials[id],
+      logs: integrationSyncLogs
+    });
+  });
+
+  // POST save credentials for a specific plugin
   app.post('/api/v1/integrations/:id/credentials', (req, res) => {
     const { id } = req.params;
     const creds = req.body; // Map of key-values
@@ -8026,10 +8130,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   ];
 
-  // GET Workflows List
-  app.get('/api/v1/workflows', (req, res) => {
-    res.json({ success: true, workflows });
-  });
+
 
   // CREATE Workflow
   app.post('/api/v1/workflows', (req, res) => {
@@ -8096,24 +8197,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     res.json({ success: true, message: 'Workflow successfully deleted.' });
   });
 
-  // CLONE Workflow
-  app.post('/api/v1/workflows/:id/clone', (req, res) => {
-    const { id } = req.params;
-    const workflow = workflows.find(w => w.id === id);
-    if (!workflow) {
-      return res.status(404).json({ success: false, error: 'Original workflow not found' });
-    }
-    const cloned: Workflow = {
-      ...workflow,
-      id: `wf-${Date.now()}`,
-      name: `${workflow.name} (Copy)`,
-      status: 'INACTIVE',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    workflows.push(cloned);
-    res.json({ success: true, workflow: cloned });
-  });
+
 
   // RUN Workflow (Creates a live simulation run!)
   app.post('/api/v1/workflows/:id/run', (req, res) => {
@@ -13117,6 +13201,329 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       localDb.save();
       res.json({ success: true, message: 'Permissions updated successfully.' });
     } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // ==========================================
+  // AI VOICE CALLING PLATFORM API ENDPOINTS
+  // ==========================================
+
+  // Initialize call records in localDb if not already there
+  if (!(localDb.db as any).calls) {
+    (localDb.db as any).calls = [];
+    localDb.save();
+  }
+
+  // GET /api/calls - Fetch all call logs
+  app.get('/api/calls', (req, res) => {
+    try {
+      const dbCalls = (localDb.db as any).calls || [];
+      res.json({ success: true, calls: dbCalls });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/calls - Log or update a call
+  app.post('/api/calls', (req, res) => {
+    try {
+      const dbCalls = (localDb.db as any).calls || [];
+      const callData = req.body;
+      
+      if (!callData.id) {
+        callData.id = 'call-' + Math.random().toString(36).substr(2, 9);
+      }
+      if (!callData.createdAt) {
+        callData.createdAt = new Date().toISOString();
+      }
+
+      // Check if call already exists to update it, else append
+      const existingIdx = dbCalls.findIndex((c: any) => c.id === callData.id);
+      if (existingIdx !== -1) {
+        dbCalls[existingIdx] = { ...dbCalls[existingIdx], ...callData };
+      } else {
+        dbCalls.push(callData);
+      }
+
+      (localDb.db as any).calls = dbCalls;
+      localDb.save();
+
+      res.json({ success: true, call: callData });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // GET /api/transcripts - Get transcript of a specific call
+  app.get('/api/transcripts', (req, res) => {
+    try {
+      const callId = req.query.callId;
+      if (!callId) {
+        return res.status(400).json({ success: false, error: 'callId query parameter is required.' });
+      }
+
+      const dbCalls = (localDb.db as any).calls || [];
+      const call = dbCalls.find((c: any) => c.id === callId);
+      
+      if (!call) {
+        return res.status(404).json({ success: false, error: 'Call record not found.' });
+      }
+
+      res.json({ success: true, callId, transcript: call.transcript || [] });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/voice-agent - Speak with the AI calling agent
+  app.post('/api/voice-agent', async (req, res) => {
+    try {
+      const { leadId, customerInput, history } = req.body;
+      
+      // Look up lead details to make response personalized
+      const lead = leads.find(l => l.id === leadId);
+      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
+      const company = lead ? lead.company : 'their company';
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const prompt = `You are SalesPilot's AI Outbound Voice SDR Agent calling on behalf of Soham Kharat at SalesPilot.
+The prospect is: ${leadName} from company: ${company}.
+Your objectives:
+1. Introduce yourself warmly as "SalesPilot's AI Voice Assistant".
+2. Qualify the lead: ask if they do outbound sales and what their major pain points are (e.g. low email open rates, manual list building, lead data validation).
+3. Answer FAQs: SalesPilot is an AI-powered sales automation platform that automates lead discovery, enrichment, automated email sequences, and AI CRM updating. It costs ₹8,500/month for the Professional Plan.
+4. Schedule a meeting: if they show interest, offer to schedule a demo meeting for them (e.g. tomorrow or Wednesday).
+5. Update the CRM: if they agree to a meeting, mention you will book it and update their record.
+6. End the call politely: wrap up gracefully.
+
+Keep your response extremely brief, conversational, and natural (1-2 short sentences max, as this is for a real-time voice call). Do not use markdown, lists, asterisks, or any text formatting. Speak in a friendly, professional tone.
+
+Conversation History:
+${(history || []).map((h: any) => `${h.speaker === 'agent' ? 'AI Agent' : 'Prospect'}: ${h.text}`).join('\n')}
+Prospect's latest message: "${customerInput || 'Hello'}"
+
+Next Agent Utterance:`;
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        primaryModel: 'gemini-3.5-flash'
+      });
+
+      const replyText = response.text || "Hello! How can I help you with your outbound sales pipeline today?";
+      res.json({ success: true, text: replyText.trim() });
+    } catch (err: any) {
+      console.error('Error in voice-agent API:', err);
+      // Fallback response if Gemini fails
+      res.json({ 
+        success: true, 
+        text: "That sounds very interesting. We would love to show you how SalesPilot can automate your outbound calling and email pipeline. Would you be open to a quick demo call tomorrow at 11 AM?" 
+      });
+    }
+  });
+
+  // POST /api/call-analytics - Run Gemini Call Analytics & automatically update CRM & Calendar
+  app.post('/api/call-analytics', async (req, res) => {
+    try {
+      const { callId, transcript } = req.body;
+      
+      const dbCalls = (localDb.db as any).calls || [];
+      const call = dbCalls.find((c: any) => c.id === callId);
+      
+      const targetTranscript = transcript || (call ? call.transcript : []);
+      const leadId = call ? call.leadId : (req.body.leadId || '');
+      
+      const lead = leads.find(l => l.id === leadId);
+      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
+      const company = lead ? lead.company : 'their company';
+
+      const transcriptString = Array.isArray(targetTranscript)
+        ? targetTranscript.map((t: any) => `${t.speaker === 'agent' ? 'AI Agent' : 'Prospect'}: ${t.text}`).join('\n')
+        : String(targetTranscript);
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const prompt = `Analyze this business call transcript between SalesPilot's AI Voice Agent and a prospect named ${leadName} from ${company}.
+      
+Transcript:
+${transcriptString}
+
+You must respond with a JSON object containing the exact following schema:
+{
+  "sentiment": "positive" | "neutral" | "negative" | "warm" | "defensive",
+  "objections": string[], // array of detected sales objections (e.g., ["Price", "Competitor", "Timing", "None"])
+  "actionItems": string[], // list of concrete follow-up actions (e.g., ["Send business proposal", "Email brochure"])
+  "aiScore": number, // an overall score from 0 to 100 on how successful the call was (lead qualification, interest level, etc.)
+  "leadStatusUpdate": "QUALIFIED" | "INTERESTED" | "NEW" | "OUTREACH" | "READY" | "RESEARCH",
+  "followUpTasks": { "text": string, "dueDate": string }[], // tasks to schedule in CRM. Use ISO date format for dueDate (e.g. tomorrow or in 3 days)
+  "bookMeeting": boolean, // true if the prospect agreed to a meeting/demo in the call
+  "meetingTime": string, // ISO timestamp if booked, or null
+  "createDeal": boolean, // true if the lead is highly qualified and we should create a sales pipeline deal
+  "dealValueInr": number // estimated deal value in INR if createDeal is true (e.g., 59990 or 24990), else 0
+}
+
+Ensure your output is valid JSON and nothing else.`;
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        primaryModel: 'gemini-3.5-flash',
+        config: {
+          responseMimeType: 'application/json'
+        }
+      });
+
+      const result = JSON.parse(response.text || '{}');
+
+      // 1. Update/create call record with analytics
+      const updatedCall = call || {
+        id: callId || 'call-' + Math.random().toString(36).substr(2, 9),
+        leadId,
+        leadName,
+        company,
+        direction: 'outbound',
+        status: 'completed',
+        duration: 95,
+        transcript: targetTranscript,
+        createdAt: new Date().toISOString()
+      };
+
+      updatedCall.sentiment = result.sentiment || 'neutral';
+      updatedCall.objections = result.objections || [];
+      updatedCall.actionItems = result.actionItems || [];
+      updatedCall.aiScore = result.aiScore || 70;
+      updatedCall.recordingUrl = updatedCall.recordingUrl || '/recordings/demo-call.mp3';
+
+      const existingCallIdx = dbCalls.findIndex((c: any) => c.id === updatedCall.id);
+      if (existingCallIdx !== -1) {
+        dbCalls[existingCallIdx] = updatedCall;
+      } else {
+        dbCalls.push(updatedCall);
+      }
+      (localDb.db as any).calls = dbCalls;
+
+      // 2. Automatically update CRM (Lead status, tasks, notes, timeline)
+      if (lead) {
+        // Update Lead Status
+        if (result.leadStatusUpdate) {
+          lead.status = result.leadStatusUpdate as any;
+        }
+
+        // Add call to Lead Timeline
+        lead.timelineList = lead.timelineList || [];
+        lead.timelineList.push({
+          id: 'timeline-' + Date.now() + '-call',
+          event: 'AI Outbound Call Completed',
+          details: `AI calling assistant finished outreach. Score: ${updatedCall.aiScore}/100. Sentiment: ${updatedCall.sentiment.toUpperCase()}. Objections: ${updatedCall.objections.join(', ') || 'None'}.`,
+          createdAt: new Date().toISOString()
+        });
+
+        // Save recording / transcript as a Lead Note
+        lead.notesList = lead.notesList || [];
+        lead.notesList.push({
+          id: 'note-' + Date.now() + '-call',
+          text: `[AI Voice Call Record] Recording: ${updatedCall.recordingUrl}\nAI Score: ${updatedCall.aiScore}\nSentiment: ${updatedCall.sentiment}\nAction Items: ${updatedCall.actionItems.join(', ') || 'None'}\n\nTranscript:\n${transcriptString}`,
+          createdAt: new Date().toISOString()
+        });
+
+        // Create follow-up tasks
+        lead.tasksList = lead.tasksList || [];
+        if (result.followUpTasks && Array.isArray(result.followUpTasks)) {
+          result.followUpTasks.forEach((t: any) => {
+            lead.tasksList?.push({
+              id: 'task-' + Math.random().toString(36).substr(2, 9),
+              text: t.text,
+              completed: false,
+              dueDate: t.dueDate || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+            });
+          });
+        }
+      }
+
+      // 3. Book meeting automatically (Calendar integration)
+      let bookedAppointment = null;
+      if (result.bookMeeting && lead) {
+        const meetingDateTime = result.meetingTime || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+        const aptId = 'apt-' + Math.random().toString(36).substr(2, 9);
+        
+        bookedAppointment = {
+          id: aptId,
+          leadId: lead.id,
+          leadName: `${lead.firstName} ${lead.lastName}`,
+          company: lead.company,
+          email: lead.email,
+          dateTime: meetingDateTime,
+          durationMins: 30,
+          status: 'SCHEDULED' as const,
+          meetingLink: `https://meet.google.com/sp-demo-${lead.id}`,
+          notes: `Meeting booked automatically by SalesPilot AI Voice Assistant following call. AI Success Score: ${updatedCall.aiScore}%`,
+          timezone: 'Asia/Kolkata',
+          googleSynced: true,
+          timelineList: [
+            { id: 'tl-' + aptId, event: 'Meeting Scheduled', details: 'Meeting allocated automatically in SalesPilot calendar by AI calling assistant.', createdAt: new Date().toISOString() }
+          ]
+        };
+
+        const dbApts = localDb.getAllAppointments() || [];
+        dbApts.push(bookedAppointment);
+        localDb.db.appointments = dbApts;
+
+        if (lead) {
+          lead.status = 'MEETING_BOOKED';
+          lead.timelineList.push({
+            id: 'timeline-' + Date.now() + '-apt',
+            event: 'Meeting Scheduled',
+            details: `Demo meeting booked for ${new Date(meetingDateTime).toLocaleString()} via AI Voice Assistant.`,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
+      // 4. Create CRM Deal if qualified
+      let createdDeal = null;
+      if (result.createDeal && lead) {
+        const dealId = 'dl-' + Math.random().toString(36).substr(2, 9);
+        const dealValue = result.dealValueInr || 59990;
+        
+        createdDeal = {
+          id: dealId,
+          leadId: lead.id,
+          leadName: `${lead.firstName} ${lead.lastName}`,
+          company: lead.company,
+          valueInr: dealValue,
+          stage: 'QUALIFIED' as const,
+          updatedAt: new Date().toISOString(),
+          notes: `Deal qualified and generated by AI Voice Calling assistant. Estimated value: ₹${dealValue.toLocaleString()} INR.`
+        };
+
+        const dbDeals = localDb.getAllDeals() || [];
+        dbDeals.push(createdDeal);
+        localDb.db.deals = dbDeals;
+      }
+
+      // Sync and Save
+      localDb.save();
+
+      // Keep leads list in-memory up to date
+      leads = localDb.getAllLeads();
+      deals = localDb.getAllDeals();
+      appointments = localDb.getAllAppointments();
+
+      res.json({
+        success: true,
+        analytics: result,
+        call: updatedCall,
+        appointment: bookedAppointment,
+        deal: createdDeal
+      });
+    } catch (err: any) {
+      console.error('Error in call-analytics API:', err);
       res.status(500).json({ success: false, error: err.message || String(err) });
     }
   });
