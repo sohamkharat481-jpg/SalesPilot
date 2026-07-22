@@ -340,7 +340,7 @@ export function BetaProgramView({
       {
         id: 'cp-demo-1',
         name: 'SaaS Outbound Accelerator',
-        targetAudience: 'SaaS_COMPANY',
+        targetAudience: 'SAAS',
         status: 'ACTIVE',
         totalSent: 150,
         totalOpened: 110,
