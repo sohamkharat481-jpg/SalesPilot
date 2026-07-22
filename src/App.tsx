@@ -78,6 +78,17 @@ function RestrictedViewPlaceholder({
 }
 
 export default function App() {
+  const { user, logout, isLoading: authLoading, isSandbox } = useAuth();
+
+  const isFounderUser = Boolean(
+    user && (
+      user.isFounder ||
+      user.subscriptionStatus === 'LIFETIME' ||
+      (user.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') ||
+      user.role === 'SUPER_ADMIN'
+    )
+  );
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [trialTimeRemaining, setTrialTimeRemaining] = useState(() => {
@@ -89,8 +100,9 @@ export default function App() {
     return saved === null ? true : saved === 'true';
   });
 
-  // Simulated 1-Day Trial countdown interval timer
+  // Simulated 1-Day Trial countdown interval timer (bypassed for Founder accounts)
   useEffect(() => {
+    if (isFounderUser) return; // Founder accounts completely bypass trial timer
     if (!trialActive || trialTimeRemaining <= 0) return;
     const interval = setInterval(() => {
       setTrialTimeRemaining(prev => {
@@ -107,7 +119,7 @@ export default function App() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [trialActive, trialTimeRemaining]);
+  }, [isFounderUser, trialActive, trialTimeRemaining]);
 
   const formatTrialTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -116,7 +128,6 @@ export default function App() {
     return `${h}h ${m}m ${s}s`;
   };
 
-  const { user, logout, isLoading: authLoading, isSandbox } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -168,12 +179,13 @@ export default function App() {
 
   // Redirect non-subscribers/non-founders to billing immediately
   useEffect(() => {
+    if (isFounderUser) return; // Founder accounts bypass all billing redirects
     if (user && !user.isFounder && user.subscriptionStatus !== 'ACTIVE' && user.subscriptionStatus !== 'TRIAL' && !trialActive) {
       if (activeTab !== 'billing') {
         setActiveTab('billing');
       }
     }
-  }, [user, activeTab, trialActive]);
+  }, [isFounderUser, user, activeTab, trialActive]);
 
   // Synchronize Dark Mode on Document Element
   useEffect(() => {
@@ -472,14 +484,14 @@ export default function App() {
     return <AuthView />;
   }
 
-  const isFounderUser = user && user.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com';
   if (isFounderUser) {
     if (!user.isFounder || !user.companyName || user.subscriptionStatus !== 'LIFETIME' || user.tier !== 'ENTERPRISE') {
-      console.log("Founder detected. Skipping onboarding.");
+      console.log("Founder detected. Enforcing lifetime access and skipping onboarding.");
       user.isFounder = true;
-      user.companyName = 'SalesPilot';
+      user.companyName = user.companyName || 'SalesPilot';
       user.subscriptionStatus = 'LIFETIME';
       user.tier = 'ENTERPRISE';
+      user.onboardingCompleted = true;
     }
   }
 
@@ -562,57 +574,59 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
       
-      {/* 1-Day Trial Status Banner Alert */}
-      {trialActive ? (
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white px-6 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-inner">
-          <div className="flex items-center gap-2 font-mono">
-            <Sparkles className="w-3.5 h-3.5 text-blue-300 animate-pulse shrink-0" />
-            <span>
-              <strong>1-Day Free Trial (Active):</strong> Full feature access is unlocked. Connect Gmail and CRM to execute your outbound AI-SDR campaigns.
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-white/10 px-2.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide border border-white/20">
-              ⏰ {formatTrialTime(trialTimeRemaining)} remaining
-            </div>
-            <button 
-              onClick={() => setActiveTab('billing')}
-              className="px-3 py-1 bg-white text-blue-700 hover:bg-slate-50 font-bold rounded font-sans text-[10px] transition cursor-pointer"
-            >
-              Upgrade Plan
-            </button>
-            <button
-              onClick={() => {
-                setTrialTimeRemaining(0);
-                setTrialActive(false);
-                localStorage.setItem('salespilot_trial_active', 'false');
-                localStorage.setItem('salespilot_trial_time', '0');
-                setActiveTab('billing');
-                alert("Trial has been ended. Secure subscription status to continue workspace access.");
-              }}
-              className="text-white/70 hover:text-white underline font-mono text-[9px] cursor-pointer"
-              title="Instantly expire trial to test checkout redirect and upgrade flow"
-            >
-              Test Expiry Redirect
-            </button>
-          </div>
-        </div>
-      ) : (
-        localStorage.getItem('salespilot_trial_time') === '0' && (
-          <div className="bg-red-600 text-white px-6 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-md">
+      {/* 1-Day Trial Status Banner Alert - Bypassed for Founder Accounts */}
+      {!isFounderUser && (
+        trialActive ? (
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white px-6 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-inner">
             <div className="flex items-center gap-2 font-mono">
-              <ShieldAlert className="w-4 h-4 text-red-200 animate-bounce shrink-0" />
+              <Sparkles className="w-3.5 h-3.5 text-blue-300 animate-pulse shrink-0" />
               <span>
-                <strong>Your 1-Day Free Trial has expired!</strong> Workspace features are locked. Secure a Subscription Plan via Cashfree gateway to resume campaign scheduling.
+                <strong>1-Day Free Trial (Active):</strong> Full feature access is unlocked. Connect Gmail and CRM to execute your outbound AI-SDR campaigns.
               </span>
             </div>
-            <button 
-              onClick={() => setActiveTab('billing')}
-              className="px-4 py-1.5 bg-white text-red-700 hover:bg-slate-50 font-bold rounded-xl font-sans text-xs shadow-md shadow-red-950/25 transition cursor-pointer animate-pulse"
-            >
-              Upgrade & Reactivate Workspace
-            </button>
+            <div className="flex items-center gap-4">
+              <div className="bg-white/10 px-2.5 py-0.5 rounded font-mono font-bold text-[10px] tracking-wide border border-white/20">
+                ⏰ {formatTrialTime(trialTimeRemaining)} remaining
+              </div>
+              <button 
+                onClick={() => setActiveTab('billing')}
+                className="px-3 py-1 bg-white text-blue-700 hover:bg-slate-50 font-bold rounded font-sans text-[10px] transition cursor-pointer"
+              >
+                Upgrade Plan
+              </button>
+              <button
+                onClick={() => {
+                  setTrialTimeRemaining(0);
+                  setTrialActive(false);
+                  localStorage.setItem('salespilot_trial_active', 'false');
+                  localStorage.setItem('salespilot_trial_time', '0');
+                  setActiveTab('billing');
+                  alert("Trial has been ended. Secure subscription status to continue workspace access.");
+                }}
+                className="text-white/70 hover:text-white underline font-mono text-[9px] cursor-pointer"
+                title="Instantly expire trial to test checkout redirect and upgrade flow"
+              >
+                Test Expiry Redirect
+              </button>
+            </div>
           </div>
+        ) : (
+          localStorage.getItem('salespilot_trial_time') === '0' && (
+            <div className="bg-red-600 text-white px-6 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-md">
+              <div className="flex items-center gap-2 font-mono">
+                <ShieldAlert className="w-4 h-4 text-red-200 animate-bounce shrink-0" />
+                <span>
+                  <strong>Your 1-Day Free Trial has expired!</strong> Workspace features are locked. Secure a Subscription Plan via Cashfree gateway to resume campaign scheduling.
+                </span>
+              </div>
+              <button 
+                onClick={() => setActiveTab('billing')}
+                className="px-4 py-1.5 bg-white text-red-700 hover:bg-slate-50 font-bold rounded-xl font-sans text-xs shadow-md shadow-red-950/25 transition cursor-pointer animate-pulse"
+              >
+                Upgrade & Reactivate Workspace
+              </button>
+            </div>
+          )
         )
       )}
       

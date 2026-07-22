@@ -250,42 +250,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent Founder from seeing onboarding, setup, or billing screens
   useEffect(() => {
-    if (user && user.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') {
+    if (user && (user.isFounder || user.subscriptionStatus === 'LIFETIME' || (user.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') || user.role === 'SUPER_ADMIN')) {
       const needsUpdate = !user.isFounder || 
-                          user.companyName !== 'SalesPilot' || 
                           user.subscriptionStatus !== 'LIFETIME' || 
                           user.tier !== 'ENTERPRISE' || 
-                          user.role !== 'OWNER' || 
                           !user.isVerified;
       if (needsUpdate) {
-        console.log("Founder detected. Skipping onboarding.");
+        console.log("Founder detected in AuthContext. Enforcing Lifetime access.");
         setUser(prev => {
           if (!prev) return null;
           return {
             ...prev,
             isFounder: true,
-            companyName: 'SalesPilot',
-            industry: 'SaaS & Software',
+            companyName: prev.companyName || 'SalesPilot',
+            industry: prev.industry || 'SaaS & Software',
             subscriptionStatus: 'LIFETIME',
             tier: 'ENTERPRISE',
-            role: 'OWNER',
-            isVerified: true
+            role: prev.role || 'OWNER',
+            isVerified: true,
+            onboardingCompleted: true
           };
         });
-        setOrganization({
-          id: 'org_salespilot_lifetime',
-          name: 'SalesPilot',
-          companyName: 'SalesPilot',
-          industry: 'SaaS & Software',
-          website: 'salespilot.co',
-          country: 'India',
-          currency: 'INR',
-          timezone: 'Asia/Kolkata',
-          logo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+        setOrganization(prev => ({
+          id: prev?.id || 'org_salespilot_lifetime',
+          name: prev?.name || 'SalesPilot',
+          companyName: prev?.companyName || 'SalesPilot',
+          industry: prev?.industry || 'SaaS & Software',
+          website: prev?.website || 'salespilot.co',
+          country: prev?.country || 'India',
+          currency: prev?.currency || 'INR',
+          timezone: prev?.timezone || 'Asia/Kolkata',
+          logo: prev?.logo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
           subscriptionPlan: 'ENTERPRISE',
-          status: 'ACTIVE',
-          createdAt: new Date().toISOString()
-        });
+          createdAt: prev?.createdAt || new Date().toISOString()
+        }));
       }
     }
   }, [user]);

@@ -263,7 +263,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     return getPriceBreakdown(base);
   }, [user?.tier, billingCycle, activeCoupon]);
 
-  if (user?.isFounder || user?.subscriptionStatus === 'LIFETIME') {
+  if (user?.isFounder || user?.subscriptionStatus === 'LIFETIME' || (user?.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') || user?.role === 'SUPER_ADMIN') {
     return (
       <div id="billing_view_founder" className="space-y-6 animate-fade-in pb-12">
         {/* Beautiful display for founder */}
