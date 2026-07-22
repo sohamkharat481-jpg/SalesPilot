@@ -241,6 +241,12 @@ function updateTokensAndCost(promptCount: number, completionCount: number, provi
 
 // Check Rate Limits and Token Budgets before calling
 export function checkLimitsAndRateLimits(tier: string = 'PROFESSIONAL'): { allowed: boolean; error?: string } {
+  // Founder / Lifetime / Enterprise accounts bypass AI limits
+  const isUnlimited = tier === 'ENTERPRISE' || tier === 'LIFETIME' || tier === 'FOUNDER';
+  if (isUnlimited) {
+    return { allowed: true };
+  }
+
   const limits = TIER_BUDGETS[tier] || TIER_BUDGETS.PROFESSIONAL;
   const now = Date.now();
 

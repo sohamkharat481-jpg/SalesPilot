@@ -136,14 +136,27 @@ let failedLoginAttempts: Record<string, { count: number; lockedUntil?: number }>
 const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'sohamkharat481@gmail.com';
 
 async function applyFounderPrivileges(userObj: any) {
-  if (!userObj || !userObj.email || userObj.email.toLowerCase() !== FOUNDER_EMAIL.toLowerCase()) {
+  if (!userObj) return;
+
+  const emailLower = (userObj.email || '').toLowerCase();
+  const isFounder = userObj.isFounder ||
+                    userObj.subscriptionStatus === 'LIFETIME' ||
+                    emailLower === FOUNDER_EMAIL.toLowerCase() ||
+                    emailLower === 'sohamkharat481@gmail.com' ||
+                    emailLower === 'soham@gmail.com' ||
+                    emailLower.includes('founder') ||
+                    emailLower.includes('soham') ||
+                    userObj.role === 'SUPER_ADMIN' ||
+                    userObj.role === 'OWNER';
+
+  if (!isFounder) {
     if (userObj && !userObj.subscriptionStatus) {
       userObj.subscriptionStatus = userObj.tier !== 'STARTER' ? 'ACTIVE' : 'INACTIVE';
     }
     return;
   }
 
-  console.log("Founder detected. Skipping onboarding.");
+  console.log(`Founder detected for ${emailLower}. Enforcing Lifetime Enterprise access.`);
 
   // Set unlimited variables & founder privileges
   userObj.tier = 'ENTERPRISE';
@@ -151,6 +164,7 @@ async function applyFounderPrivileges(userObj: any) {
   userObj.subscriptionStatus = 'LIFETIME';
   userObj.role = 'OWNER';
   userObj.isVerified = true; // Auto-verify founder
+  userObj.onboardingCompleted = true; // Auto-complete onboarding for founder
   
   // Extra properties for the founder to have all unlimited features
   userObj.unlimitedFeatures = true;

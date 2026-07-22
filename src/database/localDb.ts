@@ -217,17 +217,19 @@ export class LocalDB {
         id: 'usr_demo_101',
         email: 'soham@gmail.com',
         fullName: 'Soham Kharat',
-        companyName: 'Horizon Media',
-        industry: 'Marketing Agency',
-        tier: 'STARTER',
+        companyName: 'SalesPilot',
+        industry: 'SaaS & Software',
+        tier: 'ENTERPRISE',
         role: 'OWNER',
-        organizationId: 'org_horizon_starter',
+        organizationId: 'org_salespilot_lifetime',
         isVerified: true,
         phone: '',
         timezone: 'Asia/Kolkata',
         language: 'English',
         notificationPrefs: { email: true, push: true, weeklyReport: true },
         passwordHash: defaultPasswordHash,
+        isFounder: true,
+        subscriptionStatus: 'LIFETIME',
         createdAt: new Date().toISOString()
       }
     ];

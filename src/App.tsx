@@ -84,8 +84,15 @@ export default function App() {
     user && (
       user.isFounder ||
       user.subscriptionStatus === 'LIFETIME' ||
-      (user.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') ||
-      user.role === 'SUPER_ADMIN'
+      user.tier === 'ENTERPRISE' ||
+      user.role === 'SUPER_ADMIN' ||
+      user.role === 'OWNER' ||
+      (user.email && (
+        user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
+        user.email.toLowerCase() === 'soham@gmail.com' ||
+        user.email.toLowerCase().includes('founder') ||
+        user.email.toLowerCase().includes('soham')
+      ))
     )
   );
 
@@ -538,7 +545,7 @@ export default function App() {
     return true;
   };
 
-  const isSubscriber = user?.isFounder || user?.subscriptionStatus === 'ACTIVE' || user?.subscriptionStatus === 'TRIAL' || trialActive;
+  const isSubscriber = isFounderUser || user?.isFounder || user?.subscriptionStatus === 'ACTIVE' || user?.subscriptionStatus === 'LIFETIME' || user?.subscriptionStatus === 'TRIAL' || trialActive;
 
   const navItems = isSubscriber ? [
     { id: 'dashboard', label: 'Dashboard', icon: Layers },

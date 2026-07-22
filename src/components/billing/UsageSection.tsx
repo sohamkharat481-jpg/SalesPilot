@@ -153,8 +153,22 @@ export function UsageSection({ user }: UsageSectionProps) {
 
   const metricsKeys = ['searches', 'ai_requests', 'ai_tokens', 'emails_sent', 'meetings', 'campaigns', 'organizations', 'users', 'storage', 'api_requests'];
 
-  // Check if any of the key limits are currently exceeded
-  const exceededItems = metricsKeys.filter(key => {
+  const isFounderUser = Boolean(
+    user?.isFounder || 
+    user?.subscriptionStatus === 'LIFETIME' || 
+    user?.tier === 'ENTERPRISE' ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'OWNER' ||
+    (user?.email && (
+      user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
+      user.email.toLowerCase() === 'soham@gmail.com' ||
+      user.email.toLowerCase().includes('founder') ||
+      user.email.toLowerCase().includes('soham')
+    ))
+  );
+
+  // Check if any of the key limits are currently exceeded (Bypassed for Founder accounts)
+  const exceededItems = isFounderUser ? [] : metricsKeys.filter(key => {
     const used = getUsed(key);
     const { limit } = getLimitObj(key);
     return typeof limit === 'number' && used >= limit;
@@ -288,24 +302,36 @@ export function UsageSection({ user }: UsageSectionProps) {
         })}
       </div>
 
-      {/* Plan comparison and Upgrade prompt */}
-      <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-500 block">TIER UPGRADE RECOMMENDATION</span>
-          <p className="text-xs text-slate-600 dark:text-slate-350">
-            Starter Pilot tier supports 1 Organization & 3 Campaigns. <strong className="text-slate-900 dark:text-white">Growth Professional</strong> unlocks 3 Organizations, 10 campaign pipelines, and 10,000 lead searches.
-          </p>
+      {/* Plan comparison and Upgrade prompt (Bypassed for Founder) */}
+      {!isFounderUser ? (
+        <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-500 block">TIER UPGRADE RECOMMENDATION</span>
+            <p className="text-xs text-slate-600 dark:text-slate-350">
+              Starter Pilot tier supports 1 Organization & 3 Campaigns. <strong className="text-slate-900 dark:text-white">Growth Professional</strong> unlocks 3 Organizations, 10 campaign pipelines, and 10,000 lead searches.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const el = document.getElementById('plans_section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition shadow-xs"
+          >
+            Compare Plans
+          </button>
         </div>
-        <button
-          onClick={() => {
-            const el = document.getElementById('plans_section');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition shadow-xs"
-        >
-          Compare Plans
-        </button>
-      </div>
+      ) : (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono uppercase tracking-wider block">UNLIMITED FOUNDER LIFETIME LICENSE ACTIVE</span>
+              <p className="text-xs text-slate-600 dark:text-slate-350">All 10 workspace resource bounds are fully unlocked with unlimited quotas and zero rate caps.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

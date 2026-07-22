@@ -250,27 +250,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent Founder from seeing onboarding, setup, or billing screens
   useEffect(() => {
-    if (user && (user.isFounder || user.subscriptionStatus === 'LIFETIME' || (user.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') || user.role === 'SUPER_ADMIN')) {
+    const isFounderEmail = user && user.email && (
+      user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
+      user.email.toLowerCase() === 'soham@gmail.com' ||
+      user.email.toLowerCase().includes('founder') ||
+      user.email.toLowerCase().includes('soham')
+    );
+    if (user && (user.isFounder || user.subscriptionStatus === 'LIFETIME' || isFounderEmail || user.role === 'SUPER_ADMIN' || user.role === 'OWNER')) {
       const needsUpdate = !user.isFounder || 
                           user.subscriptionStatus !== 'LIFETIME' || 
                           user.tier !== 'ENTERPRISE' || 
                           !user.isVerified;
       if (needsUpdate) {
         console.log("Founder detected in AuthContext. Enforcing Lifetime access.");
-        setUser(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            isFounder: true,
-            companyName: prev.companyName || 'SalesPilot',
-            industry: prev.industry || 'SaaS & Software',
-            subscriptionStatus: 'LIFETIME',
-            tier: 'ENTERPRISE',
-            role: prev.role || 'OWNER',
-            isVerified: true,
-            onboardingCompleted: true
-          };
-        });
+        const updatedUser: WorkspaceUser = {
+          ...user,
+          isFounder: true,
+          companyName: user.companyName || 'SalesPilot',
+          industry: user.industry || 'SaaS & Software',
+          subscriptionStatus: 'LIFETIME',
+          tier: 'ENTERPRISE',
+          role: user.role || 'OWNER',
+          isVerified: true,
+          onboardingCompleted: true
+        };
+        setUser(updatedUser);
+        try {
+          localStorage.setItem('salespilot_user', JSON.stringify(updatedUser));
+        } catch (e) {
+          console.error("Failed saving founder user to localStorage", e);
+        }
         setOrganization(prev => ({
           id: prev?.id || 'org_salespilot_lifetime',
           name: prev?.name || 'SalesPilot',

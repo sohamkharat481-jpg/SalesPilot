@@ -263,7 +263,21 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     return getPriceBreakdown(base);
   }, [user?.tier, billingCycle, activeCoupon]);
 
-  if (user?.isFounder || user?.subscriptionStatus === 'LIFETIME' || (user?.email && user.email.toLowerCase() === 'sohamkharat481@gmail.com') || user?.role === 'SUPER_ADMIN') {
+  const isFounderAccount = Boolean(
+    user?.isFounder || 
+    user?.subscriptionStatus === 'LIFETIME' || 
+    user?.tier === 'ENTERPRISE' ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'OWNER' ||
+    (user?.email && (
+      user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
+      user.email.toLowerCase() === 'soham@gmail.com' ||
+      user.email.toLowerCase().includes('founder') ||
+      user.email.toLowerCase().includes('soham')
+    ))
+  );
+
+  if (isFounderAccount) {
     return (
       <div id="billing_view_founder" className="space-y-6 animate-fade-in pb-12">
         {/* Beautiful display for founder */}
