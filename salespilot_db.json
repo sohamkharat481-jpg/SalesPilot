@@ -1,0 +1,271 @@
+{
+  "users": [
+    {
+      "id": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "fullName": "Soham Kharat",
+      "companyName": "SalesPilot",
+      "industry": "SaaS & Software",
+      "tier": "ENTERPRISE",
+      "role": "OWNER",
+      "organizationId": "org_salespilot_lifetime",
+      "isVerified": true,
+      "phone": "",
+      "timezone": "Asia/Kolkata",
+      "language": "English",
+      "notificationPrefs": {
+        "email": true,
+        "push": true,
+        "weeklyReport": true
+      },
+      "passwordHash": "$2b$10$SjgqSRaEfoh5rtOT998cWuGXpv/E6mZB60hqaJx4VHK7RsMgtLHZC",
+      "isFounder": true,
+      "subscriptionStatus": "LIFETIME",
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "usr_demo_101",
+      "email": "soham@gmail.com",
+      "fullName": "Soham Kharat",
+      "companyName": "SalesPilot",
+      "industry": "SaaS & Software",
+      "tier": "ENTERPRISE",
+      "role": "OWNER",
+      "organizationId": "org_salespilot_lifetime",
+      "isVerified": true,
+      "phone": "",
+      "timezone": "Asia/Kolkata",
+      "language": "English",
+      "notificationPrefs": {
+        "email": true,
+        "push": true,
+        "weeklyReport": true
+      },
+      "passwordHash": "$2b$10$SjgqSRaEfoh5rtOT998cWuGXpv/E6mZB60hqaJx4VHK7RsMgtLHZC",
+      "isFounder": true,
+      "subscriptionStatus": "LIFETIME",
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "org_salespilot_lifetime",
+      "name": "SalesPilot",
+      "domain": "salespilot.co",
+      "industry": "SaaS & Software",
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "org_horizon_starter",
+      "name": "Horizon Media",
+      "domain": "horizon.media",
+      "industry": "Marketing Agency",
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    }
+  ],
+  "teamMembers": [
+    {
+      "id": "tm_1",
+      "email": "ankit@horizon.media",
+      "fullName": "Ankit Patel",
+      "role": "SALES",
+      "status": "ACTIVE",
+      "joinedAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "tm_2",
+      "email": "sarah@horizon.media",
+      "fullName": "Sarah Jenkins",
+      "role": "MANAGER",
+      "status": "ACTIVE",
+      "joinedAt": "2026-07-23T06:56:37.176Z"
+    }
+  ],
+  "leads": [],
+  "campaigns": [],
+  "deals": [],
+  "appointments": [],
+  "sessions": {},
+  "activityLogs": [
+    {
+      "id": "al_1",
+      "userId": "usr_81927391",
+      "action": "Workspace Configured",
+      "module": "System",
+      "timestamp": "2026-07-23T05:58:17.176Z",
+      "browser": "Chrome",
+      "ipAddress": "157.51.92.14",
+      "device": "Desktop"
+    }
+  ],
+  "loginHistory": [
+    {
+      "id": "lh_1",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "157.51.92.14",
+      "browser": "Chrome 122.0.0",
+      "os": "macOS Sonoma",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-07-23T05:56:37.176Z"
+    }
+  ],
+  "calendarAccounts": [],
+  "gmailAccounts": [],
+  "aiCompanyResearch": [],
+  "aiContactProfiles": [],
+  "aiEmailGenerations": [],
+  "aiFollowups": [],
+  "aiMeetingBriefs": [],
+  "aiProposals": [],
+  "aiScores": [],
+  "roles": [
+    {
+      "id": "role_owner",
+      "organizationId": "system",
+      "name": "Owner",
+      "description": "Full access to all settings and financial billing controls",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "role_admin",
+      "organizationId": "system",
+      "name": "Admin",
+      "description": "Administrative controls excluding primary ownership changes",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "role_sales_manager",
+      "organizationId": "system",
+      "name": "Sales Manager",
+      "description": "Directs lead distribution, deal pipelines, and CRM performance",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "role_sales_rep",
+      "organizationId": "system",
+      "name": "Sales Representative",
+      "description": "Handles assigned outbound campaigns, lead enrichment, and booked introductions",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "role_marketing",
+      "organizationId": "system",
+      "name": "Marketing",
+      "description": "Designs sequences and builds incoming lead campaign structures",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "role_support",
+      "organizationId": "system",
+      "name": "Support",
+      "description": "Handles customer-facing tickets and helps debug configurations",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    },
+    {
+      "id": "role_viewer",
+      "organizationId": "system",
+      "name": "Viewer",
+      "description": "Read-only access to dashboards, reports, and timeline streams",
+      "isCustom": false,
+      "createdAt": "2026-07-23T06:56:37.176Z"
+    }
+  ],
+  "permissions": [
+    {
+      "id": "perm_view_crm",
+      "name": "View CRM",
+      "description": "Can view leads, deals, and appointments"
+    },
+    {
+      "id": "perm_edit_crm",
+      "name": "Edit CRM",
+      "description": "Can create and update leads, deals, and appointments"
+    },
+    {
+      "id": "perm_delete_crm",
+      "name": "Delete CRM",
+      "description": "Can delete leads, deals, and appointments"
+    },
+    {
+      "id": "perm_manage_campaigns",
+      "name": "Manage Campaigns",
+      "description": "Can manage outbox sequence campaigns"
+    },
+    {
+      "id": "perm_manage_billing",
+      "name": "Manage Billing",
+      "description": "Can manage billing, invoices, and subscriptions"
+    },
+    {
+      "id": "perm_manage_ai",
+      "name": "Manage AI",
+      "description": "Can trigger research profiles and email generators"
+    },
+    {
+      "id": "perm_manage_integrations",
+      "name": "Manage Integrations",
+      "description": "Can connect Google and third-party keys"
+    },
+    {
+      "id": "perm_view_reports",
+      "name": "View Reports",
+      "description": "Can view organization dashboards and statistics"
+    },
+    {
+      "id": "perm_manage_team",
+      "name": "Manage Team",
+      "description": "Can invite, update, or remove workspace members"
+    },
+    {
+      "id": "perm_manage_settings",
+      "name": "Manage Settings",
+      "description": "Can change company domain, logo, and metadata"
+    }
+  ],
+  "memberPermissions": [],
+  "notifications": [],
+  "auditLogs": [],
+  "teamActivities": [],
+  "invitations": [],
+  "calls": [],
+  "workflows": [],
+  "workflowVersions": [],
+  "workflowRuns": [],
+  "workflowLogs": [],
+  "scheduledJobs": [],
+  "automationHistory": [],
+  "apiKeys": [],
+  "oauthClients": [],
+  "oauthTokens": [],
+  "webhookEndpoints": [],
+  "webhookDeliveries": [],
+  "integrationConfigs": [],
+  "marketplaceApps": [],
+  "developerLogs": [
+    {
+      "id": "devlog_1784793860055",
+      "organizationId": "org_salespilot_lifetime",
+      "type": "API_REQUEST",
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "statusCode": 400,
+      "message": "[TEMPORARY_ID_DETECTED] Attempted appointment booking using temporary ID \"ld_gen_1784792312132_507\". Request ID: \"bk_req_1784793860055_376\". Origin: Lead Sourcing generator before database persistence.",
+      "details": "{\"bookingRequestId\":\"bk_req_1784793860055_376\",\"temporaryId\":\"ld_gen_1784792312132_507\",\"originExplanation\":\"Lead ID starts with ld_gen_. All appointment bookings must use the persistent database primary key.\"}",
+      "createdAt": "2026-07-23T08:04:20.055Z"
+    }
+  ],
+  "aiAgents": [],
+  "agentTasks": [],
+  "agentMemories": [],
+  "agentLogs": [],
+  "agentWorkflows": [],
+  "agentPermissions": []
+}

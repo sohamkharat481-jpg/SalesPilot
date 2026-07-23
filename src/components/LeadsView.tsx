@@ -2871,9 +2871,9 @@ export function LeadsView({
               <span className="block text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Lead Sourcing Origin channel</span>
               <div className="space-y-3.5 pt-2">
                 {[
-                  { channel: 'AI Scraper / Spider Agent', count: leads.filter(l => l.id.startsWith('ld_gen_')).length + 3, pct: '60%', color: 'bg-purple-500' },
+                  { channel: 'AI Scraper / Spider Agent', count: leads.filter(l => l.id.startsWith('ld_db_') || l.source?.toLowerCase().includes('google') || l.source?.toLowerCase().includes('serper') || l.source?.toLowerCase().includes('spider') || l.provider?.toLowerCase().includes('google')).length + 3, pct: '60%', color: 'bg-purple-500' },
                   { channel: 'CSV Scans & Bulk Imports', count: 2, pct: '25%', color: 'bg-purple-400' },
-                  { channel: 'Direct Manual Creation', count: leads.filter(l => !l.id.startsWith('ld_gen_') && l.id.startsWith('ld_manual_')).length + 1, pct: '15%', color: 'bg-purple-300' }
+                  { channel: 'Direct Manual Creation', count: leads.filter(l => l.id.startsWith('ld_manual_') || l.source?.toLowerCase().includes('manual')).length + 1, pct: '15%', color: 'bg-purple-300' }
                 ].map((item, i) => (
                   <div key={i} className="space-y-1 text-xs">
                     <div className="flex justify-between font-mono">

@@ -5590,10 +5590,11 @@ Ensure the output is strictly valid JSON format.`;
           }
         }
 
-        const uniqueId = `ld_gen_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const tempLeadId = `ld_gen_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const persistentDbId = `ld_db_${Date.now()}_${Math.floor(Math.random() * 100000)}_${Math.random().toString(36).substring(2, 6)}`;
 
         const newLead: Lead = {
-          id: uniqueId,
+          id: tempLeadId,
           firstName: cand.firstName || 'Operations',
           lastName: cand.lastName || 'Manager',
           email: cand.email || (finalDomain ? `contact@${finalDomain}` : ''),
@@ -5653,6 +5654,9 @@ Ensure the output is strictly valid JSON format.`;
           console.error(`[LEAD ENGINE] AI Research Profile generation failed for ${businessName}:`, researchErr);
         }
 
+        // Persistent Database ID resolution
+        let finalDbId = persistentDbId;
+
         // Save to Supabase (Only verified businesses!)
         const supabase = getSupabaseClient();
         if (supabase) {
@@ -5684,6 +5688,7 @@ Ensure the output is strictly valid JSON format.`;
 
             if (organization_id) {
               const dbLead = {
+                id: persistentDbId,
                 organization_id,
                 lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
                 company: newLead.company,
@@ -5708,13 +5713,16 @@ Ensure the output is strictly valid JSON format.`;
               };
 
               console.log(`[SUPABASE] Inserting lead:`, JSON.stringify(dbLead, null, 2));
-              const { error: insErr } = await supabase.from('leads').insert(dbLead);
+              const { data: insData, error: insErr } = await supabase.from('leads').insert(dbLead).select('id');
               if (insErr) {
                 rlsOrInsertErrors.push(insErr);
                 console.error('[SUPABASE] Lead insertion error:', insErr);
               } else {
+                if (insData && insData.length > 0 && insData[0].id) {
+                  finalDbId = String(insData[0].id);
+                }
                 insertedToSupabase++;
-                console.log(`[SUPABASE] Lead inserted successfully! Total inserted: ${insertedToSupabase}`);
+                console.log(`[SUPABASE] Lead inserted successfully! Assigned Database ID: "${finalDbId}". Total inserted: ${insertedToSupabase}`);
               }
             } else {
               console.warn(`[SUPABASE] Skipped lead insertion because organization_id could not be resolved.`);
@@ -5723,11 +5731,25 @@ Ensure the output is strictly valid JSON format.`;
             console.error('[SUPABASE] lead insertion exception:', dbErr);
           }
         } else {
-          console.log('[SUPABASE] Supabase is not configured or disabled. Skipping database save.');
+          console.log('[SUPABASE] Supabase is not configured or disabled. Saved lead to local primary key database.');
         }
 
+        // REPLACE TEMPORARY ID WITH PERSISTENT DATABASE PRIMARY KEY ID
+        newLead.id = finalDbId;
+
+        // AUDIT LOGGING FOR PERSISTENCE & ID MAPPING
+        console.log(`[LEAD PERSISTENCE VERIFIED]
+- Temporary ID: "${tempLeadId}"
+- Database Primary Key ID: "${finalDbId}"
+- Saved Record: Company="${newLead.company}", Lead="${newLead.firstName} ${newLead.lastName}", Email="${newLead.email}"`);
+
+        requestLogs.push(`[LEAD PERSISTED] Temporary ID "${tempLeadId}" replaced with Database ID "${finalDbId}". Saved record for ${newLead.company} (${newLead.email}).`);
+
         leads.unshift(newLead);
-        triggerOutreachAutomation(newLead.id);
+        localDb.db.leads = leads;
+        saveDb();
+
+        triggerOutreachAutomation(finalDbId);
         results.push(newLead);
       }
 
@@ -6648,27 +6670,67 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const user = getAuthenticatedUser(req);
       const orgId = user?.organizationId || 'org_salespilot_lifetime';
       const userId = user?.id || 'usr_salespilot_founder';
+      const bookingRequestId = `bk_req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-      console.log(`[BOOKING API] Received booking request for leadId: "${leadId}". Payload:`, JSON.stringify(req.body));
+      console.log(`[BOOKING API] Booking Request ID: "${bookingRequestId}". Received leadId: "${leadId}". Payload:`, JSON.stringify(req.body));
 
       if (!leadId) {
-        console.error(`[BOOKING API ERROR] Missing leadId in booking payload.`);
-        res.status(400).json({ error: 'Lead ID is required for booking an appointment.' });
+        console.error(`[BOOKING API ERROR] Request ID "${bookingRequestId}": Missing leadId in booking payload.`);
+        res.status(400).json({ error: 'Lead ID is required for booking an appointment.', bookingRequestId });
+        return;
+      }
+
+      const cleanLeadId = String(leadId).trim();
+
+      // REQUIREMENT 8: If a temporary ID (ld_gen_*) is detected during booking, reject it with a developer log explaining origin
+      if (cleanLeadId.startsWith('ld_gen_')) {
+        const originExplanation = `Booking attempt rejected for Request ID "${bookingRequestId}": Received temporary in-memory generated ID "${cleanLeadId}" instead of persistent database primary key ID. Temporary IDs originate during lead generation prior to database persistence and must never be used for appointment booking or CRM operations.`;
+        console.error(`[BOOKING REJECTED - TEMPORARY ID DETECTED] ${originExplanation}`);
+
+        localDb.addDeveloperLog({
+          id: `devlog_${Date.now()}`,
+          organizationId: orgId,
+          type: 'API_REQUEST',
+          method: 'POST',
+          path: '/api/v1/appointments',
+          statusCode: 400,
+          message: `[TEMPORARY_ID_DETECTED] Attempted appointment booking using temporary ID "${cleanLeadId}". Request ID: "${bookingRequestId}". Origin: Lead Sourcing generator before database persistence.`,
+          details: JSON.stringify({
+            bookingRequestId,
+            temporaryId: cleanLeadId,
+            originExplanation: 'Lead ID starts with ld_gen_. All appointment bookings must use the persistent database primary key.'
+          }),
+          createdAt: new Date().toISOString()
+        });
+
+        res.status(400).json({
+          error: `Invalid Lead ID for booking. Temporary generated ID "${cleanLeadId}" cannot be used for appointment booking. Please ensure the prospect is persisted and use their database primary key.`,
+          bookingRequestId,
+          temporaryIdDetected: cleanLeadId
+        });
         return;
       }
 
       // Fetch lead by primary key from database / memory
-      const lead = await findLeadByIdAsync(String(leadId).trim(), orgId);
+      const lead = await findLeadByIdAsync(cleanLeadId, orgId);
 
-      console.log(`[BOOKING API] Database lookup result for lead ID "${leadId}":`, lead ? `FOUND ("${lead.firstName} ${lead.lastName}" at ${lead.company})` : 'NOT FOUND IN DB');
+      console.log(`[BOOKING API] Request ID "${bookingRequestId}" - Database lookup result for lead ID "${cleanLeadId}":`, lead ? `FOUND ("${lead.firstName} ${lead.lastName}" at ${lead.company})` : 'NOT FOUND IN DB');
 
       if (!lead) {
-        console.error(`[BOOKING API FAIL] Lead lookup failed for lead ID: "${leadId}". Lead does not exist in database or memory.`);
+        console.error(`[BOOKING API FAIL] Request ID "${bookingRequestId}": Lead lookup failed for Lead ID: "${cleanLeadId}". Lead does not exist in database or memory.`);
         res.status(400).json({ 
-          error: `Lead not found for booking. Lead with ID "${leadId}" was not found in the database. Please verify that the prospect exists in your active CRM pipeline before scheduling a demo.` 
+          error: `Lead not found for booking. Lead with ID "${cleanLeadId}" was not found in the database. Please verify that the prospect exists in your active CRM pipeline before scheduling a demo.`,
+          bookingRequestId
         });
         return;
       }
+
+      // REQUIREMENT 7: Add logging for Temporary ID, Database ID, Saved record, Booking request ID
+      console.log(`[BOOKING LOG - PERSISTENT ID VERIFIED]
+- Booking Request ID: "${bookingRequestId}"
+- Database Primary Key ID: "${lead.id}"
+- Temporary ID: None (Persistent Primary Key Verified)
+- Saved Record: Company="${lead.company}", Lead="${lead.firstName} ${lead.lastName}", Email="${lead.email}"`);
 
       // Validate attendee email only if provided and not empty
       let cleanLeadEmail = '';
