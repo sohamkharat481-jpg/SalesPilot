@@ -707,23 +707,27 @@ export class LocalDB {
 
       const { data: leads } = await this.supabase.from('leads').select('*');
       if (leads && leads.length > 0) {
-        this.db.leads = leads.map(l => ({
-          id: l.id,
-          firstName: l.first_name,
-          lastName: l.last_name,
-          email: l.email,
-          phone: l.phone,
-          company: l.company,
-          status: l.status,
-          createdAt: l.created_at,
+        const remoteLeads = leads.map(l => ({
+          id: String(l.id),
+          organizationId: l.organization_id,
+          firstName: l.first_name || l.lead_name?.split(' ')[0] || 'Prospect',
+          lastName: l.last_name || l.lead_name?.split(' ').slice(1).join(' ') || '',
+          email: l.email || l.business_email || '',
+          phone: l.phone || '',
+          company: l.company || 'Company',
+          status: l.status || 'NEW',
+          createdAt: l.created_at || new Date().toISOString(),
           campaignId: l.campaign_id,
           tags: l.tags || [],
-          source: l.source,
-          lastUpdated: l.updated_at,
-          confidenceScore: l.score,
-          notesList: l.notes ? [{ id: 'n_' + Date.now(), text: l.notes, createdAt: l.created_at }] : [],
+          source: l.source || 'Database',
+          lastUpdated: l.updated_at || new Date().toISOString(),
+          confidenceScore: l.score || 80,
+          notesList: l.notes ? [{ id: 'n_' + Date.now(), text: typeof l.notes === 'string' ? l.notes : JSON.stringify(l.notes), createdAt: l.created_at || new Date().toISOString() }] : [],
           enrichment: { website: l.website }
         }));
+        const existingMap = new Map(this.db.leads.map(l => [l.id, l]));
+        remoteLeads.forEach(rl => existingMap.set(rl.id, rl));
+        this.db.leads = Array.from(existingMap.values());
       }
 
       const { data: camps } = await this.supabase.from('campaigns').select('*');

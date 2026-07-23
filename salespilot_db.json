@@ -81,10 +81,423 @@
       "joinedAt": "2026-07-23T06:56:37.176Z"
     }
   ],
-  "leads": [],
+  "leads": [
+    {
+      "id": "ld_db_1784796155363_37022_cstb",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@www.cloudsoftwaresolution.in",
+      "phone": "099723 26812",
+      "company": "Cloud Software Solution - Website & Mobile App Development Company In Bangalore",
+      "title": "Operations Director",
+      "status": "MEETING_BOOKED",
+      "leadScore": "Very Hot",
+      "confidenceScore": 88,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Software",
+        "Bengaluru"
+      ],
+      "lastUpdated": "2026-07-23T08:42:35.363Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1784796155363_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-07-24T08:42:35.363Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_lead_apt_1784796196673",
+          "event": "Demo Scheduled",
+          "details": "Scheduled a 30-minute demo. Google Calendar synced, Meet Room generated: https://meet.google.com/mock-meet-ki8-m0nv-k53",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        },
+        {
+          "id": "tl_gen_1784796155363_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: http://www.cloudsoftwaresolution.in/, Phone: 099723 26812.",
+          "createdAt": "2026-07-23T08:42:35.363Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "₹1 Crore - ₹5 Crore",
+        "website": "http://www.cloudsoftwaresolution.in/",
+        "country": "India",
+        "industry": "Software",
+        "companyOverview": "Highly-qualified prospective enterprise client in the Software space. Operations represents a key decision maker with buying authority. Recommended approach is email-first personalized sequence with clear metrics demonstrating automatic verification benefits.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 12.992938,
+        "longitude": 77.7157589,
+        "googlePlaceId": "ChIJWVh24JoRrjsRb4ym5r36eRs",
+        "address": "Ardente Office One, Block-1, First floor Unit No F-1119, Sadarmangala road Hoodicircle, Hoodi, Whitefield, Bengaluru, Karnataka 560048, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-07-23T08:42:35.363Z",
+      "campaignId": "camp_gen_1784796155363",
+      "researchProfile": {
+        "companySummary": "Cloud Software Solution - Website & Mobile App Development Company In Bangalore is an active and highly regarded player in the Software sector, dedicated to delivering scalable results and maintaining a modern, responsive operational structure.",
+        "websiteAnalysis": "Likely built using modern stack features. Has high load-speed optimization potentials, and would benefit from seamless automated outreach synchronization.",
+        "industryAnalysis": "The Software industry is currently experiencing high growth with severe competitive focus on client acquisition automation and pipeline hygiene.",
+        "painPoints": [
+          "Outbound pipeline exhaustion and lead hygiene overhead",
+          "Manual Sales Development Representative research time sink",
+          "Friction in CRM synchronization and real-time email logging"
+        ],
+        "decisionMakerSummary": "Operations Manager holds operational oversight and has strategic authority to onboard advanced productivity platforms like SalesPilot.",
+        "businessOpportunities": [
+          "Establish direct automated sequence triggers to capture local buyers",
+          "Integrate customized Google Places details directly with their outbound CRM tool"
+        ],
+        "salesAngleSuggestions": [
+          "Personalized outreach emphasizing SalesPilot's verified zero-bounce lead lists and smart automated AI profiles.",
+          "Demonstrating direct CRM time savings of over 15 hours per SDR per week."
+        ],
+        "objectionPredictions": [
+          "Concerns about platform complexity and integration overhead (Counter: SalesPilot is completely plug-and-play with instant webhook support).",
+          "Fears of automated email bounce rates (Counter: All SalesPilot leads pass real-time multi-stage verification prior to outreach)."
+        ],
+        "competitorNotes": "Likely currently relying on slow, manual search lists or generic cold templates. Implementing SalesPilot will give them a 3x higher response rate.",
+        "buyingSignals": [
+          "Expanding regional customer acquisition operations",
+          "Active interest in modern technology stacks and productivity automation tools"
+        ],
+        "aiInsights": "Extremely high-fit prospect. Approach with a direct audit offer showing 100 pre-verified decision maker leads tailored to their target industry.",
+        "generatedAt": "2026-07-23T08:42:35.363Z",
+        "businessModel": "B2B Enterprise",
+        "products": [
+          "Enterprise Solutions",
+          "Operational Services"
+        ],
+        "services": [
+          "Digital Enablement",
+          "Strategic Advisory Services"
+        ],
+        "targetCustomers": [
+          "Enterprise Organizations",
+          "High-Growth Startups"
+        ],
+        "industriesServed": [
+          "Software",
+          "Technology"
+        ],
+        "businessSize": "11-50 employees",
+        "yearsInBusiness": "5 years",
+        "employeeGrowth": "Steady YoY growth",
+        "revenueEstimate": "₹1 Crore - ₹5 Crore",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "socialPresence": [
+          "LinkedIn (Highly Active)"
+        ],
+        "businessCategory": "Software",
+        "usp": "Delivering outstanding quality and efficiency to clients",
+        "mission": "To empower organizations with robust technology solutions",
+        "vision": "To lead innovation in high-performance operations",
+        "extractedKeywords": [
+          "software",
+          "growth",
+          "solutions"
+        ],
+        "extractedOffers": [
+          "Complimentary Consultation"
+        ],
+        "extractedForms": [
+          "Contact Support Form"
+        ],
+        "extractedCTAs": [
+          "Book a Call"
+        ],
+        "customerTypes": [
+          "Enterprise clients"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations / Leadership",
+        "dmResponsibilities": "Strategic procurement and departmental growth initiatives",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Time wasted on manual tasks",
+          "Ensuring team operational compliance"
+        ],
+        "dmGoals": [
+          "Scale outbound efficiency",
+          "Reduce pipeline customer acquisition costs"
+        ],
+        "dmInterests": [
+          "Enterprise SaaS",
+          "Automation technologies"
+        ],
+        "dmPreferredCommunication": "Short, metrics-focused email message",
+        "dmInfluenceScore": 88,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Operational structure indicates potential dependency on manual outbound lead lists."
+          }
+        ],
+        "salesOppWhyBuy": "Needs to streamline lead sourcing to scale regional customer acquisition efforts.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 85,
+        "salesOppBudgetRange": "₹35,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Founder Account onboarding audit",
+        "detailedCompetitors": [
+          {
+            "name": "Manual Sourcing Agencies",
+            "marketPosition": "Traditional Competitor",
+            "differentiation": "Provides raw static files with high bounce rates",
+            "strengths": "Familiar to traditional teams",
+            "weaknesses": "Slow, expensive, highly stale contact data",
+            "potentialOpportunity": "Offer instant real-time dynamic scraping via SalesPilot"
+          }
+        ],
+        "strategyFirstMessage": "Hi Operations,\n\nI noticed Cloud Software Solution - Website & Mobile App Development Company In Bangalore is actively scaling operations in the Software space. Most team directors tell us they lose over 12 hours weekly per sales rep manually looking up verified decision maker contacts.\n\nWe built SalesPilot to automatically scrape and verify local businesses in real-time. Would you be open to a quick 5-minute chat to review a custom pre-verified contact audit for your team?\n\nBest regards,\nSalesPilot Team",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Tailored 100 lead dynamic audit report",
+        "strategyFollowUpSequence": [
+          "Follow up with a case study of a similar company scaling outbound",
+          "Send a direct calendar booking link"
+        ],
+        "strategyMeetingAngle": "Reviewing a pre-verified local prospect lead list",
+        "strategyExpectedObjections": [
+          "Too busy to onboarding another tool",
+          "Existing lead generation methods are sufficient"
+        ],
+        "strategyObjectionHandling": [
+          "SalesPilot requires 0 setup and integrates instantly via simple webhooks",
+          "Provide a comparison showing how SalesPilot data is 3x more fresh and verified"
+        ],
+        "executiveSummary": "Highly-qualified prospective enterprise client in the Software space. Operations represents a key decision maker with buying authority. Recommended approach is email-first personalized sequence with clear metrics demonstrating automatic verification benefits.",
+        "insightsHotnessScore": 88,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "₹6,00,000 INR ARR",
+        "insightsReplyProbability": 70,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 40
+      }
+    },
+    {
+      "id": "ld_1784796184439",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "Sarah",
+      "lastName": "Connor",
+      "email": "s.connor@cyberdyne.com",
+      "phone": "+1-555-0199",
+      "company": "Cyberdyne Systems",
+      "title": "Director",
+      "status": "MEETING_BOOKED",
+      "source": "Manual",
+      "enrichment": {
+        "companySize": "Unknown",
+        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
+        "techStack": [],
+        "website": ""
+      },
+      "researchStatus": "RESEARCHING",
+      "researchProgress": 95,
+      "researchStatusText": "Compiling final executive business dossier...",
+      "researchHistory": [],
+      "createdAt": "2026-07-23T08:43:04.439Z",
+      "lastUpdated": "2026-07-23T08:43:10.564Z",
+      "timelineList": [
+        {
+          "id": "tl_lead_apt_1784796192240",
+          "event": "Demo Scheduled",
+          "details": "Scheduled a 30-minute demo. Google Calendar synced, Meet Room generated: https://meet.google.com/mock-meet-2yo-rsll-n19",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        }
+      ]
+    }
+  ],
   "campaigns": [],
   "deals": [],
-  "appointments": [],
+  "appointments": [
+    {
+      "id": "apt_1784796196673_7x01f",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_db_1784796155363_37022_cstb",
+      "leadName": "Operations Manager",
+      "company": "Cloud Software Solution - Website & Mobile App Development Company In Bangalore",
+      "email": "contact@www.cloudsoftwaresolution.in",
+      "dateTime": "2026-07-26T14:00:00.000Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-ki8-m0nv-k53",
+      "notes": "Demo for Cloud Software Solution",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784796196673",
+      "gmailMessageId": "msg_mock_1784796196673",
+      "reminderSent": false,
+      "createdAt": "2026-07-23T08:43:16.673Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784796196673_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        },
+        {
+          "id": "tl_sub_1784796196673_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-ki8-m0nv-k53. Invites dispatched. Google Event ID: evt_mock_1784796196673",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        },
+        {
+          "id": "tl_sub_1784796196673_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784796196673",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784796196673_7x01f",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_db_1784796155363_37022_cstb",
+      "leadName": "Operations Manager",
+      "company": "Cloud Software Solution - Website & Mobile App Development Company In Bangalore",
+      "email": "contact@www.cloudsoftwaresolution.in",
+      "dateTime": "2026-07-26T14:00:00.000Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-ki8-m0nv-k53",
+      "notes": "Demo for Cloud Software Solution",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784796196673",
+      "gmailMessageId": "msg_mock_1784796196673",
+      "reminderSent": false,
+      "createdAt": "2026-07-23T08:43:16.673Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784796196673_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        },
+        {
+          "id": "tl_sub_1784796196673_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-ki8-m0nv-k53. Invites dispatched. Google Event ID: evt_mock_1784796196673",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        },
+        {
+          "id": "tl_sub_1784796196673_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784796196673",
+          "createdAt": "2026-07-23T08:43:16.673Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784796192240_znkz6",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_1784796184439",
+      "leadName": "Sarah Connor",
+      "company": "Cyberdyne Systems",
+      "email": "s.connor@cyberdyne.com",
+      "dateTime": "2026-07-25T10:00:00.000Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-2yo-rsll-n19",
+      "notes": "Demo scheduled for Cyberdyne Systems",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784796192239",
+      "gmailMessageId": "msg_mock_1784796192240",
+      "reminderSent": false,
+      "createdAt": "2026-07-23T08:43:12.240Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784796192240_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        },
+        {
+          "id": "tl_sub_1784796192240_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-2yo-rsll-n19. Invites dispatched. Google Event ID: evt_mock_1784796192239",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        },
+        {
+          "id": "tl_sub_1784796192240_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784796192240",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784796192240_znkz6",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_1784796184439",
+      "leadName": "Sarah Connor",
+      "company": "Cyberdyne Systems",
+      "email": "s.connor@cyberdyne.com",
+      "dateTime": "2026-07-25T10:00:00.000Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-2yo-rsll-n19",
+      "notes": "Demo scheduled for Cyberdyne Systems",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784796192239",
+      "gmailMessageId": "msg_mock_1784796192240",
+      "reminderSent": false,
+      "createdAt": "2026-07-23T08:43:12.240Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784796192240_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        },
+        {
+          "id": "tl_sub_1784796192240_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-2yo-rsll-n19. Invites dispatched. Google Event ID: evt_mock_1784796192239",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        },
+        {
+          "id": "tl_sub_1784796192240_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784796192240",
+          "createdAt": "2026-07-23T08:43:12.240Z"
+        }
+      ]
+    }
+  ],
   "sessions": {},
   "activityLogs": [
     {
@@ -260,6 +673,17 @@
       "message": "[TEMPORARY_ID_DETECTED] Attempted appointment booking using temporary ID \"ld_gen_1784792312132_507\". Request ID: \"bk_req_1784793860055_376\". Origin: Lead Sourcing generator before database persistence.",
       "details": "{\"bookingRequestId\":\"bk_req_1784793860055_376\",\"temporaryId\":\"ld_gen_1784792312132_507\",\"originExplanation\":\"Lead ID starts with ld_gen_. All appointment bookings must use the persistent database primary key.\"}",
       "createdAt": "2026-07-23T08:04:20.055Z"
+    },
+    {
+      "id": "devlog_1784796199916",
+      "organizationId": "org_salespilot_lifetime",
+      "type": "API_REQUEST",
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "statusCode": 400,
+      "message": "[TEMPORARY_ID_DETECTED] Attempted appointment booking using temporary ID \"ld_gen_9999_123\". Request ID: \"bk_req_1784796199915_663\". Origin: Lead Sourcing generator before database persistence.",
+      "details": "{\"bookingRequestId\":\"bk_req_1784796199915_663\",\"temporaryId\":\"ld_gen_9999_123\",\"originExplanation\":\"Lead ID starts with ld_gen_. All appointment bookings must use the persistent database primary key.\"}",
+      "createdAt": "2026-07-23T08:43:19.916Z"
     }
   ],
   "aiAgents": [],

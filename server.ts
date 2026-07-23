@@ -5656,21 +5656,21 @@ Ensure the output is strictly valid JSON format.`;
 
         // Persistent Database ID resolution
         let finalDbId = persistentDbId;
+        let resolvedOrgId: string | null = null;
 
         // Save to Supabase (Only verified businesses!)
         const supabase = getSupabaseClient();
         if (supabase) {
           console.log(`[SUPABASE] Saving lead for "${newLead.company}" to database...`);
           try {
-            let organization_id = null;
             console.log(`[SUPABASE] Checking existing organizations...`);
             const { data: orgs, error: orgFetchErr } = await supabase.from('organizations').select('id').limit(1);
             if (orgFetchErr) {
               console.error(`[SUPABASE] Error fetching organization:`, orgFetchErr);
             }
             if (orgs && orgs.length > 0) {
-              organization_id = orgs[0].id;
-              console.log(`[SUPABASE] Found existing organization ID: ${organization_id}`);
+              resolvedOrgId = orgs[0].id;
+              console.log(`[SUPABASE] Found existing organization ID: ${resolvedOrgId}`);
             } else {
               console.log(`[SUPABASE] Creating default organization...`);
               const { data: newOrg, error: orgInsErr } = await supabase.from('organizations').insert({
@@ -5681,15 +5681,15 @@ Ensure the output is strictly valid JSON format.`;
                 console.error(`[SUPABASE] Organization creation failed:`, orgInsErr);
               }
               if (newOrg && newOrg.length > 0) {
-                organization_id = newOrg[0].id;
-                console.log(`[SUPABASE] Created new organization with ID: ${organization_id}`);
+                resolvedOrgId = newOrg[0].id;
+                console.log(`[SUPABASE] Created new organization with ID: ${resolvedOrgId}`);
               }
             }
 
-            if (organization_id) {
+            if (resolvedOrgId) {
               const dbLead = {
                 id: persistentDbId,
-                organization_id,
+                organization_id: resolvedOrgId,
                 lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
                 company: newLead.company,
                 website: newLead.enrichment?.website || '',
@@ -5736,14 +5736,22 @@ Ensure the output is strictly valid JSON format.`;
 
         // REPLACE TEMPORARY ID WITH PERSISTENT DATABASE PRIMARY KEY ID
         newLead.id = finalDbId;
+        if (resolvedOrgId) {
+          (newLead as any).organizationId = resolvedOrgId;
+        }
+
+        const activeDbProvider = supabase ? 'Supabase PostgreSQL (leads table)' : 'Local Storage DB (localDb / local_db.json)';
 
         // AUDIT LOGGING FOR PERSISTENCE & ID MAPPING
-        console.log(`[LEAD PERSISTENCE VERIFIED]
+        console.log(`[DATABASE AUDIT - LEAD INSERT LOG]
+- Lead INSERT Result: SUCCESS
 - Temporary ID: "${tempLeadId}"
 - Database Primary Key ID: "${finalDbId}"
-- Saved Record: Company="${newLead.company}", Lead="${newLead.firstName} ${newLead.lastName}", Email="${newLead.email}"`);
+- Database Name/Provider: "${activeDbProvider}"
+- Record Details: ${newLead.firstName} ${newLead.lastName} (${newLead.company}, ${newLead.email})
+- Organization ID: "${(newLead as any).organizationId || 'default'}"`);
 
-        requestLogs.push(`[LEAD PERSISTED] Temporary ID "${tempLeadId}" replaced with Database ID "${finalDbId}". Saved record for ${newLead.company} (${newLead.email}).`);
+        requestLogs.push(`[LEAD PERSISTED] Temporary ID "${tempLeadId}" replaced with Database ID "${finalDbId}". Saved record for ${newLead.company} (${newLead.email}). Provider: ${activeDbProvider}.`);
 
         leads.unshift(newLead);
         localDb.db.leads = leads;
@@ -6711,10 +6719,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         return;
       }
 
+      const dbProviderName = getSupabaseClient() ? 'Supabase PostgreSQL (leads table) & localDb memory cache' : 'Local Storage DB (localDb / local_db.json)';
+
+      console.log(`[DATABASE AUDIT - BOOKING SELECT QUERY]
+- Booking Request ID: "${bookingRequestId}"
+- Database Provider Name: "${dbProviderName}"
+- Booking SELECT Query: Searching for Lead ID: "${cleanLeadId}" in Primary Database & Memory`);
+
       // Fetch lead by primary key from database / memory
       const lead = await findLeadByIdAsync(cleanLeadId, orgId);
 
-      console.log(`[BOOKING API] Request ID "${bookingRequestId}" - Database lookup result for lead ID "${cleanLeadId}":`, lead ? `FOUND ("${lead.firstName} ${lead.lastName}" at ${lead.company})` : 'NOT FOUND IN DB');
+      console.log(`[DATABASE AUDIT - BOOKING SELECT RESULT]
+- Booking Request ID: "${bookingRequestId}"
+- Database Provider Name: "${dbProviderName}"
+- Database Primary Key ID: "${lead ? lead.id : 'N/A'}"
+- SELECT Result Status: ${lead ? 'SUCCESS (FOUND)' : 'FAILED (NOT FOUND IN DATABASE)'}
+- Record Details: ${lead ? `${lead.firstName} ${lead.lastName} (${lead.company}, Email: ${lead.email})` : 'Record does not exist in database or memory'}`);
 
       if (!lead) {
         console.error(`[BOOKING API FAIL] Request ID "${bookingRequestId}": Lead lookup failed for Lead ID: "${cleanLeadId}". Lead does not exist in database or memory.`);
@@ -6724,13 +6744,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
         return;
       }
-
-      // REQUIREMENT 7: Add logging for Temporary ID, Database ID, Saved record, Booking request ID
-      console.log(`[BOOKING LOG - PERSISTENT ID VERIFIED]
-- Booking Request ID: "${bookingRequestId}"
-- Database Primary Key ID: "${lead.id}"
-- Temporary ID: None (Persistent Primary Key Verified)
-- Saved Record: Company="${lead.company}", Lead="${lead.firstName} ${lead.lastName}", Email="${lead.email}"`);
 
       // Validate attendee email only if provided and not empty
       let cleanLeadEmail = '';
@@ -9842,7 +9855,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const { leadId, dateTime, durationMins, notes, timezone, summary, attendees, recurrence, isOnline = true } = req.body;
     
     // Find lead details for CRM Sync
-    const lead = leads.find(l => l.id === leadId);
+    const cleanLeadId = leadId ? String(leadId).trim() : '';
+    const lead = cleanLeadId ? await findLeadByIdAsync(cleanLeadId) : null;
     
     const attendeeEmails = attendees || (lead ? [lead.email] : []);
 
