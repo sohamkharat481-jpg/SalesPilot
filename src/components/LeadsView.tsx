@@ -1627,7 +1627,7 @@ export function LeadsView({
               {filteredAndSortedLeads.length === 0 && (
                 <div className="p-12 text-center space-y-3">
                   <AlertCircle className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-                  <div className="text-xs font-mono text-slate-500">No leads found matching current filtering parameters.</div>
+                  <div className="text-xs font-mono text-slate-500">No verified leads found.</div>
                   <button 
                     onClick={handleClearFilters}
                     className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition"

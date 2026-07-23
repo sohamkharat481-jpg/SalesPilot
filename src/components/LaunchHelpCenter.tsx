@@ -128,7 +128,7 @@ export function LaunchHelpCenter({
   };
 
   // Seed sample CRM data
-  const handleToggleDemoMode = () => {
+  const handleToggleDemoMode = async () => {
     if (demoModeActive) {
       // Deactivate Demo Mode
       localStorage.setItem('salespilot_demo_mode', 'false');
@@ -139,116 +139,23 @@ export function LaunchHelpCenter({
       localStorage.setItem('salespilot_demo_mode', 'true');
       setDemoModeActive(true);
 
-      const demoLeads: Lead[] = [
-        {
-          id: 'lead-demo-1',
-          firstName: 'Ananya',
-          lastName: 'Sharma',
-          email: 'ananya@sharmadigital.co.in',
-          company: 'Sharma Digital Growth',
-          phone: '+91 91234 56789',
-          source: 'Google Maps',
-          status: 'QUALIFIED',
-          enrichment: {
-            website: 'sharmadigital.co.in',
-            industry: 'Marketing Agency',
-            linkedInUrl: 'https://linkedin.com/in/ananya-sharma-digital',
-          },
-          notesList: [
-            { id: 'n1', text: 'Enriched via Astra agent. High interest in cold automated lead acquisition.', createdAt: new Date().toISOString() }
-          ],
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'lead-demo-2',
-          firstName: 'Rohan',
-          lastName: 'Mehta',
-          email: 'rohan.mehta@apexlabs.io',
-          company: 'Apex Technologies Labs',
-          phone: '+91 98765 43210',
-          source: 'Google Maps',
-          status: 'INTERESTED',
-          enrichment: {
-            website: 'apexlabs.io',
-            industry: 'SaaS & Software',
-            linkedInUrl: 'https://linkedin.com/in/rohan-mehta-apex'
-          },
-          notesList: [
-            { id: 'n2', text: 'Responded via outbound email. Demo meeting coordinated for Wednesday.', createdAt: new Date().toISOString() }
-          ],
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'lead-demo-3',
-          firstName: 'Vikram',
-          lastName: 'Goel',
-          email: 'vikram@goelconsulting.com',
-          company: 'Goel B2B Consultancy',
-          phone: '+91 88888 77777',
-          source: 'MANUAL',
-          status: 'NEW',
-          enrichment: {
-            website: 'goelconsulting.com',
-            industry: 'General'
-          },
-          notesList: [
-            { id: 'n3', text: 'Imported from regional business directory.', createdAt: new Date().toISOString() }
-          ],
-          createdAt: new Date().toISOString()
+      try {
+        const res = await fetch('/api/v1/leads');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.leads && data.leads.length > 0) {
+            setLeads(data.leads);
+            onTriggerToast(`Loaded ${data.leads.length} verified leads from active workspace database.`, 'success');
+          } else {
+            onTriggerToast('No verified leads found in workspace database.', 'info');
+          }
+        } else {
+          onTriggerToast('No verified leads found in workspace.', 'info');
         }
-      ];
+      } catch {
+        onTriggerToast('No verified leads found in workspace.', 'info');
+      }
 
-      const demoCampaigns: Campaign[] = [
-        {
-          id: 'camp-demo-1',
-          name: 'IT Consultancy Outbound Wave',
-          targetAudience: 'IT_COMPANY',
-          status: 'ACTIVE',
-          totalSent: 120,
-          totalOpened: 84,
-          totalReplied: 22,
-          createdAt: new Date().toISOString(),
-          steps: [
-            {
-              id: 'step-demo-1-1',
-              stepNumber: 1,
-              type: 'EMAIL',
-              subject: 'Expanding pipeline for Sharma Digital Growth',
-              bodyTemplate: 'Hi {first_name},\n\nHope this finds you well. I was reviewing your agency and noticed you work in B2B. Would you be open to a 10-minute slot to discuss automated lead sourcing?\n\nBest,\n' + (user?.fullName || 'SalesPilot Team'),
-              delayDays: 0
-            }
-          ]
-        }
-      ];
-
-      const demoDeals: Deal[] = [
-        {
-          id: 'deal-demo-1',
-          leadId: 'lead-demo-2',
-          leadName: 'Rohan Mehta',
-          company: 'Apex Technologies Labs',
-          valueInr: 59990,
-          stage: 'PROPOSAL_SENT',
-          notes: 'Calculating annual Growth plan conversion. Drafted agreement sent for review.',
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'deal-demo-2',
-          leadId: 'lead-demo-1',
-          leadName: 'Ananya Sharma',
-          company: 'Sharma Digital Growth',
-          valueInr: 24990,
-          stage: 'NEGOTIATION',
-          notes: 'Customer looking for 1 workspace seat with dedicated scraper integration.',
-          updatedAt: new Date().toISOString()
-        }
-      ];
-
-      setLeads(demoLeads);
-      setCampaigns(demoCampaigns);
-      setDeals(demoDeals);
-
-      onTriggerToast('Product Demo Mode loaded! CRM pipeline, leads, and active campaigns populated with sample sales data.', 'success');
       onSelectTab('dashboard');
     }
   };

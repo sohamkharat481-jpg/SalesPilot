@@ -284,6 +284,7 @@ export interface Appointment {
   googleEventId?: string;
   gmailMessageId?: string;
   reminderSent?: boolean;
+  createdAt?: string;
   timelineList?: { id: string; event: string; details: string; createdAt: string }[];
 }
 

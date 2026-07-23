@@ -307,52 +307,24 @@ export function BetaProgramView({
 
   const currentEmail = getEmailContent();
 
-  // Load Product Demo Data
-  const handleLoadDemoWorkspace = () => {
-    const demoLeads: Lead[] = [
-      {
-        id: 'ld-demo-1',
-        firstName: 'Amit',
-        lastName: 'Sharma',
-        email: 'amit@sharmagrowth.in',
-        company: 'Sharma Growth Marketing',
-        phone: '+91 98765 43210',
-        source: 'Google Maps',
-        status: 'QUALIFIED',
-        enrichment: { website: 'sharmagrowth.in', industry: 'Marketing Agency', linkedInUrl: 'https://linkedin.com' },
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'ld-demo-2',
-        firstName: 'Priya',
-        lastName: 'Patel',
-        email: 'priya@patelventures.co',
-        company: 'Patel SaaS Advisory',
-        phone: '+91 91234 56789',
-        source: 'Google Maps',
-        status: 'INTERESTED',
-        enrichment: { website: 'patelventures.co', industry: 'SaaS & Software', linkedInUrl: 'https://linkedin.com' },
-        createdAt: new Date().toISOString()
+  // Load Product Demo Workspace
+  const handleLoadDemoWorkspace = async () => {
+    try {
+      const res = await fetch('/api/v1/leads');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.leads && data.leads.length > 0) {
+          setLeads(data.leads);
+          showToast(`Loaded ${data.leads.length} verified leads from database into workspace.`, 'success');
+        } else {
+          showToast('No verified leads found in database. Please run Lead Engine to source real B2B prospects.', 'info');
+        }
+      } else {
+        showToast('No verified leads found in workspace.', 'info');
       }
-    ];
-
-    const demoCampaigns: Campaign[] = [
-      {
-        id: 'cp-demo-1',
-        name: 'SaaS Outbound Accelerator',
-        targetAudience: 'SAAS',
-        status: 'ACTIVE',
-        totalSent: 150,
-        totalOpened: 110,
-        totalReplied: 32,
-        createdAt: new Date().toISOString(),
-        steps: []
-      }
-    ];
-
-    setLeads(demoLeads);
-    setCampaigns(demoCampaigns);
-    showToast('Demo Workspace Loaded! Pre-populated CRM leads and campaigns injected.', 'success');
+    } catch {
+      showToast('No verified leads found in workspace.', 'info');
+    }
   };
 
   // Recharts analytics values

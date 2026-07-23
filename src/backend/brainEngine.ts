@@ -551,63 +551,23 @@ async function executeAgentFulfillmentLogic(
 
   switch (agentType) {
     case 'research': {
-      // Find leads or simulate high-quality SaaS lead creation
-      const location = desc.includes('mumbai') ? 'Mumbai, India' : 'Delhi NCR, India';
-      
-      // Simulate/Generate genuine mock leads to inject into the live sandbox
-      const newLeadsCount = 3;
-      const injectedLeads: Lead[] = [];
-      
-      const mockLeadTemplates = [
-        { first: 'Rohan', last: 'Mehta', company: 'LogiChain Logistics', email: 'rohan.mehta@logichain.in', title: 'Founder & CEO', size: '11-50 employees', rev: '₹2.5 Crore INR', industry: 'Logistics Tech' },
-        { first: 'Anjali', last: 'Sharma', company: 'HealthSphere AI', email: 'anjali@healthsphere.co', title: 'Founder & COO', size: '51-200 employees', rev: '₹8 Crore INR', industry: 'Healthcare & SaaS' },
-        { first: 'Vikram', last: 'Rao', company: 'FinFlow Technologies', email: 'v.rao@finflow.app', title: 'CEO', size: '1-10 employees', rev: '₹40 Lakh INR', industry: 'Fintech Solutions' }
-      ];
-
-      for (let i = 0; i < Math.min(newLeadsCount, mockLeadTemplates.length); i++) {
-        const t = mockLeadTemplates[i];
-        const newId = `ld_brain_${crypto.randomBytes(6).toString('hex')}`;
-        const newLead: any = {
-          id: newId,
-          organizationId: orgId,
-          firstName: t.first,
-          lastName: t.last,
-          email: t.email,
-          phone: `+91 ${90000 + i * 1111} ${12345 + i * 543}`,
-          company: t.company,
-          title: t.title,
-          status: 'READY',
-          source: 'AI Brain Discovery',
-          confidenceScore: 85 + i * 3,
-          leadScore: 'Hot',
-          scoreReason: 'Prospect matches enterprise ICP. Discovered via premium SaaS crawl.',
-          tags: ['SaaS Discovery', 'Mumbai', 'Decision Maker'],
-          lastUpdated: new Date().toISOString(),
-          notesList: [
-            { id: `n_brain_${Date.now()}_${i}`, text: `Lead auto-enriched with revenues of ${t.rev} and sector ${t.industry}.`, createdAt: new Date().toISOString() }
-          ],
-          timelineList: [
-            { id: `tl_brain_${Date.now()}_${i}`, event: 'AI Discovered Lead', details: `Automated lead scraper extracted profile from corporate directory listings.`, createdAt: new Date().toISOString() }
-          ],
-          enrichment: {
-            companySize: t.size,
-            annualRevenue: t.rev,
-            industry: t.industry,
-            website: `www.${t.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-            country: 'India'
-          },
-          createdAt: new Date().toISOString()
+      // Research existing verified leads in database
+      const existingLeads = db.leads.filter(l => (l as any).organizationId === orgId);
+      if (existingLeads.length === 0) {
+        return {
+          message: 'No verified leads found in active workspace to research.',
+          scannedCount: 0,
+          matchedCount: 0,
+          leadsImported: []
         };
-        db.leads.unshift(newLead);
-        injectedLeads.push(newLead);
       }
       
-      localDb.save();
+      const researchedLeads = existingLeads.slice(0, 3);
       return {
-        message: `Successfully completed deep SaaS discovery crawler in ${location}.`,
-        scannedCount: 45,
-        matchedCount: injectedLeads.length,
-        leadsImported: injectedLeads.map(l => `${l.firstName} ${l.lastName} at ${l.company}`)
+        message: `Successfully completed research analysis on ${researchedLeads.length} verified leads in workspace.`,
+        scannedCount: existingLeads.length,
+        matchedCount: researchedLeads.length,
+        leadsImported: researchedLeads.map(l => `${l.firstName} ${l.lastName} at ${l.company}`)
       };
     }
 

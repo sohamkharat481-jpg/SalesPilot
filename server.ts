@@ -1805,6 +1805,64 @@ async function startServer() {
     return defaultUserObj || localDb.getUsers()[0];
   };
 
+  // Lead Lookup Helpers (Primary Key Database Verification)
+  const findLeadById = (leadId: string, orgId?: string): Lead | null => {
+    if (!leadId) return null;
+    const cleanId = String(leadId).trim();
+    let lead = leads.find(l => l.id === cleanId);
+    if (!lead) {
+      const dbLead = localDb.getLeadById(cleanId);
+      if (dbLead) {
+        lead = dbLead;
+        if (!leads.some(l => l.id === lead!.id)) {
+          leads.unshift(lead);
+        }
+      }
+    }
+    return lead || null;
+  };
+
+  const findLeadByIdAsync = async (leadId: string, orgId?: string): Promise<Lead | null> => {
+    if (!leadId) return null;
+    const cleanId = String(leadId).trim();
+    const foundLocal = findLeadById(cleanId, orgId);
+    if (foundLocal) return foundLocal;
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data: remoteLead } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('id', cleanId)
+          .maybeSingle();
+
+        if (remoteLead) {
+          const lead: Lead = {
+            id: remoteLead.id,
+            firstName: remoteLead.first_name || remoteLead.lead_name?.split(' ')[0] || 'Prospect',
+            lastName: remoteLead.last_name || remoteLead.lead_name?.split(' ').slice(1).join(' ') || '',
+            email: remoteLead.email || remoteLead.business_email || '',
+            phone: remoteLead.phone || '',
+            company: remoteLead.company || 'Company',
+            status: remoteLead.status || 'NEW',
+            createdAt: remoteLead.created_at || new Date().toISOString(),
+            campaignId: remoteLead.campaign_id,
+            enrichment: { website: remoteLead.website }
+          };
+          leads.unshift(lead);
+          localDb.db.leads = leads;
+          saveDb();
+          return lead;
+        }
+      } catch (err) {
+        console.error(`[SUPABASE LOOKUP ERROR] for lead ID "${cleanId}":`, err);
+      }
+    }
+
+    return null;
+  };
+
   // AUTH API: Email Signup
   const handleSignup = async (req: any, res: any) => {
     const { email, password, fullName, role } = req.body;
@@ -5410,77 +5468,7 @@ Ensure the output is strictly valid JSON format.`;
         }
       }
 
-      // --- STAGE 4: AI-POWERED FALLBACK LEAD GENERATOR USING GEMINI ---
-      // Restores successful lead generation when external APIs are unconfigured or failed!
-      if (candidates.length === 0 && process.env.GEMINI_API_KEY) {
-        console.log('[LEAD ENGINE] Real providers yielded 0 results. Activating AI-powered Fallback Engine with Gemini...');
-        requestLogs.push('[FALLBACK ENGINE] Real-time B2B API keys are unconfigured or yielded 0 results. Booting Gemini to source and verify live regional business directory targets...');
-        
-        try {
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          const prompt = `You are an expert B2B lead sourcing intelligence agent.
-The user wants to generate leads for:
-- Industry/Keywords: "${industry || 'Software'}"
-- City: "${city || 'Bengaluru'}"
-- Country: "${country || 'India'}"
-- Requested count: ${countToGenerate}
-
-Real-time API keys are missing or failed. You must search your extensive regional business knowledge graph to provide exactly ${countToGenerate} REAL, ACTUAL, EXISTING companies or organizations in "${city}, ${country}" that belong to the "${industry}" sector.
-IMPORTANT: Each company MUST have a real, live, active official website domain that actually exists on the internet (e.g. no "example.com", "mock.com", or placeholder domains. Use real registered domains of actual operating companies in this region like infosys.com, geekyants.com, freshworks.com, capgemini.com, etc.).
-
-Return a JSON array of objects. Do not wrap in markdown code blocks.
-Required JSON format:
-[
-  {
-    "company": "Exact Legal/Trade Name of Company",
-    "website": "https://www.realcompanydomain.com",
-    "phone": "+91 80 XXXX XXXX",
-    "address": "Actual office street address, Tech Park/Building, City, Country",
-    "lat": 12.9716,
-    "lng": 77.5946,
-    "firstName": "John",
-    "lastName": "Doe",
-    "title": "Director of Operations"
-  }
-]`;
-
-          const response = await generateContentWithFallback(ai, {
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json'
-            }
-          });
-
-          const text = response.text;
-          if (text) {
-            const parsed = JSON.parse(text.trim());
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              requestLogs.push(`[FALLBACK ENGINE] Gemini successfully sourced ${parsed.length} high-intent regional candidates.`);
-              for (const item of parsed) {
-                addCandidate({
-                  source: 'AI-Powered Fallback (Gemini)',
-                  company: item.company,
-                  website: item.website,
-                  phone: item.phone,
-                  address: item.address,
-                  lat: item.lat,
-                  lng: item.lng,
-                  placeId: `ai_place_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-                  firstName: item.firstName,
-                  lastName: item.lastName,
-                  title: item.title,
-                  email: `contact@${item.website?.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}`
-                });
-              }
-            }
-          }
-        } catch (fallErr: any) {
-          console.error('[LEAD ENGINE] Gemini fallback sourcing failed:', fallErr);
-          requestLogs.push(`[FALLBACK ENGINE] Gemini sourcing failed: ${fallErr.message || fallErr}`);
-        }
-      }
-
-      // If candidates are still empty, we return an informative error instead of generating fake businesses
+      // If no candidates found from real providers, return clear error response with no verified leads
       if (candidates.length === 0) {
         let exactReason = `Sourcing completed with 0 results from real external data sources. No real businesses were found matching the criteria (Industry: "${industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
         let errParts = [];
@@ -5553,16 +5541,6 @@ Required JSON format:
         let finalDomain = '';
         console.log(`[VALIDATION] Validating website "${website}" for "${businessName}"...`);
         let validation = await validateWebsite(website);
-        
-        // For Gemini Fallback leads, we can treat them as valid or bypass NXDOMAIN to ensure the lead is successfully returned!
-        if (cand.source.includes('Fallback') && !validation.isValid) {
-          console.log(`[VALIDATION] Gemini fallback website validation bypassed: ${validation.reason}. Forcing valid to ensure successful lead generation.`);
-          validation = {
-            isValid: true,
-            reason: 'AI Sourced & Validated Fallback',
-            domain: website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]
-          };
-        }
 
         validationSummary.push({ 
           name: businessName, 
@@ -5797,6 +5775,9 @@ Required JSON format:
 
         return res.status(400).json(responsePayload);
       }
+
+      localDb.db.leads = leads;
+      saveDb();
 
       res.json({
         success: true,
@@ -6653,10 +6634,28 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   app.post('/api/v1/appointments', async (req, res) => {
     try {
       const { leadId, dateTime, durationMins, notes, timezone, isOnline = true } = req.body;
-      const lead = leads.find(l => l.id === leadId);
+      const user = getAuthenticatedUser(req);
+      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      const userId = user?.id || 'usr_salespilot_founder';
+
+      console.log(`[BOOKING API] Received booking request for leadId: "${leadId}". Payload:`, JSON.stringify(req.body));
+
+      if (!leadId) {
+        console.error(`[BOOKING API ERROR] Missing leadId in booking payload.`);
+        res.status(400).json({ error: 'Lead ID is required for booking an appointment.' });
+        return;
+      }
+
+      // Fetch lead by primary key from database / memory
+      const lead = await findLeadByIdAsync(String(leadId).trim(), orgId);
+
+      console.log(`[BOOKING API] Database lookup result for lead ID "${leadId}":`, lead ? `FOUND ("${lead.firstName} ${lead.lastName}" at ${lead.company})` : 'NOT FOUND IN DB');
 
       if (!lead) {
-        res.status(400).json({ error: 'Lead not found for booking.' });
+        console.error(`[BOOKING API FAIL] Lead lookup failed for lead ID: "${leadId}". Lead does not exist in database or memory.`);
+        res.status(400).json({ 
+          error: `Lead not found for booking. Lead with ID "${leadId}" was not found in the database. Please verify that the prospect exists in your active CRM pipeline before scheduling a demo.` 
+        });
         return;
       }
 
@@ -6884,16 +6883,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       }
 
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-
-      const newApt: Appointment & { organizationId?: string } = {
-        id: `apt_${Date.now()}`,
+      const newApt: Appointment & { organizationId?: string; userId?: string } = {
+        id: `apt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         organizationId: orgId,
-        leadId,
-        leadName: `${lead.firstName} ${lead.lastName}`,
+        userId: userId,
+        leadId: lead.id,
+        leadName: `${lead.firstName} ${lead.lastName}`.trim(),
         company: lead.company,
-        email: lead.email,
+        email: cleanLeadEmail || lead.email || '',
         dateTime: startDateTime.toISOString(),
         durationMins: durationMins || 30,
         status: 'SCHEDULED',
@@ -6904,16 +6901,40 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         googleEventId,
         gmailMessageId,
         reminderSent: false,
+        createdAt: new Date().toISOString(),
         timelineList: [
           { id: `tl_sub_${Date.now()}_1`, event: 'Meeting Scheduled', details: `Booked via CRM scheduler panel for timezone ${tz}.`, createdAt: new Date().toISOString() },
           { id: `tl_sub_${Date.now()}_2`, event: 'Google Calendar Invite', details: `Synced with Google Calendar. Unique Google Meet link generated: ${meetingLink}. Invites dispatched. Google Event ID: ${googleEventId}`, createdAt: new Date().toISOString() },
-          { id: `tl_sub_${Date.now()}_3`, event: 'Gmail Invitation Sent', details: `Outgoing appointment notification delivered from ${gmailAcc.email}. Message ID: ${gmailMessageId}`, createdAt: new Date().toISOString() }
+          { id: `tl_sub_${Date.now()}_3`, event: 'Gmail Invitation Sent', details: `Outgoing appointment notification delivered from ${gmailAcc?.email || 'demo@salespilot.ai'}. Message ID: ${gmailMessageId}`, createdAt: new Date().toISOString() }
         ]
       };
 
       appointments.unshift(newApt);
+      localDb.db.appointments = localDb.db.appointments || [];
+      localDb.db.appointments.unshift(newApt);
 
-      // Automatically transition lead status to contacted/qualified
+      // Save appointment to Supabase if connected
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('appointments').insert({
+            id: newApt.id,
+            organization_id: orgId,
+            user_id: userId,
+            lead_id: lead.id,
+            title: eventSummary,
+            meeting_date: startDateTime.toISOString(),
+            duration_minutes: newApt.durationMins,
+            meeting_link: newApt.meetingLink,
+            notes: newApt.notes,
+            status: newApt.status
+          });
+        } catch (spErr) {
+          console.error('[SUPABASE APPOINTMENT INSERT ERROR]', spErr);
+        }
+      }
+
+      // Automatically transition lead status to MEETING_BOOKED
       lead.status = 'MEETING_BOOKED';
 
       if (!lead.timelineList) lead.timelineList = [];
@@ -6925,6 +6946,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
 
       saveDb();
+      console.log(`[BOOKING CREATION SUCCESS] Created appointment ID: "${newApt.id}" for Lead ID: "${lead.id}" ("${lead.firstName} ${lead.lastName}" at ${lead.company}). Google Calendar Synced: ${newApt.googleSynced}`);
       res.json(newApt);
     } catch (outerErr: any) {
       console.error('[APPOINTMENTS ENDPOINT UNEXPECTED ERROR]', outerErr);

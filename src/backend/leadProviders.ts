@@ -121,10 +121,22 @@ export async function validateWebsite(websiteUrl: string): Promise<{ isValid: bo
   const tempDomainKeywords = [
     'test', 'example', 'fakesite', 'temp', 'mock', 'placeholder', 'mysite',
     'fakedomain', 'temporary', 'testsite', 'fakenames', 'local', 'localhost',
-    'dummy', 'ai-generated', 'generated', 'sample', 'demo', 'companyname', 'businessname'
+    'dummy', 'ai-generated', 'generated', 'sample', 'demo', 'companyname', 'businessname',
+    'invalid', 'testdomain', 'fake'
   ];
   const lowerDomain = domain.toLowerCase();
-  if (tempDomainKeywords.some(keyword => lowerDomain.includes(keyword))) {
+  if (
+    lowerDomain === 'localhost' ||
+    lowerDomain === '127.0.0.1' ||
+    lowerDomain.endsWith('.example') ||
+    lowerDomain.endsWith('.test') ||
+    lowerDomain.endsWith('.invalid') ||
+    lowerDomain.endsWith('.localhost') ||
+    lowerDomain.endsWith('.local') ||
+    lowerDomain.endsWith('.temp') ||
+    lowerDomain.endsWith('.mock') ||
+    tempDomainKeywords.some(keyword => lowerDomain.includes(keyword))
+  ) {
     return { isValid: false, reason: `Rejected placeholder/temporary/AI-generated domain: ${domain}` };
   }
 
@@ -416,7 +428,7 @@ export class GoogleMapsLeadProvider implements LeadProvider {
           firstName: 'Operations',
           lastName: 'Manager',
           email: contactEmail,
-          phone: details.nationalPhoneNumber || '+91 99999 99999',
+          phone: details.nationalPhoneNumber || '',
           company: details.displayName?.text || place.displayName?.text || 'Local Business',
           title: 'Operations Director',
           leadScore: 'Warm',
@@ -554,7 +566,7 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
           firstName: item.first_name || 'Contact',
           lastName: item.last_name || 'Profile',
           email: email,
-          phone: item.phone_numbers?.[0] || '+1 555-0100',
+          phone: item.phone_numbers?.[0] || '',
           company: item.job_company_name || 'Enterprise Client',
           title: item.job_title || params.jobTitles.split(',')[0],
           leadScore: 'Hot',
@@ -673,7 +685,7 @@ export class ClearbitLeadProvider implements LeadProvider {
           firstName: item.name?.givenName || 'Manager',
           lastName: item.name?.familyName || 'Direct',
           email: email,
-          phone: item.phone || '+1 555-0150',
+          phone: item.phone || '',
           company: item.company?.name || 'Clearbit Sourced',
           title: item.title,
           leadScore: 'Very Hot',
@@ -784,7 +796,7 @@ export class HunterLeadProvider implements LeadProvider {
           firstName: item.first_name || 'Contact',
           lastName: item.last_name || 'Expert',
           email: email,
-          phone: item.phone_number || '+1 555-0210',
+          phone: item.phone_number || '',
           company: companyName,
           title: item.position || params.jobTitles.split(',')[0],
           leadScore: item.confidence > 80 ? 'Very Hot' : 'Hot',
@@ -908,7 +920,7 @@ export class CrunchbaseLeadProvider implements LeadProvider {
           firstName: 'Sourcing',
           lastName: 'Director',
           email: domain ? `contact@${domain}` : '',
-          phone: '+1 555-0900',
+          phone: '',
           company: properties.name,
           title: 'Growth Sourcing Lead',
           leadScore: 'Very Hot',
@@ -1084,7 +1096,7 @@ export class GoogleSearchLeadProvider implements LeadProvider {
           firstName,
           lastName,
           email,
-          phone: '+1 555-0320',
+          phone: '',
           company,
           title: roleText,
           leadScore: 'Warm',
@@ -1175,7 +1187,7 @@ export class WebsiteCrawlingLeadProvider implements LeadProvider {
       firstName: 'Operations',
       lastName: 'Director',
       email: email,
-      phone: '+1 555-0810',
+      phone: '',
       company: domain.split('.')[0].toUpperCase(),
       title: 'Operations & Procurement Lead',
       leadScore: 'Warm',
