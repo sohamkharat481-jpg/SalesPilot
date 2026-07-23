@@ -4971,7 +4971,7 @@ Ensure the output is strictly valid JSON format.`;
       };
 
       const gmapsKey = getProviderKey('google-maps') || customApiKey;
-      const serperKey = getProviderKey('google-search');
+      const serperKey = getProviderKey('google-search') || (providerId === 'serper' || providerId === 'google-search' ? customApiKey : undefined) || process.env.SERPER_API_KEY;
 
       const formatKeyLog = (key: string | undefined | null) => {
         if (!key) return 'NOT_LOADED';
@@ -5051,7 +5051,8 @@ Ensure the output is strictly valid JSON format.`;
 
       let mapsErrorText = '';
       let serperMapsErrorText = '';
-      const query = `${industry || 'Software'} in ${city || 'Bengaluru'}, ${country || 'India'}`;
+      const querySubject = keywords || industry || 'Software';
+      const query = `${querySubject} in ${city || 'Bengaluru'}, ${country || 'India'}`;
 
       // --- STAGE 1: GOOGLE PLACES API (NEW) ---
       console.log('[LEAD ENGINE] Provider Chain Step 1: Querying Google Places API (New)...');
@@ -5273,7 +5274,7 @@ Ensure the output is strictly valid JSON format.`;
             }
 
             const data = JSON.parse(responseText);
-            const serperPlaces = data.maps || [];
+            const serperPlaces = data.maps || data.places || [];
             console.log(`[DEBUG] [Serper Maps API] Businesses returned: ${serperPlaces.length}`);
             requestLogs.push(`[DEBUG] [Serper Maps API] Businesses returned: ${serperPlaces.length}`);
 
@@ -5291,13 +5292,13 @@ Ensure the output is strictly valid JSON format.`;
               for (const p of serperPlaces) {
                 const added = addCandidate({
                   source: 'Serper Maps API',
-                  company: p.title,
-                  website: p.website || '',
-                  phone: p.phoneNumber || '',
-                  address: p.address || '',
+                  company: p.title || p.name || 'Local Business',
+                  website: p.website || p.link || '',
+                  phone: p.phoneNumber || p.phone || '',
+                  address: p.address || p.formattedAddress || '',
                   lat: p.latitude,
                   lng: p.longitude,
-                  placeId: p.placeId,
+                  placeId: p.placeId || p.cid || '',
                   originalData: p
                 });
                 if (added) {
@@ -5468,24 +5469,26 @@ Ensure the output is strictly valid JSON format.`;
         }
       }
 
-      // If no candidates found from real providers, return clear error response with no verified leads
+      // If no candidates found from real providers, return success response with empty leads list
       if (candidates.length === 0) {
-        let exactReason = `Sourcing completed with 0 results from real external data sources. No real businesses were found matching the criteria (Industry: "${industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
+        let exactReason = `Sourcing completed with 0 results. No real businesses were found matching criteria (Industry/Keywords: "${keywords || industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
         let errParts = [];
         if (mapsErrorText) errParts.push(`Google Places API error: "${mapsErrorText}"`);
         if (serperMapsErrorText) errParts.push(`Serper Maps API error: "${serperMapsErrorText}"`);
         if (errParts.length > 0) {
           exactReason += ` API error logs: ${errParts.join('; ')}.`;
         }
-        console.error(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
-        requestLogs.push(`[SYSTEM_ERROR] Sourcing completed with 0 results. Reason: ${exactReason}`);
+        console.log(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
+        requestLogs.push(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
 
         const responsePayload = {
-          success: false,
+          success: true,
           count: 0,
           leads: [],
-          error: 'No Verified Leads Found',
-          message: exactReason,
+          message: "No verified leads found.",
+          detailMessage: exactReason,
+          parsedLeadCount: 0,
+          databaseSaveCount: 0,
           auditReport: {
             firstFailingProvider: firstFailingProvider || {
               id: 'google-maps',
@@ -5498,13 +5501,13 @@ Ensure the output is strictly valid JSON format.`;
           providerLogs: requestLogs.map((logLine, index) => ({
             id: `log_${Date.now()}_${index}`,
             provider: 'Lead Sourcing Audit System',
-            status: 'FAILED',
+            status: 'INFO',
             message: logLine
           })),
           validationSummary: []
         };
 
-        return res.status(400).json(responsePayload);
+        return res.status(200).json(responsePayload);
       }
 
       const usedProvider = Array.from(new Set(candidates.map(c => c.source))).join(', ') || 'Multi-Provider Chain';
@@ -5730,31 +5733,33 @@ Ensure the output is strictly valid JSON format.`;
 
       // --- EXHAUSTED / ERROR DETECTING HANDLERS ---
       if (results.length === 0) {
-        let exactReason = 'All lead sourcing providers and verification pipelines failed to return any verified leads.';
+        let exactReason = 'All lead sourcing providers and verification pipelines completed with 0 verified leads.';
 
         const rejectionReasons = validationSummary
           .filter(v => !v.isValid)
           .map(v => `"${v.name}" (${v.website}) rejected because website validation failed: ${v.reason}`);
 
         if (rejectionReasons.length > 0) {
-          exactReason += ` Sourced ${validationSummary.length} raw candidates, but ALL failed strict DNS & HTTP validation: [${rejectionReasons.join('; ')}].`;
+          exactReason += ` Sourced ${validationSummary.length} raw candidates, but website validation failed: [${rejectionReasons.join('; ')}].`;
         } else {
           if (mapsErrorText || serperMapsErrorText) {
             exactReason += ` API error log details - Google Maps Places Search: "${mapsErrorText || 'No error'}" | Serper Local Maps Fallback: "${serperMapsErrorText || 'No error'}".`;
           } else {
-            exactReason += ` Sourced 0 raw business matches from any API index matching criteria (Industry: "${industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
+            exactReason += ` Sourced 0 raw business matches from any API index matching criteria (Industry/Keywords: "${keywords || industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
           }
         }
 
-        console.error(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
-        requestLogs.push(`[SYSTEM_ERROR] Sourcing completed with 0 results. Reason: ${exactReason}`);
+        console.log(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
+        requestLogs.push(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
 
         const responsePayload = {
-          success: false,
+          success: true,
           count: 0,
           leads: [],
-          error: 'No Verified Leads Found',
-          message: exactReason,
+          message: "No verified leads found.",
+          detailMessage: exactReason,
+          parsedLeadCount: candidates.length,
+          databaseSaveCount: 0,
           auditReport: {
             firstFailingProvider: firstFailingProvider || {
               id: 'google-maps',
@@ -5767,23 +5772,29 @@ Ensure the output is strictly valid JSON format.`;
           providerLogs: requestLogs.map((logLine, index) => ({
             id: `log_${Date.now()}_${index}`,
             provider: 'Lead Sourcing Audit System',
-            status: 'FAILED',
+            status: 'INFO',
             message: logLine
           })),
           validationSummary: validationSummary
         };
 
-        return res.status(400).json(responsePayload);
+        return res.status(200).json(responsePayload);
       }
 
       localDb.db.leads = leads;
       saveDb();
 
+      console.log(`[LEAD ENGINE SUCCESS] Sourcing completed! Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Database Save Count: ${insertedToSupabase} (Supabase) + ${results.length} (Local DB).`);
+      requestLogs.push(`[SUMMARY] Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Database Save Count: ${insertedToSupabase}.`);
+
       res.json({
         success: true,
         count: results.length,
         leads: results,
+        message: `Successfully harvested ${results.length} verified B2B leads.`,
         providerUsed: usedProvider,
+        parsedLeadCount: candidates.length,
+        databaseSaveCount: insertedToSupabase,
         auditReport: {
           firstFailingProvider,
           providerAudits,

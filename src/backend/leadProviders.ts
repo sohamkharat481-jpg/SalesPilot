@@ -118,26 +118,21 @@ export async function validateWebsite(websiteUrl: string): Promise<{ isValid: bo
   }
 
   // Reject temporary, fake, placeholder, or AI-generated domains
-  const tempDomainKeywords = [
-    'test', 'example', 'fakesite', 'temp', 'mock', 'placeholder', 'mysite',
-    'fakedomain', 'temporary', 'testsite', 'fakenames', 'local', 'localhost',
-    'dummy', 'ai-generated', 'generated', 'sample', 'demo', 'companyname', 'businessname',
-    'invalid', 'testdomain', 'fake'
+  const explicitFakeDomains = [
+    'localhost', '127.0.0.1', 'example.com', 'test.com', 'fakesite.com',
+    'placeholder.com', 'mysite.com', 'fakedomain.com', 'fakenames.com',
+    'dummy.com', 'testdomain.com', 'companyname.com', 'businessname.com', 'foo.bar'
   ];
   const lowerDomain = domain.toLowerCase();
   if (
-    lowerDomain === 'localhost' ||
-    lowerDomain === '127.0.0.1' ||
+    explicitFakeDomains.includes(lowerDomain) ||
     lowerDomain.endsWith('.example') ||
     lowerDomain.endsWith('.test') ||
     lowerDomain.endsWith('.invalid') ||
     lowerDomain.endsWith('.localhost') ||
-    lowerDomain.endsWith('.local') ||
-    lowerDomain.endsWith('.temp') ||
-    lowerDomain.endsWith('.mock') ||
-    tempDomainKeywords.some(keyword => lowerDomain.includes(keyword))
+    lowerDomain.endsWith('.local')
   ) {
-    return { isValid: false, reason: `Rejected placeholder/temporary/AI-generated domain: ${domain}` };
+    return { isValid: false, reason: `Rejected placeholder/test domain: ${domain}` };
   }
 
   // DNS Resolution check (NXDOMAIN Reject)

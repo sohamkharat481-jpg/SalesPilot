@@ -838,12 +838,13 @@ export function LeadsView({
           );
           setScraperLogs(prev => [...prev, ...providerLogsList]);
         }
-        setScraperLogs(prev => [...prev, `[SYSTEM] Scraper run completed! Successfully harvested ${data.count} highly-qualified B2B leads.`, `[SYSTEM] Saved matching records to SalesPilot directory.`]);
         
-        // Append newly created leads to parent state
-        if (data.leads && data.leads.length > 0) {
+        if (data.count > 0 && data.leads && data.leads.length > 0) {
+          setScraperLogs(prev => [...prev, `[SYSTEM] Scraper run completed! Successfully harvested ${data.count} highly-qualified B2B leads.`, `[SYSTEM] Saved matching records to SalesPilot directory.`]);
           setLeads(prev => [...data.leads, ...prev]);
           setSelectedLeadId(data.leads[0].id);
+        } else {
+          setScraperLogs(prev => [...prev, `[SYSTEM] ${data.message || "No verified leads found."}`]);
         }
 
         setTimeout(() => {
