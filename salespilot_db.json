@@ -83,6 +83,37 @@
   ],
   "leads": [
     {
+      "id": "ld_1784799719456",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "AuditTest",
+      "lastName": "Prospect",
+      "email": "audit.test@example.com",
+      "company": "Acme Audit Corp",
+      "title": "VP Sales",
+      "status": "MEETING_BOOKED",
+      "source": "Manual",
+      "enrichment": {
+        "companySize": "Unknown",
+        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
+        "techStack": [],
+        "website": ""
+      },
+      "researchStatus": "RESEARCHING",
+      "researchProgress": 95,
+      "researchStatusText": "Compiling final executive business dossier...",
+      "researchHistory": [],
+      "createdAt": "2026-07-23T09:41:59.457Z",
+      "lastUpdated": "2026-07-23T09:42:06.620Z",
+      "timelineList": [
+        {
+          "id": "tl_lead_apt_1784799733971",
+          "event": "Demo Scheduled",
+          "details": "Scheduled a 30-minute demo. Google Calendar synced, Meet Room generated: https://meet.google.com/mock-meet-chg-7m7a-lah",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        }
+      ]
+    },
+    {
       "id": "ld_db_1784796155363_37022_cstb",
       "firstName": "Operations",
       "lastName": "Manager",
@@ -331,12 +362,261 @@
           "details": "Scheduled a 30-minute demo. Google Calendar synced, Meet Room generated: https://meet.google.com/mock-meet-2yo-rsll-n19",
           "createdAt": "2026-07-23T08:43:12.240Z"
         }
-      ]
+      ],
+      "researchProfile": {
+        "companySummary": "Cyberdyne Systems is a high-technology corporation specializing in advanced computing, artificial intelligence architectures, and cybernetic systems. Operating primarily as an enterprise B2B and defense contractor, they design neural network processors and autonomous systems for industrial and defense applications.",
+        "websiteAnalysis": "Their digital presence is highly guarded, prioritizing enterprise security and clean corporate information. While their main portal uses hardened hosting architectures, their commercial outreach divisions suffer from a lack of integrated modern outbound marketing tech, leaving a massive opportunity for automated lead generation tooling.",
+        "industryAnalysis": "The advanced robotics and enterprise AI industry is experiencing hyper-competition and rapid commercialization. To maintain dominance, legacy and high-tech defense contractors are shifting toward aggressive commercial B2B sales pipelines to capture logistics, manufacturing, and private-sector enterprise market share.",
+        "painPoints": [
+          "Extremely long, multi-stakeholder enterprise sales cycles with highly manual follow-up processes.",
+          "Inefficient targeting of niche decision-makers within commercial manufacturing and defense procurement divisions.",
+          "Data silos between technical research teams and outward-facing commercial business development teams."
+        ],
+        "decisionMakerSummary": "Sarah Connor, as Director, commands significant operational influence and is heavily focused on streamlining business development pipelines, eliminating operational inefficiencies, and securing high-value strategic partnerships.",
+        "businessOpportunities": [
+          "Automate targeted B2B list-building for commercial logistics firms needing advanced autonomous tech.",
+          "Deploy hyper-personalized AI-driven cold outreach campaigns to high-value defense procurement officers.",
+          "Integrate advanced data-mining pipelines to identify emerging commercial automation bids before public RFP release."
+        ],
+        "salesAngleSuggestions": [
+          "Pitch SalesPilot as an autonomous pipeline-generation machine that operates with precise, calculated efficiency to scale Cyberdyne's commercial enterprise accounts.",
+          "Highlight SalesPilot's military-grade data compliance and AI-driven hyper-personalization, enabling Sarah to bypass gatekeepers and reach high-level decision-makers directly."
+        ],
+        "objectionPredictions": [
+          "Data security and IP confidentiality concerns regarding AI cloud processing (Counter: Highlight SalesPilot's enterprise-grade, end-to-end encryption and compliance certifications).",
+          "Integration friction with existing custom, legacy database structures (Counter: Detail SalesPilot's flexible API-first architecture and dedicated custom integration engineering support)."
+        ],
+        "competitorNotes": "They likely rely on legacy database directories or manually built lists from trade expos. Competitors in the defense tech consulting space use highly manual agency models; positioning SalesPilot as an automated, software-first solution offers them unprecedented velocity and lower customer acquisition costs.",
+        "buyingSignals": [
+          "Active commercial market expansion initiatives into logistics, manufacturing, and automated warehousing systems.",
+          "Public announcements of new product lines targeting non-defense, private enterprise customers."
+        ],
+        "aiInsights": "Sarah Connor needs an outbound engine that minimizes manual administrative overhead while maintaining absolute precision. Pitch SalesPilot as the 'autonomous autopilot' for their B2B growth, allowing her team to focus strictly on closing high-value contracts rather than manual prospecting.",
+        "generatedAt": "2026-07-23T09:41:57.920Z",
+        "businessModel": "Enterprise B2B & Defense Contractor",
+        "products": [
+          "Neural Network Processors",
+          "Autonomous Robotics Solutions",
+          "Advanced Computing Architectures"
+        ],
+        "services": [
+          "Custom Cybernetic Engineering",
+          "Systems Integration",
+          "Defense Strategic Consulting"
+        ],
+        "targetCustomers": [
+          "Defense Procurement Agencies",
+          "Enterprise Logistics Corporations",
+          "Advanced Manufacturing Conglomerates"
+        ],
+        "industriesServed": [
+          "Defense & Aerospace",
+          "Industrial Automation",
+          "Advanced Computing & AI Research"
+        ],
+        "businessSize": "500-1000 employees",
+        "yearsInBusiness": "15 years",
+        "employeeGrowth": "Stable with targeted scaling in commercial business development and sales engineering departments.",
+        "revenueEstimate": "$150,000,000 USD",
+        "techStack": [
+          "Salesforce CRM",
+          "Marketo",
+          "AWS GovCloud",
+          "Microsoft 365 Enterprise"
+        ],
+        "socialPresence": [
+          "LinkedIn (Highly active corporate brand)",
+          "Twitter (Product announcements)"
+        ],
+        "businessCategory": "Advanced Robotics & AI Systems",
+        "usp": "Pioneering neural-net computer architecture and autonomous hardware engineered for extreme reliability and strategic edge.",
+        "mission": "To engineer the future of intelligent, autonomous computing systems that protect and power advanced human enterprise.",
+        "vision": "To be the absolute global standard in neural-network architectures and intelligent automation.",
+        "extractedKeywords": [
+          "neural networks",
+          "autonomous systems",
+          "cybernetic hardware",
+          "defense tech"
+        ],
+        "extractedOffers": [
+          "Enterprise Consultations",
+          "System Integration Briefings"
+        ],
+        "extractedForms": [
+          "Contact Strategic Sales",
+          "RFP Submission Portal",
+          "Supplier Registration Form"
+        ],
+        "extractedCTAs": [
+          "Inquire Now",
+          "Request Tech Specs",
+          "Partner With Us"
+        ],
+        "customerTypes": [
+          "Government Entities",
+          "Global Logistics Integrators",
+          "Aerospace OEMs"
+        ],
+        "dmName": "Sarah Connor",
+        "dmRole": "Director",
+        "dmDepartment": "Strategic Operations & Business Development",
+        "dmResponsibilities": "Driving commercial pipeline expansion, managing strategic technology partnerships, and optimizing operational workflows.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Inability to scale outbound sales volume without adding substantial administrative headcount.",
+          "Unreliable contact data slowing down outreach to critical commercial enterprise decision-makers."
+        ],
+        "dmGoals": [
+          "Establish a predictable, highly targeted commercial B2B pipeline within the next fiscal quarter.",
+          "Maximize team efficiency through advanced sales automation technology."
+        ],
+        "dmInterests": [
+          "Artificial Intelligence",
+          "Operational Scale",
+          "Data-Driven Sales Operations"
+        ],
+        "dmPreferredCommunication": "Short, data-backed email detailing clear ROI and efficiency metrics.",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Their focus on custom, high-ticket defense contracts has left them relying on traditional, highly manual relationship-driven sales cycles, making commercial mass-market expansion slow and resource-heavy."
+          },
+          {
+            "problem": "Slow Growth",
+            "severity": "MEDIUM",
+            "reasoning": "Commercial divisions are facing long, stagnant lead times due to a lack of automated pipeline generation infrastructure to capture the fast-moving logistics market."
+          }
+        ],
+        "salesOppWhyBuy": "They are actively expanding into the commercial B2B logistics sector and desperately need an automated, high-velocity outbound tool to identify and book meetings with commercial decision-makers before competitors saturate the space.",
+        "salesOppRecommendedProduct": "SalesPilot Enterprise Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "$5,000 to $10,000 USD per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Complimentary 250 Verified Enterprise Lead List & Custom AI Outreach Blueprint for Commercial Logistics",
+        "detailedCompetitors": [
+          {
+            "name": "General Atomics",
+            "marketPosition": "Legacy Market Leader",
+            "differentiation": "Cyberdyne focuses on more advanced, adaptive neural computing architectures than legacy aerospace systems.",
+            "strengths": "Deeply entrenched government contracts and vast capital resources.",
+            "weaknesses": "Highly bureaucratic, slow to adapt to private commercial automation sectors.",
+            "potentialOpportunity": "Outpace them in private commercial sectors using agile, automated B2B sales development workflows."
+          }
+        ],
+        "strategyFirstMessage": "Subject: Scaling Cyberdyne's Commercial Pipeline\n\nSarah,\n\nAs Cyberdyne Systems expands its advanced robotics solutions into the commercial logistics and manufacturing sectors, navigating the longer enterprise sales cycles is a critical challenge.\n\nWe engineered SalesPilot to automate high-precision B2B outbound prospecting. It allows your team to directly identify, target, and initiate conversations with VP-level Logistics and Operations decision-makers on autopilot—safeguarding your team's time for high-value strategic negotiations.\n\nI’ve built a custom list of 250 verified commercial logistics prospects matching your ideal customer profile. Would you be open to a quick 10-minute briefing next Tuesday at 2 PM to review the data?\n\nBest regards,\n\n[Your Name]\nEnterprise Business Scientist, SalesPilot",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Sarah Connor",
+        "strategyRecommendedOffer": "Custom 250 verified commercial enterprise lead list and tailored outbound strategy.",
+        "strategyFollowUpSequence": [
+          "Send a brief case study showcasing how a high-tech hardware provider scaled their enterprise B2B meetings by 140% using SalesPilot's automated sequences.",
+          "A direct LinkedIn message sharing a tactical guide on targeting procurement decision-makers in the commercial logistics sector."
+        ],
+        "strategyMeetingAngle": "Reviewing a pre-built custom outbound target list of 250 high-value commercial accounts designed specifically for Cyberdyne's robotic solutions.",
+        "strategyExpectedObjections": [
+          "We rely on inbound RFPs and established government relationships for our sales.",
+          "We are concerned about using automated outbound tools on high-profile enterprise contacts."
+        ],
+        "strategyObjectionHandling": [
+          "Highlight that SalesPilot is specifically designed to open doors in the private commercial sector, reducing reliance on long government RFP cycles.",
+          "Emphasize SalesPilot's granular customization settings, ensuring every message reads as a completely personal, highly researched peer-to-peer communication."
+        ],
+        "executiveSummary": "Cyberdyne Systems, a leader in neural computing and autonomous robotics, is currently expanding from highly secured defense contracts into the competitive private commercial sector. This transition requires a major pivot from traditional, manual relationship-selling to automated, high-velocity B2B outbound prospecting. Sarah Connor, Director, is the prime champion for this operational shift. By addressing her need for precise data targeting, minimal administrative overhead, and secure enterprise integration, SalesPilot can position itself as the core platform powering Cyberdyne's commercial expansion. Approaching Sarah with a customized list of 250 high-value commercial logistics targets will demonstrate immediate value and establish a high-priority opportunity.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "$85,000 USD ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      }
     }
   ],
   "campaigns": [],
   "deals": [],
   "appointments": [
+    {
+      "id": "apt_1784799733971_1oqcb",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_1784799719456",
+      "leadName": "AuditTest Prospect",
+      "company": "Acme Audit Corp",
+      "email": "audit.test@example.com",
+      "dateTime": "2026-07-25T14:00:00.000Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-chg-7m7a-lah",
+      "notes": "Schedule Demo test with persistent database primary key",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784799733971",
+      "gmailMessageId": "msg_mock_1784799733971",
+      "reminderSent": false,
+      "createdAt": "2026-07-23T09:42:13.971Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784799733971_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        },
+        {
+          "id": "tl_sub_1784799733971_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-chg-7m7a-lah. Invites dispatched. Google Event ID: evt_mock_1784799733971",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        },
+        {
+          "id": "tl_sub_1784799733971_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784799733971",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784799733971_1oqcb",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_1784799719456",
+      "leadName": "AuditTest Prospect",
+      "company": "Acme Audit Corp",
+      "email": "audit.test@example.com",
+      "dateTime": "2026-07-25T14:00:00.000Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-chg-7m7a-lah",
+      "notes": "Schedule Demo test with persistent database primary key",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784799733971",
+      "gmailMessageId": "msg_mock_1784799733971",
+      "reminderSent": false,
+      "createdAt": "2026-07-23T09:42:13.971Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784799733971_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        },
+        {
+          "id": "tl_sub_1784799733971_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-chg-7m7a-lah. Invites dispatched. Google Event ID: evt_mock_1784799733971",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        },
+        {
+          "id": "tl_sub_1784799733971_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784799733971",
+          "createdAt": "2026-07-23T09:42:13.971Z"
+        }
+      ]
+    },
     {
       "id": "apt_1784796196673_7x01f",
       "organizationId": "org_salespilot_lifetime",
@@ -684,6 +964,17 @@
       "message": "[TEMPORARY_ID_DETECTED] Attempted appointment booking using temporary ID \"ld_gen_9999_123\". Request ID: \"bk_req_1784796199915_663\". Origin: Lead Sourcing generator before database persistence.",
       "details": "{\"bookingRequestId\":\"bk_req_1784796199915_663\",\"temporaryId\":\"ld_gen_9999_123\",\"originExplanation\":\"Lead ID starts with ld_gen_. All appointment bookings must use the persistent database primary key.\"}",
       "createdAt": "2026-07-23T08:43:19.916Z"
+    },
+    {
+      "id": "devlog_1784799739479",
+      "organizationId": "org_salespilot_lifetime",
+      "type": "API_REQUEST",
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "statusCode": 400,
+      "message": "[TEMPORARY_ID_DETECTED] Attempted appointment booking using temporary ID \"ld_gen_1784792312132_507\". Request ID: \"bk_req_1784799739479_295\". Origin: Lead Sourcing generator before database persistence.",
+      "details": "{\"bookingRequestId\":\"bk_req_1784799739479_295\",\"temporaryId\":\"ld_gen_1784792312132_507\",\"originExplanation\":\"Lead ID starts with ld_gen_. All appointment bookings must use the persistent database primary key.\"}",
+      "createdAt": "2026-07-23T09:42:19.479Z"
     }
   ],
   "aiAgents": [],

@@ -1805,62 +1805,307 @@ async function startServer() {
     return defaultUserObj || localDb.getUsers()[0];
   };
 
-  // Lead Lookup Helpers (Primary Key Database Verification)
-  const findLeadById = (leadId: string, orgId?: string): Lead | null => {
-    if (!leadId) return null;
-    const cleanId = String(leadId).trim();
-    let lead = leads.find(l => l.id === cleanId);
-    if (!lead) {
-      const dbLead = localDb.getLeadById(cleanId);
-      if (dbLead) {
-        lead = dbLead;
-        if (!leads.some(l => l.id === lead!.id)) {
-          leads.unshift(lead);
+  // Lead Database Helper Mapping
+  const mapSupabaseLeadToAppLead = (l: any): Lead & { organizationId?: string } => ({
+    id: String(l.id),
+    organizationId: l.organization_id || 'org_salespilot_lifetime',
+    firstName: l.first_name || (l.lead_name ? l.lead_name.split(' ')[0] : 'Prospect'),
+    lastName: l.last_name || (l.lead_name ? l.lead_name.split(' ').slice(1).join(' ') : ''),
+    email: l.email || l.business_email || '',
+    phone: l.phone || '',
+    company: l.company || 'Company',
+    title: l.title || 'Director',
+    status: (l.status as LeadStatus) || 'NEW',
+    createdAt: l.created_at || new Date().toISOString(),
+    campaignId: l.campaign_id,
+    tags: Array.isArray(l.tags) ? l.tags : [],
+    source: l.source || 'Database',
+    lastUpdated: l.updated_at || new Date().toISOString(),
+    confidenceScore: l.score || 80,
+    scoreReason: l.score_reason || '',
+    notesList: l.notes ? [{ id: 'n_' + Date.now(), text: typeof l.notes === 'string' ? l.notes : JSON.stringify(l.notes), createdAt: l.created_at || new Date().toISOString() }] : [],
+    enrichment: {
+      website: l.website || '',
+      companySize: l.company_size || 'Unknown',
+      aiBrief: typeof l.notes === 'string' ? l.notes : 'Enriched B2B prospect from database',
+      techStack: []
+    }
+  });
+
+  // Async Production Database Query Helpers (Vercel Serverless Stateless Compatible)
+  const getAllLeadsAsync = async (orgId?: string): Promise<Lead[]> => {
+    const supabase = getSupabaseClient();
+    let dbProvider = 'Local Storage DB (localDb / local_db.json)';
+    let fetchedLeads: Lead[] = [];
+
+    if (supabase) {
+      dbProvider = 'Supabase PostgreSQL (leads table)';
+      try {
+        let query = supabase.from('leads').select('*');
+        if (orgId) {
+          query = query.eq('organization_id', orgId);
         }
+        const { data, error } = await query;
+        if (error) {
+          console.error(`[DATABASE AUDIT - SELECT ALL LEADS ERROR] Supabase query failed:`, error);
+        } else if (data && data.length > 0) {
+          fetchedLeads = data.map(mapSupabaseLeadToAppLead);
+        }
+      } catch (err) {
+        console.error(`[DATABASE AUDIT - SELECT ALL LEADS EXCEPTION]:`, err);
       }
     }
-    return lead || null;
+
+    const localLeads = localDb.getAllLeads();
+    const leadMap = new Map<string, Lead>();
+    localLeads.forEach(l => {
+      if (!orgId || !(l as any).organizationId || (l as any).organizationId === orgId) {
+        leadMap.set(l.id, l);
+      }
+    });
+    fetchedLeads.forEach(l => {
+      leadMap.set(l.id, l);
+    });
+
+    const combined = Array.from(leadMap.values());
+    leads = combined;
+    localDb.db.leads = combined;
+    saveDb();
+
+    console.log(`[DATABASE AUDIT - SELECT ALL LEADS]
+- Database Provider: "${dbProvider}"
+- Requested Org ID: "${orgId || 'ALL'}"
+- Total Leads Returned: ${combined.length}`);
+
+    return combined;
   };
 
-  const findLeadByIdAsync = async (leadId: string, orgId?: string): Promise<Lead | null> => {
+  const getLeadByIdAsync = async (leadId: string, orgId?: string): Promise<Lead | null> => {
     if (!leadId) return null;
     const cleanId = String(leadId).trim();
-    const foundLocal = findLeadById(cleanId, orgId);
-    if (foundLocal) return foundLocal;
 
     const supabase = getSupabaseClient();
+    let dbProvider = 'Local Storage DB (localDb / local_db.json)';
+
     if (supabase) {
+      dbProvider = 'Supabase PostgreSQL (leads table)';
       try {
-        const { data: remoteLead } = await supabase
+        console.log(`[DATABASE AUDIT - SELECT QUERY]
+- Target Lead ID: "${cleanId}"
+- Database Provider: "${dbProvider}"
+- Query: SELECT * FROM leads WHERE id = "${cleanId}"`);
+
+        const { data: remoteRecord, error } = await supabase
           .from('leads')
           .select('*')
           .eq('id', cleanId)
           .maybeSingle();
 
-        if (remoteLead) {
-          const lead: Lead = {
-            id: remoteLead.id,
-            firstName: remoteLead.first_name || remoteLead.lead_name?.split(' ')[0] || 'Prospect',
-            lastName: remoteLead.last_name || remoteLead.lead_name?.split(' ').slice(1).join(' ') || '',
-            email: remoteLead.email || remoteLead.business_email || '',
-            phone: remoteLead.phone || '',
-            company: remoteLead.company || 'Company',
-            status: remoteLead.status || 'NEW',
-            createdAt: remoteLead.created_at || new Date().toISOString(),
-            campaignId: remoteLead.campaign_id,
-            enrichment: { website: remoteLead.website }
-          };
-          leads.unshift(lead);
+        if (error) {
+          console.error(`[DATABASE AUDIT - SELECT ERROR] Supabase select failed for ID "${cleanId}":`, error);
+        }
+
+        if (remoteRecord) {
+          const mapped = mapSupabaseLeadToAppLead(remoteRecord);
+          const idx = leads.findIndex(l => l.id === cleanId);
+          if (idx !== -1) {
+            leads[idx] = mapped;
+          } else {
+            leads.unshift(mapped);
+          }
           localDb.db.leads = leads;
           saveDb();
-          return lead;
+
+          console.log(`[DATABASE AUDIT - SELECT RESULT]
+- Status: SUCCESS (FOUND IN DATABASE)
+- Database Provider: "${dbProvider}"
+- Database Primary Key ID: "${mapped.id}"
+- Details: ${mapped.firstName} ${mapped.lastName} (${mapped.company}, Email: ${mapped.email})`);
+
+          return mapped;
+        } else {
+          console.log(`[DATABASE AUDIT - SELECT RESULT]
+- Status: NOT FOUND IN SUPABASE, Checking localDb...
+- Database Provider: "${dbProvider}"
+- Target ID: "${cleanId}"`);
         }
       } catch (err) {
-        console.error(`[SUPABASE LOOKUP ERROR] for lead ID "${cleanId}":`, err);
+        console.error(`[DATABASE AUDIT - SELECT EXCEPTION] for ID "${cleanId}":`, err);
       }
     }
 
+    const localFound = leads.find(l => l.id === cleanId) || localDb.getLeadById(cleanId);
+    if (localFound) {
+      console.log(`[DATABASE AUDIT - SELECT RESULT]
+- Status: SUCCESS (FOUND IN LOCAL DB)
+- Database Provider: "Local Storage DB (localDb / local_db.json)"
+- Database Primary Key ID: "${localFound.id}"
+- Details: ${localFound.firstName} ${localFound.lastName} (${localFound.company}, Email: ${localFound.email})`);
+      return localFound;
+    }
+
+    console.log(`[DATABASE AUDIT - SELECT RESULT]
+- Status: FAILED (NOT FOUND IN DATABASE)
+- Target ID: "${cleanId}"`);
+
     return null;
+  };
+
+  const findLeadByIdAsync = getLeadByIdAsync;
+  const findLeadById = (leadId: string, orgId?: string): Lead | null => {
+    if (!leadId) return null;
+    const cleanId = String(leadId).trim();
+    return leads.find(l => l.id === cleanId) || localDb.getLeadById(cleanId);
+  };
+
+  const insertLeadAsync = async (newLead: Lead & { organizationId?: string }): Promise<Lead> => {
+    const supabase = getSupabaseClient();
+    let dbProvider = 'Local Storage DB (localDb / local_db.json)';
+    let savedLeadId = newLead.id;
+
+    if (supabase) {
+      dbProvider = 'Supabase PostgreSQL (leads table)';
+      try {
+        let org_id = newLead.organizationId;
+        if (!org_id) {
+          const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
+          if (orgs && orgs.length > 0) org_id = orgs[0].id;
+        }
+
+        const dbLead = {
+          id: newLead.id,
+          organization_id: org_id || 'org_salespilot_lifetime',
+          lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
+          company: newLead.company,
+          business_email: newLead.email,
+          email: newLead.email,
+          phone: newLead.phone || '',
+          website: newLead.enrichment?.website || '',
+          status: newLead.status || 'NEW',
+          score: newLead.confidenceScore || 80,
+          source: newLead.source || 'Manual',
+          notes: JSON.stringify(newLead.enrichment || {})
+        };
+
+        const { data: insData, error: insErr } = await supabase.from('leads').insert(dbLead).select('id');
+        if (insErr) {
+          console.error(`[DATABASE AUDIT - INSERT ERROR] Supabase insert failed:`, insErr);
+        } else {
+          if (insData && insData.length > 0 && insData[0].id) {
+            savedLeadId = String(insData[0].id);
+            newLead.id = savedLeadId;
+          }
+          console.log(`[DATABASE AUDIT - INSERT LOG]
+- Lead INSERT Result: SUCCESS
+- Database Provider: "${dbProvider}"
+- Database Primary Key ID: "${savedLeadId}"
+- Details: ${newLead.firstName} ${newLead.lastName} (${newLead.company}, Email: ${newLead.email})`);
+        }
+      } catch (err) {
+        console.error(`[DATABASE AUDIT - INSERT EXCEPTION]:`, err);
+      }
+    } else {
+      console.log(`[DATABASE AUDIT - INSERT LOG]
+- Lead INSERT Result: SUCCESS
+- Database Provider: "${dbProvider}"
+- Database Primary Key ID: "${savedLeadId}"
+- Details: ${newLead.firstName} ${newLead.lastName} (${newLead.company}, Email: ${newLead.email})`);
+    }
+
+    const idx = leads.findIndex(l => l.id === newLead.id);
+    if (idx !== -1) {
+      leads[idx] = newLead;
+    } else {
+      leads.unshift(newLead);
+    }
+    localDb.db.leads = leads;
+    saveDb();
+
+    return newLead;
+  };
+
+  const updateLeadAsync = async (id: string, updates: Partial<Lead>): Promise<Lead | null> => {
+    const cleanId = String(id).trim();
+    const lead = await getLeadByIdAsync(cleanId);
+    if (!lead) return null;
+
+    Object.assign(lead, updates);
+    lead.lastUpdated = new Date().toISOString();
+
+    const supabase = getSupabaseClient();
+    let dbProvider = 'Local Storage DB (localDb / local_db.json)';
+
+    if (supabase) {
+      dbProvider = 'Supabase PostgreSQL (leads table)';
+      try {
+        const dbUpdates: any = { updated_at: lead.lastUpdated };
+        if (updates.firstName !== undefined || updates.lastName !== undefined) {
+          dbUpdates.lead_name = `${lead.firstName} ${lead.lastName}`.trim();
+          dbUpdates.first_name = lead.firstName;
+          dbUpdates.last_name = lead.lastName;
+        }
+        if (updates.email !== undefined) {
+          dbUpdates.email = updates.email;
+          dbUpdates.business_email = updates.email;
+        }
+        if (updates.company !== undefined) dbUpdates.company = updates.company;
+        if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+        if (updates.status !== undefined) dbUpdates.status = updates.status;
+        if (updates.confidenceScore !== undefined) dbUpdates.score = updates.confidenceScore;
+        if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+        if (updates.enrichment?.website !== undefined) dbUpdates.website = updates.enrichment.website;
+
+        const { error } = await supabase.from('leads').update(dbUpdates).eq('id', cleanId);
+        if (error) {
+          console.error(`[DATABASE AUDIT - UPDATE ERROR] Supabase update failed for ID "${cleanId}":`, error);
+        } else {
+          console.log(`[DATABASE AUDIT - UPDATE LOG]
+- Result: SUCCESS
+- Database Provider: "${dbProvider}"
+- Database Primary Key ID: "${cleanId}"`);
+        }
+      } catch (err) {
+        console.error(`[DATABASE AUDIT - UPDATE EXCEPTION]:`, err);
+      }
+    }
+
+    localDb.updateLead(cleanId, updates);
+    const idx = leads.findIndex(l => l.id === cleanId);
+    if (idx !== -1) {
+      leads[idx] = lead;
+    }
+    saveDb();
+
+    return lead;
+  };
+
+  const deleteLeadAsync = async (id: string): Promise<boolean> => {
+    const cleanId = String(id).trim();
+    const supabase = getSupabaseClient();
+    let dbProvider = 'Local Storage DB (localDb / local_db.json)';
+
+    if (supabase) {
+      dbProvider = 'Supabase PostgreSQL (leads table)';
+      try {
+        const { error } = await supabase.from('leads').delete().eq('id', cleanId);
+        if (error) {
+          console.error(`[DATABASE AUDIT - DELETE ERROR] Supabase delete failed for ID "${cleanId}":`, error);
+        } else {
+          console.log(`[DATABASE AUDIT - DELETE LOG]
+- Result: SUCCESS
+- Database Provider: "${dbProvider}"
+- Database Primary Key ID: "${cleanId}"`);
+        }
+      } catch (err) {
+        console.error(`[DATABASE AUDIT - DELETE EXCEPTION]:`, err);
+      }
+    }
+
+    localDb.deleteLead(cleanId);
+    leads = leads.filter(l => l.id !== cleanId);
+    saveDb();
+
+    return true;
   };
 
   // AUTH API: Email Signup
@@ -2786,15 +3031,16 @@ async function startServer() {
   app.delete('/team/remove', handleRemoveTeam);
   app.delete('/api/v1/team/remove', handleRemoveTeam);
 
-  // Fetch Leads List
-  app.get('/api/v1/leads', (req, res) => {
+  // Fetch Leads List (Stateless Database Query)
+  app.get('/api/v1/leads', async (req, res) => {
     const user = getAuthenticatedUser(req);
     const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const filteredLeads = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId);
+    const allLeads = await getAllLeadsAsync(orgId);
+    const filteredLeads = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId);
     res.json({ leads: filteredLeads });
   });
 
-  // Create a Lead
+  // Create a Lead (Database Insertion)
   app.post('/api/v1/leads', async (req, res) => {
     const { firstName, lastName, email, phone, company, title, status, source, website } = req.body;
     if (!firstName || !email || !company) {
@@ -2829,10 +3075,13 @@ async function startServer() {
       createdAt: new Date().toISOString()
     };
 
+    // Save lead to production database
+    const savedLead = await insertLeadAsync(newLead);
+
     // Queue background research
     researchQueue.push({
       id: `job_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      leadId: newLead.id,
+      leadId: savedLead.id,
       status: 'PENDING',
       progress: 0,
       statusText: 'Queued',
@@ -2842,16 +3091,13 @@ async function startServer() {
       updatedAt: new Date().toISOString()
     });
 
-    leads.unshift(newLead);
-    saveDb();
-
     // Trigger Workflow Engine NEW_LEAD event
-    WorkflowRunner.triggerEvent(orgId, 'NEW_LEAD', newLead).catch(err => {
+    WorkflowRunner.triggerEvent(orgId, 'NEW_LEAD', savedLead).catch(err => {
       console.error('Failed to trigger NEW_LEAD workflows:', err);
     });
 
-    triggerOutreachAutomation(newLead.id);
-    res.json(newLead);
+    triggerOutreachAutomation(savedLead.id);
+    res.json(savedLead);
   });
 
   // Validate website URL endpoint
@@ -4480,7 +4726,7 @@ Rules:
     res.json({ success: true, message: `Successfully assigned ${targetType} to ${assignee.fullName}` });
   });
 
-  app.post('/api/v1/workspace/crm/comment', (req, res) => {
+  app.post('/api/v1/workspace/crm/comment', async (req, res) => {
     const user = getAuthenticatedUser(req);
     const orgId = user.organizationId || 'org_salespilot_lifetime';
     const { targetId, targetType, text, mentions } = req.body; // targetType: 'lead' | 'deal' | 'meeting', mentions: Array<string> (emails)
@@ -4494,7 +4740,7 @@ Rules:
     let targetName = '';
 
     if (targetType === 'lead') {
-      targetEntity = leads.find((l: any) => l.id === targetId);
+      targetEntity = await getLeadByIdAsync(targetId);
       if (targetEntity) {
         if (!targetEntity.timelineList) targetEntity.timelineList = [];
         targetEntity.timelineList.push({
@@ -4504,7 +4750,7 @@ Rules:
           createdAt: new Date().toISOString()
         });
         targetName = `${targetEntity.firstName} ${targetEntity.lastName || ''}`;
-        localDb.save();
+        await updateLeadAsync(targetId, { timelineList: targetEntity.timelineList });
       }
     }
 
@@ -4542,7 +4788,7 @@ Rules:
   // AI-Powered Lead Enrichment with Gemini
   app.post('/api/v1/leads/:id/enrich', async (req, res) => {
     const { id } = req.params;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
@@ -4553,7 +4799,7 @@ Rules:
     if (!geminiKey) {
       // Return high-quality pre-baked fallback if API Key isn't configured,
       // so user experience is stunning and never fails.
-      lead.enrichment = {
+      const enrichment = {
         companySize: '25-80 employees',
         techStack: ['Next.js', 'Salesforce', 'Marketo', 'PostgreSQL'],
         fundingRound: 'Bootstrapped / Self-sustaining',
@@ -4562,6 +4808,7 @@ Rules:
         aiBrief: `(Simulated AI Enrichment) ${lead.firstName} works as ${lead.title || 'Director'} at ${lead.company}. Based in Bangalore, India, they have a strong digital presence. Target key issues: scalable outbound automation, integration with their existing tech stack, and warm booking links. Recommend setting up email + LinkedIn sequence with a 2-day delay.`,
         linkedInUrl: `https://linkedin.com/company/${lead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}`
       };
+      await updateLeadAsync(id, { enrichment });
       res.json(lead);
       return;
     }
@@ -4600,7 +4847,7 @@ Ensure the output is strictly valid JSON format.`;
       const text = response.text || '{}';
       const parsedData = safeJSONParse(text);
 
-      lead.enrichment = {
+      const enrichment = {
         companySize: parsedData.companySize || '11-50 employees',
         techStack: parsedData.techStack || ['Next.js', 'HubSpot'],
         fundingRound: parsedData.fundingRound || 'Bootstrapped',
@@ -4610,11 +4857,11 @@ Ensure the output is strictly valid JSON format.`;
         industryGroup: 'SaaS Companies'
       };
 
+      await updateLeadAsync(id, { enrichment });
       res.json(lead);
     } catch (error) {
       console.error('❌ Gemini lead enrichment failed:', error);
-      // Fail gracefully with simulated enrich
-      lead.enrichment = {
+      const enrichment = {
         companySize: '15-45 employees',
         techStack: ['React', 'HubSpot'],
         fundingRound: 'Seed',
@@ -4622,6 +4869,7 @@ Ensure the output is strictly valid JSON format.`;
         aiBrief: `Could not reach Gemini live API, loaded offline-ready insights. ${lead.firstName} is a premium buyer at ${lead.company}. Recommended approach: focus on how SalesPilot delivers 3x booking rates on performance.`,
         linkedInUrl: `https://linkedin.com/company/${lead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}`
       };
+      await updateLeadAsync(id, { enrichment });
       res.json(lead);
     }
   });
@@ -4629,22 +4877,30 @@ Ensure the output is strictly valid JSON format.`;
   // AI-Powered Lead Research Regeneration
   app.post('/api/v1/leads/:id/research/regenerate', async (req, res) => {
     const { id } = req.params;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
       return;
     }
 
-    lead.researchStatus = 'PENDING';
-    lead.researchProgress = 0;
-    lead.researchStatusText = 'Re-queued for AI Research';
-    lead.researchError = undefined;
+    const timelineList = lead.timelineList || [];
+    timelineList.unshift({
+      id: `tl_research_queued_${Date.now()}`,
+      event: 'AI Research Scheduled',
+      details: 'Regeneration scheduled in the background AI Research Queue.',
+      createdAt: new Date().toISOString()
+    });
 
-    // Remove old job if exists
+    await updateLeadAsync(id, {
+      researchStatus: 'PENDING',
+      researchProgress: 0,
+      researchStatusText: 'Re-queued for AI Research',
+      researchError: undefined,
+      timelineList
+    });
+
     researchQueue = researchQueue.filter(j => j.leadId !== id);
-
-    // Push new job
     researchQueue.push({
       id: `job_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       leadId: id,
@@ -4657,15 +4913,6 @@ Ensure the output is strictly valid JSON format.`;
       updatedAt: new Date().toISOString()
     });
 
-    if (!lead.timelineList) lead.timelineList = [];
-    lead.timelineList.unshift({
-      id: `tl_research_queued_${Date.now()}`,
-      event: 'AI Research Scheduled',
-      details: 'Regeneration scheduled in the background AI Research Queue.',
-      createdAt: new Date().toISOString()
-    });
-
-    lead.lastUpdated = new Date().toISOString();
     res.json({ success: true, lead });
   });
 
@@ -4689,19 +4936,21 @@ Ensure the output is strictly valid JSON format.`;
   });
 
   // Force retry a failed research job
-  app.post('/api/v1/leads/:id/research/retry', (req, res) => {
+  app.post('/api/v1/leads/:id/research/retry', async (req, res) => {
     const { id } = req.params;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
       return;
     }
 
-    lead.researchStatus = 'PENDING';
-    lead.researchProgress = 0;
-    lead.researchStatusText = 'Retrying via Queue Worker...';
-    lead.researchError = undefined;
+    await updateLeadAsync(id, {
+      researchStatus: 'PENDING',
+      researchProgress: 0,
+      researchStatusText: 'Retrying via Queue Worker...',
+      researchError: undefined
+    });
 
     // Reset job
     researchQueue = researchQueue.filter(j => j.leadId !== id);
@@ -4717,14 +4966,13 @@ Ensure the output is strictly valid JSON format.`;
       updatedAt: new Date().toISOString()
     });
 
-    lead.lastUpdated = new Date().toISOString();
     res.json({ success: true, lead });
   });
 
   // Update a Lead (CRM Status, Tags, Score, Website, etc.)
-  app.put('/api/v1/leads/:id', (req, res) => {
+  app.put('/api/v1/leads/:id', async (req, res) => {
     const { id } = req.params;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
@@ -4732,99 +4980,99 @@ Ensure the output is strictly valid JSON format.`;
     }
 
     const { firstName, lastName, email, phone, company, title, status, leadScore, confidenceScore, scoreReason, tags } = req.body;
+    const updates: Partial<Lead> = {};
 
-    if (firstName !== undefined) lead.firstName = firstName;
-    if (lastName !== undefined) lead.lastName = lastName;
-    if (email !== undefined) lead.email = email;
-    if (phone !== undefined) lead.phone = phone;
-    if (company !== undefined) lead.company = company;
-    if (title !== undefined) lead.title = title;
+    if (firstName !== undefined) updates.firstName = firstName;
+    if (lastName !== undefined) updates.lastName = lastName;
+    if (email !== undefined) updates.email = email;
+    if (phone !== undefined) updates.phone = phone;
+    if (company !== undefined) updates.company = company;
+    if (title !== undefined) updates.title = title;
     
     if (status !== undefined) {
       const oldStatus = lead.status;
-      lead.status = status as LeadStatus;
-      if (!lead.timelineList) lead.timelineList = [];
-      lead.timelineList.unshift({
+      updates.status = status as LeadStatus;
+      const timelineList = lead.timelineList || [];
+      timelineList.unshift({
         id: `tl_${Date.now()}`,
         event: 'Status Transition',
         details: `Stage updated from ${oldStatus} to ${status}.`,
         createdAt: new Date().toISOString()
       });
+      updates.timelineList = timelineList;
     }
 
-    if (leadScore !== undefined) lead.leadScore = leadScore;
-    if (confidenceScore !== undefined) lead.confidenceScore = Number(confidenceScore);
-    if (scoreReason !== undefined) lead.scoreReason = scoreReason;
-    if (tags !== undefined) lead.tags = tags;
-    
-    lead.lastUpdated = new Date().toISOString();
+    if (leadScore !== undefined) updates.leadScore = leadScore;
+    if (confidenceScore !== undefined) updates.confidenceScore = Number(confidenceScore);
+    if (scoreReason !== undefined) updates.scoreReason = scoreReason;
+    if (tags !== undefined) updates.tags = tags;
 
-    res.json(lead);
+    const updated = await updateLeadAsync(id, updates);
+    res.json(updated);
   });
 
   // Delete a Lead
-  app.delete('/api/v1/leads/:id', (req, res) => {
+  app.delete('/api/v1/leads/:id', async (req, res) => {
     const { id } = req.params;
-    const index = leads.findIndex(l => l.id === id);
-    if (index === -1) {
+    const lead = await getLeadByIdAsync(id);
+    if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
       return;
     }
-    leads.splice(index, 1);
+    await deleteLeadAsync(id);
     res.json({ success: true, message: 'Lead successfully deleted from SalesPilot CRM.' });
   });
 
   // Bulk Tag Assignment
-  app.post('/api/v1/leads/bulk/tags', (req, res) => {
+  app.post('/api/v1/leads/bulk/tags', async (req, res) => {
     const { leadIds, tags } = req.body;
     if (!Array.isArray(leadIds) || !Array.isArray(tags)) {
       res.status(400).json({ error: 'leadIds and tags must be arrays.' });
       return;
     }
 
-    leadIds.forEach(id => {
-      const lead = leads.find(l => l.id === id);
+    for (const id of leadIds) {
+      const lead = await getLeadByIdAsync(id);
       if (lead) {
-        lead.tags = Array.from(new Set([...(lead.tags || []), ...tags]));
-        lead.lastUpdated = new Date().toISOString();
+        const newTags = Array.from(new Set([...(lead.tags || []), ...tags]));
+        await updateLeadAsync(id, { tags: newTags });
       }
-    });
+    }
 
     res.json({ success: true, message: 'Tags successfully updated for selected leads.' });
   });
 
   // Bulk CRM Stage Movement
-  app.post('/api/v1/leads/bulk/stage', (req, res) => {
+  app.post('/api/v1/leads/bulk/stage', async (req, res) => {
     const { leadIds, stage } = req.body;
     if (!Array.isArray(leadIds) || !stage) {
       res.status(400).json({ error: 'leadIds array and target stage are required.' });
       return;
     }
 
-    leadIds.forEach(id => {
-      const lead = leads.find(l => l.id === id);
+    for (const id of leadIds) {
+      const lead = await getLeadByIdAsync(id);
       if (lead) {
         const oldStatus = lead.status;
-        lead.status = stage as LeadStatus;
-        if (!lead.timelineList) lead.timelineList = [];
-        lead.timelineList.unshift({
+        const timelineList = lead.timelineList || [];
+        timelineList.unshift({
           id: `tl_${Date.now()}`,
           event: 'Bulk Status Transition',
           details: `Stage updated from ${oldStatus} to ${stage} via Bulk CRM Action.`,
           createdAt: new Date().toISOString()
         });
-        lead.lastUpdated = new Date().toISOString();
+        await updateLeadAsync(id, { status: stage as LeadStatus, timelineList });
       }
-    });
+    }
 
     res.json({ success: true, message: `CRM stages updated to ${stage} for selected leads.` });
   });
 
   // Add a Note to a Lead
-  app.post('/api/v1/leads/:id/notes', (req, res) => {
+  app.post('/api/v1/leads/:id/notes', async (req, res) => {
     const { id } = req.params;
     const { text } = req.body;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
@@ -4836,31 +5084,31 @@ Ensure the output is strictly valid JSON format.`;
       return;
     }
 
-    if (!lead.notesList) lead.notesList = [];
+    const notesList = lead.notesList || [];
     const newNote = {
       id: `n_${Date.now()}`,
       text,
       createdAt: new Date().toISOString()
     };
-    lead.notesList.unshift(newNote);
+    notesList.unshift(newNote);
 
-    if (!lead.timelineList) lead.timelineList = [];
-    lead.timelineList.unshift({
+    const timelineList = lead.timelineList || [];
+    timelineList.unshift({
       id: `tl_${Date.now()}`,
       event: 'Note Added',
       details: `User added a research note: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`,
       createdAt: new Date().toISOString()
     });
 
-    lead.lastUpdated = new Date().toISOString();
+    await updateLeadAsync(id, { notesList, timelineList });
     res.json(newNote);
   });
 
   // Add a Task to a Lead
-  app.post('/api/v1/leads/:id/tasks', (req, res) => {
+  app.post('/api/v1/leads/:id/tasks', async (req, res) => {
     const { id } = req.params;
     const { text, dueDate } = req.body;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
@@ -4872,43 +5120,39 @@ Ensure the output is strictly valid JSON format.`;
       return;
     }
 
-    if (!lead.tasksList) lead.tasksList = [];
+    const tasksList = lead.tasksList || [];
     const newTask = {
       id: `t_${Date.now()}`,
       text,
       completed: false,
       dueDate: dueDate || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
     };
-    lead.tasksList.unshift(newTask);
+    tasksList.unshift(newTask);
 
-    if (!lead.timelineList) lead.timelineList = [];
-    lead.timelineList.unshift({
+    const timelineList = lead.timelineList || [];
+    timelineList.unshift({
       id: `tl_${Date.now()}`,
       event: 'Task Assigned',
       details: `Outbound task assigned: "${text}"`,
       createdAt: new Date().toISOString()
     });
 
-    lead.lastUpdated = new Date().toISOString();
+    await updateLeadAsync(id, { tasksList, timelineList });
     res.json(newTask);
   });
 
   // Toggle Task Completion State
-  app.post('/api/v1/leads/:id/tasks/:taskId/toggle', (req, res) => {
+  app.post('/api/v1/leads/:id/tasks/:taskId/toggle', async (req, res) => {
     const { id, taskId } = req.params;
-    const lead = leads.find(l => l.id === id);
+    const lead = await getLeadByIdAsync(id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found.' });
       return;
     }
 
-    if (!lead.tasksList) {
-      res.status(404).json({ error: 'No tasks found for this lead.' });
-      return;
-    }
-
-    const task = lead.tasksList.find(t => t.id === taskId);
+    const tasksList = lead.tasksList || [];
+    const task = tasksList.find(t => t.id === taskId);
     if (!task) {
       res.status(404).json({ error: 'Task not found.' });
       return;
@@ -4916,15 +5160,15 @@ Ensure the output is strictly valid JSON format.`;
 
     task.completed = !task.completed;
 
-    if (!lead.timelineList) lead.timelineList = [];
-    lead.timelineList.unshift({
+    const timelineList = lead.timelineList || [];
+    timelineList.unshift({
       id: `tl_${Date.now()}`,
       event: 'Task Updated',
       details: `Task "${task.text}" marked as ${task.completed ? 'COMPLETED' : 'PENDING'}.`,
       createdAt: new Date().toISOString()
     });
 
-    lead.lastUpdated = new Date().toISOString();
+    await updateLeadAsync(id, { tasksList, timelineList });
     res.json(task);
   });
 
@@ -12705,11 +12949,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Leads CRUD
-  app.get('/api/v1/public/leads', apiAuthMiddleware, validateScope('leads:read'), (req: any, res) => {
+  app.get('/api/v1/public/leads', apiAuthMiddleware, validateScope('leads:read'), async (req: any, res) => {
     const { page = 1, limit = 10, sortBy = 'firstName', sortOrder = 'asc', search, status } = req.query;
     
-    // Read and filter leads
-    let filtered = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
+    // Read and filter leads from production database
+    const allLeads = await getAllLeadsAsync(req.organizationId);
+    let filtered = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
 
     if (search) {
       const q = String(search).toLowerCase();
@@ -12770,32 +13015,28 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       createdAt: new Date().toISOString()
     };
 
-    leads.push(newLead);
-    localDb.db.leads = leads;
-    localDb.save();
+    const savedLead = await insertLeadAsync(newLead);
 
     // Trigger Lead Created Webhook
-    await triggerWebhook(req.organizationId, 'lead.created', newLead);
+    await triggerWebhook(req.organizationId, 'lead.created', savedLead);
 
-    res.status(201).json({ success: true, lead: newLead });
+    res.status(201).json({ success: true, lead: savedLead });
   });
 
   app.put('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
     const { id } = req.params;
-    const idx = leads.findIndex(l => l.id === id && (!(l as any).organizationId || (l as any).organizationId === req.organizationId));
+    const lead = await getLeadByIdAsync(id, req.organizationId);
     
-    if (idx === -1) {
+    if (!lead) {
       return res.status(404).json({ error: 'Lead not found.' });
     }
 
-    leads[idx] = { ...leads[idx], ...req.body, id, organizationId: req.organizationId };
-    localDb.db.leads = leads;
-    localDb.save();
+    const updated = await updateLeadAsync(id, req.body);
 
     // Trigger Lead Updated Webhook
-    await triggerWebhook(req.organizationId, 'lead.updated', leads[idx]);
+    await triggerWebhook(req.organizationId, 'lead.updated', updated);
 
-    res.json({ success: true, lead: leads[idx] });
+    res.json({ success: true, lead: updated });
   });
 
   app.post('/api/v1/public/leads/bulk', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
@@ -12820,36 +13061,30 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           source: item.source || 'Bulk API',
           createdAt: new Date().toISOString()
         };
-        leads.push(newLead);
-        createdLeads.push(newLead);
-        await triggerWebhook(req.organizationId, 'lead.created', newLead);
+        const saved = await insertLeadAsync(newLead);
+        createdLeads.push(saved);
+        await triggerWebhook(req.organizationId, 'lead.created', saved);
       }
     }
-
-    localDb.db.leads = leads;
-    localDb.save();
 
     res.json({ success: true, createdCount: createdLeads.length, items: createdLeads });
   });
 
-  app.delete('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), (req: any, res) => {
+  app.delete('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
     const { id } = req.params;
-    const initialLen = leads.length;
-    
-    leads = leads.filter(l => !(l.id === id && (!(l as any).organizationId || (l as any).organizationId === req.organizationId)));
-    
-    if (leads.length === initialLen) {
+    const lead = await getLeadByIdAsync(id, req.organizationId);
+    if (!lead) {
       return res.status(404).json({ error: 'Lead not found.' });
     }
 
-    localDb.db.leads = leads;
-    localDb.save();
+    await deleteLeadAsync(id);
     res.json({ success: true, message: 'Lead deleted successfully.' });
   });
 
   // Contacts Endpoint (Extracted from leads list)
-  app.get('/api/v1/public/contacts', apiAuthMiddleware, validateScope('leads:read'), (req: any, res) => {
-    const filteredLeads = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
+  app.get('/api/v1/public/contacts', apiAuthMiddleware, validateScope('leads:read'), async (req: any, res) => {
+    const allLeads = await getAllLeadsAsync(req.organizationId);
+    const filteredLeads = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
     const contacts = filteredLeads.map(l => ({
       id: 'cnt_' + l.id.substring(3),
       leadId: l.id,
@@ -12865,8 +13100,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Companies Endpoint (Extracted from leads)
-  app.get('/api/v1/public/companies', apiAuthMiddleware, validateScope('leads:read'), (req: any, res) => {
-    const filteredLeads = leads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
+  app.get('/api/v1/public/companies', apiAuthMiddleware, validateScope('leads:read'), async (req: any, res) => {
+    const allLeads = await getAllLeadsAsync(req.organizationId);
+    const filteredLeads = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
     const uniqueCompanyNames = Array.from(new Set(filteredLeads.map(l => l.company)));
     const companiesList = uniqueCompanyNames.map((name, idx) => {
       const match = filteredLeads.find(l => l.company === name);
