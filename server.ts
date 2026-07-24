@@ -1806,31 +1806,53 @@ async function startServer() {
   };
 
   // Lead Database Helper Mapping
-  const mapSupabaseLeadToAppLead = (l: any): Lead & { organizationId?: string } => ({
-    id: String(l.id),
-    organizationId: l.organization_id || 'org_salespilot_lifetime',
-    firstName: l.first_name || (l.lead_name ? l.lead_name.split(' ')[0] : 'Prospect'),
-    lastName: l.last_name || (l.lead_name ? l.lead_name.split(' ').slice(1).join(' ') : ''),
-    email: l.email || l.business_email || '',
-    phone: l.phone || '',
-    company: l.company || 'Company',
-    title: l.title || 'Director',
-    status: (l.status as LeadStatus) || 'NEW',
-    createdAt: l.created_at || new Date().toISOString(),
-    campaignId: l.campaign_id,
-    tags: Array.isArray(l.tags) ? l.tags : [],
-    source: l.source || 'Database',
-    lastUpdated: l.updated_at || new Date().toISOString(),
-    confidenceScore: l.score || 80,
-    scoreReason: l.score_reason || '',
-    notesList: l.notes ? [{ id: 'n_' + Date.now(), text: typeof l.notes === 'string' ? l.notes : JSON.stringify(l.notes), createdAt: l.created_at || new Date().toISOString() }] : [],
-    enrichment: {
+  const mapSupabaseLeadToAppLead = (l: any): Lead & { organizationId?: string } => {
+    let parsedNotes: any = {};
+    let rawNotesStr = l.notes || '';
+    if (typeof rawNotesStr === 'string' && rawNotesStr.startsWith('{')) {
+      try {
+        parsedNotes = JSON.parse(rawNotesStr);
+      } catch (_) {}
+    }
+
+    const notesList = parsedNotes.notesList || (rawNotesStr && !rawNotesStr.startsWith('{') ? [{ id: 'n_' + Date.now(), text: rawNotesStr, createdAt: l.created_at || new Date().toISOString() }] : []);
+    const timelineList = parsedNotes.timelineList || [];
+    const tasksList = parsedNotes.tasksList || [];
+    const enrichment = parsedNotes.enrichment || {
       website: l.website || '',
       companySize: l.company_size || 'Unknown',
-      aiBrief: typeof l.notes === 'string' ? l.notes : 'Enriched B2B prospect from database',
+      aiBrief: typeof rawNotesStr === 'string' && !rawNotesStr.startsWith('{') ? rawNotesStr : 'Enriched B2B prospect from database',
       techStack: []
-    }
-  });
+    };
+
+    return {
+      id: String(l.id),
+      organizationId: l.organization_id || 'org_salespilot_lifetime',
+      firstName: l.first_name || parsedNotes.firstName || (l.lead_name ? l.lead_name.split(' ')[0] : 'Prospect'),
+      lastName: l.last_name || parsedNotes.lastName || (l.lead_name ? l.lead_name.split(' ').slice(1).join(' ') : ''),
+      email: l.email || l.business_email || '',
+      phone: l.phone || '',
+      company: l.company || 'Company',
+      title: l.title || parsedNotes.title || 'Director',
+      status: (l.status as LeadStatus) || 'NEW',
+      createdAt: l.created_at || new Date().toISOString(),
+      campaignId: l.campaign_id,
+      tags: Array.isArray(l.tags) && l.tags.length > 0 ? l.tags : (parsedNotes.tags || []),
+      source: l.source || parsedNotes.source || 'Database',
+      lastUpdated: l.updated_at || new Date().toISOString(),
+      confidenceScore: l.score || parsedNotes.confidenceScore || 80,
+      scoreReason: l.score_reason || parsedNotes.scoreReason || '',
+      notesList,
+      timelineList,
+      tasksList,
+      enrichment,
+      researchStatus: parsedNotes.researchStatus || 'COMPLETED',
+      researchProgress: parsedNotes.researchProgress ?? 100,
+      researchStatusText: parsedNotes.researchStatusText || 'AI Research Complete',
+      researchProfile: parsedNotes.researchProfile,
+      researchHistory: parsedNotes.researchHistory || []
+    };
+  };
 
   // Async Production Database Query Helpers (Vercel Serverless Stateless Compatible)
   const getAllLeadsAsync = async (orgId?: string): Promise<Lead[]> => {
@@ -1972,10 +1994,31 @@ async function startServer() {
           if (orgs && orgs.length > 0) org_id = orgs[0].id;
         }
 
+        const fullNotesState = {
+          firstName: newLead.firstName,
+          lastName: newLead.lastName,
+          title: newLead.title,
+          source: newLead.source,
+          confidenceScore: newLead.confidenceScore,
+          scoreReason: newLead.scoreReason,
+          tags: newLead.tags,
+          notesList: newLead.notesList || [],
+          timelineList: newLead.timelineList || [],
+          tasksList: newLead.tasksList || [],
+          enrichment: newLead.enrichment || {},
+          researchStatus: newLead.researchStatus,
+          researchProgress: newLead.researchProgress,
+          researchStatusText: newLead.researchStatusText,
+          researchProfile: newLead.researchProfile,
+          researchHistory: newLead.researchHistory || []
+        };
+
         const dbLead = {
           id: newLead.id,
           organization_id: org_id || 'org_salespilot_lifetime',
           lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
+          first_name: newLead.firstName,
+          last_name: newLead.lastName,
           company: newLead.company,
           business_email: newLead.email,
           email: newLead.email,
@@ -1984,7 +2027,7 @@ async function startServer() {
           status: newLead.status || 'NEW',
           score: newLead.confidenceScore || 80,
           source: newLead.source || 'Manual',
-          notes: JSON.stringify(newLead.enrichment || {})
+          notes: JSON.stringify(fullNotesState)
         };
 
         const { data: insData, error: insErr } = await supabase.from('leads').insert(dbLead).select('id');
@@ -2054,6 +2097,26 @@ async function startServer() {
         if (updates.confidenceScore !== undefined) dbUpdates.score = updates.confidenceScore;
         if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
         if (updates.enrichment?.website !== undefined) dbUpdates.website = updates.enrichment.website;
+
+        const fullNotesState = {
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          title: lead.title,
+          source: lead.source,
+          confidenceScore: lead.confidenceScore,
+          scoreReason: lead.scoreReason,
+          tags: lead.tags,
+          notesList: lead.notesList || [],
+          timelineList: lead.timelineList || [],
+          tasksList: lead.tasksList || [],
+          enrichment: lead.enrichment || {},
+          researchStatus: lead.researchStatus,
+          researchProgress: lead.researchProgress,
+          researchStatusText: lead.researchStatusText,
+          researchProfile: lead.researchProfile,
+          researchHistory: lead.researchHistory || []
+        };
+        dbUpdates.notes = JSON.stringify(fullNotesState);
 
         const { error } = await supabase.from('leads').update(dbUpdates).eq('id', cleanId);
         if (error) {
@@ -2266,6 +2329,21 @@ async function startServer() {
 
     // Reset attempt log on successful login
     failedLoginAttempts[emailLower] = { count: 0 };
+
+    // Query Supabase profiles table if active to sync exact primary key ID and organization ID
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('email', emailLower).maybeSingle();
+        if (profile) {
+          if (profile.id) userObj.id = String(profile.id);
+          if (profile.organization_id) userObj.organizationId = String(profile.organization_id);
+          if (profile.full_name) userObj.fullName = profile.full_name;
+        }
+      } catch (spErr) {
+        console.error('[SUPABASE PROFILE LOOKUP ERROR ON LOGIN]', spErr);
+      }
+    }
 
     // Apply Founder checks dynamically on the backend
     await applyFounderPrivileges(userObj);
@@ -2524,6 +2602,21 @@ async function startServer() {
     }
 
     await applyFounderPrivileges(userObj);
+
+    // Sync profile updates to Supabase profiles table
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('profiles').update({
+          full_name: userObj.fullName,
+          phone: userObj.phone,
+          timezone: userObj.timezone,
+          updated_at: new Date().toISOString()
+        }).eq('email', userObj.email);
+      } catch (spErr) {
+        console.error('[SUPABASE PROFILE UPDATE ERROR]', spErr);
+      }
+    }
 
     logServerActivity(userObj.id, 'Updated profile and security settings', 'User Profile', req);
     res.json({ success: true, user: userObj });
@@ -6908,11 +7001,62 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Fetch Scheduled Appointments
-  app.get('/api/v1/appointments', (req, res) => {
+  app.get('/api/v1/appointments', async (req, res) => {
     const user = getAuthenticatedUser(req);
     const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const filteredAppointments = appointments.filter(a => !(a as any).organizationId || (a as any).organizationId === orgId);
-    res.json({ appointments: filteredAppointments });
+
+    const supabase = getSupabaseClient();
+    let fetchedApts: Appointment[] = [];
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('appointments').select('*').eq('organization_id', orgId);
+        if (!error && data && data.length > 0) {
+          fetchedApts = data.map((row: any) => {
+            let meta: any = {};
+            if (row.notes && typeof row.notes === 'string' && row.notes.startsWith('{')) {
+              try { meta = JSON.parse(row.notes); } catch (_) {}
+            }
+            return {
+              id: String(row.id),
+              organizationId: row.organization_id || orgId,
+              userId: row.user_id,
+              leadId: row.lead_id,
+              leadName: meta.leadName || 'Lead Contact',
+              company: meta.company || 'Company',
+              email: meta.email || '',
+              dateTime: row.meeting_date || row.created_at,
+              durationMins: row.duration_minutes || 30,
+              status: row.status || 'SCHEDULED',
+              meetingLink: row.meeting_link || '',
+              notes: meta.notes || (typeof row.notes === 'string' && !row.notes.startsWith('{') ? row.notes : ''),
+              timezone: meta.timezone || 'Asia/Kolkata',
+              googleSynced: meta.googleSynced || false,
+              googleEventId: meta.googleEventId || '',
+              gmailMessageId: meta.gmailMessageId || '',
+              timelineList: meta.timelineList || [],
+              createdAt: row.created_at || new Date().toISOString()
+            };
+          });
+        }
+      } catch (err) {
+        console.error('[GET APPOINTMENTS SUPABASE ERROR]', err);
+      }
+    }
+
+    const aptMap = new Map<string, Appointment>();
+    appointments.forEach(a => {
+      if (!(a as any).organizationId || (a as any).organizationId === orgId) {
+        aptMap.set(a.id, a);
+      }
+    });
+    fetchedApts.forEach(a => aptMap.set(a.id, a));
+
+    const combinedApts = Array.from(aptMap.values());
+    appointments = combinedApts;
+    localDb.db.appointments = combinedApts;
+    saveDb();
+
+    res.json({ appointments: combinedApts });
   });
 
   // Book Appointment
@@ -7247,6 +7391,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          const fullAptNotes = {
+            notes: newApt.notes,
+            leadName: newApt.leadName,
+            company: newApt.company,
+            email: newApt.email,
+            timezone: tz,
+            googleEventId: newApt.googleEventId,
+            gmailMessageId: newApt.gmailMessageId,
+            googleSynced: newApt.googleSynced,
+            timelineList: newApt.timelineList
+          };
           await supabase.from('appointments').insert({
             id: newApt.id,
             organization_id: orgId,
@@ -7256,7 +7411,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             meeting_date: startDateTime.toISOString(),
             duration_minutes: newApt.durationMins,
             meeting_link: newApt.meetingLink,
-            notes: newApt.notes,
+            notes: JSON.stringify(fullAptNotes),
             status: newApt.status
           });
         } catch (spErr) {
@@ -7264,9 +7419,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         }
       }
 
-      // Automatically transition lead status to MEETING_BOOKED
-      lead.status = 'MEETING_BOOKED';
-
+      // Automatically transition lead status to MEETING_BOOKED and persist to Supabase
       if (!lead.timelineList) lead.timelineList = [];
       lead.timelineList.unshift({
         id: `tl_lead_apt_${Date.now()}`,
@@ -7274,6 +7427,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         details: `Scheduled a ${newApt.durationMins}-minute demo. Google Calendar synced, Meet Room generated: ${newApt.meetingLink}`,
         createdAt: new Date().toISOString()
       });
+
+      await updateLeadAsync(lead.id, { status: 'MEETING_BOOKED', timelineList: lead.timelineList });
 
       saveDb();
       console.log(`[BOOKING CREATION SUCCESS] Created appointment ID: "${newApt.id}" for Lead ID: "${lead.id}" ("${lead.firstName} ${lead.lastName}" at ${lead.company}). Google Calendar Synced: ${newApt.googleSynced}`);
