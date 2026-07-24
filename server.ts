@@ -12151,7 +12151,99 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     res.json({ success: true, message: 'Job re-queued and completed successfully by background worker.' });
   });
 
-  // --- MODULE 17: SYSTEM MONITORING DIAGNOSTICS ---
+  // --- MODULE 17: SYSTEM MONITORING DIAGNOSTICS & HEALTH CHECK ---
+  const handleComprehensiveHealthCheck = async (req: any, res: any) => {
+    const healthResults: Record<string, { status: 'PASS' | 'FAIL'; details: string; latencyMs?: number }> = {};
+
+    // 1. Database Check
+    const dbStart = Date.now();
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { data, error } = await supabase.from('leads').select('id').limit(1);
+        if (error) {
+          healthResults.database = { status: 'FAIL', details: `Supabase query error: ${error.message}`, latencyMs: Date.now() - dbStart };
+        } else {
+          healthResults.database = { status: 'PASS', details: 'Supabase PostgreSQL connected successfully.', latencyMs: Date.now() - dbStart };
+        }
+      } else {
+        const localCount = localDb.getAllLeads().length;
+        healthResults.database = { status: 'PASS', details: `Local Storage DB active (${localCount} leads loaded).`, latencyMs: Date.now() - dbStart };
+      }
+    } catch (err: any) {
+      healthResults.database = { status: 'FAIL', details: `Database exception: ${err.message || String(err)}`, latencyMs: Date.now() - dbStart };
+    }
+
+    // 2. Google OAuth Check
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      if (clientId && clientSecret) {
+        healthResults.google_oauth = { status: 'PASS', details: 'Google OAuth Client ID & Secret configured.' };
+      } else if (clientId) {
+        healthResults.google_oauth = { status: 'PASS', details: 'Google OAuth Client ID configured.' };
+      } else {
+        healthResults.google_oauth = { status: 'FAIL', details: 'Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in environment.' };
+      }
+    } catch (err: any) {
+      healthResults.google_oauth = { status: 'FAIL', details: `Google OAuth check exception: ${err.message || String(err)}` };
+    }
+
+    // 3. Gmail API Check
+    try {
+      const activeGmailAcc = gmailAccounts.find(a => a.accessToken && !a.accessToken.startsWith('mock_'));
+      const isGmailConfigured = !!process.env.GMAIL_CLIENT_ID || !!process.env.GOOGLE_CLIENT_ID;
+      if (activeGmailAcc) {
+        healthResults.gmail = { status: 'PASS', details: `Active Gmail account connected (${activeGmailAcc.email}).` };
+      } else if (isGmailConfigured) {
+        healthResults.gmail = { status: 'PASS', details: 'Google OAuth credentials set for Gmail API.' };
+      } else {
+        healthResults.gmail = { status: 'FAIL', details: 'No active Gmail OAuth token or Google credentials configured.' };
+      }
+    } catch (err: any) {
+      healthResults.gmail = { status: 'FAIL', details: `Gmail check exception: ${err.message || String(err)}` };
+    }
+
+    // 4. Google Calendar Check
+    try {
+      const activeCalAcc = calendarAccounts.find(a => a.accessToken && !a.accessToken.startsWith('mock_'));
+      const isCalConfigured = !!process.env.GOOGLE_CLIENT_ID;
+      if (activeCalAcc) {
+        healthResults.google_calendar = { status: 'PASS', details: `Active Google Calendar account connected (${activeCalAcc.email}).` };
+      } else if (isCalConfigured) {
+        healthResults.google_calendar = { status: 'PASS', details: 'Google OAuth credentials configured for Calendar API.' };
+      } else {
+        healthResults.google_calendar = { status: 'FAIL', details: 'No active Calendar OAuth token or Google Client ID configured.' };
+      }
+    } catch (err: any) {
+      healthResults.google_calendar = { status: 'FAIL', details: `Calendar check exception: ${err.message || String(err)}` };
+    }
+
+    // 5. Cashfree Check
+    try {
+      const appId = process.env.CASHFREE_APP_ID;
+      const secretKey = process.env.CASHFREE_SECRET_KEY;
+      if (appId && secretKey) {
+        healthResults.cashfree = { status: 'PASS', details: 'Cashfree App ID & Secret Key configured.' };
+      } else {
+        healthResults.cashfree = { status: 'FAIL', details: 'Cashfree credentials (CASHFREE_APP_ID / CASHFREE_SECRET_KEY) missing in environment.' };
+      }
+    } catch (err: any) {
+      healthResults.cashfree = { status: 'FAIL', details: `Cashfree check exception: ${err.message || String(err)}` };
+    }
+
+    const overallPass = Object.values(healthResults).every(r => r.status === 'PASS');
+
+    res.status(overallPass ? 200 : 207).json({
+      status: overallPass ? 'PASS' : 'PARTIAL',
+      checkedAt: new Date().toISOString(),
+      services: healthResults
+    });
+  };
+
+  app.get('/health', handleComprehensiveHealthCheck);
+  app.get('/api/v1/health', handleComprehensiveHealthCheck);
+
   app.get('/api/v1/monitoring/health', (req, res) => {
     // Perform active latency ping checks
     const uptimeTable = {
