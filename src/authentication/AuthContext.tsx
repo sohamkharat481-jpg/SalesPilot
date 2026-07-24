@@ -222,27 +222,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Check if we have a simulated user in localStorage for seamless development
-      loadSimulatedSession();
+      // If token missing or server profile sync failed, clear local session state
+      setUser(null);
+      setOrganization(null);
+      setTeamMembers([]);
+      localStorage.removeItem('salespilot_token');
+      localStorage.removeItem('salespilot_user');
+      localStorage.removeItem('salespilot_org');
+      localStorage.removeItem('salespilot_team');
+      setAuthView('login');
       setIsLoading(false);
-    }
-
-    function loadSimulatedSession() {
-      const storedUser = localStorage.getItem('salespilot_user');
-      const storedOrg = localStorage.getItem('salespilot_org');
-      const storedTeam = localStorage.getItem('salespilot_team');
-
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setAuthView('authenticated');
-        
-        if (storedOrg) setOrganization(JSON.parse(storedOrg));
-        if (storedTeam) setTeamMembers(JSON.parse(storedTeam));
-      } else {
-        setUser(null);
-        setAuthView('login');
-      }
     }
 
     initAuth();
@@ -364,122 +353,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRememberMe(useRemember);
 
     try {
-      // 1. Try real backend Express API first
       const response = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, rememberMe: useRemember })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          localStorage.setItem('salespilot_token', data.token);
-          setUser(data.user);
-          if (data.organization) setOrganization(data.organization);
-          if (data.teamMembers) setTeamMembers(data.teamMembers);
-          setAuthView('authenticated');
-          setIsLoading(false);
-          recordLogin(email, 'Success');
-          logActivity('User signed in via Secure API', 'Authentication');
-          return true;
-        }
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
+        localStorage.setItem('salespilot_token', data.token);
+        setUser(data.user);
+        if (data.organization) setOrganization(data.organization);
+        if (data.teamMembers) setTeamMembers(data.teamMembers);
+        setAuthView('authenticated');
+        setIsLoading(false);
+        recordLogin(email, 'Success');
+        logActivity('User signed in via Secure API', 'Authentication');
+        return true;
       } else {
-        const errData = await response.json();
-        // Check if email verification is required
-        if (errData.code === 'EMAIL_NOT_VERIFIED' || response.status === 403) {
+        if (data?.code === 'EMAIL_NOT_VERIFIED' || response.status === 403) {
           setAuthView('email_verification');
-          if (errData.user) setUser(errData.user);
-          setAuthError(errData.error || 'Email verification required.');
+          if (data?.user) setUser(data.user);
+          setAuthError(data?.error || 'Email verification required.');
           setIsLoading(false);
           recordLogin(email, 'Failed', 'Email not verified');
           return false;
         }
-        throw new Error(errData.error || 'Invalid server credentials.');
+        const errMsg = data?.error || 'Invalid credentials or server authentication failure.';
+        recordLogin(email, 'Failed', errMsg);
+        setAuthError(errMsg);
+        setIsLoading(false);
+        return false;
       }
     } catch (err: any) {
-      console.warn('[SERVER LOGIN FAILED, FALLBACK TO LOCAL]:', err.message);
-      
-      // Fallback: Sandbox simulated authentication fallback
-      try {
-        const storedSimUsers = localStorage.getItem('simulated_users');
-        const simUsers = storedSimUsers ? JSON.parse(storedSimUsers) : [];
-        const matched = simUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-
-        if (matched) {
-          if (matched.password !== password) {
-            recordLogin(email, 'Failed', 'Invalid password');
-            setAuthError('Invalid credentials. Password does not match.');
-            setIsLoading(false);
-            return false;
-          }
-
-          const simUser: WorkspaceUser = {
-            id: matched.id,
-            email: matched.email,
-            fullName: matched.fullName,
-            companyName: matched.companyName || '',
-            industry: matched.industry || '',
-            tier: 'STARTER',
-            role: matched.role || 'ADMIN',
-            createdAt: matched.createdAt || new Date().toISOString(),
-            isVerified: matched.isVerified
-          };
-
-          if (!simUser.isVerified) {
-            setAuthView('email_verification');
-            setUser(simUser);
-            setIsLoading(false);
-            recordLogin(email, 'Failed', 'Email not verified (simulated)');
-            return false;
-          }
-
-          setUser(simUser);
-          setAuthView('authenticated');
-          setIsLoading(false);
-          recordLogin(email, 'Success');
-          logActivity('User signed in (simulated)', 'Authentication');
-          return true;
-        }
-
-        // Default fallback demo sign-in
-        if (email.toLowerCase() === 'soham@gmail.com' || email.toLowerCase() === 'sohamkharat481@gmail.com') {
-          const isFounderEmail = email.toLowerCase() === 'sohamkharat481@gmail.com';
-          const demoUser: WorkspaceUser = {
-            id: 'usr_demo_101',
-            email,
-            fullName: 'Soham Kharat',
-            companyName: isFounderEmail ? 'SalesPilot' : '',
-            industry: isFounderEmail ? 'SaaS & Software' : '',
-            tier: isFounderEmail ? 'ENTERPRISE' : 'STARTER',
-            role: 'OWNER',
-            createdAt: new Date().toISOString(),
-            isVerified: true,
-            isFounder: isFounderEmail,
-            subscriptionStatus: isFounderEmail ? 'LIFETIME' : undefined,
-            phone: '',
-            timezone: 'Asia/Kolkata',
-            language: 'English'
-          };
-          setUser(demoUser);
-          setAuthView('authenticated');
-          setIsLoading(false);
-          recordLogin(email, 'Success');
-          logActivity('Demo Owner signed in', 'Authentication');
-          return true;
-        }
-
-        recordLogin(email, 'Failed', err.message || 'Account not found');
-        setAuthError(err.message || 'Account not found. Please sign up first.');
-        setIsLoading(false);
-        return false;
-      } catch (fallbackErr: any) {
-        setAuthError(fallbackErr.message || 'Authentication failed');
-        setIsLoading(false);
-        return false;
-      }
+      const errMsg = err.message || 'Server connection failed.';
+      recordLogin(email, 'Failed', errMsg);
+      setAuthError(errMsg);
+      setIsLoading(false);
+      return false;
     }
-    return false;
   };
 
   // SIGNUP FUNCTION
@@ -488,70 +401,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      // 1. Try real Express backend API
       const response = await fetch('/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, fullName, role })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setUser(data.user);
         setAuthView('email_verification');
         setIsLoading(false);
         return true;
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Server signup failed.');
-      }
-    } catch (err: any) {
-      console.warn('[SERVER SIGNUP FAILED, FALLBACK TO LOCAL]:', err.message);
-
-      // Sandbox simulated signup fallback
-      try {
-        const storedSimUsers = localStorage.getItem('simulated_users');
-        const simUsers = storedSimUsers ? JSON.parse(storedSimUsers) : [];
-        
-        if (simUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
-          throw new Error('An account with this email address already exists.');
-        }
-
-        const randomId = 'usr_sim_' + Math.floor(Math.random() * 1000000);
-        const newSimAccount = {
-          id: randomId,
-          email,
-          password,
-          fullName,
-          role,
-          isVerified: false,
-          createdAt: new Date().toISOString()
-        };
-
-        simUsers.push(newSimAccount);
-        localStorage.setItem('simulated_users', JSON.stringify(simUsers));
-
-        const simUser: WorkspaceUser = {
-          id: randomId,
-          email,
-          fullName,
-          companyName: '',
-          industry: '',
-          tier: 'STARTER',
-          role,
-          createdAt: newSimAccount.createdAt,
-          isVerified: false
-        };
-
-        setUser(simUser);
-        setAuthView('email_verification');
-        setIsLoading(false);
-        return true;
-      } catch (localErr: any) {
-        setAuthError(localErr.message || 'Registration failed');
+        const errMsg = data?.error || 'Server signup failed.';
+        setAuthError(errMsg);
         setIsLoading(false);
         return false;
       }
+    } catch (err: any) {
+      const errMsg = err.message || 'Server signup failed.';
+      setAuthError(errMsg);
+      setIsLoading(false);
+      return false;
     }
   };
 
@@ -566,18 +439,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-      if (response.ok) {
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.success) {
         setIsLoading(false);
         return true;
+      } else {
+        setAuthError(data?.error || 'Password reset request failed on server.');
+        setIsLoading(false);
+        return false;
       }
-    } catch (err) {
-      console.warn('Forgot password backend error, fallback to simulated success');
+    } catch (err: any) {
+      setAuthError(err.message || 'Password reset request failed.');
+      setIsLoading(false);
+      return false;
     }
-
-    // Simulated success fallback
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setIsLoading(false);
-    return true;
   };
 
   // EMAIL VERIFICATION CODE
@@ -586,44 +461,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      // 1. Try real backend API verification
       const response = await fetch('/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user?.email || '', token: code })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setUser(data.user);
         setAuthView('profile_setup');
         setIsLoading(false);
         return true;
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Verification PIN rejected.');
+        const errMsg = data?.error || 'Verification PIN rejected by server.';
+        setAuthError(errMsg);
+        setIsLoading(false);
+        return false;
       }
     } catch (err: any) {
-      console.warn('[SERVER VERIFICATION FAILED, FALLBACK TO LOCAL]:', err.message);
-
-      // Local storage fallback
-      if (user) {
-        const verifiedUser = { ...user, isVerified: true };
-        setUser(verifiedUser);
-        
-        const storedSimUsers = localStorage.getItem('simulated_users');
-        if (storedSimUsers) {
-          const simUsers = JSON.parse(storedSimUsers);
-          const index = simUsers.findIndex((u: any) => u.email.toLowerCase() === user.email.toLowerCase());
-          if (index !== -1) {
-            simUsers[index].isVerified = true;
-            localStorage.setItem('simulated_users', JSON.stringify(simUsers));
-          }
-        }
-        setAuthView('profile_setup');
-        setIsLoading(false);
-        return true;
-      }
       setAuthError(err.message || 'Invalid verification token. Please try again.');
       setIsLoading(false);
       return false;
@@ -646,25 +503,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email: user?.email, fullName, title, avatarUrl })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setUser(data.user);
         setAuthView('org_setup');
         setIsLoading(false);
         return true;
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Server profile save failed.');
+        const errMsg = data?.error || 'Server profile save failed.';
+        setAuthError(errMsg);
+        setIsLoading(false);
+        return false;
       }
     } catch (err: any) {
-      console.warn('[SERVER PROFILE SETUP FAILED, FALLBACK]:', err.message);
-      if (user) {
-        const updated = { ...user, fullName, title, avatarUrl };
-        setUser(updated);
-        setAuthView('org_setup');
-      }
+      setAuthError(err.message || 'Profile setup failed.');
       setIsLoading(false);
-      return true;
+      return false;
     }
   };
 
@@ -693,8 +548,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ name, industry, domain, tier, country, timezone, currency, logo })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setOrganization(data.organization);
         if (data.user) setUser(data.user);
         if (data.teamMembers) setTeamMembers(data.teamMembers);
@@ -704,50 +560,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
         return true;
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Server organization setup failed.');
+        const errMsg = data?.error || 'Server organization setup failed.';
+        setAuthError(errMsg);
+        setIsLoading(false);
+        return false;
       }
     } catch (err: any) {
-      console.warn('[SERVER ORG SETUP FAILED, FALLBACK]:', err.message);
-
-      const orgId = 'org_' + Math.floor(Math.random() * 1000000);
-      const newOrg: Organization & { logo?: string; gst?: string; address?: string; country?: string; timezone?: string; currency?: string; workingHours?: any } = {
-        id: orgId,
-        name,
-        industry,
-        domain,
-        createdAt: new Date().toISOString(),
-        country,
-        timezone,
-        currency,
-        logo: logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60',
-        gst: '27AAAAA1111A1Z1',
-        address: '88, MG Road, Camp',
-        workingHours: { start: '09:00', end: '18:00' }
-      };
-      setOrganization(newOrg);
-
-      if (user) {
-        const updatedUser = { 
-          ...user, 
-          companyName: name, 
-          industry, 
-          tier,
-          organizationId: orgId 
-        };
-        setUser(updatedUser);
-        
-        // Fill mock team members to start
-        const defaultTeam: TeamMember[] = [
-          { id: 'tm_1', fullName: 'Ankit Patel', email: 'ankit@horizon.media', role: 'SALES', status: 'ACTIVE' },
-          { id: 'tm_2', fullName: 'Sarah Jenkins', email: 'sarah@horizon.media', role: 'MANAGER', status: 'ACTIVE' }
-        ];
-        setTeamMembers(defaultTeam);
-        setAuthView('invite_team');
-        logActivity('Organization created (fallback): ' + name, 'Onboarding');
-      }
+      setAuthError(err.message || 'Organization setup failed.');
       setIsLoading(false);
-      return true;
+      return false;
     }
   };
 
@@ -765,24 +586,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email: user.email, ...profileData })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setUser(data.user);
         logActivity('Profile settings updated via API', 'User Profile');
         return true;
+      } else {
+        setAuthError(data?.error || 'Profile update failed.');
+        return false;
       }
-    } catch (err) {
-      console.warn('[SERVER PROFILE UPDATE FAILED, FALLBACK]:', err);
+    } catch (err: any) {
+      setAuthError(err.message || 'Profile update failed.');
+      return false;
     }
-
-    // Local state fallback
-    if (user) {
-      const updated = { ...user, ...profileData };
-      setUser(updated);
-      logActivity('Profile settings updated (fallback)', 'User Profile');
-      return true;
-    }
-    return false;
   };
 
   const updateOrganization = async (orgData: Partial<Organization> & { logo?: string; gst?: string; address?: string; country?: string; timezone?: string; currency?: string; workingHours?: { start: string; end: string } }): Promise<boolean> => {
@@ -798,28 +615,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(orgData)
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setOrganization(data.organization);
         if (data.user) setUser(data.user);
         logActivity('Organization settings updated via API', 'Organization');
         return true;
+      } else {
+        setAuthError(data?.error || 'Organization update failed.');
+        return false;
       }
-    } catch (err) {
-      console.warn('[SERVER ORG UPDATE FAILED, FALLBACK]:', err);
+    } catch (err: any) {
+      setAuthError(err.message || 'Organization update failed.');
+      return false;
     }
-
-    // Local state fallback
-    if (organization) {
-      const updated = { ...organization, ...orgData };
-      setOrganization(updated as any);
-      if (orgData.name && user) {
-        setUser({ ...user, companyName: orgData.name });
-      }
-      logActivity('Organization settings updated (fallback)', 'Organization');
-      return true;
-    }
-    return false;
   };
 
   const changePassword = async (newPassword: string): Promise<boolean> => {
@@ -833,15 +643,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({ email: user?.email, password: newPassword })
       });
-      if (response.ok) {
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.success) {
         logActivity('Password updated successfully via API', 'Security');
         return true;
+      } else {
+        setAuthError(data?.error || 'Password update failed.');
+        return false;
       }
-    } catch (err) {
-      console.warn('Password update API issue:', err);
+    } catch (err: any) {
+      setAuthError(err.message || 'Password update failed.');
+      return false;
     }
-    logActivity('Password updated (fallback)', 'Security');
-    return true;
   };
 
   const enrollMFA = async (): Promise<{ qrCode: string; secret: string }> => {
@@ -880,19 +693,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({ id: userId, role: 'SALES', status: 'SUSPENDED' })
       });
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.success) {
         setTeamMembers(data.teamMembers);
         logActivity(`Team member deactivated (ID: ${userId}) via API`, 'Team Management');
         return true;
+      } else {
+        setAuthError(data?.error || 'Deactivation failed.');
+        return false;
       }
-    } catch (e) {
-      console.warn('Deactivate team member error, fallback:', e);
+    } catch (e: any) {
+      setAuthError(e.message || 'Deactivation failed.');
+      return false;
     }
-
-    setTeamMembers(prev => prev.map(m => m.id === userId ? { ...m, status: 'SUSPENDED' } : m));
-    logActivity(`Team member deactivated (ID: ${userId}) (fallback)`, 'Team Management');
-    return true;
   };
 
   const transferOwnership = async (userId: string): Promise<boolean> => {
@@ -907,21 +720,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({ id: userId, role: 'OWNER' })
       });
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.success) {
         setTeamMembers(data.teamMembers);
         setUser({ ...user, role: 'ADMIN' });
         logActivity(`Workspace ownership transferred to ${userId} via API`, 'Team Management');
         return true;
+      } else {
+        setAuthError(data?.error || 'Transfer ownership failed.');
+        return false;
       }
-    } catch (e) {
-      console.warn('Ownership transfer error, fallback:', e);
+    } catch (e: any) {
+      setAuthError(e.message || 'Transfer ownership failed.');
+      return false;
     }
-
-    setUser({ ...user, role: 'ADMIN' });
-    setTeamMembers(prev => prev.map(m => m.id === userId ? { ...m, role: 'OWNER', status: 'ACTIVE' } : m));
-    logActivity(`Workspace ownership transferred to ${userId} (fallback)`, 'Team Management');
-    return true;
   };
 
   // TEAM MEMBER MANAGEMENT
@@ -938,29 +750,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, role, fullName })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setTeamMembers(data.teamMembers);
         logActivity(`Team member invited via API: ${email}`, 'Team Management');
         return true;
       } else {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Team invite failed on server.');
+        const errMsg = data?.error || 'Team invite failed on server.';
+        setAuthError(errMsg);
+        return false;
       }
     } catch (err: any) {
-      console.warn('[SERVER TEAM INVITE FAILED, FALLBACK]:', err.message);
-
-      const newMember: TeamMember = {
-        id: 'tm_sim_' + Math.floor(Math.random() * 1000000),
-        email,
-        fullName: fullName || email.split('@')[0],
-        role,
-        status: 'INVITED',
-        joinedAt: new Date().toISOString()
-      };
-
-      setTeamMembers(prev => [...prev, newMember]);
-      return true;
+      setAuthError(err.message || 'Team invite failed.');
+      return false;
     }
   };
 
@@ -976,18 +779,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ id, role })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setTeamMembers(data.teamMembers);
         logActivity(`Team member role updated to ${role} via API`, 'Team Management');
         return true;
+      } else {
+        setAuthError(data?.error || 'Team member role update failed.');
+        return false;
       }
-    } catch (err) {
-      console.warn('[SERVER TEAM ROLE UPDATE FAILED, FALLBACK]:', err);
+    } catch (err: any) {
+      setAuthError(err.message || 'Team member role update failed.');
+      return false;
     }
-
-    setTeamMembers(prev => prev.map(m => m.id === id ? { ...m, role } : m));
-    return true;
   };
 
   const deleteTeamMember = async (id: string): Promise<boolean> => {
@@ -1002,18 +807,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ id })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
         setTeamMembers(data.teamMembers);
         logActivity('Team member deleted via API', 'Team Management');
         return true;
+      } else {
+        setAuthError(data?.error || 'Team member deletion failed.');
+        return false;
       }
-    } catch (err) {
-      console.warn('[SERVER TEAM DELETION FAILED, FALLBACK]:', err);
+    } catch (err: any) {
+      setAuthError(err.message || 'Team member deletion failed.');
+      return false;
     }
-
-    setTeamMembers(prev => prev.filter(m => m.id !== id));
-    return true;
   };
 
   // LOGOUT FUNCTION
@@ -1051,7 +858,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isSandbox) {
         const supabase = getSupabaseClient();
         if (supabase) {
-          // Open popup-based login compliant with AI Studio iframe restrictions
           const redirectUri = `${window.location.origin}/auth/callback`;
           
           const { data, error } = await supabase.auth.signInWithOAuth({
@@ -1065,7 +871,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (error) throw error;
 
           if (data?.url) {
-            // Open direct OAuth provider URL inside popup window
             const width = 600;
             const height = 700;
             const left = window.screenX + (window.outerWidth - width) / 2;
@@ -1081,7 +886,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               throw new Error('Popup blocked by browser. Please enable popups to proceed.');
             }
 
-            // Simple event listener for callback success
             const handleOAuthSuccess = (event: MessageEvent) => {
               if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
                 window.location.reload();
@@ -1094,22 +898,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Simulated OAuth login
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const gUser: WorkspaceUser = {
-        id: 'usr_google_' + Math.floor(Math.random() * 100000),
-        email: 'sohamkharat481@gmail.com',
-        fullName: 'Soham Kharat (Google)',
-        companyName: 'Horizon Media',
-        industry: 'Marketing Agency',
-        tier: 'PROFESSIONAL',
-        role: 'ADMIN',
-        createdAt: new Date().toISOString(),
-        isVerified: true
-      };
-      setUser(gUser);
-      setAuthView('authenticated');
-      setIsLoading(false);
+      throw new Error('Google OAuth is not configured in this environment.');
     } catch (err: any) {
       setAuthError(err.message || 'Google Login failed');
       setIsLoading(false);

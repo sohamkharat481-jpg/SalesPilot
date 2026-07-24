@@ -9177,7 +9177,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     
     const finalUri = `${baseUrl}/api/auth/google/callback`;
     if (finalUri.includes('run.app')) {
-      console.warn(`[GOOGLE OAUTH REDIRECT WARNING] The constructed redirect URI contains "run.app": "${finalUri}". Ensure APP_URL on Vercel is set to "https://sales-pilot-green.vercel.app" to avoid mismatch errors in production.`);
+      console.log(`[GOOGLE OAUTH REDIRECT INFO] Constructed redirect URI on Cloud Run container: "${finalUri}".`);
     }
     return finalUri;
   };
