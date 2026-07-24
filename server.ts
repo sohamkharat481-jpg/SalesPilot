@@ -1881,25 +1881,27 @@ async function startServer() {
     const localLeads = localDb.getAllLeads();
     const leadMap = new Map<string, Lead>();
     localLeads.forEach(l => {
-      if (!orgId || !(l as any).organizationId || (l as any).organizationId === orgId) {
-        leadMap.set(l.id, l);
-      }
+      leadMap.set(l.id, l);
     });
     fetchedLeads.forEach(l => {
       leadMap.set(l.id, l);
     });
 
-    const combined = Array.from(leadMap.values());
-    leads = combined;
-    localDb.db.leads = combined;
+    const allCombined = Array.from(leadMap.values());
+    leads = allCombined;
+    localDb.db.leads = allCombined;
     saveDb();
+
+    const filteredLeads = orgId 
+      ? allCombined.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId) 
+      : allCombined;
 
     console.log(`[DATABASE AUDIT - SELECT ALL LEADS]
 - Database Provider: "${dbProvider}"
 - Requested Org ID: "${orgId || 'ALL'}"
-- Total Leads Returned: ${combined.length}`);
+- Total Leads Returned: ${filteredLeads.length}`);
 
-    return combined;
+    return filteredLeads;
   };
 
   const getLeadByIdAsync = async (leadId: string, orgId?: string): Promise<Lead | null> => {
@@ -2194,6 +2196,7 @@ async function startServer() {
       fullName,
       companyName: '',
       industry: '',
+      organizationId: 'org_salespilot_lifetime',
       tier: isFounderUser ? 'ENTERPRISE' : 'STARTER',
       role: isFounderUser ? 'OWNER' : (role || 'ADMIN'),
       createdAt: new Date().toISOString(),
@@ -2330,6 +2333,11 @@ async function startServer() {
     // Reset attempt log on successful login
     failedLoginAttempts[emailLower] = { count: 0 };
 
+    // Ensure organizationId is always initialized on userObj
+    if (!userObj.organizationId) {
+      userObj.organizationId = 'org_salespilot_lifetime';
+    }
+
     // Query Supabase profiles table if active to sync exact primary key ID and organization ID
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -2339,6 +2347,15 @@ async function startServer() {
           if (profile.id) userObj.id = String(profile.id);
           if (profile.organization_id) userObj.organizationId = String(profile.organization_id);
           if (profile.full_name) userObj.fullName = profile.full_name;
+        } else {
+          // Upsert profile into Supabase so organization_id is persisted
+          await supabase.from('profiles').upsert({
+            id: userObj.id,
+            email: emailLower,
+            full_name: userObj.fullName,
+            organization_id: userObj.organizationId || 'org_salespilot_lifetime',
+            updated_at: new Date().toISOString()
+          });
         }
       } catch (spErr) {
         console.error('[SUPABASE PROFILE LOOKUP ERROR ON LOGIN]', spErr);
@@ -7044,11 +7061,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const aptMap = new Map<string, Appointment>();
-    appointments.forEach(a => {
-      if (!(a as any).organizationId || (a as any).organizationId === orgId) {
-        aptMap.set(a.id, a);
-      }
-    });
+    appointments.forEach(a => aptMap.set(a.id, a));
     fetchedApts.forEach(a => aptMap.set(a.id, a));
 
     const combinedApts = Array.from(aptMap.values());
@@ -7056,7 +7069,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     localDb.db.appointments = combinedApts;
     saveDb();
 
-    res.json({ appointments: combinedApts });
+    const filteredApts = orgId
+      ? combinedApts.filter(a => !(a as any).organizationId || (a as any).organizationId === orgId)
+      : combinedApts;
+
+    res.json({ appointments: filteredApts });
   });
 
   // Book Appointment

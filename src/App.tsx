@@ -242,14 +242,17 @@ export default function App() {
         return;
       }
       try {
+        const token = localStorage.getItem('salespilot_token');
+        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+
         const [leadsRes, campsRes, dealsRes, aptsRes, configRes, notRes, actRes] = await Promise.all([
-          fetch('/api/v1/leads'),
-          fetch('/api/v1/campaigns'),
-          fetch('/api/v1/deals'),
-          fetch('/api/v1/appointments'),
-          fetch('/api/v1/integrations'),
-          fetch('/api/v1/dashboard/notifications').catch(() => null),
-          fetch('/api/v1/dashboard/activities').catch(() => null)
+          fetch('/api/v1/leads', { headers }),
+          fetch('/api/v1/campaigns', { headers }),
+          fetch('/api/v1/deals', { headers }),
+          fetch('/api/v1/appointments', { headers }),
+          fetch('/api/v1/integrations', { headers }),
+          fetch('/api/v1/dashboard/notifications', { headers }).catch(() => null),
+          fetch('/api/v1/dashboard/activities', { headers }).catch(() => null)
         ]);
 
         const leadsData = await leadsRes.json();
@@ -299,9 +302,13 @@ export default function App() {
       return;
     }
     try {
+      const token = localStorage.getItem('salespilot_token');
       const response = await fetch('/api/v1/leads', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(leadData)
       });
       const newLead = await response.json();

@@ -67,6 +67,51 @@
       "passwordHash": "$2b$10$sKfPdeTA8plXql3l52iWKuKkZYrRV6JhftShDzerW6wJJtgRsj/v.",
       "apiKeys": [],
       "subscriptionStatus": "INACTIVE"
+    },
+    {
+      "id": "usr_1784906773045",
+      "email": "debuguser101@salespilot.io",
+      "fullName": "Debug User 101",
+      "companyName": "",
+      "industry": "",
+      "tier": "STARTER",
+      "role": "ADMIN",
+      "createdAt": "2026-07-24T15:26:13.045Z",
+      "isVerified": true,
+      "phone": "",
+      "timezone": "Asia/Kolkata",
+      "language": "English",
+      "notificationPrefs": {
+        "email": true,
+        "push": true,
+        "weeklyReport": true
+      },
+      "passwordHash": "$2b$10$i.6lxsKjbOHrFn/syajPKOSZ8/DZzGPUmpFBC8EroU41Z/ovKZWxC",
+      "apiKeys": [],
+      "subscriptionStatus": "INACTIVE"
+    },
+    {
+      "id": "usr_1784907025312",
+      "email": "live_test_user_777@salespilot.io",
+      "fullName": "Live Audit Tester",
+      "companyName": "",
+      "industry": "",
+      "organizationId": "org_salespilot_lifetime",
+      "tier": "STARTER",
+      "role": "ADMIN",
+      "createdAt": "2026-07-24T15:30:25.312Z",
+      "isVerified": true,
+      "phone": "",
+      "timezone": "Asia/Kolkata",
+      "language": "English",
+      "notificationPrefs": {
+        "email": true,
+        "push": true,
+        "weeklyReport": true
+      },
+      "passwordHash": "$2b$10$VkEqVlu.UfaUkdyCvArDhe641mx.Txmmjl/3LlcYwcxtMPoIhNtQe",
+      "apiKeys": [],
+      "subscriptionStatus": "INACTIVE"
     }
   ],
   "organizations": [
@@ -104,6 +149,584 @@
     }
   ],
   "leads": [
+    {
+      "id": "ld_1784907044970",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "PersistenceCheck",
+      "lastName": "Lead777",
+      "email": "persistence777@enterprise.io",
+      "phone": "+1-800-555-7777",
+      "company": "Enterprise Analytics Corp",
+      "title": "VP Engineering",
+      "status": "MEETING_BOOKED",
+      "source": "Manual",
+      "enrichment": {
+        "companySize": "Unknown",
+        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
+        "techStack": [],
+        "website": "https://enterprise.io"
+      },
+      "researchStatus": "COMPLETED",
+      "researchProgress": 100,
+      "researchStatusText": "Research Completed successfully",
+      "researchHistory": [
+        {
+          "companySummary": "Enterprise Analytics Corp provides data-driven decision support systems through an integrated SaaS platform. They focus on helping large enterprises unify disparate data sources into actionable business intelligence dashboards.",
+          "websiteAnalysis": "The digital presence is highly technical, likely utilizing React/Next.js for the frontend and AWS for backend infrastructure. There is a strong opportunity to integrate automated lead intelligence into their B2B signup flow.",
+          "industryAnalysis": "The analytics sector is currently shifting from descriptive reporting to predictive, AI-driven automation, with intense pressure to demonstrate clear ROI on data infrastructure investments.",
+          "painPoints": [
+            "High churn in self-service tiers due to lack of personalized outbound follow-up.",
+            "Data silos preventing effective lead scoring across the engineering and sales interface.",
+            "Inefficient lead routing causing latency in high-value enterprise opportunity discovery."
+          ],
+          "decisionMakerSummary": "As VP of Engineering, PersistenceCheck manages the technical roadmap and platform scalability; they are the primary decision-maker for build-vs-buy decisions regarding internal sales-enablement tooling.",
+          "businessOpportunities": [
+            "Automating lead qualification workflows to bridge the gap between engineering-led product development and sales execution.",
+            "Implementation of predictive analytics to score incoming leads for the sales team.",
+            "Integration of custom LLM-based SDR agents to assist their technical sales documentation."
+          ],
+          "salesAngleSuggestions": [
+            "Focus on how SalesPilot eliminates the 'engineering bottleneck' in lead sourcing, allowing your team to focus on core product features instead of maintenance.",
+            "Highlight SalesPilot’s API-first architecture that integrates natively with your existing analytics stack to automate prospect discovery without manual effort."
+          ],
+          "objectionPredictions": [
+            "Data Privacy concerns: Counter by highlighting our SOC2 compliance and zero-retention data policies.",
+            "Integration friction: Counter by showcasing our pre-built webhooks and native connectors that require zero engineering maintenance."
+          ],
+          "competitorNotes": "They currently rely on internal custom-built scripts. We position SalesPilot as the 'Out-of-the-box' replacement that reduces technical debt and increases speed-to-market for lead generation.",
+          "buyingSignals": [
+            "Recent aggressive hiring of DevOps and Data Engineering staff.",
+            "Increased investment in documentation and developer-facing marketing collateral."
+          ],
+          "aiInsights": "The VP of Engineering is focused on operational efficiency. The absolute best next action is to frame SalesPilot not as a 'sales tool' but as a 'data engineering efficiency engine' that reduces the maintenance load on their team while generating leads.",
+          "generatedAt": "2026-07-24T15:30:53.399Z",
+          "businessModel": "Enterprise B2B SaaS",
+          "products": [
+            "Data Aggregation Suite",
+            "BI Dashboards",
+            "API Connector Hub"
+          ],
+          "services": [
+            "Enterprise Implementation",
+            "Data Strategy Consulting",
+            "Custom API Integrations"
+          ],
+          "targetCustomers": [
+            "Fortune 500 Data Teams",
+            "Growth-Stage SaaS Companies",
+            "Financial Services Firms"
+          ],
+          "industriesServed": [
+            "Financial Services",
+            "Healthcare Technology",
+            "Retail Logistics"
+          ],
+          "businessSize": "200-500 employees",
+          "yearsInBusiness": "8 years",
+          "employeeGrowth": "Stable growth in engineering headcount, steady expansion in customer success.",
+          "revenueEstimate": "₹45 Crore INR",
+          "techStack": [
+            "AWS",
+            "Snowflake",
+            "Kubernetes",
+            "Salesforce"
+          ],
+          "socialPresence": [
+            "LinkedIn (Highly active)",
+            "Twitter/X (Moderate activity)"
+          ],
+          "businessCategory": "Data Infrastructure & Analytics",
+          "usp": "Unified data integration with proprietary predictive modeling.",
+          "mission": "To democratize enterprise data through seamless connectivity.",
+          "vision": "Building the backbone of the next generation of intelligent enterprises.",
+          "extractedKeywords": [
+            "Data Analytics",
+            "Enterprise SaaS",
+            "Predictive Modeling",
+            "Cloud Infrastructure"
+          ],
+          "extractedOffers": [
+            "Free Data Health Audit",
+            "Whitepaper: Enterprise Scaling"
+          ],
+          "extractedForms": [
+            "Contact Sales",
+            "Request Demo",
+            "Download Case Study"
+          ],
+          "extractedCTAs": [
+            "Get Started",
+            "Talk to an Expert"
+          ],
+          "customerTypes": [
+            "Chief Data Officers",
+            "VP Engineering",
+            "Head of Business Intelligence"
+          ],
+          "dmName": "PersistenceCheck Lead777",
+          "dmRole": "VP Engineering",
+          "dmDepartment": "Engineering",
+          "dmResponsibilities": "Overseeing product architecture, engineering team management, and strategic technical partnerships.",
+          "dmBuyingAuthority": "HIGH",
+          "dmPainPoints": [
+            "Excessive time spent on internal tool development",
+            "Difficulty scaling sales-data throughput"
+          ],
+          "dmGoals": [
+            "Reducing technical debt",
+            "Accelerating product release cycles"
+          ],
+          "dmInterests": [
+            "AI/ML infrastructure",
+            "Automated DevOps"
+          ],
+          "dmPreferredCommunication": "Short email with clear metrics",
+          "dmInfluenceScore": 85,
+          "predictedProblems": [
+            {
+              "problem": "Manual Sales",
+              "severity": "HIGH",
+              "reasoning": "Engineering-led companies often lack automated sales infrastructure, resulting in manual lead handling by technical staff."
+            }
+          ],
+          "salesOppWhyBuy": "SalesPilot provides an immediate ROI by automating the lead enrichment process that currently consumes engineering bandwidth.",
+          "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+          "salesOppScore": 88,
+          "salesOppBudgetRange": "₹75,000 INR per month",
+          "salesOppTimeline": "Immediate (1-3 months)",
+          "salesOppPriorityLevel": "HIGH",
+          "salesOppRecommendedOffer": "Complimentary 100 verified leads audit",
+          "detailedCompetitors": [
+            {
+              "name": "Standard Data Connectors",
+              "marketPosition": "Legacy incumbent",
+              "differentiation": "SalesPilot offers superior AI-driven lead routing compared to legacy static connectors.",
+              "strengths": "Established brand presence",
+              "weaknesses": "High maintenance and lack of predictive features",
+              "potentialOpportunity": "Winning on automation efficiency"
+            }
+          ],
+          "strategyFirstMessage": "Hi PersistenceCheck, I noticed Enterprise Analytics Corp is scaling its infrastructure. I'm reaching out because I help VPs of Engineering automate the lead-to-revenue pipeline, freeing up your team from building custom internal sales tools. Would you be open to a 5-minute audit of your current lead velocity?",
+          "strategyOutreachChannel": "Email",
+          "strategyBestContactPerson": "PersistenceCheck Lead777",
+          "strategyRecommendedOffer": "Complimentary 100 verified leads audit",
+          "strategyFollowUpSequence": [
+            "Follow up with a specific case study regarding engineering-heavy SaaS lead automation.",
+            "Share a brief video demo of the SalesPilot API integration."
+          ],
+          "strategyMeetingAngle": "Efficiency in engineering resource allocation",
+          "strategyExpectedObjections": [
+            "Privacy concerns",
+            "We have an internal team for this"
+          ],
+          "strategyObjectionHandling": [
+            "Reference SOC2 and compliance certifications.",
+            "Emphasize that SalesPilot is an accelerant, not a replacement for their vision."
+          ],
+          "executiveSummary": "PersistenceCheck Lead777 is a strategic target at Enterprise Analytics Corp. With their engineering-heavy focus, they suffer from manual sales-data management, presenting a massive opportunity for SalesPilot. By positioning our solution as an engineering efficiency tool rather than a standard sales platform, we align with their technical mandate, increase the likelihood of buy-in, and bypass traditional sales skepticism.",
+          "insightsHotnessScore": 92,
+          "insightsBuyingIntent": "HIGH",
+          "insightsUrgency": "MEDIUM",
+          "insightsRevenuePotential": "₹15,00,000 INR ARR",
+          "insightsReplyProbability": 75,
+          "insightsMeetingProbability": 60,
+          "insightsConversionProbability": 45
+        }
+      ],
+      "createdAt": "2026-07-24T15:30:44.970Z",
+      "lastUpdated": "2026-07-24T15:31:01.744Z",
+      "notesList": [
+        {
+          "id": "n_1784907052423",
+          "text": "Audit Note 777: Security evaluation and Supabase persistence verified.",
+          "createdAt": "2026-07-24T15:30:52.423Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_research_1784907061744",
+          "event": "AI Research Report Created",
+          "details": "Automatic comprehensive business intelligence report generated successfully.",
+          "createdAt": "2026-07-24T15:31:01.744Z"
+        },
+        {
+          "id": "tl_lead_apt_1784907060520",
+          "event": "Demo Scheduled",
+          "details": "Scheduled a 60-minute demo. Google Calendar synced, Meet Room generated: https://meet.google.com/mock-meet-ewm-hb9n-ocw",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        },
+        {
+          "id": "tl_1784907052423",
+          "event": "Note Added",
+          "details": "User added a research note: \"Audit Note 777: Security evaluation and ...\"",
+          "createdAt": "2026-07-24T15:30:52.423Z"
+        }
+      ],
+      "researchProfile": {
+        "companySummary": "Enterprise Analytics Corp provides data-driven decision support systems through an integrated SaaS platform. They focus on helping large enterprises unify disparate data sources into actionable business intelligence dashboards.",
+        "websiteAnalysis": "The digital presence is highly technical, likely utilizing React/Next.js for the frontend and AWS for backend infrastructure. There is a strong opportunity to integrate automated lead intelligence into their B2B signup flow.",
+        "industryAnalysis": "The analytics sector is currently shifting from descriptive reporting to predictive, AI-driven automation, with intense pressure to demonstrate clear ROI on data infrastructure investments.",
+        "painPoints": [
+          "High churn in self-service tiers due to lack of personalized outbound follow-up.",
+          "Data silos preventing effective lead scoring across the engineering and sales interface.",
+          "Inefficient lead routing causing latency in high-value enterprise opportunity discovery."
+        ],
+        "decisionMakerSummary": "As VP of Engineering, PersistenceCheck manages the technical roadmap and platform scalability; they are the primary decision-maker for build-vs-buy decisions regarding internal sales-enablement tooling.",
+        "businessOpportunities": [
+          "Automating lead qualification workflows to bridge the gap between engineering-led product development and sales execution.",
+          "Implementation of predictive analytics to score incoming leads for the sales team.",
+          "Integration of custom LLM-based SDR agents to assist their technical sales documentation."
+        ],
+        "salesAngleSuggestions": [
+          "Focus on how SalesPilot eliminates the 'engineering bottleneck' in lead sourcing, allowing your team to focus on core product features instead of maintenance.",
+          "Highlight SalesPilot’s API-first architecture that integrates natively with your existing analytics stack to automate prospect discovery without manual effort."
+        ],
+        "objectionPredictions": [
+          "Data Privacy concerns: Counter by highlighting our SOC2 compliance and zero-retention data policies.",
+          "Integration friction: Counter by showcasing our pre-built webhooks and native connectors that require zero engineering maintenance."
+        ],
+        "competitorNotes": "They currently rely on internal custom-built scripts. We position SalesPilot as the 'Out-of-the-box' replacement that reduces technical debt and increases speed-to-market for lead generation.",
+        "buyingSignals": [
+          "Recent aggressive hiring of DevOps and Data Engineering staff.",
+          "Increased investment in documentation and developer-facing marketing collateral."
+        ],
+        "aiInsights": "The VP of Engineering is focused on operational efficiency. The absolute best next action is to frame SalesPilot not as a 'sales tool' but as a 'data engineering efficiency engine' that reduces the maintenance load on their team while generating leads.",
+        "generatedAt": "2026-07-24T15:30:53.399Z",
+        "businessModel": "Enterprise B2B SaaS",
+        "products": [
+          "Data Aggregation Suite",
+          "BI Dashboards",
+          "API Connector Hub"
+        ],
+        "services": [
+          "Enterprise Implementation",
+          "Data Strategy Consulting",
+          "Custom API Integrations"
+        ],
+        "targetCustomers": [
+          "Fortune 500 Data Teams",
+          "Growth-Stage SaaS Companies",
+          "Financial Services Firms"
+        ],
+        "industriesServed": [
+          "Financial Services",
+          "Healthcare Technology",
+          "Retail Logistics"
+        ],
+        "businessSize": "200-500 employees",
+        "yearsInBusiness": "8 years",
+        "employeeGrowth": "Stable growth in engineering headcount, steady expansion in customer success.",
+        "revenueEstimate": "₹45 Crore INR",
+        "techStack": [
+          "AWS",
+          "Snowflake",
+          "Kubernetes",
+          "Salesforce"
+        ],
+        "socialPresence": [
+          "LinkedIn (Highly active)",
+          "Twitter/X (Moderate activity)"
+        ],
+        "businessCategory": "Data Infrastructure & Analytics",
+        "usp": "Unified data integration with proprietary predictive modeling.",
+        "mission": "To democratize enterprise data through seamless connectivity.",
+        "vision": "Building the backbone of the next generation of intelligent enterprises.",
+        "extractedKeywords": [
+          "Data Analytics",
+          "Enterprise SaaS",
+          "Predictive Modeling",
+          "Cloud Infrastructure"
+        ],
+        "extractedOffers": [
+          "Free Data Health Audit",
+          "Whitepaper: Enterprise Scaling"
+        ],
+        "extractedForms": [
+          "Contact Sales",
+          "Request Demo",
+          "Download Case Study"
+        ],
+        "extractedCTAs": [
+          "Get Started",
+          "Talk to an Expert"
+        ],
+        "customerTypes": [
+          "Chief Data Officers",
+          "VP Engineering",
+          "Head of Business Intelligence"
+        ],
+        "dmName": "PersistenceCheck Lead777",
+        "dmRole": "VP Engineering",
+        "dmDepartment": "Engineering",
+        "dmResponsibilities": "Overseeing product architecture, engineering team management, and strategic technical partnerships.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Excessive time spent on internal tool development",
+          "Difficulty scaling sales-data throughput"
+        ],
+        "dmGoals": [
+          "Reducing technical debt",
+          "Accelerating product release cycles"
+        ],
+        "dmInterests": [
+          "AI/ML infrastructure",
+          "Automated DevOps"
+        ],
+        "dmPreferredCommunication": "Short email with clear metrics",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Engineering-led companies often lack automated sales infrastructure, resulting in manual lead handling by technical staff."
+          }
+        ],
+        "salesOppWhyBuy": "SalesPilot provides an immediate ROI by automating the lead enrichment process that currently consumes engineering bandwidth.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "₹75,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Complimentary 100 verified leads audit",
+        "detailedCompetitors": [
+          {
+            "name": "Standard Data Connectors",
+            "marketPosition": "Legacy incumbent",
+            "differentiation": "SalesPilot offers superior AI-driven lead routing compared to legacy static connectors.",
+            "strengths": "Established brand presence",
+            "weaknesses": "High maintenance and lack of predictive features",
+            "potentialOpportunity": "Winning on automation efficiency"
+          }
+        ],
+        "strategyFirstMessage": "Hi PersistenceCheck, I noticed Enterprise Analytics Corp is scaling its infrastructure. I'm reaching out because I help VPs of Engineering automate the lead-to-revenue pipeline, freeing up your team from building custom internal sales tools. Would you be open to a 5-minute audit of your current lead velocity?",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "PersistenceCheck Lead777",
+        "strategyRecommendedOffer": "Complimentary 100 verified leads audit",
+        "strategyFollowUpSequence": [
+          "Follow up with a specific case study regarding engineering-heavy SaaS lead automation.",
+          "Share a brief video demo of the SalesPilot API integration."
+        ],
+        "strategyMeetingAngle": "Efficiency in engineering resource allocation",
+        "strategyExpectedObjections": [
+          "Privacy concerns",
+          "We have an internal team for this"
+        ],
+        "strategyObjectionHandling": [
+          "Reference SOC2 and compliance certifications.",
+          "Emphasize that SalesPilot is an accelerant, not a replacement for their vision."
+        ],
+        "executiveSummary": "PersistenceCheck Lead777 is a strategic target at Enterprise Analytics Corp. With their engineering-heavy focus, they suffer from manual sales-data management, presenting a massive opportunity for SalesPilot. By positioning our solution as an engineering efficiency tool rather than a standard sales platform, we align with their technical mandate, increase the likelihood of buy-in, and bypass traditional sales skepticism.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "₹15,00,000 INR ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      }
+    },
+    {
+      "id": "ld_1784906784010",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "DebugLead",
+      "lastName": "Test101",
+      "email": "debuglead101@test.com",
+      "phone": "+1-555-0101",
+      "company": "DebugCorp 101",
+      "title": "CTO",
+      "status": "MEETING_BOOKED",
+      "source": "Manual",
+      "enrichment": {
+        "companySize": "Unknown",
+        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
+        "techStack": [],
+        "website": "https://debug101.com"
+      },
+      "researchStatus": "RESEARCHING",
+      "researchProgress": 95,
+      "researchStatusText": "Compiling final executive business dossier...",
+      "researchHistory": [],
+      "createdAt": "2026-07-24T15:26:24.010Z",
+      "lastUpdated": "2026-07-24T15:26:30.904Z",
+      "notesList": [
+        {
+          "id": "n_1784906787375",
+          "text": "Note for DebugLead 101: Key evaluation criteria confirmed.",
+          "createdAt": "2026-07-24T15:26:27.375Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_lead_apt_1784906790830",
+          "event": "Demo Scheduled",
+          "details": "Scheduled a 45-minute demo. Google Calendar synced, Meet Room generated: https://meet.google.com/mock-meet-zqn-de0l-vp8",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        },
+        {
+          "id": "tl_1784906787375",
+          "event": "Note Added",
+          "details": "User added a research note: \"Note for DebugLead 101: Key evaluation c...\"",
+          "createdAt": "2026-07-24T15:26:27.375Z"
+        }
+      ],
+      "researchProfile": {
+        "companySummary": "DebugCorp 101 functions as a technical solutions provider focused on software development and infrastructure optimization. They operate primarily as a B2B technology consultancy, helping businesses modernize their legacy stacks.",
+        "websiteAnalysis": "The digital presence is expected to be engineering-heavy with a focus on technical documentation and solution portfolios. Tech stack opportunities include cloud-native infrastructure automation and developer experience (DevEx) tools.",
+        "industryAnalysis": "The software development services industry is seeing a massive shift toward AI-assisted coding and automated QA, increasing the demand for efficient, scalable engineering management tools.",
+        "painPoints": [
+          "Difficulty in maintaining consistent lead flow for custom software development projects.",
+          "Inefficient manual qualification processes that drain engineering resources during pre-sales.",
+          "Lack of integrated CRM intelligence leading to missed cross-selling opportunities with existing clients."
+        ],
+        "decisionMakerSummary": "As CTO, DebugLead Test101 manages the technical vision and resource allocation. They have high decision-making power regarding the internal tool stack and engineering workflow efficiency.",
+        "businessOpportunities": [
+          "Strategic partnership to streamline their internal B2B lead generation workflows.",
+          "Implementation of AI-driven sales intelligence to augment their technical sales advisory.",
+          "Infrastructure modernization services tailored to their enterprise client requirements."
+        ],
+        "salesAngleSuggestions": [
+          "Focus on how SalesPilot reduces the time your senior engineers spend on non-technical qualification, shifting them back to high-value development.",
+          "Highlight how our automation engine ensures the technical requirements of your prospects are captured accurately before the first discovery call."
+        ],
+        "objectionPredictions": [
+          "We already use bespoke internal tools for lead management. Counter: Emphasize SalesPilot's ability to integrate with your existing APIs rather than replacing them.",
+          "Data privacy and compliance concerns. Counter: Highlight our SOC2-compliant architecture and localized data residency options."
+        ],
+        "competitorNotes": "They likely use a combination of generic CRM tools (HubSpot/Salesforce) and custom-built internal databases. We differentiate by providing actionable AI insights that go beyond simple data storage.",
+        "buyingSignals": [
+          "Increased activity in technical recruitment or engineering team expansion.",
+          "Recent adoption of new cloud infrastructure platforms on their digital footprint."
+        ],
+        "aiInsights": "The highest ROI action is to position SalesPilot as an 'Engineering-First' sales tool that respects their technical culture, rather than a generic marketing platform.",
+        "generatedAt": "2026-07-24T15:30:21.156Z",
+        "businessModel": "Enterprise B2B SaaS / Technical Consulting",
+        "products": [
+          "DevOps Consulting",
+          "Custom API Solutions"
+        ],
+        "services": [
+          "Software Architecture Audit",
+          "Cloud Migration Strategy"
+        ],
+        "targetCustomers": [
+          "Enterprise CTOs",
+          "Engineering Leads"
+        ],
+        "industriesServed": [
+          "FinTech",
+          "Healthcare",
+          "SaaS"
+        ],
+        "businessSize": "50-200 employees",
+        "yearsInBusiness": "5 years",
+        "employeeGrowth": "Steady, focusing on high-seniority technical roles.",
+        "revenueEstimate": "₹8 Crore INR",
+        "techStack": [
+          "AWS",
+          "Kubernetes",
+          "Jira",
+          "GitHub"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "GitHub (High Activity)"
+        ],
+        "businessCategory": "Software Technology",
+        "usp": "High-fidelity engineering execution for complex business problems.",
+        "mission": "To simplify complexity in modern digital infrastructure.",
+        "vision": "To become the premier partner for enterprise-grade digital transformation.",
+        "extractedKeywords": [
+          "Cloud Migration",
+          "DevOps",
+          "API Strategy",
+          "Scalable Architecture"
+        ],
+        "extractedOffers": [
+          "Free Technical Audit",
+          "Discovery Consultation"
+        ],
+        "extractedForms": [
+          "Contact Us",
+          "Request a Quote"
+        ],
+        "extractedCTAs": [
+          "Get Started",
+          "Speak with an Engineer"
+        ],
+        "customerTypes": [
+          "Mid-Market Enterprise",
+          "Tech Startups"
+        ],
+        "dmName": "DebugLead Test101",
+        "dmRole": "CTO",
+        "dmDepartment": "Engineering",
+        "dmResponsibilities": "Technical roadmap, team hiring, stack selection, and budget oversight.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Scaling engineering teams without losing quality",
+          "Reducing technical debt during rapid growth"
+        ],
+        "dmGoals": [
+          "Optimize deployment cycles",
+          "Improve engineering productivity"
+        ],
+        "dmInterests": [
+          "System Architecture",
+          "AI Automation"
+        ],
+        "dmPreferredCommunication": "Short email with clear metrics",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "MEDIUM",
+            "reasoning": "Engineering-led firms often neglect automated sales pipelines, relying on high-touch but inefficient manual processes."
+          }
+        ],
+        "salesOppWhyBuy": "SalesPilot provides the technical rigor an engineering-led team needs, automating the manual overhead that CTOs typically loathe.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "₹45,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Complimentary 100 verified leads audit",
+        "detailedCompetitors": [
+          {
+            "name": "Custom Internal Tools",
+            "marketPosition": "Internal/Legacy",
+            "differentiation": "Flexibility vs. Maintenance burden",
+            "strengths": "Tailored to current workflows",
+            "weaknesses": "No updates, no AI intelligence, maintenance heavy",
+            "potentialOpportunity": "Cost-benefit analysis of build vs. buy"
+          }
+        ],
+        "strategyFirstMessage": "Hi DebugLead, I've been following DebugCorp 101's work in cloud infrastructure and noticed you're scaling your engineering team. I'm reaching out because we help CTOs offload the manual burden of lead qualification so your senior engineers stay focused on shipping code. Would you be open to a 10-minute audit of your current pipeline flow?",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "DebugLead Test101",
+        "strategyRecommendedOffer": "Complimentary 100 verified leads audit",
+        "strategyFollowUpSequence": [
+          "Send case study of a peer CTO who reduced engineering overhead by 30%.",
+          "Share an invite to an exclusive webinar on 'Engineering-Centric Sales Growth'."
+        ],
+        "strategyMeetingAngle": "A technical 'workflow audit' rather than a traditional sales pitch.",
+        "strategyExpectedObjections": [
+          "Build vs Buy dilemma",
+          "Security integration"
+        ],
+        "strategyObjectionHandling": [
+          "Contrast maintenance cost of internal tools vs. subscription.",
+          "Detail our API-first security posture."
+        ],
+        "executiveSummary": "DebugCorp 101 is a technically-driven firm currently lacking optimized sales automation. As a CTO, DebugLead is the ideal decision-maker who values efficiency and technical compatibility. By pitching SalesPilot as an engineering-optimized tool rather than a generic marketing platform, we can align with their internal priorities, lower their overhead, and secure a high-value enterprise contract within 3 months.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "₹12,00,000 INR ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      }
+    },
     {
       "id": "ld_1784906076650",
       "organizationId": "org_salespilot_lifetime",
@@ -147,7 +770,167 @@
           "details": "User added a research note: \"Customer note 99: Interested in automate...\"",
           "createdAt": "2026-07-24T15:14:40.009Z"
         }
-      ]
+      ],
+      "researchProfile": {
+        "companySummary": "Acme 99 Corp is an emerging technology enterprise focused on delivering scalable digital transformation solutions and infrastructure optimization. They operate at the intersection of enterprise software development and cloud-native service architecture.",
+        "websiteAnalysis": "The digital footprint suggests a modern, API-first architecture likely utilizing AWS or Azure cloud environments. Opportunities exist for integrating high-conversion lead generation widgets and automated CRM syncing directly into their CI/CD and deployment workflows.",
+        "industryAnalysis": "The B2B SaaS infrastructure sector is currently undergoing a shift toward AI-driven operational efficiency, forcing companies to move away from fragmented legacy stacks toward unified automation suites.",
+        "painPoints": [
+          "High engineering resource allocation toward non-core internal tooling maintenance.",
+          "Data silos preventing effective attribution between technical lead sourcing and revenue generation.",
+          "Inefficient manual qualification processes that bottleneck the transition from MQL to SQL."
+        ],
+        "decisionMakerSummary": "As CTO, NewCustomer Lead99 holds final authority over technical procurement and stack architecture, prioritizing tools that enhance team velocity and system integration without introducing security technical debt.",
+        "businessOpportunities": [
+          "Implementation of AI-automated pipeline orchestration to reduce manual SDR overhead.",
+          "Strategic partnership integration to monetize their existing proprietary software modules.",
+          "Migration to an unified intelligent data layer to improve cross-departmental analytics."
+        ],
+        "salesAngleSuggestions": [
+          "Focus on how SalesPilot eliminates 'technical debt' in lead generation by automating data cleaning directly within their existing engineering infrastructure.",
+          "Highlight SalesPilot's ability to act as a force multiplier for a lean engineering team, allowing them to capture higher revenue with lower overhead."
+        ],
+        "objectionPredictions": [
+          "Data privacy and compliance concerns: Counter by highlighting our SOC2/GDPR-ready infrastructure and isolated data handling.",
+          "Tool fatigue: Counter by emphasizing our 'API-First' approach, which requires zero UI switching for their engineers."
+        ],
+        "competitorNotes": "They likely use internal ad-hoc scripts or generic CRM integrations. We win by positioning SalesPilot as the 'intelligent layer' that automates what their engineers currently have to build from scratch.",
+        "buyingSignals": [
+          "Rapid deployment of new features indicating scaling engineering operations.",
+          "Investment in developer productivity tools, suggesting a readiness to automate core business functions."
+        ],
+        "aiInsights": "The most effective move is to approach the CTO not as a salesperson, but as a systems architect presenting an automation solution that minimizes 'build vs buy' trade-offs. Secure a brief call by focusing on the technical reduction of sales-engineering friction.",
+        "generatedAt": "2026-07-24T15:15:21.864Z",
+        "businessModel": "Enterprise B2B SaaS",
+        "products": [
+          "Acme Suite Cloud",
+          "Infrastructure Monitor 99",
+          "Automate-Flow Core"
+        ],
+        "services": [
+          "Systems Integration Consulting",
+          "Cloud Migration Strategy",
+          "Technical Architecture Audit"
+        ],
+        "targetCustomers": [
+          "Enterprise CTOs",
+          "Cloud Operations Teams",
+          "Software Engineering Leads"
+        ],
+        "industriesServed": [
+          "Cloud Computing",
+          "Enterprise Software",
+          "Digital Transformation"
+        ],
+        "businessSize": "50-100 employees",
+        "yearsInBusiness": "6 years",
+        "employeeGrowth": "Stable growth focused on senior technical hires",
+        "revenueEstimate": "₹5 Crore INR",
+        "techStack": [
+          "AWS",
+          "Kubernetes",
+          "Salesforce",
+          "Jira"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "GitHub (High activity)"
+        ],
+        "businessCategory": "Marketing Technology",
+        "usp": "Integrated automation for cloud-native enterprise workflows.",
+        "mission": "To simplify the complex path from innovation to customer acquisition.",
+        "vision": "Leading the evolution of automated enterprise growth architectures.",
+        "extractedKeywords": [
+          "Cloud Automation",
+          "Enterprise Scalability",
+          "DevOps Efficiency",
+          "Sales Pipeline Optimization"
+        ],
+        "extractedOffers": [
+          "Free Architecture Audit",
+          "Developer Sandbox Access"
+        ],
+        "extractedForms": [
+          "Contact Us",
+          "Request a Demo"
+        ],
+        "extractedCTAs": [
+          "Get Started",
+          "Speak with an Architect"
+        ],
+        "customerTypes": [
+          "Mid-Market Enterprises",
+          "Scaling Tech Startups"
+        ],
+        "dmName": "NewCustomer Lead99",
+        "dmRole": "CTO",
+        "dmDepartment": "Engineering / Operations",
+        "dmResponsibilities": "Overseeing technical infrastructure, scaling product architecture, and vendor vetting.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Engineering bottlenecks",
+          "Tool fragmentation"
+        ],
+        "dmGoals": [
+          "Increase development velocity",
+          "Improve system integration efficiency"
+        ],
+        "dmInterests": [
+          "AI-driven architecture",
+          "Scalable cloud services"
+        ],
+        "dmPreferredCommunication": "Short email with clear metrics",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Poor Automation",
+            "severity": "HIGH",
+            "reasoning": "As a CTO-led organization, technical debt in sales processes is a common hurdle to scaling revenue effectively."
+          }
+        ],
+        "salesOppWhyBuy": "SalesPilot reduces operational overhead, allowing their technical team to focus on product rather than sales pipeline maintenance.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "₹35,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Founder Account onboarding",
+        "detailedCompetitors": [
+          {
+            "name": "Legacy CRM Vendors",
+            "marketPosition": "Market Leader",
+            "differentiation": "SalesPilot is built for technical integration rather than manual data entry.",
+            "strengths": "Brand recognition",
+            "weaknesses": "Clunky APIs",
+            "potentialOpportunity": "Position as the 'API-first' alternative."
+          }
+        ],
+        "strategyFirstMessage": "Hi NewCustomer, I’ve been following Acme 99 Corp’s work in the cloud space. Most CTOs I work with are currently struggling with 'sales-engineering friction'—where engineering teams end up maintaining manual lead workflows. We built SalesPilot specifically to automate this at the architectural level. Would you be open to a 5-minute technical brief on how we reduce your team's overhead?",
+        "strategyOutreachChannel": "LinkedIn Message",
+        "strategyBestContactPerson": "NewCustomer Lead99",
+        "strategyRecommendedOffer": "Complimentary 100 verified leads audit",
+        "strategyFollowUpSequence": [
+          "Follow up with a technical case study",
+          "Request a quick sync with a lead solutions architect"
+        ],
+        "strategyMeetingAngle": "Technical architecture alignment session",
+        "strategyExpectedObjections": [
+          "Data Privacy",
+          "Integration Friction"
+        ],
+        "strategyObjectionHandling": [
+          "Showcasing our security documentation",
+          "Demonstrating our one-click API connector"
+        ],
+        "executiveSummary": "NewCustomer Lead99, as CTO of Acme 99 Corp, represents a high-intent opportunity. Their focus on engineering-led growth makes them an ideal candidate for SalesPilot's technical automation suite. By framing our outreach as an architectural solution to operational debt, we minimize typical 'sales' friction and align with their priority of efficient scaling. We project a high probability of conversion by targeting the CTO’s desire to automate and optimize infrastructure, positioning SalesPilot as the essential layer for their next growth phase.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "₹12,00,000 INR ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      }
     },
     {
       "id": "ld_1784905883044",
@@ -1332,6 +2115,166 @@
   "deals": [],
   "appointments": [
     {
+      "id": "apt_1784907060520_ih9bh",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_1784907025312",
+      "leadId": "ld_1784907044970",
+      "leadName": "PersistenceCheck Lead777",
+      "company": "Enterprise Analytics Corp",
+      "email": "persistence777@enterprise.io",
+      "dateTime": "2026-08-05T14:00:00.000Z",
+      "durationMins": 60,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-ewm-hb9n-ocw",
+      "notes": "Executive Strategy Briefing",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784907060519",
+      "gmailMessageId": "msg_mock_1784907060519",
+      "reminderSent": false,
+      "createdAt": "2026-07-24T15:31:00.520Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784907060520_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        },
+        {
+          "id": "tl_sub_1784907060520_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-ewm-hb9n-ocw. Invites dispatched. Google Event ID: evt_mock_1784907060519",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        },
+        {
+          "id": "tl_sub_1784907060520_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784907060519",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784907060520_ih9bh",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_1784907025312",
+      "leadId": "ld_1784907044970",
+      "leadName": "PersistenceCheck Lead777",
+      "company": "Enterprise Analytics Corp",
+      "email": "persistence777@enterprise.io",
+      "dateTime": "2026-08-05T14:00:00.000Z",
+      "durationMins": 60,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-ewm-hb9n-ocw",
+      "notes": "Executive Strategy Briefing",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784907060519",
+      "gmailMessageId": "msg_mock_1784907060519",
+      "reminderSent": false,
+      "createdAt": "2026-07-24T15:31:00.520Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784907060520_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        },
+        {
+          "id": "tl_sub_1784907060520_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-ewm-hb9n-ocw. Invites dispatched. Google Event ID: evt_mock_1784907060519",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        },
+        {
+          "id": "tl_sub_1784907060520_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784907060519",
+          "createdAt": "2026-07-24T15:31:00.520Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784906790830_4ejj9",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_1784906773045",
+      "leadId": "ld_1784906784010",
+      "leadName": "DebugLead Test101",
+      "company": "DebugCorp 101",
+      "email": "debuglead101@test.com",
+      "dateTime": "2026-07-30T11:00:00.000Z",
+      "durationMins": 45,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-zqn-de0l-vp8",
+      "notes": "Technical Deep-Dive Call",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784906790830",
+      "gmailMessageId": "msg_mock_1784906790830",
+      "reminderSent": false,
+      "createdAt": "2026-07-24T15:26:30.830Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784906790830_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        },
+        {
+          "id": "tl_sub_1784906790830_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-zqn-de0l-vp8. Invites dispatched. Google Event ID: evt_mock_1784906790830",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        },
+        {
+          "id": "tl_sub_1784906790830_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784906790830",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1784906790830_4ejj9",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_1784906773045",
+      "leadId": "ld_1784906784010",
+      "leadName": "DebugLead Test101",
+      "company": "DebugCorp 101",
+      "email": "debuglead101@test.com",
+      "dateTime": "2026-07-30T11:00:00.000Z",
+      "durationMins": 45,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-zqn-de0l-vp8",
+      "notes": "Technical Deep-Dive Call",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1784906790830",
+      "gmailMessageId": "msg_mock_1784906790830",
+      "reminderSent": false,
+      "createdAt": "2026-07-24T15:26:30.830Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1784906790830_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone Asia/Kolkata.",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        },
+        {
+          "id": "tl_sub_1784906790830_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-zqn-de0l-vp8. Invites dispatched. Google Event ID: evt_mock_1784906790830",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        },
+        {
+          "id": "tl_sub_1784906790830_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1784906790830",
+          "createdAt": "2026-07-24T15:26:30.830Z"
+        }
+      ]
+    },
+    {
       "id": "apt_1784906083532_q148b",
       "organizationId": "org_salespilot_lifetime",
       "userId": "usr_1784906064494",
@@ -1580,9 +2523,125 @@
     "jwt_token_uybh7wdyiptqy1pjdhvgsc": {
       "userId": "usr_1784906064494",
       "expiresAt": 1784913298227
+    },
+    "jwt_token_1ukhlgmpmsbhrbq4md2z6b": {
+      "userId": "usr_1784906773045",
+      "expiresAt": 1784913990827
+    },
+    "jwt_token_cppr8gq22vlry4zszzo9q": {
+      "userId": "usr_1784906773045",
+      "expiresAt": 1784913999700
+    },
+    "jwt_token_uafzrdufkaweoaulxns4": {
+      "userId": "usr_1784907025312",
+      "expiresAt": 1784914260514
+    },
+    "jwt_token_qp6el868iqwpb0dkxjv7": {
+      "userId": "usr_1784907025312",
+      "expiresAt": 1784914281003
     }
   },
   "activityLogs": [
+    {
+      "id": "al_1784907073300_492",
+      "userId": "usr_1784907025312",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:31:13.300Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784907067068_204",
+      "userId": "usr_1784907025312",
+      "action": "User signed out",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:31:07.068Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784907038888_888",
+      "userId": "usr_1784907025312",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:30:38.888Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784907031148_257",
+      "userId": "usr_1784907025312",
+      "action": "Completed email OTP verification",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:30:31.148Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784907025314_709",
+      "userId": "usr_1784907025312",
+      "action": "Registered new account (Verification Required)",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:30:25.314Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784906796082_525",
+      "userId": "usr_1784906773045",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:26:36.082Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784906794089_627",
+      "userId": "usr_1784906773045",
+      "action": "User signed out",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:26:34.089Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784906779256_430",
+      "userId": "usr_1784906773045",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:26:19.256Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784906776060_474",
+      "userId": "usr_1784906773045",
+      "action": "Completed email OTP verification",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:26:16.060Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1784906773046_27",
+      "userId": "usr_1784906773045",
+      "action": "Registered new account (Verification Required)",
+      "module": "Authentication",
+      "timestamp": "2026-07-24T15:26:13.046Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
     {
       "id": "al_1784906089829_171",
       "userId": "usr_1784906064494",
@@ -1645,6 +2704,50 @@
     }
   ],
   "loginHistory": [
+    {
+      "id": "lh_1784907073298",
+      "userId": "usr_1784907025312",
+      "email": "live_test_user_777@salespilot.io",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-07-24T15:31:13.299Z"
+    },
+    {
+      "id": "lh_1784907038886",
+      "userId": "usr_1784907025312",
+      "email": "live_test_user_777@salespilot.io",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-07-24T15:30:38.886Z"
+    },
+    {
+      "id": "lh_1784906796081",
+      "userId": "usr_1784906773045",
+      "email": "debuguser101@salespilot.io",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-07-24T15:26:36.081Z"
+    },
+    {
+      "id": "lh_1784906779255",
+      "userId": "usr_1784906773045",
+      "email": "debuguser101@salespilot.io",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-07-24T15:26:19.255Z"
+    },
     {
       "id": "lh_1784906089829",
       "userId": "usr_1784906064494",
