@@ -52,7 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<WorkspaceUser | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [isSandbox, setIsSandbox] = useState(true);
+  const [isSandbox, setIsSandbox] = useState(() => {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isVercel = hostname.endsWith('.vercel.app') || !!((import.meta as any).env?.VERCEL || (typeof process !== 'undefined' && process.env?.VERCEL));
+    if (isVercel) return false;
+    const configured = isSupabaseConfigured();
+    const isLocalStudio = hostname.includes('.run.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1');
+    return isLocalStudio || !configured;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') !== 'false');
@@ -169,7 +176,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync Supabase settings state
   useEffect(() => {
     const configured = isSupabaseConfigured();
-    setIsSandbox(!configured);
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isVercel = hostname.endsWith('.vercel.app') || !!((import.meta as any).env?.VERCEL || (typeof process !== 'undefined' && process.env?.VERCEL));
+    const isLocalStudio = hostname.includes('.run.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1');
+
+    setIsSandbox(isVercel ? false : (isLocalStudio || !configured));
 
     // Initial session checking
     async function initAuth() {
