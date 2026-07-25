@@ -895,10 +895,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           setIsLoading(false);
           return;
+        } else {
+          throw new Error('Supabase client failed to initialize: SUPABASE_URL or SUPABASE_ANON_KEY is missing from environment variables.');
         }
       }
 
-      throw new Error('Google OAuth is not configured in this environment.');
+      throw new Error('Google OAuth is disabled because Sandbox mode is active.');
     } catch (err: any) {
       setAuthError(err.message || 'Google Login failed');
       setIsLoading(false);

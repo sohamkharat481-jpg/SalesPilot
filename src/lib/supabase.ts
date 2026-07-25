@@ -2,14 +2,23 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
 
+function resolveEnvVar(names: string[]): string {
+  const meta = (import.meta as any) || {};
+  const proc = typeof process !== 'undefined' && process.env ? (process.env as any) : {};
+
+  for (const name of names) {
+    if (meta.env && meta.env[name]) return meta.env[name];
+    if (proc && proc[name]) return proc[name];
+  }
+  return '';
+}
+
 /**
  * Checks if Supabase credentials are configured in the environment or locally.
  */
 export function isSupabaseConfigured(): boolean {
-  // Check standard client env variables or session config overrides
-  const meta = import.meta as any;
-  const url = meta.env?.VITE_SUPABASE_URL || localStorage.getItem('supabase_url');
-  const key = meta.env?.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key');
+  const url = resolveEnvVar(['VITE_SUPABASE_URL', 'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL']) || localStorage.getItem('supabase_url') || '';
+  const key = resolveEnvVar(['VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']) || localStorage.getItem('supabase_anon_key') || '';
   return !!(url && key);
 }
 
@@ -20,12 +29,21 @@ export function isSupabaseConfigured(): boolean {
 export function getSupabaseClient(): SupabaseClient | null {
   if (supabaseInstance) return supabaseInstance;
 
-  const meta = import.meta as any;
-  const url = meta.env?.VITE_SUPABASE_URL || localStorage.getItem('supabase_url');
-  const key = meta.env?.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key');
+  const url = resolveEnvVar(['VITE_SUPABASE_URL', 'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL']) || localStorage.getItem('supabase_url') || '';
+  const key = resolveEnvVar(['VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']) || localStorage.getItem('supabase_anon_key') || '';
 
-  if (!url || !key) {
-    console.warn('[SUPABASE] URL or Anon Key is missing. Running in high-performance local Sandbox mode.');
+  const missingVars: string[] = [];
+  if (!url) {
+    missingVars.push('SUPABASE_URL (checked: VITE_SUPABASE_URL, SUPABASE_URL, NEXT_PUBLIC_SUPABASE_URL, localStorage.supabase_url)');
+  }
+  if (!key) {
+    missingVars.push('SUPABASE_ANON_KEY (checked: VITE_SUPABASE_ANON_KEY, SUPABASE_ANON_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, localStorage.supabase_anon_key)');
+  }
+
+  if (missingVars.length > 0) {
+    console.warn('[SUPABASE INITIALIZATION ERROR] Cannot initialize Supabase client.');
+    console.warn('[SUPABASE MISSING VARIABLES]:\n - ' + missingVars.join('\n - '));
+    console.warn('[SUPABASE EXACT REASON]: getSupabaseClient() returned null because required environment variables (SUPABASE_URL and SUPABASE_ANON_KEY) are not set in client environment (import.meta.env / process.env / Vercel env / localStorage).');
     return null;
   }
 
@@ -37,10 +55,10 @@ export function getSupabaseClient(): SupabaseClient | null {
         detectSessionInUrl: true
       }
     });
-    console.log('[SUPABASE] Live client successfully initialized.');
+    console.log('[SUPABASE] Live client successfully initialized with URL:', url);
     return supabaseInstance;
-  } catch (err) {
-    console.error('[SUPABASE] Handshake failed to initialize client:', err);
+  } catch (err: any) {
+    console.error('[SUPABASE EXCEPTION] Handshake failed to initialize client:', err?.message || err);
     return null;
   }
 }
