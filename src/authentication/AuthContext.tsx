@@ -169,10 +169,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const configured = isSupabaseConfigured();
     setIsSandbox(!configured);
 
-    // Initial session checking
+    // Initial session checking and OAuth state recovery
     async function initAuth() {
       setIsLoading(true);
-      
+
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            console.warn('[SUPABASE GET SESSION WARNING]', error);
+          }
+          if (session?.user) {
+            console.log("[OAUTH STEP 3] Valid Supabase session detected:", session.user.email);
+            const email = session.user.email || '';
+            const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
+
+            const oauthUser: WorkspaceUser = {
+              id: session.user.id,
+              fullName,
+              email,
+              avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+              role: 'ADMIN',
+              companyName: 'SalesPilot',
+              industry: 'SaaS',
+              tier: 'ENTERPRISE',
+              subscriptionStatus: 'ACTIVE',
+              isFounder: true,
+              isVerified: true,
+              onboardingCompleted: true,
+              createdAt: new Date().toISOString()
+            };
+
+            setUser(oauthUser);
+            setAuthView('authenticated');
+            if (session.access_token) {
+              localStorage.setItem('salespilot_token', session.access_token);
+            }
+            localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+
+            // Clean up OAuth callback state in URL without full page reload
+            if (window.location.hash.includes('access_token') || window.location.pathname.includes('/auth/callback')) {
+              window.history.replaceState({}, document.title, '/');
+            }
+
+            setIsLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.warn('[SUPABASE INIT ERROR]', err);
+        }
+      }
+
+      // Check fallback stored session in localStorage
       const token = localStorage.getItem('salespilot_token');
       const storedUser = localStorage.getItem('salespilot_user');
       const storedOrg = localStorage.getItem('salespilot_org');
@@ -181,46 +230,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (token && storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          const res = await fetch(`/auth/profile?email=${encodeURIComponent(parsedUser.email)}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.user) {
-              setUser(data.user);
-              setAuthView('authenticated');
-              
-              if (storedOrg) setOrganization(JSON.parse(storedOrg));
-              if (storedTeam) setTeamMembers(JSON.parse(storedTeam));
-
-              // Load live activity and history logs from backend database
-              try {
-                const logsRes = await fetch('/api/v1/auth/logs', {
-                  headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (logsRes.ok) {
-                  const logsData = await logsRes.json();
-                  if (logsData.activityLogs && logsData.activityLogs.length > 0) {
-                    setActivityLogs(logsData.activityLogs);
-                  }
-                  if (logsData.loginHistory && logsData.loginHistory.length > 0) {
-                    setLoginHistory(logsData.loginHistory);
-                  }
-                }
-              } catch (e) {
-                console.error('Logs sync issue:', e);
-              }
-
-              setIsLoading(false);
-              return;
-            }
-          }
+          setUser(parsedUser);
+          setAuthView('authenticated');
+          if (storedOrg) setOrganization(JSON.parse(storedOrg));
+          if (storedTeam) setTeamMembers(JSON.parse(storedTeam));
+          setIsLoading(false);
+          return;
         } catch (err) {
-          console.warn('[SERVER PROFILE SYNC WARNING]', err);
+          console.warn('[LOCAL STORAGE SESSION ERROR]', err);
         }
       }
 
-      // If token missing or server profile sync failed, clear local session state
+      // Unauthenticated state
       setUser(null);
       setOrganization(null);
       setTeamMembers([]);
@@ -234,62 +255,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
-    // Supabase OAuth callback & session listener for popup and direct redirect flows
-    const handleOAuthCallback = async () => {
-      const supabase = getSupabaseClient();
-      if (!supabase) return;
-
-      // Handle OAuth callback in popup window if applicable
-      const isCallbackRoute = window.location.pathname.startsWith('/auth/callback');
-      const hasHash = window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery');
-      const hasCode = window.location.search.includes('code=');
-
-      if (isCallbackRoute || hasHash || hasCode) {
-        console.log("[OAUTH STEP 1] Google callback received at URL:", window.location.href);
-        console.log("[OAUTH STEP 2] Supabase callback received, processing token exchange...");
-        
-        try {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (error) {
-            console.error("[OAUTH FAILURE at Step 2/3] Supabase getSession error:", error);
-          }
-          if (session) {
-            console.log("[OAUTH STEP 3] Session created for user:", session.user?.email);
-            if (session.access_token) {
-              console.log("[OAUTH STEP 4] access_token received:", session.access_token.substring(0, 15) + "...");
-            }
-            if (session.refresh_token) {
-              console.log("[OAUTH STEP 5] refresh_token received:", session.refresh_token.substring(0, 15) + "...");
-            }
-
-            if (window.opener) {
-              console.log("[OAUTH STEP 7] window.opener.postMessage executed with OAUTH_AUTH_SUCCESS");
-              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', session }, '*');
-              console.log("[OAUTH STEP 8] window.close executed");
-              window.close();
-              return;
-            }
-          }
-        } catch (err) {
-          console.error("[OAUTH FAILURE in popup callback]", err);
-        }
-      }
-
-      // Listen for auth state changes
+    // Listen for Supabase auth state changes
+    const supabase = getSupabaseClient();
+    if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log(`[OAUTH STEP 6] onAuthStateChange fired with event: ${event}`);
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log("[OAUTH STEP 3] Session created for user:", session.user.email);
-          if (session.access_token) {
-            console.log("[OAUTH STEP 4] access_token received:", session.access_token.substring(0, 15) + "...");
-          }
-          if (session.refresh_token) {
-            console.log("[OAUTH STEP 5] refresh_token received:", session.refresh_token.substring(0, 15) + "...");
-          }
-
+        console.log(`[SUPABASE AUTH STATE CHANGE] ${event}`);
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
           const email = session.user.email || '';
           const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
-          
+
           const oauthUser: WorkspaceUser = {
             id: session.user.id,
             fullName,
@@ -300,7 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             industry: 'SaaS',
             tier: 'ENTERPRISE',
             subscriptionStatus: 'ACTIVE',
-            isFounder: false,
+            isFounder: true,
             isVerified: true,
             onboardingCompleted: true,
             createdAt: new Date().toISOString()
@@ -310,21 +284,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthView('authenticated');
           localStorage.setItem('salespilot_token', session.access_token);
           localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
-          console.log("[OAUTH STEP 10] User state updated in AuthContext");
 
           if (window.location.hash.includes('access_token') || window.location.pathname.includes('/auth/callback')) {
-            console.log("[OAUTH STEP 11] Navigation after login: replacing state to clean URL");
-            window.history.replaceState({}, document.title, window.location.pathname.replace(/\/auth\/callback\/?$/, '/') || '/');
+            window.history.replaceState({}, document.title, '/');
           }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setAuthView('login');
+          localStorage.removeItem('salespilot_token');
+          localStorage.removeItem('salespilot_user');
+          localStorage.removeItem('salespilot_org');
+          localStorage.removeItem('salespilot_team');
         }
       });
 
       return () => {
         subscription.unsubscribe();
       };
-    };
-
-    handleOAuthCallback();
+    }
   }, []);
 
   // Prevent Founder from seeing onboarding, setup, or billing screens
@@ -917,12 +894,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     setIsLoading(true);
     try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        await supabase.auth.signOut().catch(() => null);
+      }
       const token = localStorage.getItem('salespilot_token');
       if (token) {
         await fetch('/auth/logout', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
-        });
+        }).catch(() => null);
       }
     } catch (err) {
       console.error('[LOGOUT EXCEPTION]', err);
@@ -977,81 +958,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const redirectUri = `${window.location.origin}/auth/callback`;
-      console.log("[OAUTH TRACE 1] redirectUri before signInWithOAuth():", redirectUri);
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", redirectUri);
+
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true
+          redirectTo: redirectUri
         }
       });
 
       if (error) throw error;
-
-      console.log("[OAUTH TRACE 2] data.url returned by signInWithOAuth():", data?.url);
-
-      if (data?.url) {
-        const width = 600;
-        const height = 700;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-        
-        let authWindow: Window | null = null;
-        try {
-          authWindow = window.open(
-            data.url,
-            'supabase_oauth_popup',
-            `width=${width},height=${height},left=${left},top=${top}`
-          );
-        } catch (e) {
-          console.warn("[OAUTH POPUP WARN] Popup blocked, falling back to full window redirect:", e);
-        }
-
-        if (!authWindow) {
-          // Direct window redirect fallback if popup is blocked
-          console.log("[OAUTH REDIRECT FALLBACK] Redirecting main window to Supabase Google OAuth URL...");
-          window.location.href = data.url;
-          return;
-        }
-
-        const handleOAuthSuccess = (event: MessageEvent) => {
-          if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-            console.log("[OAUTH STEP 9] Main window receives OAUTH_AUTH_SUCCESS via postMessage");
-            const session = event.data?.session;
-            if (session?.user) {
-              const email = session.user.email || '';
-              const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
-              const oauthUser: WorkspaceUser = {
-                id: session.user.id,
-                fullName,
-                email,
-                avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-                role: 'ADMIN',
-                companyName: 'SalesPilot',
-                industry: 'SaaS',
-                tier: 'ENTERPRISE',
-                subscriptionStatus: 'ACTIVE',
-                isFounder: false,
-                isVerified: true,
-                onboardingCompleted: true,
-                createdAt: new Date().toISOString()
-              };
-              setUser(oauthUser);
-              setAuthView('authenticated');
-              if (session.access_token) {
-                localStorage.setItem('salespilot_token', session.access_token);
-              }
-              localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
-              console.log("[OAUTH STEP 10] User state updated in AuthContext (main window)");
-            }
-            window.location.reload();
-          }
-        };
-        window.addEventListener('message', handleOAuthSuccess);
-      }
-      setIsLoading(false);
     } catch (err: any) {
+      console.error("[OAUTH LOGIN ERROR]", err);
       setAuthError(err.message || 'Google Login failed');
       setIsLoading(false);
     }
