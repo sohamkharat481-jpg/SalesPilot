@@ -8,9 +8,9 @@ interface AuthContextType {
   teamMembers: TeamMember[];
   isSandbox: boolean;
   isLoading: boolean;
-  authView: 'login' | 'signup' | 'forgot_password' | 'reset_password' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team' | 'authenticated';
+  authView: 'login' | 'authenticated';
   authError: string | null;
-  setAuthView: (view: any) => void;
+  setAuthView: (view: 'login' | 'authenticated') => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   signup: (email: string, password: string, fullName: string, role: UserRole) => Promise<boolean>;
   forgotPassword: (email: string) => Promise<boolean>;
@@ -75,9 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastActive, setLastActive] = useState<number>(Date.now());
   
   // Navigation view inside authentication cycle
-  const [authView, setAuthView] = useState<
-    'login' | 'signup' | 'forgot_password' | 'reset_password' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team' | 'authenticated'
-  >('login');
+  const [authView, setAuthView] = useState<'login' | 'authenticated'>('login');
 
   // Save log states to localStorage
   useEffect(() => {
@@ -941,91 +939,118 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // GOOGLE LOGIN (POPUP FLOW COMPLIANT WITH SKILL)
+  // GOOGLE LOGIN (SUPABASE AUTH SINGLE FLOW)
   const loginWithGoogle = async (): Promise<void> => {
     setAuthError(null);
     setIsLoading(true);
 
     try {
-      if (!isSandbox) {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const redirectUri = `${window.location.origin}/auth/callback`;
-          console.log("[OAUTH TRACE 1] redirectUri before signInWithOAuth():", redirectUri);
-          
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-              redirectTo: redirectUri,
-              skipBrowserRedirect: true
-            }
-          });
-
-          if (error) throw error;
-
-          console.log("[OAUTH TRACE 2] data.url returned by signInWithOAuth():", data?.url);
-
-          if (data?.url) {
-            const width = 600;
-            const height = 700;
-            const left = window.screenX + (window.outerWidth - width) / 2;
-            const top = window.screenY + (window.outerHeight - height) / 2;
-            
-            const authWindow = window.open(
-              data.url,
-              'supabase_oauth_popup',
-              `width=${width},height=${height},left=${left},top=${top}`
-            );
-
-            console.log("[OAUTH TRACE 3] Current window.location.href after popup opens:", window.location.href);
-
-            if (!authWindow) {
-              throw new Error('Popup blocked by browser. Please enable popups to proceed.');
-            }
-
-            const handleOAuthSuccess = (event: MessageEvent) => {
-              if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-                console.log("[OAUTH STEP 9] Main window receives OAUTH_AUTH_SUCCESS via postMessage");
-                const session = event.data?.session;
-                if (session?.user) {
-                  const email = session.user.email || '';
-                  const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
-                  const oauthUser: WorkspaceUser = {
-                    id: session.user.id,
-                    fullName,
-                    email,
-                    avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-                    role: 'ADMIN',
-                    companyName: 'SalesPilot',
-                    industry: 'SaaS',
-                    tier: 'ENTERPRISE',
-                    subscriptionStatus: 'ACTIVE',
-                    isFounder: false,
-                    isVerified: true,
-                    onboardingCompleted: true,
-                    createdAt: new Date().toISOString()
-                  };
-                  setUser(oauthUser);
-                  setAuthView('authenticated');
-                  if (session.access_token) {
-                    localStorage.setItem('salespilot_token', session.access_token);
-                  }
-                  localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
-                  console.log("[OAUTH STEP 10] User state updated in AuthContext (main window)");
-                }
-                window.location.reload();
-              }
-            };
-            window.addEventListener('message', handleOAuthSuccess);
-          }
-          setIsLoading(false);
-          return;
-        } else {
-          throw new Error('Supabase client failed to initialize: SUPABASE_URL or SUPABASE_ANON_KEY is missing from environment variables.');
-        }
+      if (isSandbox) {
+        // Sandbox / offline development mode Google sign-in simulation
+        const sandboxUser: WorkspaceUser = {
+          id: 'google_user_sandbox_' + Date.now(),
+          fullName: 'Google User',
+          email: 'google.user@salespilot.io',
+          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+          role: 'ADMIN',
+          companyName: 'SalesPilot Workspace',
+          industry: 'SaaS',
+          tier: 'ENTERPRISE',
+          subscriptionStatus: 'ACTIVE',
+          isFounder: true,
+          isVerified: true,
+          onboardingCompleted: true,
+          createdAt: new Date().toISOString()
+        };
+        setUser(sandboxUser);
+        setAuthView('authenticated');
+        localStorage.setItem('salespilot_token', 'sandbox_google_auth_token');
+        localStorage.setItem('salespilot_user', JSON.stringify(sandboxUser));
+        setIsLoading(false);
+        logActivity('Google Sign-In completed (Sandbox Mode)', 'Authentication');
+        return;
       }
 
-      throw new Error('Google OAuth is disabled because Sandbox mode is active.');
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client failed to initialize: Credentials missing.');
+      }
+
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      console.log("[OAUTH TRACE 1] redirectUri before signInWithOAuth():", redirectUri);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true
+        }
+      });
+
+      if (error) throw error;
+
+      console.log("[OAUTH TRACE 2] data.url returned by signInWithOAuth():", data?.url);
+
+      if (data?.url) {
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        let authWindow: Window | null = null;
+        try {
+          authWindow = window.open(
+            data.url,
+            'supabase_oauth_popup',
+            `width=${width},height=${height},left=${left},top=${top}`
+          );
+        } catch (e) {
+          console.warn("[OAUTH POPUP WARN] Popup blocked, falling back to full window redirect:", e);
+        }
+
+        if (!authWindow) {
+          // Direct window redirect fallback if popup is blocked
+          console.log("[OAUTH REDIRECT FALLBACK] Redirecting main window to Supabase Google OAuth URL...");
+          window.location.href = data.url;
+          return;
+        }
+
+        const handleOAuthSuccess = (event: MessageEvent) => {
+          if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+            console.log("[OAUTH STEP 9] Main window receives OAUTH_AUTH_SUCCESS via postMessage");
+            const session = event.data?.session;
+            if (session?.user) {
+              const email = session.user.email || '';
+              const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
+              const oauthUser: WorkspaceUser = {
+                id: session.user.id,
+                fullName,
+                email,
+                avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+                role: 'ADMIN',
+                companyName: 'SalesPilot',
+                industry: 'SaaS',
+                tier: 'ENTERPRISE',
+                subscriptionStatus: 'ACTIVE',
+                isFounder: false,
+                isVerified: true,
+                onboardingCompleted: true,
+                createdAt: new Date().toISOString()
+              };
+              setUser(oauthUser);
+              setAuthView('authenticated');
+              if (session.access_token) {
+                localStorage.setItem('salespilot_token', session.access_token);
+              }
+              localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+              console.log("[OAUTH STEP 10] User state updated in AuthContext (main window)");
+            }
+            window.location.reload();
+          }
+        };
+        window.addEventListener('message', handleOAuthSuccess);
+      }
+      setIsLoading(false);
     } catch (err: any) {
       setAuthError(err.message || 'Google Login failed');
       setIsLoading(false);
