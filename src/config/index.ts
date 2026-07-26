@@ -4,13 +4,19 @@
  * the Supabase client and Gemini API SDK with strict error guards.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+} from '../lib/supabase';
 
 // Safe environment variables retrieval
 export const CONFIG = {
-  SUPABASE_URL: process.env.SUPABASE_URL || '',
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   N8N_WEBHOOK_URL: process.env.N8N_WEBHOOK_URL || '',
   CASHFREE_APP_ID: process.env.CASHFREE_APP_ID || '',
@@ -19,38 +25,14 @@ export const CONFIG = {
   NODE_ENV: process.env.NODE_ENV || 'development'
 };
 
-// Lazy singletons
-let supabaseInstance: SupabaseClient | null = null;
 let geminiInstance: GoogleGenAI | null = null;
 
 /**
- * Gets or initializes the Supabase client safely.
- * Returns null if Supabase credentials are not configured,
- * preventing server startup failures.
+ * Gets or initializes the Supabase client safely via the unified single source of truth.
+ * Returns null if Supabase credentials are not configured.
  */
 export function getSupabase(): SupabaseClient | null {
-  if (supabaseInstance) {
-    return supabaseInstance;
-  }
-
-  const url = CONFIG.SUPABASE_URL;
-  const anonKey = CONFIG.SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    console.warn(
-      '⚠️ Supabase is not fully configured. Database operations will use secure in-memory/JSON store fallback.'
-    );
-    return null;
-  }
-
-  try {
-    supabaseInstance = createClient(url, anonKey);
-    console.log('🔌 Supabase client successfully initialized.');
-    return supabaseInstance;
-  } catch (error) {
-    console.error('❌ Failed to initialize Supabase client:', error);
-    return null;
-  }
+  return getSupabaseClient();
 }
 
 /**
@@ -85,7 +67,7 @@ export function getGemini(): GoogleGenAI {
  */
 export function checkConfigStatus() {
   const status = {
-    supabase: !!(CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY),
+    supabase: isSupabaseConfigured(),
     gemini: !!CONFIG.GEMINI_API_KEY,
     n8n: !!CONFIG.N8N_WEBHOOK_URL,
     cashfree: !!(CONFIG.CASHFREE_APP_ID && CONFIG.CASHFREE_SECRET_KEY)

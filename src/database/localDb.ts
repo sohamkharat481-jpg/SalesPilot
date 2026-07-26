@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '../lib/supabase';
 import { 
   WorkspaceUser, Organization, TeamMember, Lead, Campaign, Deal, Appointment, UserRole,
   AiCompanyResearch, AiContactProfile, AiEmailGeneration, AiFollowup, AiMeetingBrief, AiProposal, AiScore,
@@ -382,21 +383,15 @@ export class LocalDB {
   }
 
   private initSupabaseClientAndMigrate(): void {
-    const url = process.env.SUPABASE_URL || '';
-    const key = process.env.SUPABASE_ANON_KEY || '';
+    this.supabase = getSupabaseClient();
 
-    if (!url || !key) {
+    if (!this.supabase) {
       console.warn('[LocalDB] Supabase is not configured yet. Running in offline-first developer mode.');
       return;
     }
 
-    try {
-      this.supabase = createClient(url, key);
-      console.log('[LocalDB] Supabase production client successfully initialized.');
-      this.runBackgroundMigration();
-    } catch (err) {
-      console.error('[LocalDB] Failed to initialize Supabase client:', err);
-    }
+    console.log('[LocalDB] Supabase production client attached from singleton.');
+    this.runBackgroundMigration();
   }
 
   /**

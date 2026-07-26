@@ -7,7 +7,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
   Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   LeadStatus, DealStage, CampaignStatus, SequenceStep, WorkspaceUser,
@@ -818,23 +818,29 @@ const unusedDummyAppointments = [
 ];
 
 let integrations: IntegrationCredentials = {
-  supabaseUrl: process.env.SUPABASE_URL || '',
-  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   n8nWebhookUrl: '',
   cashfreeAppId: ''
 };
 
+let serverSupabaseInstance: SupabaseClient | null = null;
+
 function getSupabaseClient() {
-  const url = integrations.supabaseUrl || process.env.SUPABASE_URL || '';
-  const key = integrations.supabaseAnonKey || process.env.SUPABASE_ANON_KEY || '';
+  const url = integrations.supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const key = integrations.supabaseAnonKey || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
   if (!url || !key) return null;
-  try {
-    return createClient(url, key);
-  } catch (err) {
-    console.error('Failed to create Supabase client in server:', err);
-    return null;
+  if (!serverSupabaseInstance) {
+    try {
+      serverSupabaseInstance = createClient(url, key);
+      console.log('🔌 Server-side Supabase client singleton initialized.');
+    } catch (err) {
+      console.error('Failed to create Supabase client in server:', err);
+      return null;
+    }
   }
+  return serverSupabaseInstance;
 }
 
 interface IntegrationCredentialsMap {
