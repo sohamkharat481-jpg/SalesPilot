@@ -247,19 +247,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const hasCode = window.location.search.includes('code=');
 
       if (isCallbackRoute || hasHash || hasCode) {
-        console.log("[OAUTH TRACE 4] URL received inside /auth/callback:", window.location.href);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && window.opener) {
-          console.log("[OAUTH TRACE 5] Final URL before window.close():", window.location.href);
-          window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', session }, '*');
-          window.close();
-          return;
+        console.log("[OAUTH STEP 1] Google callback received at URL:", window.location.href);
+        console.log("[OAUTH STEP 2] Supabase callback received, processing token exchange...");
+        
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error("[OAUTH FAILURE at Step 2/3] Supabase getSession error:", error);
+          }
+          if (session) {
+            console.log("[OAUTH STEP 3] Session created for user:", session.user?.email);
+            if (session.access_token) {
+              console.log("[OAUTH STEP 4] access_token received:", session.access_token.substring(0, 15) + "...");
+            }
+            if (session.refresh_token) {
+              console.log("[OAUTH STEP 5] refresh_token received:", session.refresh_token.substring(0, 15) + "...");
+            }
+
+            if (window.opener) {
+              console.log("[OAUTH STEP 7] window.opener.postMessage executed with OAUTH_AUTH_SUCCESS");
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', session }, '*');
+              console.log("[OAUTH STEP 8] window.close executed");
+              window.close();
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("[OAUTH FAILURE in popup callback]", err);
         }
       }
 
       // Listen for auth state changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log(`[OAUTH STEP 6] onAuthStateChange fired with event: ${event}`);
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log("[OAUTH STEP 3] Session created for user:", session.user.email);
+          if (session.access_token) {
+            console.log("[OAUTH STEP 4] access_token received:", session.access_token.substring(0, 15) + "...");
+          }
+          if (session.refresh_token) {
+            console.log("[OAUTH STEP 5] refresh_token received:", session.refresh_token.substring(0, 15) + "...");
+          }
+
           const email = session.user.email || '';
           const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
           
@@ -283,8 +312,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthView('authenticated');
           localStorage.setItem('salespilot_token', session.access_token);
           localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+          console.log("[OAUTH STEP 10] User state updated in AuthContext");
 
           if (window.location.hash.includes('access_token') || window.location.pathname.includes('/auth/callback')) {
+            console.log("[OAUTH STEP 11] Navigation after login: replacing state to clean URL");
             window.history.replaceState({}, document.title, window.location.pathname.replace(/\/auth\/callback\/?$/, '/') || '/');
           }
         }
@@ -954,6 +985,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             const handleOAuthSuccess = (event: MessageEvent) => {
               if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+                console.log("[OAUTH STEP 9] Main window receives OAUTH_AUTH_SUCCESS via postMessage");
+                const session = event.data?.session;
+                if (session?.user) {
+                  const email = session.user.email || '';
+                  const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
+                  const oauthUser: WorkspaceUser = {
+                    id: session.user.id,
+                    fullName,
+                    email,
+                    avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+                    role: 'ADMIN',
+                    companyName: 'SalesPilot',
+                    industry: 'SaaS',
+                    tier: 'ENTERPRISE',
+                    subscriptionStatus: 'ACTIVE',
+                    isFounder: false,
+                    isVerified: true,
+                    onboardingCompleted: true,
+                    createdAt: new Date().toISOString()
+                  };
+                  setUser(oauthUser);
+                  setAuthView('authenticated');
+                  if (session.access_token) {
+                    localStorage.setItem('salespilot_token', session.access_token);
+                  }
+                  localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+                  console.log("[OAUTH STEP 10] User state updated in AuthContext (main window)");
+                }
                 window.location.reload();
               }
             };
