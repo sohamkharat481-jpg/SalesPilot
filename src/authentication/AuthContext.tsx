@@ -52,14 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<WorkspaceUser | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [isSandbox, setIsSandbox] = useState(() => {
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    const isVercel = hostname.endsWith('.vercel.app') || !!((import.meta as any).env?.VERCEL || (typeof process !== 'undefined' && process.env?.VERCEL));
-    if (isVercel) return false;
-    const configured = isSupabaseConfigured();
-    const isLocalStudio = hostname.includes('.run.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1');
-    return isLocalStudio || !configured;
-  });
+  const [isSandbox, setIsSandbox] = useState(() => !isSupabaseConfigured());
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') !== 'false');
@@ -176,11 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync Supabase settings state
   useEffect(() => {
     const configured = isSupabaseConfigured();
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    const isVercel = hostname.endsWith('.vercel.app') || !!((import.meta as any).env?.VERCEL || (typeof process !== 'undefined' && process.env?.VERCEL));
-    const isLocalStudio = hostname.includes('.run.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1');
-
-    setIsSandbox(isVercel ? false : (isLocalStudio || !configured));
+    setIsSandbox(!configured);
 
     // Initial session checking
     async function initAuth() {
@@ -246,6 +235,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     initAuth();
+
+    // Supabase OAuth callback & session listener for popup and direct redirect flows
+    const handleOAuthCallback = async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+
+      // Handle OAuth callback in popup window if applicable
+      const isCallbackRoute = window.location.pathname.startsWith('/auth/callback');
+      const hasHash = window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery');
+      const hasCode = window.location.search.includes('code=');
+
+      if (isCallbackRoute || hasHash || hasCode) {
+        console.log("[OAUTH TRACE 4] URL received inside /auth/callback:", window.location.href);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && window.opener) {
+          console.log("[OAUTH TRACE 5] Final URL before window.close():", window.location.href);
+          window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', session }, '*');
+          window.close();
+          return;
+        }
+      }
+
+      // Listen for auth state changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const email = session.user.email || '';
+          const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
+          
+          const oauthUser: WorkspaceUser = {
+            id: session.user.id,
+            fullName,
+            email,
+            avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+            role: 'ADMIN',
+            companyName: 'SalesPilot',
+            industry: 'SaaS',
+            tier: 'ENTERPRISE',
+            subscriptionStatus: 'ACTIVE',
+            isFounder: false,
+            isVerified: true,
+            onboardingCompleted: true,
+            createdAt: new Date().toISOString()
+          };
+
+          setUser(oauthUser);
+          setAuthView('authenticated');
+          localStorage.setItem('salespilot_token', session.access_token);
+          localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+
+          if (window.location.hash.includes('access_token') || window.location.pathname.includes('/auth/callback')) {
+            window.history.replaceState({}, document.title, window.location.pathname.replace(/\/auth\/callback\/?$/, '/') || '/');
+          }
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    };
+
+    handleOAuthCallback();
   }, []);
 
   // Prevent Founder from seeing onboarding, setup, or billing screens
@@ -870,6 +920,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const supabase = getSupabaseClient();
         if (supabase) {
           const redirectUri = `${window.location.origin}/auth/callback`;
+          console.log("[OAUTH TRACE 1] redirectUri before signInWithOAuth():", redirectUri);
           
           const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
@@ -880,6 +931,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
 
           if (error) throw error;
+
+          console.log("[OAUTH TRACE 2] data.url returned by signInWithOAuth():", data?.url);
 
           if (data?.url) {
             const width = 600;
@@ -892,6 +945,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               'supabase_oauth_popup',
               `width=${width},height=${height},left=${left},top=${top}`
             );
+
+            console.log("[OAUTH TRACE 3] Current window.location.href after popup opens:", window.location.href);
 
             if (!authWindow) {
               throw new Error('Popup blocked by browser. Please enable popups to proceed.');
