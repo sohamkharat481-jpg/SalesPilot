@@ -35,6 +35,7 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { AutomationView } from './components/AutomationView';
 import { DeveloperPortalView } from './components/DeveloperPortalView';
 import { LaunchHelpCenter } from './components/LaunchHelpCenter';
+import { AiSalesCopilotWidget } from './components/copilot/AiSalesCopilotWidget';
 import { VoiceCallingView } from './components/VoiceCallingView';
 import { MobileHubView } from './components/MobileHubView';
 import { WhiteLabelView } from './components/WhiteLabelView';
@@ -43,6 +44,8 @@ import { RevenueIntelligenceView } from './components/RevenueIntelligenceView';
 import { MarketplaceView } from './components/MarketplaceView';
 import { ComplianceView } from './components/ComplianceView';
 import { BetaProgramView } from './components/BetaProgramView';
+import { ErrorBoundary } from './reliability/ErrorBoundary';
+import { OfflineBanner } from './reliability/OfflineBanner';
 
 function RestrictedViewPlaceholder({ 
   title, 
@@ -1090,6 +1093,7 @@ export default function App() {
 
         {/* Primary Content View Stage */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl w-full">
+          <ErrorBoundary>
           {activeTab === 'dashboard' && (
             <DashboardView 
               leads={leads} 
@@ -1175,7 +1179,12 @@ export default function App() {
           )}
 
           {activeTab === 'analytics' && (
-            <AnalyticsView />
+            <AnalyticsView 
+              leads={leads}
+              campaigns={campaigns}
+              deals={deals}
+              appointments={appointments}
+            />
           )}
 
           {activeTab === 'reports' && (
@@ -1323,6 +1332,7 @@ export default function App() {
           {activeTab === 'developer-portal' && (
             <DeveloperPortalView />
           )}
+          </ErrorBoundary>
         </main>
 
         {/* Right AI Panel (Ask SalesPilot / Strategist Chat) */}
@@ -1561,6 +1571,15 @@ export default function App() {
           onTriggerToast={(msg) => alert(msg)}
         />
       )}
+      <AiSalesCopilotWidget 
+        leads={leads}
+        deals={deals}
+        appointments={appointments}
+        campaigns={campaigns}
+        activeTab={activeTab}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+      />
+      <OfflineBanner />
     </div>
   );
 }

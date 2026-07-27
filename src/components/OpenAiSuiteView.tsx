@@ -1651,8 +1651,8 @@ Rajesh: Perfect. I will import the leads by Thursday.`);
                   </div>
 
                   <div className="space-y-2 max-h-[160px] overflow-y-auto font-mono text-[9px] leading-relaxed">
-                    {usage?.routingEvents && usage.routingEvents.length > 0 ? (
-                      usage.routingEvents.map((evt, idx) => (
+                    {(usage as any)?.routingEvents && (usage as any).routingEvents.length > 0 ? (
+                      ((usage as any).routingEvents as any[]).map((evt, idx) => (
                         <div key={idx} className="p-2 bg-slate-50 border border-slate-150 rounded text-slate-700 flex flex-col gap-1">
                           <div className="flex items-center justify-between">
                             <span className="font-bold uppercase text-[8px] text-slate-500">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>

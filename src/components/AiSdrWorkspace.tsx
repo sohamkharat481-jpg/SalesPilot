@@ -122,6 +122,13 @@ export function AiSdrWorkspace() {
   const [editSubject, setEditSubject] = useState<string>('');
   const [editBody, setEditBody] = useState<string>('');
   
+  // Advanced AI SDR States
+  const [emailScore, setEmailScore] = useState<{ qualityScore: number; spamScore: number; spamRiskLevel: string; qualityFeedback: string[] } | null>(null);
+  const [linkedInMsg, setLinkedInMsg] = useState<{ connectionRequest: string; inmailMessage: string; followUpNote: string } | null>(null);
+  const [ctaOpt, setCtaOpt] = useState<{ softAsk: string; directBooking: string; valueAudit: string; frictionlessQuery: string; recommendedCta: string; reasoning: string } | null>(null);
+  const [crmSummary, setCrmSummary] = useState<{ executiveSummary: string; recommendedPipelineStage: string; keyRisks: string[]; nextSteps: string[] } | null>(null);
+  const [generatedCrmNote, setGeneratedCrmNote] = useState<{ noteTitle: string; noteBody: string; tags: string[]; followUpDueDate: string } | null>(null);
+  
   // Followup states
   const [sequenceSteps, setSequenceSteps] = useState<number>(3);
   const [generatedFollowups, setGeneratedFollowups] = useState<AiFollowup[]>([]);
@@ -188,6 +195,11 @@ export function AiSdrWorkspace() {
     setGeneratedProposals([]);
     setEditingEmailId(null);
     setEditingFollowupId(null);
+    setEmailScore(null);
+    setLinkedInMsg(null);
+    setCtaOpt(null);
+    setCrmSummary(null);
+    setGeneratedCrmNote(null);
 
     async function loadLeadIntelligence() {
       try {
@@ -331,6 +343,91 @@ export function AiSdrWorkspace() {
     } finally {
       setIsGenerating(false);
       setGeneratingLogs([]);
+    }
+  };
+
+  // Evaluate Email Quality & Spam Risk Score
+  const handleScoreAndSpam = async (emailId?: string) => {
+    if (!selectedLeadId) return;
+    const emailToScore = generatedEmails.find(e => e.id === emailId) || generatedEmails[0];
+    try {
+      const res = await fetch('/api/v1/ai/email/score-and-spam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: selectedLeadId,
+          subject: emailToScore?.subject || '',
+          body: emailToScore?.body || ''
+        })
+      });
+      const data = await res.json();
+      if (data) setEmailScore(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Generate LinkedIn messages
+  const handleGenerateLinkedIn = async () => {
+    if (!selectedLeadId) return;
+    try {
+      const res = await fetch('/api/v1/ai/email/linkedin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: selectedLeadId })
+      });
+      const data = await res.json();
+      if (data) setLinkedInMsg(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Optimize Call-to-Action
+  const handleOptimizeCta = async () => {
+    if (!selectedLeadId) return;
+    try {
+      const res = await fetch('/api/v1/ai/email/cta-optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: selectedLeadId, offer: emailOffer })
+      });
+      const data = await res.json();
+      if (data) setCtaOpt(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Generate CRM Executive Summary
+  const handleGenerateCrmSummary = async () => {
+    if (!selectedLeadId) return;
+    try {
+      const res = await fetch('/api/v1/ai/crm/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: selectedLeadId })
+      });
+      const data = await res.json();
+      if (data) setCrmSummary(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Generate CRM Note
+  const handleGenerateCrmNote = async () => {
+    if (!selectedLeadId) return;
+    try {
+      const res = await fetch('/api/v1/ai/crm/note-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: selectedLeadId, actionType: 'SDR_NOTE', userNotes: crmStatusNote })
+      });
+      const data = await res.json();
+      if (data) setGeneratedCrmNote(data);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -627,7 +724,7 @@ export function AiSdrWorkspace() {
                   Confidence: {activeLead.confidenceScore || 40}%
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded">
-                  Value: ₹{(activeLead.value || 45000).toLocaleString()}
+                  Value: ₹{((activeLead as any).value || 45000).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -956,10 +1053,82 @@ export function AiSdrWorkspace() {
                     <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                     Compose AI Email Copy
                   </button>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">AI Multichannel Tools</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={() => handleScoreAndSpam()}
+                        className="p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded text-[10px] font-semibold text-slate-700 dark:text-slate-300 hover:border-blue-500 transition"
+                      >
+                        Quality Score
+                      </button>
+                      <button
+                        onClick={handleOptimizeCta}
+                        className="p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded text-[10px] font-semibold text-slate-700 dark:text-slate-300 hover:border-blue-500 transition"
+                      >
+                        Optimize CTA
+                      </button>
+                      <button
+                        onClick={handleGenerateLinkedIn}
+                        className="p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded text-[10px] font-semibold text-slate-700 dark:text-slate-300 hover:border-blue-500 transition"
+                      >
+                        LinkedIn Drip
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Draft room preview */}
                 <div className="md:col-span-7 space-y-4">
+                  
+                  {/* Score & Spam Risk Card */}
+                  {emailScore && (
+                    <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl space-y-2">
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-900 dark:text-white">
+                        <span>Email Quality Index: <strong className="text-blue-600">{emailScore.qualityScore}/100</strong></span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${emailScore.spamScore < 20 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-800'}`}>
+                          Spam Risk: {emailScore.spamRiskLevel} ({emailScore.spamScore}%)
+                        </span>
+                      </div>
+                      <ul className="text-[10px] text-slate-600 dark:text-slate-300 space-y-0.5">
+                        {emailScore.qualityFeedback.map((fb, idx) => (
+                          <li key={idx} className="flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-blue-500" />
+                            <span>{fb}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* CTA Optimization Card */}
+                  {ctaOpt && (
+                    <div className="p-3 bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/40 rounded-xl space-y-2">
+                      <div className="text-xs font-bold text-purple-900 dark:text-purple-300">
+                        CTA Optimizer: <span className="font-normal">{ctaOpt.recommendedCta}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 dark:text-slate-300 grid grid-cols-2 gap-1 font-mono">
+                        <div><strong>Soft Ask:</strong> {ctaOpt.softAsk}</div>
+                        <div><strong>Frictionless:</strong> {ctaOpt.frictionlessQuery}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LinkedIn Copy Card */}
+                  {linkedInMsg && (
+                    <div className="p-3 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                        <span>LinkedIn Outreach Copy</span>
+                        <span className="text-[9px] font-mono text-blue-500 uppercase">Ready</span>
+                      </div>
+                      <div className="text-[11px] text-slate-700 dark:text-slate-300 space-y-1">
+                        <div><strong className="text-slate-500">Connect Note:</strong> {linkedInMsg.connectionRequest}</div>
+                        <div><strong className="text-slate-500">InMail Pitch:</strong> {linkedInMsg.inmailMessage}</div>
+                      </div>
+                    </div>
+                  )}
+
                   <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Generated Drafts History</span>
                   
                   {generatedEmails.length === 0 ? (
@@ -1396,8 +1565,23 @@ export function AiSdrWorkspace() {
                   </div>
 
                   <div className="space-y-2 pt-2">
-                    <label className="text-[10px] font-mono text-slate-500 block">Trigger Autonomous Pipeline Sync</label>
+                    <label className="text-[10px] font-mono text-slate-500 block">Trigger Autonomous Pipeline Sync & AI Notes</label>
                     
+                    <div className="grid grid-cols-2 gap-2 pb-2">
+                      <button
+                        onClick={handleGenerateCrmSummary}
+                        className="py-1.5 px-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[10px] font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3" /> Executive Summary
+                      </button>
+                      <button
+                        onClick={handleGenerateCrmNote}
+                        className="py-1.5 px-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <FileText className="w-3 h-3" /> Formatted CRM Note
+                      </button>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-2.5">
                       {[
                         { action: 'EMAIL_SENT' as const, label: 'Transition: Outbound Email Sent', desc: 'Advances status to CONTACTED (+5% Confidence)', color: 'bg-blue-600 hover:bg-blue-500' },
@@ -1425,7 +1609,25 @@ export function AiSdrWorkspace() {
                 <div className="space-y-4">
                   <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">CRM Record Synchronizer Status</span>
 
-                  <div className="p-5 border border-slate-150 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl space-y-4 h-[320px] flex flex-col justify-between">
+                  {crmSummary && (
+                    <div className="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-xl space-y-1.5 text-xs">
+                      <span className="font-bold text-indigo-900 dark:text-indigo-300 font-mono text-[10px] uppercase block">AI Executive Account Summary</span>
+                      <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">{crmSummary.executiveSummary}</p>
+                      <div className="text-[10px] text-slate-500 font-mono pt-1">Recommended Stage: <strong className="text-indigo-600 dark:text-indigo-400">{crmSummary.recommendedPipelineStage}</strong></div>
+                    </div>
+                  )}
+
+                  {generatedCrmNote && (
+                    <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-xl space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-blue-900 dark:text-blue-300 font-mono text-[10px] uppercase">{generatedCrmNote.noteTitle}</span>
+                        <span className="text-[9px] font-mono text-slate-500">Due: {generatedCrmNote.followUpDueDate}</span>
+                      </div>
+                      <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">{generatedCrmNote.noteBody}</p>
+                    </div>
+                  )}
+
+                  <div className="p-5 border border-slate-150 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 rounded-xl space-y-4 min-h-[220px] flex flex-col justify-between">
                     
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-slate-900 dark:text-white">

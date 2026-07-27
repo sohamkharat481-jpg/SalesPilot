@@ -3,14 +3,16 @@ import {
   Plus, Play, Pause, Save, Trash2, Copy, FileDown, FileUp, History, Clock, 
   GitBranch, RefreshCw, CheckCircle, AlertTriangle, ChevronRight, Settings, 
   HelpCircle, ArrowLeft, Bot, Mail, Calendar, UserPlus, FileText, Check, 
-  CalendarDays, Hourglass, RotateCcw, Sliders, Globe, Search, ArrowRight, X, Info
+  CalendarDays, Hourglass, RotateCcw, Sliders, Globe, Search, ArrowRight, X, Info, Zap
 } from 'lucide-react';
 import { useAuth } from '../authentication/AuthContext';
-import { AutomationWorkflow, WorkflowNode, WorkflowEdge, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory } from '../types';
+import { AutomationWorkflow, WorkflowNode, WorkflowEdge, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory, Lead, Appointment, Deal } from '../types';
+import { SalesAutomationView } from './SalesAutomationView';
+import { WorkflowCanvas } from './workflow/WorkflowCanvas';
 
 export function AutomationView() {
   const { user } = useAuth();
-  const token = localStorage.getItem('token') || '';
+  const token = localStorage.getItem('token') || localStorage.getItem('salespilot_token') || '';
   const orgId = user?.organizationId || 'org_salespilot_lifetime';
 
   // State managers
@@ -22,7 +24,12 @@ export function AutomationView() {
   const [history, setHistory] = useState<AutomationHistory[]>([]);
   const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
   
-  const [activeSubTab, setActiveSubTab] = useState<'workflows' | 'history' | 'jobs'>('workflows');
+  // CRM & Sales Data for Sales Automation Mode
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+
+  const [activeSubTab, setActiveSubTab] = useState<'canvas' | 'sales-automation' | 'workflows' | 'history' | 'jobs'>('canvas');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -39,12 +46,39 @@ export function AutomationView() {
   const [simulating, setSimulating] = useState(false);
   const [simSuccess, setSimSuccess] = useState<string | null>(null);
 
-  // Load workflows on mount
+  // Load workflows & CRM data on mount
   useEffect(() => {
     fetchWorkflows();
     fetchHistory();
     fetchJobs();
+    fetchCrmData();
   }, [activeSubTab]);
+
+  const fetchCrmData = async () => {
+    try {
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const [leadsRes, aptsRes, dealsRes] = await Promise.all([
+        fetch('/api/v1/leads', { headers }),
+        fetch('/api/v1/appointments', { headers }),
+        fetch('/api/v1/deals', { headers })
+      ]);
+      const [leadsData, aptsData, dealsData] = await Promise.all([
+        leadsRes.json(),
+        aptsRes.json(),
+        dealsRes.json()
+      ]);
+      if (Array.isArray(leadsData)) setLeads(leadsData);
+      else if (leadsData.leads) setLeads(leadsData.leads);
+
+      if (Array.isArray(aptsData)) setAppointments(aptsData);
+      else if (aptsData.appointments) setAppointments(aptsData.appointments);
+
+      if (Array.isArray(dealsData)) setDeals(dealsData);
+      else if (dealsData.deals) setDeals(dealsData.deals);
+    } catch (err) {
+      console.error('Failed to fetch CRM data for Sales Automation:', err);
+    }
+  };
 
   const fetchWorkflows = async () => {
     setLoading(true);
@@ -349,22 +383,29 @@ export function AutomationView() {
         </div>
         
         {!isEditing && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              onClick={() => setActiveSubTab('sales-automation')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${activeSubTab === 'sales-automation' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              Sales Automation Mode
+            </button>
             <button
               onClick={() => setActiveSubTab('workflows')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${activeSubTab === 'workflows' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition cursor-pointer ${activeSubTab === 'workflows' ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             >
               Workflows
             </button>
             <button
               onClick={() => setActiveSubTab('history')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${activeSubTab === 'history' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition cursor-pointer ${activeSubTab === 'history' ? 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             >
               Execution History
             </button>
             <button
               onClick={handleCreateWorkflow}
-              className="bg-blue-600 text-white text-xs px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center gap-1.5 font-semibold"
+              className="bg-blue-600 text-white text-xs px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center gap-1.5 font-semibold cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Create Workflow
@@ -851,7 +892,7 @@ export function AutomationView() {
             <div className="col-span-12 bg-slate-900 text-slate-100 rounded-xl p-6 border border-slate-800 shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-3">
-                  <h4 className="text-sm font-bold text-slate-200 font-mono">Trace Logs: {selectedRun.id || selectedRun}</h4>
+                  <h4 className="text-sm font-bold text-slate-200 font-mono">Trace Logs: {typeof selectedRun === 'string' ? selectedRun : selectedRun.id}</h4>
                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
                     selectedRun.status === 'COMPLETED' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/30' :
                     selectedRun.status === 'FAILED' ? 'bg-rose-900/30 text-rose-400 border border-rose-800/30' :
@@ -892,8 +933,15 @@ export function AutomationView() {
 
         </div>
       ) : (
-        /* ==================== WORKFLOWS LIST VIEW ==================== */
-        activeSubTab === 'workflows' ? (
+        /* ==================== WORKFLOWS LIST / SALES AUTOMATION VIEW ==================== */
+        activeSubTab === 'sales-automation' ? (
+          <SalesAutomationView
+            leads={leads}
+            appointments={appointments}
+            deals={deals}
+            onRefreshLeads={fetchCrmData}
+          />
+        ) : activeSubTab === 'workflows' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {loading ? (
               <div className="col-span-full text-center py-12">

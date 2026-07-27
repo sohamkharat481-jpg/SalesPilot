@@ -4357,7 +4357,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
             <div className="p-6 border border-slate-200 rounded-2xl bg-white space-y-4 shadow-sm">
               <div className="border-b border-slate-100 pb-2">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <History className="w-4.5 h-4.5 text-blue-600" /> Complete Campaign Email Logs
+                  <Clock className="w-4.5 h-4.5 text-blue-600" /> Complete Campaign Email Logs
                 </h4>
                 <p className="text-[11px] text-slate-500 mt-0.5">Real-time system trace tracking SMTP handshakes, delivery completions, and bounce states.</p>
               </div>

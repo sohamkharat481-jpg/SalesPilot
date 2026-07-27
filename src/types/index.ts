@@ -45,7 +45,7 @@ export interface WorkspaceUser {
   mfaEnabled?: boolean;
   createdAt: string;
   isFounder?: boolean;
-  subscriptionStatus?: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'CANCELLED' | 'LIFETIME';
+  subscriptionStatus?: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'CANCELLED' | 'LIFETIME' | 'TRIAL';
   onboardingProgress?: OnboardingStepProgress[];
   onboardingCompleted?: boolean;
 }
@@ -65,7 +65,7 @@ export interface TeamMember {
   joinedAt?: string;
 }
 
-export type LeadStatus = 'NEW' | 'RESEARCH' | 'READY' | 'OUTREACH' | 'INTERESTED' | 'MEETING_BOOKED' | 'WON' | 'LOST' | 'CONTACTED' | 'QUALIFIED' | 'NURTURING' | 'UNSUBSCRIBED';
+export type LeadStatus = 'NEW' | 'RESEARCH' | 'READY' | 'OUTREACH' | 'INTERESTED' | 'MEETING_BOOKED' | 'WON' | 'LOST' | 'CONTACTED' | 'QUALIFIED' | 'NURTURING' | 'UNSUBSCRIBED' | 'STALE' | 'ARCHIVED' | 'FOLLOW_UP_REQUIRED';
 
 export interface LeadNote {
   id: string;
@@ -198,10 +198,16 @@ export interface LeadResearchProfile {
   insightsConversionProbability?: number;
 }
 
+export * from './lead-intelligence';
+import { LeadIntelligence } from './lead-intelligence';
+
 export interface Lead {
   id: string;
   firstName: string;
   lastName: string;
+  fullName?: string;
+  companyName?: string;
+  value?: number;
   email: string;
   phone?: string;
   company: string;
@@ -210,6 +216,7 @@ export interface Lead {
   enrichment?: LeadEnrichment;
   researchProfile?: LeadResearchProfile;
   researchHistory?: LeadResearchProfile[];
+  intelligence?: LeadIntelligence;
   researchStatus?: 'PENDING' | 'RESEARCHING' | 'COMPLETED' | 'FAILED';
   researchProgress?: number;
   researchStatusText?: string;
@@ -226,6 +233,7 @@ export interface Lead {
   timelineList?: LeadTimelineEvent[];
   source?: string;
   provider?: string;
+  updatedAt?: string;
 }
 
 export type SequenceType = 'EMAIL' | 'LINKEDIN_MESSAGE' | 'LINKEDIN_CONNECT';
@@ -246,6 +254,7 @@ export interface Campaign {
   name: string;
   targetAudience: 'MARKETING_AGENCY' | 'SAAS' | 'IT_COMPANY' | 'WEB_DEV' | 'REAL_ESTATE' | 'RECRUITMENT' | 'GENERAL';
   status: CampaignStatus;
+  channels?: string[];
   steps: SequenceStep[];
   totalSent: number;
   totalOpened: number;
@@ -262,6 +271,8 @@ export interface Deal {
   company: string;
   valueInr: number;
   stage: DealStage;
+  title?: string;
+  probability?: number;
   updatedAt: string;
   notes?: string;
 }
@@ -270,11 +281,14 @@ export type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
 
 export interface Appointment {
   id: string;
+  organizationId?: string;
   leadId: string;
   leadName: string;
+  title?: string;
   company: string;
   email: string;
   dateTime: string;
+  startTime?: string;
   durationMins: number;
   status: AppointmentStatus;
   meetingLink: string;

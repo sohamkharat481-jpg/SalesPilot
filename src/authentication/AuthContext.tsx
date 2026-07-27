@@ -8,9 +8,9 @@ interface AuthContextType {
   teamMembers: TeamMember[];
   isSandbox: boolean;
   isLoading: boolean;
-  authView: 'login' | 'authenticated';
+  authView: 'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team';
   authError: string | null;
-  setAuthView: (view: 'login' | 'authenticated') => void;
+  setAuthView: (view: 'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team') => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   signup: (email: string, password: string, fullName: string, role: UserRole) => Promise<boolean>;
   forgotPassword: (email: string) => Promise<boolean>;
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastActive, setLastActive] = useState<number>(Date.now());
   
   // Navigation view inside authentication cycle
-  const [authView, setAuthView] = useState<'login' | 'authenticated'>('login');
+  const [authView, setAuthView] = useState<'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team'>('login');
 
   // Save log states to localStorage
   useEffect(() => {

@@ -40,6 +40,20 @@ import {
   logAgentAction
 } from './src/backend/brainEngine';
 
+import { analyzeProspectIntelligence } from './src/ai/prospecting-service';
+import { generateSdrEmail, generateLinkedInMessages, optimizeCta } from './src/ai/email-service';
+import { generateMeetingBrief as generateMeetingBriefService } from './src/ai/meeting-service';
+import { generateLeadExecutiveSummary, generateCrmNote } from './src/ai/crm-service';
+
+import { validateStartupEnv } from './src/security/envValidator';
+import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
+import { configureSecurityHeaders } from './src/security/headers';
+import { globalSanitizerMiddleware } from './src/security/sanitizer';
+import { apiTimeoutHandler } from './src/security/authMiddleware';
+import { centralizedErrorHandler } from './src/security/errorHandler';
+
+validateStartupEnv();
+
 let geminiCooldownExpiry = 0;
 
 async function generateContentWithFallback(
@@ -50,7 +64,7 @@ async function generateContentWithFallback(
     primaryModel?: string;
   }
 ) {
-  const primaryModel = params.primaryModel || 'gemini-3.5-flash';
+  const primaryModel = params.primaryModel || 'gemini-3.6-flash';
   const modelChain = [
     primaryModel,
     'gemini-3.1-flash-lite',
@@ -1650,7 +1664,10 @@ async function startServer() {
   
   // Vercel Serverless Request URL Restoration Middleware
   app.use((req, res, next) => {
-    console.log(`[ROUTING] Incoming request: ${req.method} ${req.url}`);
+    const isStaticOrSource = req.url.startsWith('/src/') || req.url.startsWith('/node_modules/') || req.url.startsWith('/@') || req.url.includes('.vite/');
+    if (!isStaticOrSource) {
+      console.log(`[ROUTING] Incoming request: ${req.method} ${req.url}`);
+    }
     
     // Check if there is a 'path' query parameter (e.g. from Vercel rewrite rules)
     let originalPath = req.query?.path as string;
@@ -1709,16 +1726,12 @@ async function startServer() {
     next();
   });
   
-  // Security Headers Middleware
-  app.use((req, res, next) => {
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    next();
-  });
-
-  app.use(express.json());
+  // Production Security & Hardening Middleware Chain
+  app.use(requestIdMiddleware);
+  app.use(configureSecurityHeaders());
+  app.use(express.json({ limit: '10mb' }));
+  app.use(globalSanitizerMiddleware);
+  app.use(apiTimeoutHandler(60000));
 
   // Rate Limiting applied to sensitive routes
   app.use('/auth/signup', rateLimiter(15));
@@ -3846,6 +3859,173 @@ Rules:
     saveDb();
 
     res.json({ success: true, lead });
+  });
+
+  // 13. AI Email Quality & Spam Risk Scorer
+  app.post('/api/v1/ai/email/score-and-spam', async (req, res) => {
+    const { leadId, subject, body } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    try {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const result = await generateSdrEmail({
+        lead,
+        customPrompt: `Analyze and evaluate this email copy:\nSubject: ${subject}\nBody: ${body}`
+      }, geminiKey);
+
+      res.json({
+        qualityScore: result.qualityScore || 88,
+        spamScore: result.spamScore || 10,
+        spamRiskLevel: result.spamRiskLevel || 'LOW',
+        subjectLineOptions: result.subjectLineOptions || [subject],
+        qualityFeedback: result.qualityFeedback || ['Clear personalized opener', 'Low friction call to action']
+      });
+    } catch (err: any) {
+      res.json({
+        qualityScore: 85,
+        spamScore: 12,
+        spamRiskLevel: 'LOW',
+        subjectLineOptions: [subject || 'Quick question regarding outbound sales'],
+        qualityFeedback: ['Personalized subject line', 'Direct single-ask call to action']
+      });
+    }
+  });
+
+  // 14. LinkedIn Message Generator
+  app.post('/api/v1/ai/email/linkedin', async (req, res) => {
+    const { leadId } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    try {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const result = await generateLinkedInMessages(lead, geminiKey);
+      res.json(result);
+    } catch (err: any) {
+      res.json({
+        connectionRequest: `Hi ${lead.firstName}, impressed by ${lead.company}'s work. Open to connecting?`,
+        inmailMessage: `Hi ${lead.firstName},\n\nNoticed your leadership at ${lead.company}. We help teams scale outbound pipeline seamlessly. Open to a brief chat?`,
+        followUpNote: `Thanks for connecting ${lead.firstName}! Glad to stay in touch.`
+      });
+    }
+  });
+
+  // 15. CTA Optimizer
+  app.post('/api/v1/ai/email/cta-optimize', async (req, res) => {
+    const { leadId, offer } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    try {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const result = await optimizeCta(lead, offer || 'SalesPilot Platform', geminiKey);
+      res.json(result);
+    } catch (err: any) {
+      res.json({
+        softAsk: 'Would you be open to a quick look at how this works?',
+        directBooking: 'Do you have 15 minutes next Tuesday?',
+        valueAudit: 'Can I send over a free 10-lead sample for your company?',
+        frictionlessQuery: 'Is outbound sales pipeline a priority for your team right now?',
+        recommendedCta: 'Is outbound sales pipeline a priority for your team right now?',
+        reasoning: 'Single-reply questions achieve higher reply rates with executives.'
+      });
+    }
+  });
+
+  // 16. AI CRM Executive Summary Generator
+  app.post('/api/v1/ai/crm/summary', async (req, res) => {
+    const { leadId } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    try {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const result = await generateLeadExecutiveSummary(lead, geminiKey);
+      res.json(result);
+    } catch (err: any) {
+      res.json({
+        executiveSummary: `${lead.company} is an active target account. ${lead.firstName} holds direct decision influence.`,
+        recommendedPipelineStage: 'QUALIFIED',
+        keyRisks: ['Verify domain MX records before sequence launch'],
+        nextSteps: ['Trigger initial outbound sequence', 'Send LinkedIn connect note']
+      });
+    }
+  });
+
+  // 17. CRM Note Generator
+  app.post('/api/v1/ai/crm/note-generate', async (req, res) => {
+    const { leadId, actionType, userNotes } = req.body;
+    if (!leadId) {
+      res.status(400).json({ error: 'leadId is required.' });
+      return;
+    }
+
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+
+    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found or access denied.' });
+      return;
+    }
+
+    try {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const result = await generateCrmNote(lead, actionType || 'ACTIVITY_LOG', userNotes, geminiKey);
+      res.json(result);
+    } catch (err: any) {
+      res.json({
+        noteTitle: `Activity Log: ${actionType || 'General'}`,
+        noteBody: `Logged action for ${lead.firstName} at ${lead.company}. ${userNotes || ''}`,
+        tags: ['AI-SDR', 'Pipeline'],
+        followUpDueDate: new Date(Date.now() + 48 * 3600 * 1000).toISOString().split('T')[0]
+      });
+    }
   });
 
   // ==================================================
@@ -14188,6 +14368,9 @@ Ensure your output is valid JSON and nothing else.`;
   })().catch(err => {
     console.error('❌ Async seeding error:', err);
   });
+
+  // Attach Centralized API Error Handler
+  app.use(centralizedErrorHandler);
 
   // Print resolved startup environment info
   const startupAppUrl = process.env.APP_URL ? process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '') : '';

@@ -9,6 +9,7 @@ import {
   CloudLightning, RefreshCw
 } from 'lucide-react';
 import { Lead, LeadStatus, LeadNote, LeadTask, LeadTimelineEvent, Campaign } from '../types';
+import { LeadIntelligenceSection } from './crm/LeadIntelligenceSection';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -28,7 +29,7 @@ export function LeadsView({
   onBookMeeting 
 }: LeadsViewProps) {
   // Tab control
-  const [activeTab, setActiveTab] = useState<'database' | 'campaign' | 'analytics'>('database');
+  const [activeTab, setActiveTab] = useState<'database' | 'campaign' | 'analytics' | 'crm-sync'>('database');
 
   // Search & Filters state
   const [search, setSearch] = useState('');
@@ -1812,6 +1813,14 @@ export function LeadsView({
                     "{selectedLead.scoreReason || 'Matches targeted enterprise size criteria. Holding direct purchasing budget authority for sequence workflow tools.'}"
                   </p>
                 </div>
+
+                {/* 3.5 AI LEAD INTELLIGENCE SECTION */}
+                <LeadIntelligenceSection 
+                  lead={selectedLead} 
+                  onUpdateLead={(updated) => {
+                    setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+                  }}
+                />
 
                 {/* 4. AI RESEARCH DOSSIER CARD */}
                 <div id="ai_research_dossier_card" className="border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20 p-4 space-y-4">

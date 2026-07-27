@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { AiSdrWorkspace } from './AiSdrWorkspace';
 import { BrainView } from './BrainView';
+import { MultiAgentOrchestratorView } from './copilot/MultiAgentOrchestratorView';
 
 interface AIAgent {
   id: string;
@@ -30,7 +31,7 @@ interface AIAgent {
 }
 
 export function AiAgentsView() {
-  const [activeTab, setActiveTab] = useState<'ai-sdr' | 'brain' | 'dashboard' | 'playgrounds' | 'workflows' | 'chat' | 'prompts' | 'knowledge' | 'recommendations'>('brain');
+  const [activeTab, setActiveTab] = useState<'multi-agent' | 'ai-sdr' | 'brain' | 'dashboard' | 'playgrounds' | 'workflows' | 'chat' | 'prompts' | 'knowledge' | 'recommendations'>('multi-agent');
 
   // --- CORE SYSTEM STATE ---
   const [agents, setAgents] = useState<AIAgent[]>([
@@ -758,6 +759,7 @@ export function AiAgentsView() {
       {/* SUITE NAVIGATION TABS */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto gap-1 scrollbar-none">
         {[
+          { id: 'multi-agent', label: 'Multi-Agent Swarm', icon: Layers },
           { id: 'brain', label: 'SalesPilot Brain', icon: Brain },
           { id: 'ai-sdr', label: 'AI SDR Workspace', icon: Sparkles },
           { id: 'dashboard', label: 'Fleet Dashboard', icon: Cpu },
@@ -786,6 +788,13 @@ export function AiAgentsView() {
           );
         })}
       </div>
+
+      {/* ======================================================== */}
+      {/* MODULE 0: MULTI-AGENT ORCHESTRATOR SWARM */}
+      {/* ======================================================== */}
+      {activeTab === 'multi-agent' && (
+        <MultiAgentOrchestratorView />
+      )}
 
       {/* ======================================================== */}
       {/* MODULE 1: FLEET DASHBOARD */}

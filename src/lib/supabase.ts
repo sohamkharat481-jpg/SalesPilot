@@ -79,3 +79,49 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 // Single exported client instance
 export const supabase: SupabaseClient | null = getSupabaseClient();
+
+/**
+ * Executes a Supabase query operation with automatic retry and exponential backoff
+ */
+export async function executeSupabaseWithRetry<T>(
+  queryFn: (client: SupabaseClient) => Promise<{ data: T | null; error: any }>,
+  maxRetries = 3,
+  initialDelayMs = 500
+): Promise<{ data: T | null; error: any }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { data: null, error: new Error('Supabase client is not configured') };
+  }
+
+  let attempt = 0;
+  let delay = initialDelayMs;
+
+  while (attempt <= maxRetries) {
+    try {
+      const res = await queryFn(client);
+      if (!res.error) {
+        return res;
+      }
+
+      // If network or transient error, retry
+      attempt++;
+      if (attempt > maxRetries) {
+        return res;
+      }
+
+      console.warn(`🔄 [SUPABASE RETRY] Attempt ${attempt}/${maxRetries} failed: ${res.error.message || res.error}. Retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+    } catch (err: any) {
+      attempt++;
+      if (attempt > maxRetries) {
+        return { data: null, error: err };
+      }
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+    }
+  }
+
+  return { data: null, error: new Error('Supabase retry limit exceeded') };
+}
+

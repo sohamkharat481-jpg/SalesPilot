@@ -21,7 +21,15 @@
       "passwordHash": "$2b$10$SjgqSRaEfoh5rtOT998cWuGXpv/E6mZB60hqaJx4VHK7RsMgtLHZC",
       "isFounder": true,
       "subscriptionStatus": "LIFETIME",
-      "createdAt": "2026-07-23T06:56:37.176Z"
+      "createdAt": "2026-07-23T06:56:37.176Z",
+      "onboardingCompleted": true,
+      "unlimitedFeatures": true,
+      "unlimitedOrganizations": true,
+      "unlimitedUsers": true,
+      "unlimitedAiUsage": true,
+      "unlimitedLeadSearches": true,
+      "unlimitedCampaigns": true,
+      "unlimitedApiAccess": true
     },
     {
       "id": "usr_demo_101",
@@ -2115,6 +2123,86 @@
   "deals": [],
   "appointments": [
     {
+      "id": "apt_1785072844346_cniin",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_1785072843639",
+      "leadName": "Sarah Connor",
+      "company": "Cyberdyne Systems",
+      "email": "sarah.connor@cyberdyne.io",
+      "dateTime": "2026-07-27T13:34:04.251Z",
+      "durationMins": 45,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-j2b-ts5p-lnw",
+      "notes": "Strategic AI Sales Strategy Session",
+      "timezone": "America/Los_Angeles",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1785072844346",
+      "gmailMessageId": "msg_mock_1785072844346",
+      "reminderSent": false,
+      "createdAt": "2026-07-26T13:34:04.346Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1785072844346_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone America/Los_Angeles.",
+          "createdAt": "2026-07-26T13:34:04.346Z"
+        },
+        {
+          "id": "tl_sub_1785072844346_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-j2b-ts5p-lnw. Invites dispatched. Google Event ID: evt_mock_1785072844346",
+          "createdAt": "2026-07-26T13:34:04.346Z"
+        },
+        {
+          "id": "tl_sub_1785072844346_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1785072844346",
+          "createdAt": "2026-07-26T13:34:04.346Z"
+        }
+      ]
+    },
+    {
+      "id": "apt_1785072844346_cniin",
+      "organizationId": "org_salespilot_lifetime",
+      "userId": "usr_81927391",
+      "leadId": "ld_1785072843639",
+      "leadName": "Sarah Connor",
+      "company": "Cyberdyne Systems",
+      "email": "sarah.connor@cyberdyne.io",
+      "dateTime": "2026-07-27T13:34:04.251Z",
+      "durationMins": 45,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-j2b-ts5p-lnw",
+      "notes": "Strategic AI Sales Strategy Session",
+      "timezone": "America/Los_Angeles",
+      "googleSynced": false,
+      "googleEventId": "evt_mock_1785072844346",
+      "gmailMessageId": "msg_mock_1785072844346",
+      "reminderSent": false,
+      "createdAt": "2026-07-26T13:34:04.346Z",
+      "timelineList": [
+        {
+          "id": "tl_sub_1785072844346_1",
+          "event": "Meeting Scheduled",
+          "details": "Booked via CRM scheduler panel for timezone America/Los_Angeles.",
+          "createdAt": "2026-07-26T13:34:04.346Z"
+        },
+        {
+          "id": "tl_sub_1785072844346_2",
+          "event": "Google Calendar Invite",
+          "details": "Synced with Google Calendar. Unique Google Meet link generated: https://meet.google.com/mock-meet-j2b-ts5p-lnw. Invites dispatched. Google Event ID: evt_mock_1785072844346",
+          "createdAt": "2026-07-26T13:34:04.346Z"
+        },
+        {
+          "id": "tl_sub_1785072844346_3",
+          "event": "Gmail Invitation Sent",
+          "details": "Outgoing appointment notification delivered from demo@salespilot.ai. Message ID: msg_mock_1785072844346",
+          "createdAt": "2026-07-26T13:34:04.346Z"
+        }
+      ]
+    },
+    {
       "id": "apt_1784907060520_ih9bh",
       "organizationId": "org_salespilot_lifetime",
       "userId": "usr_1784907025312",
@@ -2784,13 +2872,110 @@
   ],
   "calendarAccounts": [],
   "gmailAccounts": [],
-  "aiCompanyResearch": [],
-  "aiContactProfiles": [],
-  "aiEmailGenerations": [],
+  "aiCompanyResearch": [
+    {
+      "id": "comp_res_ld_1785072843639",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "summary": "Cyberdyne Systems is an advanced technology corporation specializing in artificial intelligence development, neural network processing architectures, and autonomous robotic systems. Operating on an enterprise B2B and defense-oriented business model, they are key innovators in machine learning hardware and high-performance computing solutions.",
+      "industry": "Artificial Intelligence & Advanced Robotics",
+      "productsServices": [
+        "Neural Network Processor Chips",
+        "Autonomous Cybernetic Systems",
+        "Enterprise Machine Learning SDKs"
+      ],
+      "websiteAnalysis": "The digital infrastructure of cyberdyne.io is likely highly secure, using enterprise-level DNS protection, secure API gateways, and custom backend systems. Their front-end likely utilizes a streamlined, developer-centric design built with high-performance frameworks like Next.js or React, optimized to showcase technical documentation and platform capabilities.",
+      "teamSize": "500-1000 employees",
+      "technologies": [
+        "Amazon Web Services",
+        "Kubernetes",
+        "React",
+        "Python & C++ Frameworks",
+        "Salesforce Enterprise Cloud"
+      ],
+      "painPoints": [
+        "High engineering resource overhead being spent on building and maintaining custom in-house data scraping and lead generation pipelines.",
+        "System integration bottlenecking between legacy enterprise database infrastructures and modern, fast-moving outbound sales platforms.",
+        "Strict security compliance requirements (SOC2, ISO 27001, and defense clearance standards) that make standard B2B prospecting tools difficult to authorize for internal use."
+      ],
+      "recentNews": [
+        "Recent rapid hiring waves for specialized machine learning developers and sales engineers to scale their commercial outreach.",
+        "Increased public emphasis on shifting from pure research and development to high-scale enterprise commercialization."
+      ],
+      "icpFitScore": 95,
+      "createdAt": "2026-07-26T13:34:41.941Z"
+    }
+  ],
+  "aiContactProfiles": [
+    {
+      "id": "cont_prof_ld_1785072843639",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "name": "Sarah Connor",
+      "role": "VP Engineering",
+      "decisionMakerScore": 92,
+      "buyingIntentEstimate": "HIGH",
+      "talkingPoints": [
+        "Pitch SalesPilot's zero-maintenance enterprise API as a developer-friendly solution that offloads tedious internal data engineering tasks, returning valuable hours to her core engineering team.",
+        "Highlight SalesPilot's industry-leading enterprise security certifications (SOC2 Type II, secure data tenant isolation), making compliance sign-off trivial for her security team."
+      ],
+      "createdAt": "2026-07-26T13:34:41.944Z"
+    }
+  ],
+  "aiEmailGenerations": [
+    {
+      "id": "em_gen_1785072899612",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "subject": "Outreach regarding Cyberdyne Systems",
+      "body": "Hi Sarah,\n\nHope this finds you well. I wanted to reach out regarding outbound sales solutions at Cyberdyne Systems. Let me know if you have time for a brief call next week.\n\nBest,",
+      "tone": "Formal",
+      "promptUsed": null,
+      "status": "DRAFT",
+      "createdAt": "2026-07-26T13:34:59.612Z"
+    }
+  ],
   "aiFollowups": [],
   "aiMeetingBriefs": [],
   "aiProposals": [],
-  "aiScores": [],
+  "aiScores": [
+    {
+      "id": "score_ld_1785072843639_icp",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "scoreType": "ICP",
+      "scoreValue": 95,
+      "reasoning": "Based on company profile, revenue estimate, and industry match.",
+      "createdAt": "2026-07-26T13:34:41.946Z"
+    },
+    {
+      "id": "score_ld_1785072843639_decision_maker",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "scoreType": "DECISION_MAKER",
+      "scoreValue": 92,
+      "reasoning": "Evaluation of Sarah's title and direct buying authority.",
+      "createdAt": "2026-07-26T13:34:41.947Z"
+    },
+    {
+      "id": "score_ld_1785072843639_buying_intent",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "scoreType": "BUYING_INTENT",
+      "scoreValue": 90,
+      "reasoning": "Determined based on website signal highlights and digital tech usage.",
+      "createdAt": "2026-07-26T13:34:41.949Z"
+    },
+    {
+      "id": "score_ld_1785072843639_overall",
+      "leadId": "ld_1785072843639",
+      "organizationId": "org_salespilot_lifetime",
+      "scoreType": "OVERALL",
+      "scoreValue": 92,
+      "reasoning": "Combined index score representing SDR outreach priority.",
+      "createdAt": "2026-07-26T13:34:41.951Z"
+    }
+  ],
   "roles": [
     {
       "id": "role_owner",

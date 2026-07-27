@@ -1070,9 +1070,9 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
                             <div className="font-bold text-white flex items-center gap-2">
                               {u.fullName}
                               {u.isVerified ? (
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" title="Email Verified" />
+                                <span title="Email Verified"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /></span>
                               ) : (
-                                <Mail className="w-3.5 h-3.5 text-amber-500" title="Verification Pending" />
+                                <span title="Verification Pending"><Mail className="w-3.5 h-3.5 text-amber-500" /></span>
                               )}
                             </div>
                             <div className="text-[10px] font-mono text-slate-500">{u.email}</div>
