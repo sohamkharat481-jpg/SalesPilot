@@ -8,7 +8,7 @@ import {
   Sparkles, Layers, Users, Award, Calendar, CreditCard, 
   Settings, Loader2, LogOut, Check, ChevronRight, ChevronLeft, Menu, X, ArrowUpRight, ShieldAlert,
   Bell, Search, Bot, FileText, TrendingUp, Sun, Moon, Clock, Activity, Send, Briefcase, ShieldCheck,
-  Rocket, Building2, Terminal, HelpCircle, PhoneCall, Smartphone, Globe, Lock
+  Rocket, Building2, Terminal, HelpCircle, PhoneCall, Smartphone, Globe, Lock, Chrome
 } from 'lucide-react';
 import { Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   WorkspaceUser, SubscriptionTier, DealStage, SequenceStep 
@@ -44,6 +44,14 @@ import { RevenueIntelligenceView } from './components/RevenueIntelligenceView';
 import { MarketplaceView } from './components/MarketplaceView';
 import { ComplianceView } from './components/ComplianceView';
 import { BetaProgramView } from './components/BetaProgramView';
+import { ChromeExtensionView } from './components/ChromeExtensionView';
+import { AiMemoryManagerView } from './components/copilot/AiMemoryManagerView';
+import { HyperscaleInfraView } from './components/HyperscaleInfraView';
+import { GlobalLaunchHub } from './components/GlobalLaunchHub';
+import { PublicStatusPageModal } from './components/PublicStatusPageModal';
+import { LegalPrivacyModal } from './components/LegalPrivacyModal';
+import { GlobalProductionReportModal } from './components/GlobalProductionReportModal';
+import { Brain, Server } from 'lucide-react';
 import { ErrorBoundary } from './reliability/ErrorBoundary';
 import { OfflineBanner } from './reliability/OfflineBanner';
 
@@ -152,6 +160,11 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showActivities, setShowActivities] = useState(false);
+  
+  // Modals for Global Enterprise Launch & Status
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   
   // Custom SaaS Layout Specs
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -563,6 +576,7 @@ export default function App() {
     { id: 'openai-suite', label: 'Research', icon: Sparkles },
     { id: 'campaigns', label: 'Campaigns', icon: Sparkles },
     { id: 'automation', label: 'Workflows', icon: Activity },
+    { id: 'chrome-extension', label: 'Chrome Extension', icon: Chrome },
     { id: 'outreach', label: 'Outreach', icon: Send },
     { id: 'scheduler', label: 'Appointments', icon: Calendar, badge: appointments.filter(a => a.status === 'SCHEDULED').length },
     { id: 'pipeline', label: 'CRM', icon: Award },
@@ -581,6 +595,9 @@ export default function App() {
     { id: 'compliance', label: 'Compliance Center', icon: ShieldCheck },
     { id: 'beta-program', label: 'Beta Control Center', icon: Rocket },
     { id: 'launch-center', label: 'Enterprise Launch', icon: Rocket },
+    { id: 'ai-memory', label: 'AI Memory Store', icon: Brain },
+    { id: 'hyperscale', label: 'Hyperscale Infra', icon: Server },
+    { id: 'global-launch', label: 'Global Launch Hub', icon: Globe },
     { id: 'workspace', label: 'Workspace Hub', icon: Building2 },
     { id: 'client-portal', label: 'Client Portal', icon: Briefcase },
     ...((user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') ? [{ id: 'super-admin', label: 'Admin (Owner Only)', icon: ShieldCheck }] : [])
@@ -754,7 +771,27 @@ export default function App() {
             title="Launch Interactive Product Tour & Support Help Desk"
           >
             <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="hidden sm:inline">Help & Product Tour</span>
+            <span className="hidden sm:inline">Help & Tour</span>
+          </button>
+
+          {/* System Status Page Button */}
+          <button 
+            onClick={() => setShowStatusModal(true)}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-lg font-bold text-[11px] transition cursor-pointer"
+            title="View Live Operational Status"
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Status</span>
+          </button>
+
+          {/* Enterprise Production Certificate Button */}
+          <button 
+            onClick={() => setShowReportModal(true)}
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 rounded-lg font-bold text-[11px] transition cursor-pointer"
+            title="View Enterprise Audit Certificate"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+            <span>Audit Cert</span>
           </button>
 
           {/* AI Assistant Button */}
@@ -1138,6 +1175,10 @@ export default function App() {
             <AutomationView />
           )}
 
+          {activeTab === 'chrome-extension' && (
+            <ChromeExtensionView onLeadAdded={(newLead) => setLeads([newLead, ...leads])} />
+          )}
+
           {activeTab === 'outreach' && (
             checkIntegration('gmail') ? (
               <OutreachView />
@@ -1295,9 +1336,26 @@ export default function App() {
             <LaunchCenterView />
           )}
 
+          {activeTab === 'ai-memory' && (
+            <AiMemoryManagerView />
+          )}
+
+          {activeTab === 'hyperscale' && (
+            <HyperscaleInfraView />
+          )}
+
+          {activeTab === 'global-launch' && (
+            <GlobalLaunchHub 
+              onOpenStatusPage={() => setShowStatusModal(true)}
+              onOpenLegalPrivacy={() => setShowLegalModal(true)}
+            />
+          )}
+
           {activeTab === 'workspace' && (
             <WorkspaceView 
               user={user} 
+              leads={leads}
+              deals={deals}
               onRefreshUser={async () => {
                 // Trigger profile refresh if needed
                 console.log('Refreshing user context in Workspace Hub');
@@ -1580,6 +1638,18 @@ export default function App() {
         onNavigateTab={(tab) => setActiveTab(tab)}
       />
       <OfflineBanner />
+      <PublicStatusPageModal 
+        isOpen={showStatusModal} 
+        onClose={() => setShowStatusModal(false)} 
+      />
+      <LegalPrivacyModal 
+        isOpen={showLegalModal} 
+        onClose={() => setShowLegalModal(false)} 
+      />
+      <GlobalProductionReportModal 
+        isOpen={showReportModal} 
+        onClose={() => setShowReportModal(false)} 
+      />
     </div>
   );
 }

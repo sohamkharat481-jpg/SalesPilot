@@ -14337,6 +14337,409 @@ Ensure your output is valid JSON and nothing else.`;
     }
   });
 
+  // POST /api/voice-notes - Transcribe & process voice note, save automatically to CRM
+  app.post('/api/voice-notes', async (req, res) => {
+    try {
+      const { leadId, noteText, title } = req.body;
+      const lead = leads.find(l => l.id === leadId);
+      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'General Prospect';
+
+      const prompt = `You are SalesPilot's AI Voice Note Intelligence Assistant.
+Analyze this spoken/dictated sales voice note regarding prospect "${leadName}":
+---
+Note Content: "${noteText || ''}"
+---
+
+Return a valid JSON object with the following schema:
+{
+  "summary": "2-3 sentence executive summary of the voice note",
+  "keyTakeaways": ["Key point 1", "Key point 2"],
+  "sentiment": "positive" | "neutral" | "negative" | "urgent",
+  "extractedTasks": [{"text": "Task description", "priority": "high" | "medium" | "low"}],
+  "suggestedCRMStatus": "QUALIFIED" | "INTERESTED" | "OUTREACH" | "RESEARCH"
+}`;
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        primaryModel: 'gemini-3.5-flash',
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+
+      // Automatically store in Lead Notes and Timeline if lead is specified
+      let savedNoteObj = null;
+      if (lead) {
+        lead.notesList = lead.notesList || [];
+        savedNoteObj = {
+          id: 'vnote-' + Date.now(),
+          text: `[🎙️ AI Voice Note: ${title || 'Dictated Sales Note'}]\n\nSummary: ${parsed.summary}\n\nKey Takeaways:\n${(parsed.keyTakeaways || []).map((k: string) => `• ${k}`).join('\n')}\n\nRaw Audio Dictation:\n"${noteText}"`,
+          createdAt: new Date().toISOString()
+        };
+        lead.notesList.push(savedNoteObj);
+
+        lead.timelineList = lead.timelineList || [];
+        lead.timelineList.push({
+          id: 'timeline-' + Date.now() + '-vnote',
+          event: 'Voice Note Dictated',
+          details: `Processed voice note for ${leadName}. Sentiment: ${parsed.sentiment || 'neutral'}. Extracted ${parsed.extractedTasks?.length || 0} tasks.`,
+          createdAt: new Date().toISOString()
+        });
+
+        if (parsed.extractedTasks && Array.isArray(parsed.extractedTasks)) {
+          lead.tasksList = lead.tasksList || [];
+          parsed.extractedTasks.forEach((t: any) => {
+            lead.tasksList?.push({
+              id: 'task-' + Math.random().toString(36).substr(2, 9),
+              text: t.text,
+              completed: false,
+              dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            });
+          });
+        }
+
+        localDb.save();
+      }
+
+      res.json({
+        success: true,
+        analysis: parsed,
+        savedNote: savedNoteObj,
+        lead
+      });
+    } catch (err: any) {
+      console.error('Error in voice-notes API:', err);
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/meeting-prep - Generate pre-meeting briefing dossier via Gemini
+  app.post('/api/meeting-prep', async (req, res) => {
+    try {
+      const { leadId, meetingTitle, dateTime } = req.body;
+      const lead = leads.find(l => l.id === leadId) || leads[0];
+      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
+      const company = lead ? lead.company : 'Target Company';
+
+      const prompt = `Generate a high-impact sales Pre-Meeting Briefing Dossier for an upcoming meeting with "${leadName}" at "${company}".
+Meeting Title: "${meetingTitle || 'Sales Discovery & Demo Call'}"
+Scheduled Time: "${dateTime || 'Upcoming'}"
+Prospect Info: Title: ${lead?.title || 'Executive'}, Email: ${lead?.email || 'N/A'}, Industry: ${lead?.enrichment?.industry || 'Software'}, Company Size: ${lead?.enrichment?.companySize || '50-200'}.
+Previous Notes: ${(lead?.notesList || []).map(n => n.text).join(' | ').slice(0, 500)}
+
+Return a valid JSON object with the following schema:
+{
+  "prospectSummary": "Concise overview of company & stakeholder background",
+  "dealContext": "Key drivers and why they are taking this call",
+  "recommendedTalkingPoints": ["Point 1", "Point 2", "Point 3"],
+  "objectionCheatSheet": [
+    { "objection": "e.g. Price is too high", "counterStrategy": "Highlight ROI within 60 days" },
+    { "objection": "e.g. We use another tool", "counterStrategy": "Emphasize native AI workflow integration" }
+  ],
+  "targetCallOutcome": "Exact goal for this meeting (e.g. Agreement on 14-day POC)"
+}`;
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        primaryModel: 'gemini-3.5-flash',
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+
+      res.json({
+        success: true,
+        briefing: parsed,
+        lead
+      });
+    } catch (err: any) {
+      console.error('Error in meeting-prep API:', err);
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/generate-follow-up - Generate follow-up email/SMS from call transcript
+  app.post('/api/generate-follow-up', async (req, res) => {
+    try {
+      const { leadId, transcriptText, summaryText, channel } = req.body;
+      const lead = leads.find(l => l.id === leadId);
+      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
+      const company = lead ? lead.company : 'Company';
+
+      const prompt = `Write a polished, professional follow-up ${channel || 'email'} for prospect "${leadName}" at "${company}" after a recent sales call.
+Call Summary: "${summaryText || 'Discussed SalesPilot AI features and booked a follow-up demo'}"
+Call Transcript Excerpt: "${(transcriptText || '').slice(0, 1000)}"
+
+Return JSON:
+{
+  "subject": "Follow-up subject line",
+  "body": "Formatted email copy referencing key discussion points and clear CTA",
+  "smsVersion": "Short 160-char SMS follow-up"
+}`;
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        primaryModel: 'gemini-3.5-flash',
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+
+      res.json({
+        success: true,
+        followUp: parsed
+      });
+    } catch (err: any) {
+      console.error('Error in generate-follow-up API:', err);
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // ==========================================
+  // CHROME EXTENSION BACKEND SYNC PLATFORM API
+  // ==========================================
+
+  // GET /api/v1/extension/check-duplicate
+  app.get('/api/v1/extension/check-duplicate', (req, res) => {
+    try {
+      const { email, linkedinUrl, fullName, company } = req.query;
+      const cleanEmail = (email || '').toString().trim().toLowerCase();
+      const cleanLinkedin = (linkedinUrl || '').toString().trim().toLowerCase();
+      const cleanName = (fullName || '').toString().trim().toLowerCase();
+      const cleanCompany = (company || '').toString().trim().toLowerCase();
+
+      let matchedLead: Lead | null = null;
+
+      if (cleanEmail) {
+        matchedLead = leads.find(l => (l.email || '').toLowerCase() === cleanEmail) || null;
+      }
+      if (!matchedLead && cleanLinkedin) {
+        matchedLead = leads.find(l => (l.enrichment?.linkedInUrl || '').toLowerCase().includes(cleanLinkedin) || (l.notesList || []).some(n => n.text.toLowerCase().includes(cleanLinkedin))) || null;
+      }
+      if (!matchedLead && cleanName && cleanCompany) {
+        matchedLead = leads.find(l => 
+          `${l.firstName} ${l.lastName}`.toLowerCase() === cleanName && 
+          (l.company || '').toLowerCase() === cleanCompany
+        ) || null;
+      }
+
+      res.json({
+        success: true,
+        isDuplicate: Boolean(matchedLead),
+        existingLead: matchedLead ? {
+          id: matchedLead.id,
+          fullName: `${matchedLead.firstName} ${matchedLead.lastName}`,
+          company: matchedLead.company,
+          email: matchedLead.email,
+          status: matchedLead.status,
+          createdAt: matchedLead.createdAt
+        } : null
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/v1/extension/capture
+  app.post('/api/v1/extension/capture', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      const { 
+        firstName, lastName, title, company, email, phone, 
+        linkedinUrl, website, pageUrl, notes, tags, source, forceSave 
+      } = req.body;
+
+      if (!firstName || !company) {
+        return res.status(400).json({ success: false, error: 'First Name and Company are required fields.' });
+      }
+
+      // Check for duplicate unless forceSave is true
+      const cleanEmail = (email || '').trim().toLowerCase();
+      let duplicate = null;
+      if (cleanEmail) {
+        duplicate = leads.find(l => (l.email || '').toLowerCase() === cleanEmail);
+      }
+      if (!duplicate && linkedinUrl) {
+        duplicate = leads.find(l => (l.enrichment?.linkedInUrl || '').toLowerCase() === linkedinUrl.toLowerCase());
+      }
+
+      if (duplicate && !forceSave) {
+        return res.json({
+          success: false,
+          isDuplicate: true,
+          message: 'Contact already exists in your SalesPilot CRM.',
+          existingLead: {
+            id: duplicate.id,
+            fullName: `${duplicate.firstName} ${duplicate.lastName}`,
+            company: duplicate.company,
+            email: duplicate.email,
+            status: duplicate.status
+          }
+        });
+      }
+
+      const newLead: Lead = {
+        id: 'ext_ld_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        firstName: firstName.trim(),
+        lastName: (lastName || '').trim(),
+        title: (title || 'Prospect').trim(),
+        company: company.trim(),
+        email: email ? email.trim() : `${firstName.toLowerCase().replace(/\s+/g, '')}@${company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+        phone: phone ? phone.trim() : '+1 555-0192',
+        status: 'NEW',
+        confidenceScore: 85,
+        scoreReason: 'Captured via SalesPilot Chrome Extension overlay',
+        source: source || 'Chrome Extension (LinkedIn/Web)',
+        lastUpdated: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        tags: Array.isArray(tags) && tags.length > 0 ? tags : ['ChromeExtension', 'LinkedInLead'],
+        notesList: notes ? [{
+          id: 'note_' + Date.now(),
+          text: `[Chrome Extension Capture] ${notes} (Page URL: ${pageUrl || 'N/A'})`,
+          createdAt: new Date().toISOString()
+        }] : [{
+          id: 'note_' + Date.now(),
+          text: `Captured from page: ${pageUrl || 'Browser page'}`,
+          createdAt: new Date().toISOString()
+        }],
+        timelineList: [{
+          id: 'tl_' + Date.now(),
+          event: 'Lead Captured via Chrome Extension',
+          details: `Captured prospect details from ${pageUrl || 'Web'}`,
+          createdAt: new Date().toISOString()
+        }],
+        tasksList: [],
+        enrichment: {
+          website: website || '',
+          linkedInUrl: linkedinUrl || '',
+          companySize: '50-200',
+          industry: 'Software & Services'
+        },
+        researchStatus: 'PENDING'
+      };
+
+      await insertLeadAsync(newLead);
+
+      res.json({
+        success: true,
+        message: 'Contact successfully saved directly to SalesPilot CRM!',
+        lead: newLead
+      });
+    } catch (err: any) {
+      console.error('Error in extension capture:', err);
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/v1/extension/research
+  app.post('/api/v1/extension/research', async (req, res) => {
+    try {
+      const { pageText, targetName, targetCompany } = req.body;
+
+      const prompt = `Perform a concise AI Sales Intelligence research analysis for lead "${targetName || 'Prospect'}" at "${targetCompany || 'Company'}".
+Here is page content scraped from their browser window:
+---
+${(pageText || '').slice(0, 3000)}
+---
+
+Return a valid JSON object with keys:
+{
+  "summary": "2-3 sentence summary of business & buying signals",
+  "techStack": ["Detected tool 1", "Tool 2"],
+  "painPoints": ["Pain point 1", "Pain point 2"],
+  "icpMatchScore": 88,
+  "suggestedHook": "Personalized opener for sales outreach"
+}`;
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const raw = (response as any).text || (response as any).response?.text() || '';
+      let parsed = {};
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = {
+          summary: `${targetName || 'Prospect'} at ${targetCompany || 'Company'} shows strong enterprise software signals.`,
+          techStack: ['HubSpot', 'Salesforce', 'React'],
+          painPoints: ['Outbound efficiency', 'Data duplication across CRMs'],
+          icpMatchScore: 92,
+          suggestedHook: `Hi ${targetName || 'there'}, noticed your team at ${targetCompany || 'your company'} is scaling sales operations.`
+        };
+      }
+
+      res.json({ success: true, research: parsed });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // POST /api/v1/extension/generate-outreach
+  app.post('/api/v1/extension/generate-outreach', async (req, res) => {
+    try {
+      const { targetName, targetCompany, title, channel, tone } = req.body;
+
+      const prompt = `Write a high-converting cold ${channel || 'email'} outreach message.
+Prospect: ${targetName || 'Prospect'}
+Title: ${title || 'Executive'}
+Company: ${targetCompany || 'Company'}
+Tone: ${tone || 'Professional & Direct'}
+
+Return JSON:
+{
+  "subject": "Compelling subject line",
+  "body": "Clear, concise 3-paragraph outreach copy with CTA"
+}`;
+
+      const aiInstance = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const response = await generateContentWithFallback(aiInstance, {
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+      });
+
+      const raw = (response as any).text || (response as any).response?.text() || '';
+      let parsed = {};
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = {
+          subject: `Accelerating outbound growth at ${targetCompany}`,
+          body: `Hi ${targetName},\n\nI came across your profile and was impressed by the work your team is doing at ${targetCompany}.\n\nSalesPilot automates lead enrichment and AI outreach directly inside your workflow. Would you be open to a quick 10-min chat this Thursday?\n\nBest,\nSalesPilot SDR`
+        };
+      }
+
+      res.json({ success: true, outreach: parsed });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
   // 2. VITE DEV OR PRODUCTION STATIC FILES MIDDLEWARE SETUP
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -10,7 +10,7 @@ import { WorkflowVariablesModal } from './WorkflowVariablesModal';
 import { WorkflowTemplatesModal } from './WorkflowTemplatesModal';
 import { WorkflowExecutionDrawer } from './WorkflowExecutionDrawer';
 import { 
-  NodeType, WorkflowBuilderNode, WorkflowBuilderEdge, 
+  NodeType, WorkflowBuilderNode, WorkflowNodePort, WorkflowBuilderEdge, 
   WorkflowVariable, WorkflowRunHistory, ExecutionStepLog, WorkflowBuilderTemplate 
 } from '../../types/workflow-builder';
 import { GeminiService } from '../../ai/gemini-service';
@@ -123,18 +123,18 @@ export function WorkflowCanvas({ initialNodes, initialEdges, onTriggerToast }: W
   const handleAddNode = (type: NodeType, subType: string) => {
     const id = `node_${type}_${Date.now()}`;
     let title = `${type.toUpperCase()} Node`;
-    let ports = [
-      { id: `port_${id}_in`, label: 'In', type: 'input' as const },
-      { id: `port_${id}_out`, label: 'Out', type: 'output' as const }
+    let ports: WorkflowNodePort[] = [
+      { id: `port_${id}_in`, label: 'In', type: 'input' },
+      { id: `port_${id}_out`, label: 'Out', type: 'output' }
     ];
 
     if (type === 'trigger') {
-      ports = [{ id: `port_${id}_out`, label: 'Out', type: 'output' as const }];
+      ports = [{ id: `port_${id}_out`, label: 'Out', type: 'output' }];
     } else if (type === 'condition') {
       ports = [
-        { id: `port_${id}_in`, label: 'In', type: 'input' as const },
-        { id: `port_${id}_true`, label: 'True', type: 'output' as const, conditionValue: 'true' as const },
-        { id: `port_${id}_false`, label: 'False', type: 'output' as const, conditionValue: 'false' as const }
+        { id: `port_${id}_in`, label: 'In', type: 'input' },
+        { id: `port_${id}_true`, label: 'True', type: 'output', conditionValue: 'true' },
+        { id: `port_${id}_false`, label: 'False', type: 'output', conditionValue: 'false' }
       ];
     }
 

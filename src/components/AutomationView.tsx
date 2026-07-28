@@ -3,7 +3,7 @@ import {
   Plus, Play, Pause, Save, Trash2, Copy, FileDown, FileUp, History, Clock, 
   GitBranch, RefreshCw, CheckCircle, AlertTriangle, ChevronRight, Settings, 
   HelpCircle, ArrowLeft, Bot, Mail, Calendar, UserPlus, FileText, Check, 
-  CalendarDays, Hourglass, RotateCcw, Sliders, Globe, Search, ArrowRight, X, Info, Zap
+  CalendarDays, Hourglass, RotateCcw, Sliders, Globe, Search, ArrowRight, X, Info, Zap, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../authentication/AuthContext';
 import { AutomationWorkflow, WorkflowNode, WorkflowEdge, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory, Lead, Appointment, Deal } from '../types';
@@ -384,6 +384,13 @@ export function AutomationView() {
         
         {!isEditing && (
           <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              onClick={() => setActiveSubTab('canvas')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${activeSubTab === 'canvas' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              Visual Canvas Mode
+            </button>
             <button
               onClick={() => setActiveSubTab('sales-automation')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition flex items-center gap-1.5 cursor-pointer ${activeSubTab === 'sales-automation' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
@@ -934,7 +941,9 @@ export function AutomationView() {
         </div>
       ) : (
         /* ==================== WORKFLOWS LIST / SALES AUTOMATION VIEW ==================== */
-        activeSubTab === 'sales-automation' ? (
+        activeSubTab === 'canvas' ? (
+          <WorkflowCanvas />
+        ) : activeSubTab === 'sales-automation' ? (
           <SalesAutomationView
             leads={leads}
             appointments={appointments}
