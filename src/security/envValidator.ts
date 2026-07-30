@@ -49,24 +49,3 @@ export function validateStartupEnv(): ValidatedBackendEnv {
   return parsed.data;
 }
 
-/**
- * Validates frontend environment variables using import.meta.env
- */
-export function validateFrontendEnv(): { isConfigured: boolean; missingVars: string[]; details: string } {
-  const url = (import.meta.env?.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : '') || '') as string;
-  const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_ANON_KEY : '') || '') as string;
-  const missingVars: string[] = [];
-
-  if (!url) missingVars.push('VITE_SUPABASE_URL');
-  if (!key) missingVars.push('VITE_SUPABASE_ANON_KEY');
-
-  if (missingVars.length > 0) {
-    const details = `Frontend missing environment variable(s): ${missingVars.join(', ')}`;
-    console.warn(`⚠️ [FRONTEND ENV DIAGNOSTIC] ${details}`);
-    return { isConfigured: false, missingVars, details };
-  }
-
-  console.log('🔒 [FRONTEND ENV DIAGNOSTIC] Frontend environment variables validated successfully.');
-  return { isConfigured: true, missingVars: [], details: 'All frontend environment variables present.' };
-}
-

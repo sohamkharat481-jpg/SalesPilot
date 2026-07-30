@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseClient } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/supabase.server';
 import { 
   WorkspaceUser, Organization, TeamMember, Lead, Campaign, Deal, Appointment, UserRole,
   AiCompanyResearch, AiContactProfile, AiEmailGeneration, AiFollowup, AiMeetingBrief, AiProposal, AiScore,
