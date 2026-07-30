@@ -5,26 +5,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * Single source of truth for Frontend Supabase credentials using Vite static replacements.
  * Frontend MUST use VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
  */
-const getEnvValue = (key: string): string => {
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta?.env && import.meta.env[key]) {
-      return String(import.meta.env[key]).trim();
-    }
-  } catch {
-    // Ignore
-  }
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return String(process.env[key]).trim();
-    }
-  } catch {
-    // Ignore
-  }
-  return '';
-};
-
-export const SUPABASE_URL = getEnvValue('VITE_SUPABASE_URL') || getEnvValue('SUPABASE_URL');
-export const SUPABASE_ANON_KEY = getEnvValue('VITE_SUPABASE_ANON_KEY') || getEnvValue('SUPABASE_ANON_KEY');
+export const SUPABASE_URL = ((import.meta.env?.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : '')) || '').trim();
+export const SUPABASE_ANON_KEY = ((import.meta.env?.VITE_SUPABASE_ANON_KEY || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_ANON_KEY : '')) || '').trim();
 
 /**
  * Safely masks sensitive string keys for diagnostic logging.
@@ -40,15 +22,12 @@ let lastInitError: string | null = null;
 let lastInitStackTrace: string | null = null;
 
 // Debug logging gate
-const isDebug = Boolean(
-  (typeof import.meta !== 'undefined' && (import.meta?.env?.DEV || import.meta?.env?.VITE_DEBUG === 'true')) ||
-  (typeof process !== 'undefined' && (process.env?.NODE_ENV === 'development' || process.env?.VITE_DEBUG === 'true'))
-);
+const isDebug = Boolean(import.meta.env?.DEV || import.meta.env?.VITE_DEBUG === 'true');
 
 // Perform runtime environment audit log upon module load in browser context when debug flag is set
 if (typeof window !== 'undefined' && isDebug) {
-  const buildTime = getEnvValue('VITE_BUILD_TIME') || new Date().toISOString();
-  const commitSha = getEnvValue('VITE_VERCEL_GIT_COMMIT_SHA') || getEnvValue('VERCEL_GIT_COMMIT_SHA') || 'N/A';
+  const buildTime = import.meta.env?.VITE_BUILD_TIME || new Date().toISOString();
+  const commitSha = import.meta.env?.VITE_VERCEL_GIT_COMMIT_SHA || 'N/A';
   console.log('🔍 [DEPLOYMENT RUNTIME DIAGNOSTICS - SUPABASE INIT AUDIT]');
   console.log(` - VITE_SUPABASE_URL: ${maskSecret(SUPABASE_URL)} (length: ${SUPABASE_URL.length})`);
   console.log(` - VITE_SUPABASE_ANON_KEY: ${maskSecret(SUPABASE_ANON_KEY)} (length: ${SUPABASE_ANON_KEY.length})`);

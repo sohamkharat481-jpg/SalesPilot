@@ -26,6 +26,8 @@ const getProcessEnv = (key: string): string => {
 };
 
 export const CONFIG = {
+  VITE_SUPABASE_URL: SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   GEMINI_API_KEY: getProcessEnv('GEMINI_API_KEY'),
