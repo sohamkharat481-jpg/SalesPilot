@@ -1,47 +1,138 @@
 /// <reference types="vite/client" />
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Single source of truth for Supabase credentials.
-// Supports both VITE_ and standard prefix across process.env and import.meta.env.
-function resolveEnv(key: string): string {
+/**
+ * Single source of truth for Frontend Supabase credentials using Vite static replacements.
+ * Frontend MUST use VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+ */
+const getEnvValue = (key: string): string => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.env && import.meta.env[key]) {
+      return String(import.meta.env[key]).trim();
+    }
+  } catch {
+    // Ignore
+  }
   try {
     if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key] as string;
+      return String(process.env[key]).trim();
     }
   } catch {
-    // Ignore process reference error
+    // Ignore
   }
-
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-      return import.meta.env[key] as string;
-    }
-  } catch {
-    // Ignore import.meta reference error
-  }
-
   return '';
+};
+
+export const SUPABASE_URL = getEnvValue('VITE_SUPABASE_URL') || getEnvValue('SUPABASE_URL');
+export const SUPABASE_ANON_KEY = getEnvValue('VITE_SUPABASE_ANON_KEY') || getEnvValue('SUPABASE_ANON_KEY');
+
+/**
+ * Safely masks sensitive string keys for diagnostic logging.
+ * Retains first 4 and last 4 characters if long enough.
+ */
+export function maskSecret(val: string): string {
+  if (!val) return '(empty)';
+  if (val.length <= 8) return '****';
+  return `${val.slice(0, 4)}...${val.slice(-4)}`;
 }
 
-export const SUPABASE_URL =
-  resolveEnv('VITE_SUPABASE_URL') ||
-  resolveEnv('SUPABASE_URL') ||
-  '';
+let lastInitError: string | null = null;
+let lastInitStackTrace: string | null = null;
 
-export const SUPABASE_ANON_KEY =
-  resolveEnv('VITE_SUPABASE_ANON_KEY') ||
-  resolveEnv('SUPABASE_ANON_KEY') ||
-  '';
+// Debug logging gate
+const isDebug = Boolean(
+  (typeof import.meta !== 'undefined' && (import.meta?.env?.DEV || import.meta?.env?.VITE_DEBUG === 'true')) ||
+  (typeof process !== 'undefined' && (process.env?.NODE_ENV === 'development' || process.env?.VITE_DEBUG === 'true'))
+);
+
+// Perform runtime environment audit log upon module load in browser context when debug flag is set
+if (typeof window !== 'undefined' && isDebug) {
+  const buildTime = getEnvValue('VITE_BUILD_TIME') || new Date().toISOString();
+  const commitSha = getEnvValue('VITE_VERCEL_GIT_COMMIT_SHA') || getEnvValue('VERCEL_GIT_COMMIT_SHA') || 'N/A';
+  console.log('🔍 [DEPLOYMENT RUNTIME DIAGNOSTICS - SUPABASE INIT AUDIT]');
+  console.log(` - VITE_SUPABASE_URL: ${maskSecret(SUPABASE_URL)} (length: ${SUPABASE_URL.length})`);
+  console.log(` - VITE_SUPABASE_ANON_KEY: ${maskSecret(SUPABASE_ANON_KEY)} (length: ${SUPABASE_ANON_KEY.length})`);
+  console.log(` - window.location.origin: ${window.location.origin}`);
+  console.log(` - window.location.hostname: ${window.location.hostname}`);
+  console.log(` - Build Timestamp: ${buildTime}`);
+  console.log(` - Build Commit SHA: ${commitSha}`);
+}
+
+export interface SupabaseDiagnostics {
+  isConfigured: boolean;
+  missingVars: string[];
+  details: string;
+  initError?: string | null;
+  initStackTrace?: string | null;
+  urlLength: number;
+  keyLength: number;
+  detectedReason?: string;
+}
+
+/**
+ * Returns detailed startup diagnostics indicating exactly which environment variables are missing.
+ */
+export function getSupabaseDiagnostics(): SupabaseDiagnostics {
+  const missing: string[] = [];
+  if (!SUPABASE_URL) missing.push('VITE_SUPABASE_URL');
+  if (!SUPABASE_ANON_KEY) missing.push('VITE_SUPABASE_ANON_KEY');
+
+  let detectedReason = '';
+  if (missing.length > 0) {
+    detectedReason = 'Environment variables are missing or empty strings. Check if Vercel project environment variables were added before build.';
+    return {
+      isConfigured: false,
+      missingVars: missing,
+      details: `Supabase environment variables missing: ${missing.join(', ')}`,
+      initError: lastInitError,
+      initStackTrace: lastInitStackTrace,
+      urlLength: SUPABASE_URL.length,
+      keyLength: SUPABASE_ANON_KEY.length,
+      detectedReason
+    };
+  }
+
+  if (!SUPABASE_URL.startsWith('http://') && !SUPABASE_URL.startsWith('https://')) {
+    detectedReason = `Invalid URL scheme in VITE_SUPABASE_URL: "${SUPABASE_URL}". Must begin with http:// or https://.`;
+    return {
+      isConfigured: false,
+      missingVars: ['VITE_SUPABASE_URL (Invalid URL scheme)'],
+      details: `VITE_SUPABASE_URL must start with http:// or https:// (received: "${SUPABASE_URL}")`,
+      initError: lastInitError,
+      initStackTrace: lastInitStackTrace,
+      urlLength: SUPABASE_URL.length,
+      keyLength: SUPABASE_ANON_KEY.length,
+      detectedReason
+    };
+  }
+
+  if (lastInitError) {
+    return {
+      isConfigured: false,
+      missingVars: [],
+      details: `Supabase initialization error: ${lastInitError}`,
+      initError: lastInitError,
+      initStackTrace: lastInitStackTrace,
+      urlLength: SUPABASE_URL.length,
+      keyLength: SUPABASE_ANON_KEY.length,
+      detectedReason: 'Exception thrown inside createClient()'
+    };
+  }
+
+  return {
+    isConfigured: true,
+    missingVars: [],
+    details: 'Supabase credentials successfully configured.',
+    initError: null,
+    initStackTrace: null,
+    urlLength: SUPABASE_URL.length,
+    keyLength: SUPABASE_ANON_KEY.length,
+    detectedReason: 'Validation passed successfully.'
+  };
+}
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    typeof SUPABASE_URL === 'string' &&
-    SUPABASE_URL.startsWith('http') &&
-    typeof SUPABASE_ANON_KEY === 'string' &&
-    SUPABASE_ANON_KEY.length > 0
-  );
+  return getSupabaseDiagnostics().isConfigured;
 }
 
 let clientInstance: SupabaseClient | null = null;
@@ -51,15 +142,25 @@ let clientInstance: SupabaseClient | null = null;
  * Lazily initializes on first call if valid credentials are present.
  */
 export function getSupabaseClient(): SupabaseClient | null {
-  if (!isSupabaseConfigured()) {
-    console.warn(
-      '⚠️ Supabase credentials missing or unconfigured (VITE_SUPABASE_URL / SUPABASE_URL or VITE_SUPABASE_ANON_KEY / SUPABASE_ANON_KEY). Running in local fallback mode.'
-    );
+  const diagnostics = getSupabaseDiagnostics();
+
+  if (isDebug) {
+    console.log(`🧪 [SUPABASE CLIENT AUDIT] URL Length: ${SUPABASE_URL.length}, Key Length: ${SUPABASE_ANON_KEY.length}`);
+    console.log(`🧪 [SUPABASE CLIENT AUDIT] Validation Passed: ${diagnostics.isConfigured}`);
+  }
+
+  if (!diagnostics.isConfigured) {
+    if (isDebug) {
+      console.warn(`⚠️ [SUPABASE CONFIG DIAGNOSTIC]: ${diagnostics.details}. Running in Local Sandbox Fallback Mode.`);
+    }
     return null;
   }
 
   if (!clientInstance) {
     try {
+      if (isDebug) {
+        console.log(`🔌 Initializing createClient() with URL length ${SUPABASE_URL.length} and Key length ${SUPABASE_ANON_KEY.length}...`);
+      }
       clientInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
           persistSession: true,
@@ -67,9 +168,16 @@ export function getSupabaseClient(): SupabaseClient | null {
           detectSessionInUrl: true,
         },
       });
-      console.log('🔌 Single Supabase client singleton successfully initialized.');
-    } catch (err) {
-      console.error('❌ Failed to initialize Supabase client:', err);
+      if (isDebug) {
+        console.log('🔌 Single Supabase client singleton successfully initialized.');
+      }
+    } catch (err: any) {
+      lastInitError = err?.message || String(err);
+      lastInitStackTrace = err?.stack || null;
+      console.error('❌ Failed to initialize Supabase client:', lastInitError);
+      if (lastInitStackTrace) {
+        console.error('❌ Exception Stack Trace:', lastInitStackTrace);
+      }
       return null;
     }
   }

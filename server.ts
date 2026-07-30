@@ -833,24 +833,36 @@ const unusedDummyAppointments = [
 
 let integrations: IntegrationCredentials = {
   supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+  supabaseAnonKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   n8nWebhookUrl: '',
   cashfreeAppId: ''
 };
 
 let serverSupabaseInstance: SupabaseClient | null = null;
+let serverSupabaseLoggedDiagnostic = false;
 
-function getSupabaseClient() {
+function getSupabaseClient(): SupabaseClient | null {
   const url = integrations.supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const key = integrations.supabaseAnonKey || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-  if (!url || !key) return null;
+  const key = integrations.supabaseAnonKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  
+  if (!url || !key) {
+    if (!serverSupabaseLoggedDiagnostic) {
+      serverSupabaseLoggedDiagnostic = true;
+      const missing: string[] = [];
+      if (!url) missing.push('SUPABASE_URL');
+      if (!key) missing.push('SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY');
+      console.warn(`⚠️ [SERVER SUPABASE DIAGNOSTIC] Missing backend env: ${missing.join(', ')}. Running server in Local Memory Fallback Mode.`);
+    }
+    return null;
+  }
+
   if (!serverSupabaseInstance) {
     try {
       serverSupabaseInstance = createClient(url, key);
       console.log('🔌 Server-side Supabase client singleton initialized.');
-    } catch (err) {
-      console.error('Failed to create Supabase client in server:', err);
+    } catch (err: any) {
+      console.error('Failed to create Supabase client in server:', err?.message || err);
       return null;
     }
   }

@@ -14,15 +14,26 @@ import {
 } from '../lib/supabase';
 
 // Safe environment variables retrieval
+const getProcessEnv = (key: string): string => {
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key] as string;
+    }
+  } catch {
+    // Ignore process reference error
+  }
+  return '';
+};
+
 export const CONFIG = {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
-  N8N_WEBHOOK_URL: process.env.N8N_WEBHOOK_URL || '',
-  CASHFREE_APP_ID: process.env.CASHFREE_APP_ID || '',
-  CASHFREE_SECRET_KEY: process.env.CASHFREE_SECRET_KEY || '',
+  GEMINI_API_KEY: getProcessEnv('GEMINI_API_KEY'),
+  N8N_WEBHOOK_URL: getProcessEnv('N8N_WEBHOOK_URL'),
+  CASHFREE_APP_ID: getProcessEnv('CASHFREE_APP_ID'),
+  CASHFREE_SECRET_KEY: getProcessEnv('CASHFREE_SECRET_KEY'),
   PORT: 3000,
-  NODE_ENV: process.env.NODE_ENV || 'development'
+  NODE_ENV: getProcessEnv('NODE_ENV') || 'development'
 };
 
 let geminiInstance: GoogleGenAI | null = null;

@@ -54,6 +54,7 @@ import { GlobalProductionReportModal } from './components/GlobalProductionReport
 import { Brain, Server } from 'lucide-react';
 import { ErrorBoundary } from './reliability/ErrorBoundary';
 import { OfflineBanner } from './reliability/OfflineBanner';
+import { EnvDiagnosticBanner } from './reliability/EnvDiagnosticBanner';
 
 function RestrictedViewPlaceholder({ 
   title, 
@@ -1638,6 +1639,7 @@ export default function App() {
         onNavigateTab={(tab) => setActiveTab(tab)}
       />
       <OfflineBanner />
+      <EnvDiagnosticBanner />
       <PublicStatusPageModal 
         isOpen={showStatusModal} 
         onClose={() => setShowStatusModal(false)} 
