@@ -6,7 +6,7 @@ export function EnvDiagnosticBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [showModal, setShowModal] = useState(false);
   
-  const isDebug = Boolean(import.meta?.env?.VITE_DEBUG === 'true');
+  const isDebug = Boolean(import.meta.env.VITE_DEBUG === 'true');
   const diagnostics = getSupabaseDiagnostics();
 
   // Hide banner unless VITE_DEBUG is explicitly enabled or when configured/dismissed

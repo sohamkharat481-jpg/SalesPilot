@@ -294,8 +294,8 @@ export default function App() {
         if (actRes) {
           const actData = await actRes.json();
           if (actData.success && actData.activities) {
-            setActivities(actData.activities.map((a: any) => ({
-              id: a.id,
+            setActivities(actData.activities.map((a: any, idx: number) => ({
+              id: a.id ? `${a.id}-${idx}` : `act-${idx}`,
               text: a.text,
               time: a.time,
               icon: a.type === 'LEAD_CREATED' ? 'Users' : a.type === 'MEETING_BOOKED' ? 'Calendar' : 'Activity',
@@ -901,8 +901,8 @@ export default function App() {
                     </button>
                   </div>
                   <div className="space-y-3 max-h-60 overflow-y-auto scrollbar-none pl-1">
-                    {activities.map((act) => (
-                      <div key={act.id} className="relative pl-5 before:absolute before:left-1.5 before:top-2 before:bottom-0 before:w-[1px] before:bg-slate-200 dark:before:bg-slate-800">
+                    {activities.map((act, idx) => (
+                      <div key={act.id ? `${act.id}-${idx}` : `act-${idx}`} className="relative pl-5 before:absolute before:left-1.5 before:top-2 before:bottom-0 before:w-[1px] before:bg-slate-200 dark:before:bg-slate-800">
                         <span className={`absolute left-0 top-1 w-3.5 h-3.5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                         </span>

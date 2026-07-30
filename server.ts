@@ -1900,7 +1900,7 @@ async function startServer() {
         }
         const { data, error } = await query;
         if (error) {
-          console.error(`[DATABASE AUDIT - SELECT ALL LEADS ERROR] Supabase query failed:`, error);
+          console.warn(`[DATABASE AUDIT - SELECT ALL LEADS NOTICE] Supabase query notice:`, error?.message || error);
         } else if (data && data.length > 0) {
           fetchedLeads = data.map(mapSupabaseLeadToAppLead);
         }
@@ -7142,9 +7142,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     // Dynamically compile activities from actual database state rather than mock logs
     const dynamicActivities: any[] = [];
     
-    leads.forEach(l => {
+    leads.forEach((l, idx) => {
       dynamicActivities.push({
-        id: `act-lead-${l.id}`,
+        id: `act-lead-${l.id || idx}-${idx}`,
         type: 'LEAD_CREATED',
         text: `Prospect "${l.firstName} ${l.lastName}" sourced`,
         time: 'Sourced',
@@ -7152,9 +7152,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
     });
 
-    campaigns.forEach(c => {
+    campaigns.forEach((c, idx) => {
       dynamicActivities.push({
-        id: `act-camp-${c.id}`,
+        id: `act-camp-${c.id || idx}-${idx}`,
         type: 'CAMPAIGN_FINISHED',
         text: `Sequence "${c.name}" deployed and active`,
         time: 'Today',
@@ -7162,9 +7162,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
     });
 
-    appointments.forEach(a => {
+    appointments.forEach((a, idx) => {
       dynamicActivities.push({
-        id: `act-meet-${a.id}`,
+        id: `act-meet-${a.id || idx}-${idx}`,
         type: 'MEETING_BOOKED',
         text: `Strategy demo confirmed & calendar booked with ${a.leadName}`,
         time: 'Scheduled',

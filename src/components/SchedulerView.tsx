@@ -1094,12 +1094,12 @@ export function SchedulerView({
 
           {/* List layout */}
           <div className="space-y-4">
-            {unifiedAgenda.map(item => {
+            {unifiedAgenda.map((item, idx) => {
               if (item.itemType === 'GOOGLE_EVENT') {
                 const isWorking = loadingId === `delete-${item.id}`;
                 return (
                   <div 
-                    key={item.keyId}
+                    key={item.keyId ? `${item.keyId}-${idx}` : `evt-${idx}`}
                     className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/40 rounded-xl shadow-xs overflow-hidden transition-all duration-200 animate-fade-in"
                   >
                     <div className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1171,7 +1171,7 @@ export function SchedulerView({
 
               return (
                 <div 
-                  key={apt.id}
+                  key={item.keyId ? `${item.keyId}-${idx}` : `apt-${apt.id}-${idx}`}
                   className={`bg-white dark:bg-slate-900 border rounded-xl shadow-xs overflow-hidden transition-all duration-200 ${
                     apt.status === 'SCHEDULED' 
                       ? 'border-slate-200 dark:border-slate-800' 
