@@ -137,6 +137,14 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   if (!clientInstance) {
     try {
+      console.log({
+        viteUrlExists: !!import.meta.env.VITE_SUPABASE_URL,
+        viteUrlLength: import.meta.env.VITE_SUPABASE_URL?.length ?? 0,
+        viteKeyExists: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+        viteKeyLength: import.meta.env.VITE_SUPABASE_ANON_KEY?.length ?? 0,
+        mode: import.meta.env.MODE,
+        prod: import.meta.env.PROD
+      });
       if (isDebug) {
         console.log(`🔌 Initializing createClient() with URL length ${SUPABASE_URL.length} and Key length ${SUPABASE_ANON_KEY.length}...`);
       }
