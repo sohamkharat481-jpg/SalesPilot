@@ -139,6 +139,13 @@ let clientInstance: SupabaseClient | null = null;
  */
 export function getSupabaseClient(): SupabaseClient | null {
   console.log("Stage J: getSupabaseClient() called. Call stack:\n", new Error().stack);
+  console.log("===== RUNTIME VALUES =====");
+  console.log("SUPABASE_URL =", SUPABASE_URL);
+  console.log("SUPABASE_ANON_KEY =", SUPABASE_ANON_KEY);
+  console.log("import.meta.env =", import.meta.env);
+  console.log("typeof import.meta.env.VITE_SUPABASE_URL =", typeof import.meta.env.VITE_SUPABASE_URL);
+  console.log("typeof import.meta.env.VITE_SUPABASE_ANON_KEY =", typeof import.meta.env.VITE_SUPABASE_ANON_KEY);
+  console.log("==========================");
   const diagnostics = getSupabaseDiagnostics();
 
   if (isDebug) {
