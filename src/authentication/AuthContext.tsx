@@ -49,6 +49,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  console.log("Stage C: AuthContext initialized");
   const [user, setUser] = useState<WorkspaceUser | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);

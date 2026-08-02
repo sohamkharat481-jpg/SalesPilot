@@ -1,6 +1,17 @@
 /// <reference types="vite/client" />
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+console.log("Stage D: src/lib/supabase.ts loaded");
+console.log("Stage E:", {
+  MODE: import.meta.env.MODE,
+  PROD: import.meta.env.PROD,
+  DEV: import.meta.env.DEV,
+  hasViteUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  viteUrlLength: (import.meta.env.VITE_SUPABASE_URL || "").length,
+  hasAnon: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  anonLength: (import.meta.env.VITE_SUPABASE_ANON_KEY || "").length
+});
+
 /**
  * Single source of truth for Frontend Supabase credentials using Vite static replacements.
  * Frontend MUST use VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
@@ -58,8 +69,8 @@ export function getSupabaseDiagnostics(): SupabaseDiagnostics {
 
   let detectedReason = '';
   if (missing.length > 0) {
-    detectedReason = 'Environment variables are missing or empty strings. Check if Vercel project environment variables were added before build.';
-    return {
+    detectedReason = `Environment variables missing or empty strings: ${missing.join(', ')}`;
+    const diag = {
       isConfigured: false,
       missingVars: missing,
       details: `Supabase environment variables missing: ${missing.join(', ')}`,
@@ -69,11 +80,13 @@ export function getSupabaseDiagnostics(): SupabaseDiagnostics {
       keyLength: SUPABASE_ANON_KEY.length,
       detectedReason
     };
+    console.log("Stage I: getSupabaseDiagnostics() returned false. Reason:", diag.detectedReason);
+    return diag;
   }
 
   if (!SUPABASE_URL.startsWith('http://') && !SUPABASE_URL.startsWith('https://')) {
     detectedReason = `Invalid URL scheme in VITE_SUPABASE_URL: "${SUPABASE_URL}". Must begin with http:// or https://.`;
-    return {
+    const diag = {
       isConfigured: false,
       missingVars: ['VITE_SUPABASE_URL (Invalid URL scheme)'],
       details: `VITE_SUPABASE_URL must start with http:// or https:// (received: "${SUPABASE_URL}")`,
@@ -83,10 +96,12 @@ export function getSupabaseDiagnostics(): SupabaseDiagnostics {
       keyLength: SUPABASE_ANON_KEY.length,
       detectedReason
     };
+    console.log("Stage I: getSupabaseDiagnostics() returned false. Reason:", diag.detectedReason);
+    return diag;
   }
 
   if (lastInitError) {
-    return {
+    const diag = {
       isConfigured: false,
       missingVars: [],
       details: `Supabase initialization error: ${lastInitError}`,
@@ -96,6 +111,8 @@ export function getSupabaseDiagnostics(): SupabaseDiagnostics {
       keyLength: SUPABASE_ANON_KEY.length,
       detectedReason: 'Exception thrown inside createClient()'
     };
+    console.log("Stage I: getSupabaseDiagnostics() returned false. Reason:", diag.detectedReason);
+    return diag;
   }
 
   return {
@@ -121,6 +138,7 @@ let clientInstance: SupabaseClient | null = null;
  * Lazily initializes on first call if valid credentials are present.
  */
 export function getSupabaseClient(): SupabaseClient | null {
+  console.log("Stage J: getSupabaseClient() called. Call stack:\n", new Error().stack);
   const diagnostics = getSupabaseDiagnostics();
 
   if (isDebug) {
@@ -137,17 +155,12 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   if (!clientInstance) {
     try {
-      console.log({
-        viteUrlExists: !!import.meta.env.VITE_SUPABASE_URL,
-        viteUrlLength: (import.meta.env.VITE_SUPABASE_URL || '').length,
-        viteKeyExists: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-        viteKeyLength: (import.meta.env.VITE_SUPABASE_ANON_KEY || '').length,
-        mode: import.meta.env.MODE,
-        prod: import.meta.env.PROD
+      const mask6 = (val: string) => (val ? (val.length <= 6 ? val : `${val.slice(0, 6)}...`) : '(empty)');
+      console.log("Stage F: Immediately before createClient():", {
+        SUPABASE_URL: mask6(SUPABASE_URL),
+        SUPABASE_ANON_KEY: mask6(SUPABASE_ANON_KEY)
       });
-      if (isDebug) {
-        console.log(`🔌 Initializing createClient() with URL length ${SUPABASE_URL.length} and Key length ${SUPABASE_ANON_KEY.length}...`);
-      }
+      
       clientInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
           persistSession: true,
@@ -155,16 +168,11 @@ export function getSupabaseClient(): SupabaseClient | null {
           detectSessionInUrl: true,
         },
       });
-      if (isDebug) {
-        console.log('🔌 Single Supabase client singleton successfully initialized.');
-      }
+      console.log("Stage G: Supabase client created successfully");
     } catch (err: any) {
       lastInitError = err?.message || String(err);
       lastInitStackTrace = err?.stack || null;
-      console.error('❌ Failed to initialize Supabase client:', lastInitError);
-      if (lastInitStackTrace) {
-        console.error('❌ Exception Stack Trace:', lastInitStackTrace);
-      }
+      console.error('Stage H: createClient threw an error FULL STACK TRACE:', lastInitStackTrace || lastInitError);
       return null;
     }
   }
@@ -172,8 +180,10 @@ export function getSupabaseClient(): SupabaseClient | null {
   return clientInstance;
 }
 
-// Single exported client instance
-export const supabase: SupabaseClient | null = getSupabaseClient();
+// Lazy accessor function for the single Supabase client instance
+export function getSupabase(): SupabaseClient | null {
+  return getSupabaseClient();
+}
 
 /**
  * Executes a Supabase query operation with automatic retry and exponential backoff

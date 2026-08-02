@@ -90,6 +90,7 @@ function RestrictedViewPlaceholder({
 }
 
 export default function App() {
+  console.log("Stage B: App.tsx rendered");
   const { user, logout, isLoading: authLoading, isSandbox } = useAuth();
 
   const isFounderUser = Boolean(
