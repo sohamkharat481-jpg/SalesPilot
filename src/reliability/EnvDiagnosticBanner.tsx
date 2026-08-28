@@ -82,17 +82,6 @@ export function EnvDiagnosticBanner() {
                     <p className="text-slate-400 mt-1">URL Length: {diagnostics.urlLength} | Key Length: {diagnostics.keyLength}</p>
                   </div>
                 )}
-                {diagnostics.initError && (
-                  <div className="text-xs text-rose-300 bg-rose-950/40 p-2.5 rounded-lg border border-rose-800/40 font-mono text-[11px] space-y-1">
-                    <p className="font-bold text-rose-400">Initialization Exception:</p>
-                    <p>{diagnostics.initError}</p>
-                    {diagnostics.initStackTrace && (
-                      <pre className="text-[10px] text-rose-200/80 overflow-x-auto max-h-32 mt-1">
-                        {diagnostics.initStackTrace}
-                      </pre>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="p-3.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-xs text-slate-300 leading-relaxed">
