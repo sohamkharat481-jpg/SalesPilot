@@ -9363,8 +9363,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     } else if (process.env.VERCEL || host.includes('vercel.app')) {
       // Vercel environment detected but APP_URL is missing/ignored. 
       // Force production URL to match Google Cloud Console configuration as requested.
-      baseUrl = 'https://sales-pilot-green.vercel.app';
-      console.log(`[GOOGLE OAUTH REDIRECT] Vercel environment or vercel.app host detected but APP_URL is not set/ignored. Overriding and using production fallback base URL: "${baseUrl}"`);
+      const vercelUrl = (process.env.VERCEL_URL || host).trim().replace(/^https?:\/\//, '');
+      baseUrl = `https://${vercelUrl || 'localhost:3000'}`;
+      console.log(`[GOOGLE OAUTH REDIRECT] Vercel environment dynamically resolved to: "${baseUrl}"`);
     } else {
       const proto = (req?.headers?.['x-forwarded-proto'] || (req?.secure ? 'https' : 'http')).trim();
       baseUrl = `${proto}://${host || 'localhost:3000'}`;
@@ -12211,2601 +12212,104 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                 });
                 const text = response.text || '';
                 const parsed = safeJSONParse(text);
-                if (parsed && parsed.subject && parsed.body) {
-                  subject = parsed.subject;
-                  body = parsed.body;
-                }
-              }
-            } catch (aiErr: any) {
-              console.log(`â„¹ï¸ [AI COPYWRITING FALLBACK] Gemini call failed: ${aiErr.message || aiErr}. Deploying organic fallback copy.`);
-            }
-
-            job.payload = {
-              subject,
-              body,
-              channel: 'EMAIL'
-            };
-
-            job.logs.push({
-              step: 7,
-              name: 'AI Email Generation',
-              status: 'SUCCESS',
-              message: `AI Personalized copy generated. Subject: "${subject}". Preview: "${body.substring(0, 100)}..."`,
-              timestamp: new Date().toISOString()
-            });
-
-            job.currentStep = 8;
-            break;
-          }
-
-          case 8: {
-            const msgId = `q_job_${Date.now()}`;
-            const newQueuedItem = {
-              id: msgId,
-              leadName: `${lead.firstName} ${lead.lastName}`,
-              company: lead.company,
-              channel: job.payload?.channel || 'EMAIL',
-              subject: job.payload?.subject || `Scaling ${lead.company} outreach`,
-              body: job.payload?.body || `Hi ${lead.firstName},\n\nHope this finds you well.`,
-              status: 'PENDING',
-              timestamp: new Date().toISOString()
-            };
-
-            job.payload.messageId = msgId;
-            outreachQueue.unshift(newQueuedItem);
-
-            job.status = 'PENDING_APPROVAL';
-            job.logs.push({
-              step: 8,
-              name: 'Approval Logic',
-              status: 'PENDING',
-              message: `Outbound email copy queued inside Outbox Review Channel. Pipeline paused awaiting manual human approval.`,
-              timestamp: new Date().toISOString()
-            });
-            break;
-          }
-
-          case 9: {
-            job.logs.push({
-              step: 9,
-              name: 'Gmail Send Queue',
-              status: 'SUCCESS',
-              message: `Message approved by Outreach manager. Moved from manual outbox to SMTP delivery queue. Status: QUEUED.`,
-              timestamp: new Date().toISOString()
-            });
-            job.currentStep = 10;
-            break;
-          }
-
-          case 10: {
-            if (gmailAccounts.length === 0) {
-              job.status = 'FAILED';
-              job.error = 'Gmail account disconnected. Please sync your Google Workspace account inside Settings.';
-              job.logs.push({
-                step: 10,
-                name: 'Gmail API',
-                status: 'FAILED',
-                message: `Gmail API Dispatch Failure: No authenticated sender profiles are bound to the tenant gateway. Connect Gmail in Integrations view.`,
-                timestamp: new Date().toISOString()
-              });
-
-              logIntegrationEvent('googlemaps', 'ERROR', `Outbound delivery failure for ${lead.firstName} ${lead.lastName}`, `Gmail disconnected. Sync your Google Workspace account.`);
-              
-              const outboxMsg = outreachQueue.find(m => m.id === job.payload?.messageId);
-              if (outboxMsg) outboxMsg.status = 'FAILED';
-              break;
-            }
-
-            const senderAccount = gmailAccounts[0];
-            
-            gmailQueue.push({
-              id: `gq_${Date.now()}`,
-              accountId: senderAccount.email,
-              recipient: lead.email,
-              subject: job.payload?.subject || '',
-              body: job.payload?.body || '',
-              attachments: [],
-              status: 'SENT',
-              retryAttempts: 0,
-              createdAt: new Date().toISOString(),
-              sentAt: new Date().toISOString()
-            });
-
-            const outboxMsg = outreachQueue.find(m => m.id === job.payload?.messageId);
-            if (outboxMsg) outboxMsg.status = 'SENT';
-
-            job.logs.push({
-              step: 10,
-              name: 'Gmail API',
-              status: 'SUCCESS',
-              message: `Gmail SMTP payload dispatched successfully via Google Workspace account ${senderAccount.email}.`,
-              timestamp: new Date().toISOString()
-            });
-
-            job.currentStep = 11;
-            break;
-          }
-
-          case 11: {
-            lead.status = 'CONTACTED';
-            if (!lead.timelineList) lead.timelineList = [];
-            lead.timelineList.unshift({
-              id: `tl_outreach_${Date.now()}`,
-              event: 'Outreach Sequence Dispatched',
-              details: `Automated personalized campaign email sent. Subject: "${job.payload?.subject}". Sender: Soham (SalesPilot Outbound Team).`,
-              createdAt: new Date().toISOString()
-            });
-
-            job.logs.push({
-              step: 11,
-              name: 'CRM Update',
-              status: 'SUCCESS',
-              message: `Advanced CRM stage for ${lead.firstName} ${lead.lastName} to 'CONTACTED'. Logged timeline audit card successfully.`,
-              timestamp: new Date().toISOString()
-            });
-
-            job.currentStep = 12;
-            break;
-          }
-
-          case 12: {
-            dashboardNotifications.unshift({
-              id: `nt_outreach_${Date.now()}`,
-              type: 'OUTREACH',
-              title: 'Outreach Complete',
-              text: `High-intent personalized pitch successfully sent to ${lead.firstName} ${lead.lastName} (${lead.company}).`,
-              timestamp: new Date().toISOString(),
-              read: false
-            });
-
-            job.status = 'COMPLETED';
-            job.logs.push({
-              step: 12,
-              name: 'Notifications',
-              status: 'SUCCESS',
-              message: `Dispatched workplace real-time notification card and Slack webhook alert to channel #sales-alerts.`,
-              timestamp: new Date().toISOString()
-            });
-            break;
-          }
-        }
-      } catch (err: any) {
-        job.status = 'FAILED';
-        job.error = err.message || String(err);
-        job.logs.push({
-          step: job.currentStep,
-          name: `Step Error`,
-          status: 'FAILED',
-          message: `Pipeline crashed mid-execution: ${err.message || String(err)}`,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
-  }
-
-  function ensureWorkflowQueueRunning() {
-    if (!outreachWorkflowIntervalId) {
-      console.log(`âš™ï¸ [QUEUE RUNTIME] Initializing high-frequency Outreach Automation Loop...`);
-      outreachWorkflowIntervalId = setInterval(processOutreachWorkflowQueue, 1500);
-    }
-  }
-
-  ensureWorkflowQueueRunning();
-
-  // --- API ROUTE ENDPOINTS FOR THE OUTREACH PIPELINE ---
-
-  app.get('/api/v1/outreach/queue', (req, res) => {
-    res.json({ success: true, queue: outreachQueue });
-  });
-
-  app.put('/api/v1/outreach/queue/:id', (req, res) => {
-    const { id } = req.params;
-    const { body } = req.body;
-    const msg = outreachQueue.find(m => m.id === id);
-    if (!msg) {
-      return res.status(404).json({ success: false, error: 'Queued message not found' });
-    }
-    msg.body = body;
-    res.json({ success: true, message: 'Message text updated cleanly.' });
-  });
-
-  app.post('/api/v1/outreach/queue/:id/approve', async (req, res) => {
-    const { id } = req.params;
-    const msg = outreachQueue.find(m => m.id === id);
-    if (!msg) {
-      return res.status(404).json({ success: false, error: 'Queued message not found' });
-    }
-
-    msg.status = 'APPROVED';
-
-    // Find the workflow job associated with this message
-    const job = outreachWorkflowQueue.find(j => j.payload?.messageId === id);
-    if (job && job.status === 'PENDING_APPROVAL') {
-      job.currentStep = 9;
-      job.status = 'RUNNING';
-      
-      // Instantly trigger queue run so step 9 can run immediately
-      await processOutreachWorkflowQueue();
-    }
-
-    // Log to outreach history
-    const historyEvent = {
-      id: `oh_${Date.now()}`,
-      type: msg.channel,
-      event: `Outbound ${msg.channel} Approved`,
-      leadName: msg.leadName,
-      company: msg.company,
-      details: `Manual outbox dispatch approved for ${msg.leadName}.`,
-      status: 'Approved',
-      timestamp: new Date().toISOString()
-    };
-    outreachHistory.unshift(historyEvent);
-
-    res.json({ success: true, message: 'Message approved, resuming pipeline sequence.', event: historyEvent });
-  });
-
-  app.post('/api/v1/outreach/queue/:id/reject', (req, res) => {
-    const { id } = req.params;
-    const msg = outreachQueue.find(m => m.id === id);
-    if (!msg) {
-      return res.status(404).json({ success: false, error: 'Queued message not found' });
-    }
-
-    msg.status = 'REJECTED';
-
-    const job = outreachWorkflowQueue.find(j => j.payload?.messageId === id);
-    if (job) {
-      job.status = 'FAILED';
-      job.error = 'Reviewer rejected outbound message draft.';
-      job.logs.push({
-        step: 8,
-        name: 'Approval Logic',
-        status: 'FAILED',
-        message: 'Reviewer rejected outbound message draft inside Outbox Review tab.',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    const historyEvent = {
-      id: `oh_${Date.now()}`,
-      type: msg.channel,
-      event: `Outbound ${msg.channel} Rejected`,
-      leadName: msg.leadName,
-      company: msg.company,
-      details: `Message review failed. Sales rep rejected sequence copy for ${msg.leadName}.`,
-      status: 'Rejected',
-      timestamp: new Date().toISOString()
-    };
-    outreachHistory.unshift(historyEvent);
-
-    res.json({ success: true, message: 'Message rejected, pipeline cancelled.', event: historyEvent });
-  });
-
-  app.get('/api/v1/outreach/pipeline-status', (req, res) => {
-    res.json({ success: true, jobs: outreachWorkflowQueue });
-  });
-
-  app.post('/api/v1/workers/restart', (req, res) => {
-    ensureWorkflowQueueRunning();
-    res.json({ success: true, message: 'Outreach automation loop verified and healthy.', running: true });
-  });
-
-  // --- MODULE 16: BACKGROUND WORKERS AND QUEUE HEALTH ---
-  app.get('/api/v1/workers/status', (req, res) => {
-    res.json({
-      success: true,
-      queues: workerQueues,
-      failedJobs: queueFailedJobs,
-      redisConnected: true,
-      cacheHitRatio: '94.2%',
-      rateLimitsUptime: '99.9%'
-    });
-  });
-
-  app.post('/api/v1/workers/retry-failed', (req, res) => {
-    const { jobId } = req.body;
-    const index = queueFailedJobs.findIndex(j => j.id === jobId);
-    if (index === -1) {
-      return res.status(404).json({ success: false, error: 'Queue job not found.' });
-    }
-
-    const job = queueFailedJobs[index];
-    queueFailedJobs.splice(index, 1);
-    
-    // Simulate immediate successful processing
-    if (workerQueues[job.queue as 'research_queue']) {
-      workerQueues[job.queue as 'research_queue'].completedJobs += 1;
-    }
-
-    logIntegrationEvent('n8n', 'INFO', `Worker successfully re-processed and recovered failed job: ${jobId}`, `Queue: ${job.queue}. Resolved error: ${job.error}`);
-    res.json({ success: true, message: 'Job re-queued and completed successfully by background worker.' });
-  });
-
-  // --- MODULE 17: SYSTEM MONITORING DIAGNOSTICS & HEALTH CHECK ---
-  const handleComprehensiveHealthCheck = async (req: any, res: any) => {
-    const healthResults: Record<string, { status: 'PASS' | 'FAIL'; details: string; latencyMs?: number }> = {};
-
-    // 1. Database Check
-    const dbStart = Date.now();
-    try {
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        const { data, error } = await supabase.from('leads').select('id').limit(1);
-        if (error) {
-          healthResults.database = { status: 'FAIL', details: `Supabase query error: ${error.message}`, latencyMs: Date.now() - dbStart };
-        } else {
-          healthResults.database = { status: 'PASS', details: 'Supabase PostgreSQL connected successfully.', latencyMs: Date.now() - dbStart };
-        }
-      } else {
-        const localCount = localDb.getAllLeads().length;
-        healthResults.database = { status: 'PASS', details: `Local Storage DB active (${localCount} leads loaded).`, latencyMs: Date.now() - dbStart };
-      }
-    } catch (err: any) {
-      healthResults.database = { status: 'FAIL', details: `Database exception: ${err.message || String(err)}`, latencyMs: Date.now() - dbStart };
-    }
-
-    // 2. Google OAuth Check
-    try {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      if (clientId && clientSecret) {
-        healthResults.google_oauth = { status: 'PASS', details: 'Google OAuth Client ID & Secret configured.' };
-      } else if (clientId) {
-        healthResults.google_oauth = { status: 'PASS', details: 'Google OAuth Client ID configured.' };
-      } else {
-        healthResults.google_oauth = { status: 'FAIL', details: 'Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in environment.' };
-      }
-    } catch (err: any) {
-      healthResults.google_oauth = { status: 'FAIL', details: `Google OAuth check exception: ${err.message || String(err)}` };
-    }
-
-    // 3. Gmail API Check
-    try {
-      const activeGmailAcc = gmailAccounts.find(a => a.accessToken && !a.accessToken.startsWith('mock_'));
-      const isGmailConfigured = !!process.env.GMAIL_CLIENT_ID || !!process.env.GOOGLE_CLIENT_ID;
-      if (activeGmailAcc) {
-        healthResults.gmail = { status: 'PASS', details: `Active Gmail account connected (${activeGmailAcc.email}).` };
-      } else if (isGmailConfigured) {
-        healthResults.gmail = { status: 'PASS', details: 'Google OAuth credentials set for Gmail API.' };
-      } else {
-        healthResults.gmail = { status: 'FAIL', details: 'No active Gmail OAuth token or Google credentials configured.' };
-      }
-    } catch (err: any) {
-      healthResults.gmail = { status: 'FAIL', details: `Gmail check exception: ${err.message || String(err)}` };
-    }
-
-    // 4. Google Calendar Check
-    try {
-      const activeCalAcc = calendarAccounts.find(a => a.accessToken && !a.accessToken.startsWith('mock_'));
-      const isCalConfigured = !!process.env.GOOGLE_CLIENT_ID;
-      if (activeCalAcc) {
-        healthResults.google_calendar = { status: 'PASS', details: `Active Google Calendar account connected (${activeCalAcc.email}).` };
-      } else if (isCalConfigured) {
-        healthResults.google_calendar = { status: 'PASS', details: 'Google OAuth credentials configured for Calendar API.' };
-      } else {
-        healthResults.google_calendar = { status: 'FAIL', details: 'No active Calendar OAuth token or Google Client ID configured.' };
-      }
-    } catch (err: any) {
-      healthResults.google_calendar = { status: 'FAIL', details: `Calendar check exception: ${err.message || String(err)}` };
-    }
-
-    // 5. Cashfree Check
-    try {
-      const appId = process.env.CASHFREE_APP_ID;
-      const secretKey = process.env.CASHFREE_SECRET_KEY;
-      if (appId && secretKey) {
-        healthResults.cashfree = { status: 'PASS', details: 'Cashfree App ID & Secret Key configured.' };
-      } else {
-        healthResults.cashfree = { status: 'FAIL', details: 'Cashfree credentials (CASHFREE_APP_ID / CASHFREE_SECRET_KEY) missing in environment.' };
-      }
-    } catch (err: any) {
-      healthResults.cashfree = { status: 'FAIL', details: `Cashfree check exception: ${err.message || String(err)}` };
-    }
-
-    const overallPass = Object.values(healthResults).every(r => r.status === 'PASS');
-
-    res.status(overallPass ? 200 : 207).json({
-      status: overallPass ? 'PASS' : 'PARTIAL',
-      checkedAt: new Date().toISOString(),
-      services: healthResults
-    });
-  };
-
-  app.get('/health', handleComprehensiveHealthCheck);
-  app.get('/api/v1/health', handleComprehensiveHealthCheck);
-
-  app.get('/api/v1/monitoring/health', (req, res) => {
-    // Perform active latency ping checks
-    const uptimeTable = {
-      openai: { name: 'OpenAI API Node', status: 'ONLINE', pingMs: 110, uptime: 99.9, errorCount: 0 },
-      gemini: { name: 'Gemini LLM Engine', status: 'ONLINE', pingMs: 180, uptime: 100, errorCount: 0 },
-      gmail: { name: 'Gmail SMTP Channel', status: 'ONLINE', pingMs: 140, uptime: 98.4, errorCount: 1 },
-      google_calendar: { name: 'Google Calendar Sync', status: 'ONLINE', pingMs: 160, uptime: 99.5, errorCount: 0 },
-      hunter: { name: 'Hunter Verifier API', status: 'ONLINE', pingMs: 95, uptime: 99.1, errorCount: 0 },
-      clearbit: { name: 'Clearbit Enrichment', status: 'ONLINE', pingMs: 140, uptime: 99.9, errorCount: 0 },
-      peopledatalabs: { name: 'PDL Corporate Index', status: 'ONLINE', pingMs: 260, uptime: 98.8, errorCount: 1 },
-      crunchbase: { name: 'Crunchbase Funding API', status: 'ONLINE', pingMs: 200, uptime: 99.5, errorCount: 0 },
-      googlemaps: { name: 'Google Maps Scraper', status: 'ONLINE', pingMs: 105, uptime: 100, errorCount: 0 },
-      whatsapp: { name: 'WhatsApp Business API', status: 'ONLINE', pingMs: 80, uptime: 99.7, errorCount: 0 },
-      slack: { name: 'Slack Webhook Bus', status: 'ONLINE', pingMs: 72, uptime: 100, errorCount: 0 },
-      cashfree: { name: 'Cashfree Gateway Link', status: 'ONLINE', pingMs: 240, uptime: 99.8, errorCount: 0 }
-    };
-
-    res.json({
-      success: true,
-      systemUptime: '99.88% Operational',
-      checkedAt: new Date().toISOString(),
-      services: uptimeTable
-    });
-  });
-
-  app.get('/api/v1/monitoring/dashboard', (req, res) => {
-    res.json({
-      success: true,
-      aiStats: {
-        openai: { calls: 1240, tokens: 450000, costUsd: 1.35, errorRatePct: 0.9 },
-        gemini: { calls: 850, tokens: 320000, costUsd: 0.24, errorRatePct: 0.5 },
-        router_failovers: 18,
-        totalSavingsUsd: 4.82
-      },
-      performance: {
-        avgResponseMs: 140,
-        cacheHitRatePct: 94.2,
-        throughputPerSec: 14.5
-      }
-    });
-  });
-
-  // =========================================================================
-  // --- INTEGRATED DEV PORTAL, PUBLIC API, WEBHOOKS & MARKETPLACE ENDPOINTS ---
-  // =========================================================================
-
-  // In-memory rate-limiter store for Public API Key/Token requests
-  const apiRateLimits = new Map<string, { count: number; resetAt: number }>();
-
-  const checkRateLimit = (keyOrToken: string, limitPerMinute: number): boolean => {
-    const now = Date.now();
-    const state = apiRateLimits.get(keyOrToken);
-    
-    if (!state || now > state.resetAt) {
-      apiRateLimits.set(keyOrToken, { count: 1, resetAt: now + 60000 });
-      return true;
-    }
-    
-    if (state.count >= limitPerMinute) {
-      return false;
-    }
-    
-    state.count += 1;
-    return true;
-  };
-
-  // 1. PUBLIC API AUTHENTICATION MIDDLEWARE
-  const apiAuthMiddleware = (req: any, res: any, next: any) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized: Missing or invalid authorization header.' });
-    }
-    const token = authHeader.split(' ')[1];
-    
-    // Check API Keys
-    const apiKey = localDb.getApiKeyBySecret(token);
-    if (apiKey) {
-      if (apiKey.status !== 'ACTIVE') {
-        return res.status(403).json({ error: 'Forbidden: API Key is disabled.' });
-      }
-      if (apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date()) {
-        return res.status(403).json({ error: 'Forbidden: API Key has expired.' });
-      }
-      
-      // Enforce Rate Limit
-      const rateLimit = apiKey.rateLimit || 60;
-      if (!checkRateLimit(token, rateLimit)) {
-        return res.status(429).json({ error: `Too Many Requests: Rate limit exceeded. (Limit: ${rateLimit} req/min)` });
-      }
-
-      req.apiKey = apiKey;
-      req.organizationId = apiKey.organizationId;
-      req.scopes = apiKey.scopes;
-      
-      localDb.addDeveloperLog({
-        id: 'log_' + crypto.randomBytes(6).toString('hex'),
-        organizationId: apiKey.organizationId,
-        type: 'API_REQUEST',
-        method: req.method,
-        path: req.path,
-        statusCode: 200,
-        ipAddress: req.ip || '127.0.0.1',
-        message: `API Key request using key: "${apiKey.name}"`,
-        createdAt: new Date().toISOString()
-      });
-      return next();
-    }
-
-    // Check OAuth Access Tokens
-    const oauthToken = localDb.getOAuthTokenByAccessToken(token);
-    if (oauthToken) {
-      if (new Date(oauthToken.expiresAt) < new Date()) {
-        return res.status(403).json({ error: 'Forbidden: OAuth access token has expired.' });
-      }
-      
-      if (!checkRateLimit(token, 120)) { // Standard OAuth limit
-        return res.status(429).json({ error: 'Too Many Requests: Rate limit exceeded.' });
-      }
-
-      req.oauthToken = oauthToken;
-      req.organizationId = oauthToken.organizationId;
-      req.scopes = oauthToken.scopes;
-      
-      localDb.addDeveloperLog({
-        id: 'log_' + crypto.randomBytes(6).toString('hex'),
-        organizationId: oauthToken.organizationId,
-        type: 'API_REQUEST',
-        method: req.method,
-        path: req.path,
-        statusCode: 200,
-        ipAddress: req.ip || '127.0.0.1',
-        message: `OAuth Access token request for client ID: "${oauthToken.clientId}"`,
-        createdAt: new Date().toISOString()
-      });
-      return next();
-    }
-
-    return res.status(401).json({ error: 'Unauthorized: Invalid API Key or OAuth Token.' });
-  };
-
-  // Helper helper to validate scopes
-  const validateScope = (requiredScope: string) => {
-    return (req: any, res: any, next: any) => {
-      const userScopes = req.scopes || [];
-      if (userScopes.includes('*') || userScopes.includes(requiredScope)) {
-        return next();
-      }
-      return res.status(403).json({
-        error: `Forbidden: Missing required scope "${requiredScope}". Authorized scopes: ${userScopes.join(', ')}`
-      });
-    };
-  };
-
-  // 2. WEBHOOK TRIGGERS IMPLEMENTATION
-  const triggerWebhook = async (organizationId: string, event: string, data: any) => {
-    const endpoints = localDb.getWebhookEndpoints(organizationId).filter(
-      e => e.status === 'ACTIVE' && (e.events.includes(event) || e.events.includes('*'))
-    );
-    
-    for (const endpoint of endpoints) {
-      const payloadObj = {
-        id: 'evt_' + crypto.randomBytes(8).toString('hex'),
-        event,
-        timestamp: new Date().toISOString(),
-        organizationId,
-        data
-      };
-      const payload = JSON.stringify(payloadObj);
-      
-      // Calculate authentic webhook HMAC signature using signing secret
-      const signature = crypto.createHmac('sha256', endpoint.secret).update(payload).digest('hex');
-
-      const deliveryId = 'dlv_' + crypto.randomBytes(6).toString('hex');
-      const delivery: any = {
-        id: deliveryId,
-        endpointId: endpoint.id,
-        organizationId,
-        event,
-        payload,
-        attemptNumber: 1,
-        status: 'RETRYING',
-        createdAt: new Date().toISOString()
-      };
-      localDb.addWebhookDelivery(delivery);
-
-      // Perform non-blocking async fetch request with retry-exponential-backoff
-      deliverWebhookWithRetry(endpoint.url, payload, signature, delivery);
-    }
-  };
-
-  const deliverWebhookWithRetry = async (url: string, payload: string, signature: string, delivery: any) => {
-    let attempt = 1;
-    const maxAttempts = 3;
-    let delay = 1000;
-
-    while (attempt <= maxAttempts) {
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-SalesPilot-Signature': signature,
-            'X-SalesPilot-Event': delivery.event
-          },
-          body: payload,
-          signal: AbortSignal.timeout(5000)
-        }).catch(e => {
-          return { status: 504, text: () => Promise.resolve(`Gateway Timeout: ${e.message}`) } as any;
-        });
-
-        const text = await response.text();
-        const success = response.status >= 200 && response.status < 300;
-
-        localDb.updateWebhookDelivery(delivery.id, {
-          statusCode: response.status,
-          responseBody: text.substring(0, 1000),
-          attemptNumber: attempt,
-          status: success ? 'SUCCESS' : (attempt === maxAttempts ? 'FAILED' : 'RETRYING')
-        });
-
-        localDb.addDeveloperLog({
-          id: 'log_' + crypto.randomBytes(6).toString('hex'),
-          organizationId: delivery.organizationId,
-          type: 'WEBHOOK_DELIVERY',
-          statusCode: response.status,
-          message: `Webhook ${delivery.event} delivery to ${url} - Status ${response.status} (${success ? 'SUCCESS' : 'FAILED'})`,
-          details: `Payload: ${payload.substring(0, 500)}\n\nResponse: ${text.substring(0, 500)}`,
-          createdAt: new Date().toISOString()
-        });
-
-        if (success) break;
-      } catch (err: any) {
-        localDb.updateWebhookDelivery(delivery.id, {
-          statusCode: 500,
-          responseBody: `Exception: ${err.message}`,
-          attemptNumber: attempt,
-          status: attempt === maxAttempts ? 'FAILED' : 'RETRYING'
-        });
-      }
-
-      if (attempt < maxAttempts) {
-        attempt++;
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2;
-      } else {
-        break;
-      }
-    }
-  };
-
-  // 3. FRONTEND DEVELOPER PORTAL ENDPOINTS
-  app.get('/api/v1/developer/keys', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    res.json({ success: true, apiKeys: localDb.getApiKeys(orgId) });
-  });
-
-  app.post('/api/v1/developer/keys', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const { name, scopes = ['*'], expiresAt, rateLimit = 60 } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'API Key Name is required.' });
-    }
-
-    const cleartextKey = `sp_live_${crypto.randomBytes(24).toString('hex')}`;
-    const newKey: any = {
-      id: 'key_' + crypto.randomBytes(6).toString('hex'),
-      organizationId: orgId,
-      name,
-      keyPrefix: cleartextKey.substring(0, 10) + '...',
-      secretKey: cleartextKey,
-      scopes,
-      status: 'ACTIVE',
-      rateLimit,
-      expiresAt: expiresAt || undefined,
-      createdAt: new Date().toISOString()
-    };
-
-    localDb.addApiKey(newKey);
-    res.json({ success: true, apiKey: newKey });
-  });
-
-  app.put('/api/v1/developer/keys/:id', (req, res) => {
-    const { id } = req.params;
-    const { status, rotate, name, scopes } = req.body;
-    const updates: any = {};
-
-    if (name) updates.name = name;
-    if (scopes) updates.scopes = scopes;
-    if (status) updates.status = status;
-    if (rotate) {
-      const cleartextKey = `sp_live_${crypto.randomBytes(24).toString('hex')}`;
-      updates.secretKey = cleartextKey;
-      updates.keyPrefix = cleartextKey.substring(0, 10) + '...';
-    }
-
-    const success = localDb.updateApiKey(id, updates);
-    res.json({ success, message: success ? 'API Key updated successfully.' : 'Key not found.' });
-  });
-
-  app.delete('/api/v1/developer/keys/:id', (req, res) => {
-    const { id } = req.params;
-    const success = localDb.deleteApiKey(id);
-    res.json({ success, message: success ? 'API Key revoked successfully.' : 'Key not found.' });
-  });
-
-  app.get('/api/v1/developer/webhooks', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    res.json({
-      success: true,
-      endpoints: localDb.getWebhookEndpoints(orgId),
-      deliveries: localDb.getWebhookDeliveries(orgId)
-    });
-  });
-
-  app.post('/api/v1/developer/webhooks', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const { url, events = ['*'] } = req.body;
-
-    if (!url) {
-      return res.status(400).json({ success: false, error: 'Endpoint Target URL is required.' });
-    }
-
-    const newEndpoint: any = {
-      id: 'wh_' + crypto.randomBytes(6).toString('hex'),
-      organizationId: orgId,
-      url,
-      secret: `sp_whsec_${crypto.randomBytes(16).toString('hex')}`,
-      events,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString()
-    };
-
-    localDb.addWebhookEndpoint(newEndpoint);
-    res.json({ success: true, endpoint: newEndpoint });
-  });
-
-  app.put('/api/v1/developer/webhooks/:id', (req, res) => {
-    const { id } = req.params;
-    const { url, events, status } = req.body;
-    const updates: any = {};
-    if (url) updates.url = url;
-    if (events) updates.events = events;
-    if (status) updates.status = status;
-
-    const success = localDb.updateWebhookEndpoint(id, updates);
-    res.json({ success, message: success ? 'Webhook updated.' : 'Webhook not found.' });
-  });
-
-  app.delete('/api/v1/developer/webhooks/:id', (req, res) => {
-    const { id } = req.params;
-    const success = localDb.deleteWebhookEndpoint(id);
-    res.json({ success, message: success ? 'Webhook deleted.' : 'Webhook not found.' });
-  });
-
-  app.post('/api/v1/developer/webhooks/:id/test', async (req, res) => {
-    const { id } = req.params;
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    
-    const endpoints = localDb.getWebhookEndpoints(orgId);
-    const endpoint = endpoints.find(e => e.id === id);
-    if (!endpoint) {
-      return res.status(404).json({ success: false, error: 'Endpoint not found.' });
-    }
-
-    const sampleLead = {
-      id: 'ld_test_999',
-      firstName: 'Testy',
-      lastName: 'McTester',
-      email: 'testy@example.com',
-      company: 'Test Labs Corp',
-      status: 'NEW',
-      createdAt: new Date().toISOString()
-    };
-
-    await triggerWebhook(orgId, 'lead.created', sampleLead);
-    res.json({ success: true, message: 'Test webhook event (lead.created) successfully queued.' });
-  });
-
-  // 4. THIRD-PARTY DEVELOPER OAUTH CLIENT ENDPOINTS
-  app.get('/api/v1/developer/oauth-clients', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    res.json({ success: true, oauthClients: localDb.getOAuthClients(orgId) });
-  });
-
-  app.post('/api/v1/developer/oauth-clients', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const { name, description, redirectUris, scopes = ['leads:read'] } = req.body;
-
-    if (!name || !redirectUris || redirectUris.length === 0) {
-      return res.status(400).json({ success: false, error: 'Client Name and Redirect URIs are required.' });
-    }
-
-    const newClient: any = {
-      id: `sp_client_${crypto.randomBytes(12).toString('hex')}`,
-      secret: `sp_secret_${crypto.randomBytes(24).toString('hex')}`,
-      organizationId: orgId,
-      name,
-      description: description || '',
-      redirectUris: Array.isArray(redirectUris) ? redirectUris : [redirectUris],
-      scopes,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString()
-    };
-
-    localDb.addOAuthClient(newClient);
-    res.json({ success: true, client: newClient });
-  });
-
-  app.put('/api/v1/developer/oauth-clients/:id', (req, res) => {
-    const { id } = req.params;
-    const { name, description, redirectUris, scopes, status } = req.body;
-    const updates: any = {};
-    if (name) updates.name = name;
-    if (description) updates.description = description;
-    if (redirectUris) updates.redirectUris = redirectUris;
-    if (scopes) updates.scopes = scopes;
-    if (status) updates.status = status;
-
-    const success = localDb.updateOAuthClient(id, updates);
-    res.json({ success, message: success ? 'Client updated.' : 'Client not found.' });
-  });
-
-  app.delete('/api/v1/developer/oauth-clients/:id', (req, res) => {
-    const { id } = req.params;
-    const success = localDb.deleteOAuthClient(id);
-    res.json({ success, message: success ? 'Client deleted.' : 'Client not found.' });
-  });
-
-  // OAUTH FLOW: INTERACTIVE AUTHORIZATION SCREEN
-  app.get('/oauth/authorize', (req, res) => {
-    const { client_id, redirect_uri, scope, state } = req.query as any;
-    
-    const client = localDb.getOAuthClientById(client_id);
-    if (!client) {
-      return res.status(404).send('<h1>OAuth Error</h1><p>Client ID not found.</p>');
-    }
-
-    if (client.status !== 'ACTIVE') {
-      return res.status(403).send('<h1>OAuth Error</h1><p>This application is disabled.</p>');
-    }
-
-    // Serve custom, clean, styled responsive HTML Consent page
-    const requestedScopes = scope ? scope.split(' ') : client.scopes;
-    const scopesListHtml = requestedScopes.map((s: string) => `
-      <li style="display: flex; align-items: center; margin-bottom: 8px;">
-        <span style="color: #10b981; margin-right: 8px; font-weight: bold;">âœ“</span>
-        <code style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: monospace;">${s}</code>
-      </li>
-    `).join('');
-
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Authorize ${client.name} - SalesPilot</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-        <style>
-          body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 16px;
-          }
-          .card {
-            background: white;
-            padding: 32px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            max-width: 440px;
-            width: 100%;
-            border: 1px solid #e2e8f0;
-          }
-          .title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #0f172a;
-          }
-          .desc {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-bottom: 24px;
-          }
-          .scopes-box {
-            background-color: #f8fafc;
-            border: 1px solid #f1f5f9;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 24px;
-          }
-          .scopes-title {
-            font-weight: 500;
-            font-size: 0.875rem;
-            margin-bottom: 12px;
-            color: #475569;
-          }
-          ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            font-size: 0.875rem;
-          }
-          .btn {
-            display: inline-block;
-            width: 100%;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-align: center;
-            box-sizing: border-box;
-          }
-          .btn-primary {
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            margin-bottom: 8px;
-          }
-          .btn-primary:hover { background-color: #0369a1; }
-          .btn-secondary {
-            background-color: transparent;
-            color: #64748b;
-            border: 1px solid #e2e8f0;
-          }
-          .btn-secondary:hover { background-color: #f1f5f9; }
-          .footer {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            text-align: center;
-            margin-top: 16px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div style="font-weight: bold; color: #0284c7; margin-bottom: 12px; font-size: 1.1rem;">SalesPilot</div>
-          <div class="title">Connect with ${client.name}</div>
-          <div class="desc">${client.description || 'This third-party application wants to securely connect with your SalesPilot CRM database.'}</div>
-          
-          <div class="scopes-box">
-            <div class="scopes-title">This application will be able to:</div>
-            <ul>
-              ${scopesListHtml}
-            </ul>
-          </div>
-
-          <form action="/oauth/authorize/approve" method="POST">
-            <input type="hidden" name="client_id" value="${client_id}">
-            <input type="hidden" name="redirect_uri" value="${redirect_uri || ''}">
-            <input type="hidden" name="scope" value="${scope || ''}">
-            <input type="hidden" name="state" value="${state || ''}">
-            <button type="submit" name="approved" value="true" class="btn btn-primary">Authorize Access</button>
-            <button type="submit" name="approved" value="false" class="btn btn-secondary">Deny</button>
-          </form>
-
-          <div class="footer">Redirects securely to ${redirect_uri || 'your browser'}</div>
-        </div>
-      </body>
-      </html>
-    `);
-  });
-
-  // OAUTH FLOW: POST APPROVAL
-  app.post('/oauth/authorize/approve', express.urlencoded({ extended: true }), (req, res) => {
-    const { client_id, redirect_uri, scope, state, approved } = req.body;
-
-    if (approved !== 'true') {
-      const redirectWithErr = redirect_uri 
-        ? `${redirect_uri}?error=access_denied&state=${state || ''}`
-        : `/api/v1/public/error?error=access_denied`;
-      return res.redirect(redirectWithErr);
-    }
-
-    const client = localDb.getOAuthClientById(client_id);
-    if (!client) {
-      return res.status(404).send('Client not found.');
-    }
-
-    // Generate unique authorization code
-    const authorizationCode = `auth_code_${crypto.randomBytes(16).toString('hex')}`;
-    
-    // Store authorization code temporarily linked to client & default org
-    const targetRedirect = redirect_uri || client.redirectUris[0];
-    const finalRedirectUrl = `${targetRedirect}?code=${authorizationCode}&state=${state || ''}`;
-
-    // Store in-memory token link for the code trade
-    (app as any)._pendingAuthCodes = (app as any)._pendingAuthCodes || {};
-    (app as any)._pendingAuthCodes[authorizationCode] = {
-      clientId: client_id,
-      organizationId: client.organizationId,
-      scopes: scope ? scope.split(' ') : client.scopes
-    };
-
-    res.redirect(finalRedirectUrl);
-  });
-
-  // OAUTH FLOW: EXCHANGE TOKENS
-  app.post('/oauth/token', express.json(), express.urlencoded({ extended: true }), (req, res) => {
-    const { client_id, client_secret, code, grant_type, refresh_token } = req.body;
-
-    // Support code grant type
-    if (grant_type === 'authorization_code') {
-      const pendingCodes = (app as any)._pendingAuthCodes || {};
-      const pendingData = pendingCodes[code];
-
-      if (!pendingData) {
-        return res.status(400).json({ error: 'invalid_grant', error_description: 'The authorization code is invalid or expired.' });
-      }
-
-      const client = localDb.getOAuthClientById(client_id);
-      if (!client || client.secret !== client_secret) {
-        return res.status(401).json({ error: 'invalid_client', error_description: 'Client authentication failed.' });
-      }
-
-      // Clean pending code
-      delete pendingCodes[code];
-
-      // Generate actual access and refresh tokens
-      const accessToken = `sp_access_${crypto.randomBytes(32).toString('hex')}`;
-      const refreshTokenObj = `sp_refresh_${crypto.randomBytes(32).toString('hex')}`;
-
-      const tokenPayload: any = {
-        id: 'tok_' + crypto.randomBytes(6).toString('hex'),
-        clientId: client_id,
-        organizationId: pendingData.organizationId,
-        accessToken,
-        refreshToken: refreshTokenObj,
-        scopes: pendingData.scopes,
-        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour expiry
-        createdAt: new Date().toISOString()
-      };
-
-      localDb.addOAuthToken(tokenPayload);
-
-      localDb.addDeveloperLog({
-        id: 'log_' + crypto.randomBytes(6).toString('hex'),
-        organizationId: pendingData.organizationId,
-        type: 'OAUTH_FLOW',
-        message: `Successfully issued OAuth tokens for Client ID: ${client_id}`,
-        createdAt: new Date().toISOString()
-      });
-
-      return res.json({
-        access_token: accessToken,
-        refresh_token: refreshTokenObj,
-        token_type: 'Bearer',
-        expires_in: 3600,
-        scope: pendingData.scopes.join(' ')
-      });
-    }
-
-    // Support refresh token grant type
-    if (grant_type === 'refresh_token') {
-      if (!refresh_token) {
-        return res.status(400).json({ error: 'invalid_request', error_description: 'Missing refresh token.' });
-      }
-
-      // Check current token details
-      const oldToken = localDb.db.oauthTokens?.find(t => t.refreshToken === refresh_token);
-      if (!oldToken) {
-        return res.status(400).json({ error: 'invalid_grant', error_description: 'Invalid refresh token.' });
-      }
-
-      const accessToken = `sp_access_${crypto.randomBytes(32).toString('hex')}`;
-      const newRefreshToken = `sp_refresh_${crypto.randomBytes(32).toString('hex')}`;
-
-      const tokenPayload: any = {
-        id: 'tok_' + crypto.randomBytes(6).toString('hex'),
-        clientId: oldToken.clientId,
-        organizationId: oldToken.organizationId,
-        accessToken,
-        refreshToken: newRefreshToken,
-        scopes: oldToken.scopes,
-        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-        createdAt: new Date().toISOString()
-      };
-
-      localDb.addOAuthToken(tokenPayload);
-
-      return res.json({
-        access_token: accessToken,
-        refresh_token: newRefreshToken,
-        token_type: 'Bearer',
-        expires_in: 3600,
-        scope: oldToken.scopes.join(' ')
-      });
-    }
-
-    return res.status(400).json({ error: 'unsupported_grant_type', error_description: 'Grant type not supported.' });
-  });
-
-  // 5. INTEGRATION MARKETPLACE CONNECTIONS
-  app.get('/api/v1/developer/marketplace', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    res.json({ success: true, apps: localDb.getMarketplaceApps(orgId) });
-  });
-
-  app.post('/api/v1/developer/marketplace/:appId/install', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const { appId } = req.params;
-    const { settings = {} } = req.body;
-
-    const newConfig: any = {
-      id: `int_${appId}_${crypto.randomBytes(4).toString('hex')}`,
-      organizationId: orgId,
-      integrationId: appId,
-      status: 'CONNECTED',
-      settings,
-      updatedAt: new Date().toISOString()
-    };
-
-    localDb.addIntegrationConfig(newConfig);
-
-    localDb.addDeveloperLog({
-      id: 'log_' + crypto.randomBytes(6).toString('hex'),
-      organizationId: orgId,
-      type: 'OAUTH_FLOW',
-      message: `Marketplace App installed: "${appId}"`,
-      createdAt: new Date().toISOString()
-    });
-
-    res.json({ success: true, message: `Application ${appId} installed successfully.`, config: newConfig });
-  });
-
-  app.delete('/api/v1/developer/marketplace/:appId/uninstall', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const { appId } = req.params;
-
-    const success = localDb.deleteIntegrationConfig(orgId, appId);
-    res.json({ success, message: success ? `Application ${appId} uninstalled successfully.` : 'App configuration not found.' });
-  });
-
-  app.put('/api/v1/developer/marketplace/:appId/settings', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const { appId } = req.params;
-    const { settings } = req.body;
-
-    const success = localDb.updateIntegrationConfig(orgId, appId, {
-      settings,
-      updatedAt: new Date().toISOString()
-    });
-
-    res.json({ success, message: success ? 'Settings updated.' : 'App not connected.' });
-  });
-
-  app.get('/api/v1/developer/logs', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    res.json({ success: true, logs: localDb.getDeveloperLogs(orgId) });
-  });
-
-  // ===================================================
-  // --- CORE PUBLIC REST API FOR END-USERS (v1) ---
-  // ===================================================
-
-  // Me Endpoint
-  app.get('/api/v1/public/auth/me', apiAuthMiddleware, (req: any, res) => {
-    res.json({
-      success: true,
-      organizationId: req.organizationId,
-      scopes: req.scopes,
-      authenticatedVia: req.apiKey ? 'API_KEY' : 'OAUTH_TOKEN',
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Organizations Endpoint
-  app.get('/api/v1/public/organizations', apiAuthMiddleware, validateScope('org:read'), (req: any, res) => {
-    const org = localDb.getOrganizations().find(o => o.id === req.organizationId) || {
-      id: req.organizationId,
-      name: 'Default Lifetime Organization',
-      subscriptionTier: 'Scale',
-      createdAt: new Date().toISOString()
-    };
-    res.json({ success: true, organization: org });
-  });
-
-  // Leads CRUD
-  app.get('/api/v1/public/leads', apiAuthMiddleware, validateScope('leads:read'), async (req: any, res) => {
-    const { page = 1, limit = 10, sortBy = 'firstName', sortOrder = 'asc', search, status } = req.query;
-    
-    // Read and filter leads from production database
-    const allLeads = await getAllLeadsAsync(req.organizationId);
-    let filtered = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
-
-    if (search) {
-      const q = String(search).toLowerCase();
-      filtered = filtered.filter(l => 
-        l.firstName.toLowerCase().includes(q) ||
-        (l.lastName || '').toLowerCase().includes(q) ||
-        l.company.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q)
-      );
-    }
-
-    if (status) {
-      filtered = filtered.filter(l => l.status === status);
-    }
-
-    // Sort
-    filtered.sort((a: any, b: any) => {
-      const valA = String(a[sortBy] || '').toLowerCase();
-      const valB = String(b[sortBy] || '').toLowerCase();
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    // Pagination
-    const p = parseInt(page as string);
-    const l = parseInt(limit as string);
-    const startIdx = (p - 1) * l;
-    const paginated = filtered.slice(startIdx, startIdx + l);
-
-    res.json({
-      success: true,
-      totalCount: filtered.length,
-      page: p,
-      limit: l,
-      leads: paginated
-    });
-  });
-
-  app.post('/api/v1/public/leads', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
-    const { firstName, lastName = '', email, phone = '', company, title = 'Lead', status = 'NEW', source = 'API' } = req.body;
-
-    if (!firstName || !email || !company) {
-      return res.status(400).json({ error: 'firstName, email, and company are required fields.' });
-    }
-
-    const newLead: any = {
-      id: `ld_pub_${crypto.randomBytes(6).toString('hex')}`,
-      organizationId: req.organizationId,
-      firstName,
-      lastName,
-      email,
-      phone,
-      company,
-      title,
-      status,
-      source,
-      createdAt: new Date().toISOString()
-    };
-
-    const savedLead = await insertLeadAsync(newLead);
-
-    // Trigger Lead Created Webhook
-    await triggerWebhook(req.organizationId, 'lead.created', savedLead);
-
-    res.status(201).json({ success: true, lead: savedLead });
-  });
-
-  app.put('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
-    const { id } = req.params;
-    const lead = await getLeadByIdAsync(id, req.organizationId);
-    
-    if (!lead) {
-      return res.status(404).json({ error: 'Lead not found.' });
-    }
-
-    const updated = await updateLeadAsync(id, req.body);
-
-    // Trigger Lead Updated Webhook
-    await triggerWebhook(req.organizationId, 'lead.updated', updated);
-
-    res.json({ success: true, lead: updated });
-  });
-
-  app.post('/api/v1/public/leads/bulk', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
-    const { items } = req.body;
-    if (!Array.isArray(items)) {
-      return res.status(400).json({ error: 'items is required and must be an array.' });
-    }
-
-    const createdLeads: any[] = [];
-    for (const item of items) {
-      if (item.firstName && item.email && item.company) {
-        const newLead: any = {
-          id: `ld_pub_${crypto.randomBytes(6).toString('hex')}`,
-          organizationId: req.organizationId,
-          firstName: item.firstName,
-          lastName: item.lastName || '',
-          email: item.email,
-          phone: item.phone || '',
-          company: item.company,
-          title: item.title || 'Director',
-          status: item.status || 'NEW',
-          source: item.source || 'Bulk API',
-          createdAt: new Date().toISOString()
-        };
-        const saved = await insertLeadAsync(newLead);
-        createdLeads.push(saved);
-        await triggerWebhook(req.organizationId, 'lead.created', saved);
-      }
-    }
-
-    res.json({ success: true, createdCount: createdLeads.length, items: createdLeads });
-  });
-
-  app.delete('/api/v1/public/leads/:id', apiAuthMiddleware, validateScope('leads:write'), async (req: any, res) => {
-    const { id } = req.params;
-    const lead = await getLeadByIdAsync(id, req.organizationId);
-    if (!lead) {
-      return res.status(404).json({ error: 'Lead not found.' });
-    }
-
-    await deleteLeadAsync(id);
-    res.json({ success: true, message: 'Lead deleted successfully.' });
-  });
-
-  // Contacts Endpoint (Extracted from leads list)
-  app.get('/api/v1/public/contacts', apiAuthMiddleware, validateScope('leads:read'), async (req: any, res) => {
-    const allLeads = await getAllLeadsAsync(req.organizationId);
-    const filteredLeads = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
-    const contacts = filteredLeads.map(l => ({
-      id: 'cnt_' + l.id.substring(3),
-      leadId: l.id,
-      firstName: l.firstName,
-      lastName: l.lastName,
-      email: l.email,
-      phone: l.phone,
-      title: l.title,
-      company: l.company,
-      createdAt: l.createdAt
-    }));
-    res.json({ success: true, contacts });
-  });
-
-  // Companies Endpoint (Extracted from leads)
-  app.get('/api/v1/public/companies', apiAuthMiddleware, validateScope('leads:read'), async (req: any, res) => {
-    const allLeads = await getAllLeadsAsync(req.organizationId);
-    const filteredLeads = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === req.organizationId);
-    const uniqueCompanyNames = Array.from(new Set(filteredLeads.map(l => l.company)));
-    const companiesList = uniqueCompanyNames.map((name, idx) => {
-      const match = filteredLeads.find(l => l.company === name);
-      return {
-        id: 'comp_' + idx,
-        name,
-        website: (match as any)?.website || `${name.toLowerCase().replace(/\s+/g, '')}.com`,
-        industry: 'Technology',
-        createdAt: match?.createdAt || new Date().toISOString()
-      };
-    });
-    res.json({ success: true, companies: companiesList });
-  });
-
-  // Deals & Pipelines
-  app.get('/api/v1/public/deals', apiAuthMiddleware, validateScope('deals:read'), (req: any, res) => {
-    const filteredDeals = deals.filter(d => !(d as any).organizationId || (d as any).organizationId === req.organizationId);
-    res.json({ success: true, deals: filteredDeals });
-  });
-
-  app.post('/api/v1/public/deals', apiAuthMiddleware, validateScope('deals:write'), (req: any, res) => {
-    const { name, value, stage, leadId } = req.body;
-    if (!name || !value) {
-      return res.status(400).json({ error: 'Deal Name and Value are required.' });
-    }
-
-    const newDeal: any = {
-      id: `dl_pub_${crypto.randomBytes(6).toString('hex')}`,
-      organizationId: req.organizationId,
-      name,
-      value: Number(value),
-      stage: stage || 'DISCOVERY',
-      leadId,
-      createdAt: new Date().toISOString()
-    };
-
-    deals.push(newDeal);
-    localDb.db.deals = deals;
-    localDb.save();
-
-    res.json({ success: true, deal: newDeal });
-  });
-
-  app.put('/api/v1/public/deals/:id', apiAuthMiddleware, validateScope('deals:write'), async (req: any, res) => {
-    const { id } = req.params;
-    const idx = deals.findIndex(d => d.id === id && (!(d as any).organizationId || (d as any).organizationId === req.organizationId));
-    if (idx === -1) {
-      return res.status(404).json({ error: 'Deal not found.' });
-    }
-
-    const oldDeal = deals[idx];
-    deals[idx] = { ...deals[idx], ...req.body, id, organizationId: req.organizationId };
-    localDb.db.deals = deals;
-    localDb.save();
-
-    // Trigger Webhook if Won
-    if (req.body.stage === 'CLOSED_WON' && oldDeal.stage !== 'CLOSED_WON') {
-      await triggerWebhook(req.organizationId, 'deal.won', deals[idx]);
-    }
-
-    res.json({ success: true, deal: deals[idx] });
-  });
-
-  app.get('/api/v1/public/pipelines', apiAuthMiddleware, (req, res) => {
-    res.json({
-      success: true,
-      pipelines: [
-        { id: 'standard', name: 'Standard Sales Pipeline', stages: ['DISCOVERY', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'] }
-      ]
-    });
-  });
-
-  // Campaigns
-  app.get('/api/v1/public/campaigns', apiAuthMiddleware, validateScope('campaigns:read'), (req: any, res) => {
-    const filteredCampaigns = campaigns.filter(c => !(c as any).organizationId || (c as any).organizationId === req.organizationId);
-    res.json({ success: true, campaigns: filteredCampaigns });
-  });
-
-  app.post('/api/v1/public/campaigns', apiAuthMiddleware, validateScope('campaigns:write'), async (req: any, res) => {
-    const { name, type = 'EMAIL', subject, body } = req.body;
-    if (!name) return res.status(400).json({ error: 'Campaign Name is required.' });
-
-    const newCampaign: any = {
-      id: `camp_pub_${crypto.randomBytes(6).toString('hex')}`,
-      organizationId: req.organizationId,
-      name,
-      type,
-      subject,
-      body,
-      status: 'ACTIVE',
-      leadsCount: 1,
-      createdAt: new Date().toISOString()
-    };
-
-    campaigns.push(newCampaign);
-    localDb.db.campaigns = campaigns;
-    localDb.save();
-
-    await triggerWebhook(req.organizationId, 'campaign.started', newCampaign);
-
-    res.json({ success: true, campaign: newCampaign });
-  });
-
-  // Emails list & simulate reply
-  app.get('/api/v1/public/emails', apiAuthMiddleware, validateScope('emails:read'), (req: any, res) => {
-    const orgGens = (localDb.db.aiEmailGenerations || []).filter(e => e.organizationId === req.organizationId);
-    res.json({ success: true, emails: orgGens });
-  });
-
-  app.post('/api/v1/public/emails/reply', apiAuthMiddleware, validateScope('emails:write'), async (req: any, res) => {
-    const { leadId, replyBody } = req.body;
-    if (!leadId || !replyBody) {
-      return res.status(400).json({ error: 'leadId and replyBody are required.' });
-    }
-
-    const replyPayload = {
-      leadId,
-      replyBody,
-      receivedAt: new Date().toISOString()
-    };
-
-    await triggerWebhook(req.organizationId, 'email.replied', replyPayload);
-    res.json({ success: true, message: 'Simulated email reply webhook successfully dispatched.' });
-  });
-
-  // Meetings
-  app.get('/api/v1/public/meetings', apiAuthMiddleware, validateScope('meetings:read'), (req: any, res) => {
-    const filteredAppts = appointments.filter(a => !(a as any).organizationId || (a as any).organizationId === req.organizationId);
-    res.json({ success: true, meetings: filteredAppts });
-  });
-
-  app.post('/api/v1/public/meetings', apiAuthMiddleware, validateScope('meetings:write'), async (req: any, res) => {
-    const { title, date, leadId, attendeeEmail } = req.body;
-    if (!title || !date || !leadId) {
-      return res.status(400).json({ error: 'title, date, and leadId are required.' });
-    }
-
-    const newAppt: any = {
-      id: `appt_pub_${crypto.randomBytes(6).toString('hex')}`,
-      organizationId: req.organizationId,
-      title,
-      dateTime: date,
-      leadId,
-      attendeeEmail: attendeeEmail || 'client@example.com',
-      status: 'SCHEDULED',
-      createdAt: new Date().toISOString()
-    };
-
-    appointments.push(newAppt);
-    localDb.db.appointments = appointments;
-    localDb.save();
-
-    await triggerWebhook(req.organizationId, 'meeting.scheduled', newAppt);
-
-    res.json({ success: true, meeting: newAppt });
-  });
-
-  // Tasks
-  app.get('/api/v1/public/tasks', apiAuthMiddleware, validateScope('tasks:read'), (req: any, res) => {
-    // Generate simulated in-progress tasks
-    const tasksList = [
-      { id: 'tsk_1', title: 'Prepare sales summary brochure', priority: 'HIGH', status: 'IN_PROGRESS', organizationId: req.organizationId },
-      { id: 'tsk_2', title: 'Schedule initial introduction brief', priority: 'MEDIUM', status: 'TODO', organizationId: req.organizationId },
-      { id: 'tsk_3', title: 'Validate domain verification credentials', priority: 'LOW', status: 'DONE', organizationId: req.organizationId }
-    ];
-    res.json({ success: true, tasks: tasksList });
-  });
-
-  // AI SDR (Research & profiles)
-  app.get('/api/v1/public/ai-sdr/profiles', apiAuthMiddleware, validateScope('ai_sdr:read'), (req: any, res) => {
-    const profiles = (localDb.db.aiContactProfiles || []).filter(p => p.organizationId === req.organizationId);
-    const researches = (localDb.db.aiCompanyResearch || []).filter(r => r.organizationId === req.organizationId);
-    res.json({ success: true, contactProfiles: profiles, companyResearches: researches });
-  });
-
-  app.post('/api/v1/public/ai-sdr/research', apiAuthMiddleware, validateScope('ai_sdr:write'), async (req: any, res) => {
-    const { leadId, companyName } = req.body;
-    if (!leadId) return res.status(400).json({ error: 'leadId is required.' });
-
-    const mockResearch = {
-      id: `res_pub_${crypto.randomBytes(6).toString('hex')}`,
-      leadId,
-      organizationId: req.organizationId,
-      summary: `AI SDR Completed exhaustive competitor research on ${companyName || 'Lead Company'}. Competitors analyzed, pain points scored, ready for sales sequence.`,
-      createdAt: new Date().toISOString()
-    };
-
-    localDb.addAiCompanyResearch(mockResearch as any);
-    res.json({ success: true, research: mockResearch });
-  });
-
-  // Workflow engine list & manually trigger
-  app.get('/api/v1/public/workflows', apiAuthMiddleware, validateScope('workflows:read'), (req: any, res) => {
-    const list = (localDb.db.workflows || []).filter(w => w.organizationId === req.organizationId);
-    res.json({ success: true, workflows: list });
-  });
-
-  app.post('/api/v1/public/workflows/:id/trigger', apiAuthMiddleware, validateScope('workflows:write'), async (req: any, res) => {
-    const { id } = req.params;
-    const { contextData = {} } = req.body;
-
-    const list = (localDb.db.workflows || []);
-    const workflow = list.find(w => w.id === id && w.organizationId === req.organizationId);
-
-    if (!workflow) {
-      return res.status(404).json({ error: 'Workflow not found.' });
-    }
-
-    const runId = `run_pub_${crypto.randomBytes(6).toString('hex')}`;
-    const newRun: any = {
-      id: runId,
-      workflowId: id,
-      organizationId: req.organizationId,
-      status: 'COMPLETED',
-      triggerType: 'PUBLIC_API',
-      contextData,
-      startedAt: new Date().toISOString(),
-      completedAt: new Date().toISOString()
-    };
-
-    if (!localDb.db.workflowRuns) localDb.db.workflowRuns = [];
-    localDb.db.workflowRuns.push(newRun);
-    localDb.save();
-
-    await triggerWebhook(req.organizationId, 'workflow.completed', newRun);
-
-    res.json({ success: true, message: 'Workflow triggered and executed successfully.', run: newRun });
-  });
-
-  // Billing & Subscriptions
-  app.get('/api/v1/public/billing/subscription', apiAuthMiddleware, validateScope('billing:read'), (req: any, res) => {
-    res.json({
-      success: true,
-      subscription: {
-        tier: 'Scale',
-        status: 'ACTIVE',
-        billingCycle: 'MONTHLY',
-        nextInvoiceDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
-        paymentMethod: 'Visa Ending In 8888',
-        priceUsd: 149.00
-      }
-    });
-  });
-
-  // Helper test endpoints to simulate billing/payment webhooks easily
-  app.post('/api/v1/developer/simulate-payment-success', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    
-    const paymentPayload = {
-      transactionId: 'tx_sim_' + crypto.randomBytes(6).toString('hex'),
-      amountUsd: 149.00,
-      currency: 'USD',
-      status: 'COMPLETED',
-      timestamp: new Date().toISOString()
-    };
-
-    triggerWebhook(orgId, 'payment.success', paymentPayload);
-    res.json({ success: true, message: 'Simulated payment.success webhook dispatched.' });
-  });
-
-  app.post('/api/v1/developer/simulate-subscription-update', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-
-    const subPayload = {
-      previousTier: 'Growth',
-      newTier: 'Scale',
-      status: 'ACTIVE',
-      updatedAt: new Date().toISOString()
-    };
-
-    triggerWebhook(orgId, 'subscription.updated', subPayload);
-    res.json({ success: true, message: 'Simulated subscription.updated webhook dispatched.' });
-  });
-
-  // Endpoints simulation complete
-
-  // =========================================================================
-  // --- MODULE: SALESPILOT BRAIN (AUTONOMOUS AI SALES AGENT PLATFORM) ---
-  // =========================================================================
-
-  // Helper to ensure default agents exist for current org context
-  app.post('/api/v1/brain/init', (req, res) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      initializeDefaultAgentsAndPermissions(orgId);
-      res.json({ success: true, message: 'Default agents & security permissions successfully configured.' });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // GET /api/brain/tasks (or v1) - Retrieve autonomous agent tasks with org isolation
-  const getBrainTasks = (req: any, res: any) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      
-      // Auto-init defaults if empty
-      initializeDefaultAgentsAndPermissions(orgId);
-
-      const tasks = (localDb.db.agentTasks || []).filter(t => t.organizationId === orgId);
-      const agents = (localDb.db.aiAgents || []).filter(a => a.organizationId === orgId);
-      const permissions = (localDb.db.agentPermissions || []).filter(p => p.organizationId === orgId);
-
-      res.json({ success: true, tasks, agents, permissions });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  };
-  app.get('/api/brain/tasks', getBrainTasks);
-  app.get('/api/v1/brain/tasks', getBrainTasks);
-
-  // POST /api/brain/chat (or v1) - AI Command Center Natural Language Trigger
-  const handleBrainChat = async (req: any, res: any) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      const userId = user?.id || 'usr_default_salespilot';
-      const { command } = req.body;
-
-      if (!command || typeof command !== 'string' || !command.trim()) {
-        return res.status(400).json({ success: false, error: 'Command prompt parameter is required.' });
-      }
-
-      const task = await handleCommandInput(orgId, command.trim(), userId);
-      res.json({ success: true, message: 'Autonomous sequence dispatched successfully.', task });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  };
-  app.post('/api/brain/chat', handleBrainChat);
-  app.post('/api/v1/brain/chat', handleBrainChat);
-
-  // POST /api/brain/task (or v1) - Register manually formatted custom multi-step task
-  const handleBrainTaskRegister = async (req: any, res: any) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      const userId = user?.id || 'usr_default_salespilot';
-      const { title, steps, description } = req.body;
-
-      if (!title || !Array.isArray(steps) || steps.length === 0) {
-        return res.status(400).json({ success: false, error: 'Invalid task format. Title and non-empty steps array are required.' });
-      }
-
-      const taskId = `task_${crypto.randomBytes(6).toString('hex')}`;
-      const taskSteps = steps.map((s: any, idx: number) => ({
-        id: s.id || `step_${idx + 1}`,
-        description: s.description || String(s),
-        status: 'pending'
-      }));
-
-      const newTask: any = {
-        id: taskId,
-        organizationId: orgId,
-        title,
-        description: description || title,
-        status: 'pending',
-        priority: 'high',
-        steps: taskSteps,
-        retryCount: 0,
-        maxRetries: 3,
-        createdAt: new Date().toISOString()
-      };
-
-      if (!localDb.db.agentTasks) localDb.db.agentTasks = [];
-      localDb.db.agentTasks.unshift(newTask);
-      localDb.save();
-
-      logAgentAction(
-        orgId,
-        'info',
-        `Manual task registered: "${title}"`,
-        `Direct custom task sequence of ${taskSteps.length} steps created.`,
-        taskId
-      );
-
-      // Trigger execution pipeline asynchronously
-      executeTaskPipeline(taskId, orgId, userId).catch(err => {
-        console.error(`[BrainEngine] Custom task failure:`, err);
-      });
-
-      res.json({ success: true, message: 'Custom task registered and executed.', task: newTask });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  };
-  app.post('/api/brain/task', handleBrainTaskRegister);
-  app.post('/api/v1/brain/task', handleBrainTaskRegister);
-
-  // GET /api/brain/history (or v1) - Retrieve logs, trace sequences, and memories with org isolation
-  const getBrainHistory = (req: any, res: any) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-
-      const logs = (localDb.db.agentLogs || []).filter(l => l.organizationId === orgId);
-      const memories = (localDb.db.agentMemories || []).filter(m => m.organizationId === orgId);
-
-      res.json({ success: true, logs, memories });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  };
-  app.get('/api/brain/history', getBrainHistory);
-  app.get('/api/v1/brain/history', getBrainHistory);
-
-  // POST /api/brain/approval (or v1) - Human oversight decision (approve or reject sensitive steps)
-  const handleBrainApproval = async (req: any, res: any) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      const userName = user?.fullName || 'Human Overseer';
-      const { taskId, approvalId, approved, notes } = req.body;
-
-      if (!taskId || !approvalId || approved === undefined) {
-        return res.status(400).json({ success: false, error: 'taskId, approvalId, and approved status are required parameters.' });
-      }
-
-      const success = await processApprovalRequest(taskId, approvalId, approved, userName, notes);
-      if (!success) {
-        return res.status(404).json({ success: false, error: 'Target task or pending approval request not found/already processed.' });
-      }
-
-      res.json({ success: true, message: `Manual approval successfully processed. Decided: ${approved ? 'APPROVED' : 'REJECTED'}.` });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  };
-  app.post('/api/brain/approval', handleBrainApproval);
-  app.post('/api/v1/brain/approval', handleBrainApproval);
-
-  // POST /api/v1/brain/permissions - Toggle/configure requiresApproval flags on the fly
-  app.post('/api/v1/brain/permissions', (req, res) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      const { permissions } = req.body; // Array of { action: string, requiresApproval: boolean }
-
-      if (!Array.isArray(permissions)) {
-        return res.status(400).json({ success: false, error: 'Permissions parameter must be an array.' });
-      }
-
-      const dbPerms = localDb.db.agentPermissions || [];
-      permissions.forEach((p: any) => {
-        const found = dbPerms.find(dp => dp.organizationId === orgId && dp.action === p.action);
-        if (found) {
-          found.requiresApproval = !!p.requiresApproval;
-        }
-      });
-
-      localDb.save();
-      res.json({ success: true, message: 'Permissions updated successfully.' });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // ==========================================
-  // AI VOICE CALLING PLATFORM API ENDPOINTS
-  // ==========================================
-
-  // Initialize call records in localDb if not already there
-  if (!(localDb.db as any).calls) {
-    (localDb.db as any).calls = [];
-    localDb.save();
-  }
-
-  // GET /api/calls - Fetch all call logs
-  app.get('/api/calls', (req, res) => {
-    try {
-      const dbCalls = (localDb.db as any).calls || [];
-      res.json({ success: true, calls: dbCalls });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/calls - Log or update a call
-  app.post('/api/calls', (req, res) => {
-    try {
-      const dbCalls = (localDb.db as any).calls || [];
-      const callData = req.body;
-      
-      if (!callData.id) {
-        callData.id = 'call-' + Math.random().toString(36).substr(2, 9);
-      }
-      if (!callData.createdAt) {
-        callData.createdAt = new Date().toISOString();
-      }
-
-      // Check if call already exists to update it, else append
-      const existingIdx = dbCalls.findIndex((c: any) => c.id === callData.id);
-      if (existingIdx !== -1) {
-        dbCalls[existingIdx] = { ...dbCalls[existingIdx], ...callData };
-      } else {
-        dbCalls.push(callData);
-      }
-
-      (localDb.db as any).calls = dbCalls;
-      localDb.save();
-
-      res.json({ success: true, call: callData });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // GET /api/transcripts - Get transcript of a specific call
-  app.get('/api/transcripts', (req, res) => {
-    try {
-      const callId = req.query.callId;
-      if (!callId) {
-        return res.status(400).json({ success: false, error: 'callId query parameter is required.' });
-      }
-
-      const dbCalls = (localDb.db as any).calls || [];
-      const call = dbCalls.find((c: any) => c.id === callId);
-      
-      if (!call) {
-        return res.status(404).json({ success: false, error: 'Call record not found.' });
-      }
-
-      res.json({ success: true, callId, transcript: call.transcript || [] });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/voice-agent - Speak with the AI calling agent
-  app.post('/api/voice-agent', async (req, res) => {
-    try {
-      const { leadId, customerInput, history } = req.body;
-      
-      // Look up lead details to make response personalized
-      const lead = leads.find(l => l.id === leadId);
-      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
-      const company = lead ? lead.company : 'their company';
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const prompt = `You are SalesPilot's AI Outbound Voice SDR Agent calling on behalf of Soham Kharat at SalesPilot.
-The prospect is: ${leadName} from company: ${company}.
-Your objectives:
-1. Introduce yourself warmly as "SalesPilot's AI Voice Assistant".
-2. Qualify the lead: ask if they do outbound sales and what their major pain points are (e.g. low email open rates, manual list building, lead data validation).
-3. Answer FAQs: SalesPilot is an AI-powered sales automation platform that automates lead discovery, enrichment, automated email sequences, and AI CRM updating. It costs â‚¹8,500/month for the Professional Plan.
-4. Schedule a meeting: if they show interest, offer to schedule a demo meeting for them (e.g. tomorrow or Wednesday).
-5. Update the CRM: if they agree to a meeting, mention you will book it and update their record.
-6. End the call politely: wrap up gracefully.
-
-Keep your response extremely brief, conversational, and natural (1-2 short sentences max, as this is for a real-time voice call). Do not use markdown, lists, asterisks, or any text formatting. Speak in a friendly, professional tone.
-
-Conversation History:
-${(history || []).map((h: any) => `${h.speaker === 'agent' ? 'AI Agent' : 'Prospect'}: ${h.text}`).join('\n')}
-Prospect's latest message: "${customerInput || 'Hello'}"
-
-Next Agent Utterance:`;
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        primaryModel: 'gemini-3.5-flash'
-      });
-
-      const replyText = response.text || "Hello! How can I help you with your outbound sales pipeline today?";
-      res.json({ success: true, text: replyText.trim() });
-    } catch (err: any) {
-      console.error('Error in voice-agent API:', err);
-      // Fallback response if Gemini fails
-      res.json({ 
-        success: true, 
-        text: "That sounds very interesting. We would love to show you how SalesPilot can automate your outbound calling and email pipeline. Would you be open to a quick demo call tomorrow at 11 AM?" 
-      });
-    }
-  });
-
-  // POST /api/call-analytics - Run Gemini Call Analytics & automatically update CRM & Calendar
-  app.post('/api/call-analytics', async (req, res) => {
-    try {
-      const { callId, transcript } = req.body;
-      
-      const dbCalls = (localDb.db as any).calls || [];
-      const call = dbCalls.find((c: any) => c.id === callId);
-      
-      const targetTranscript = transcript || (call ? call.transcript : []);
-      const leadId = call ? call.leadId : (req.body.leadId || '');
-      
-      const lead = leads.find(l => l.id === leadId);
-      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
-      const company = lead ? lead.company : 'their company';
-
-      const transcriptString = Array.isArray(targetTranscript)
-        ? targetTranscript.map((t: any) => `${t.speaker === 'agent' ? 'AI Agent' : 'Prospect'}: ${t.text}`).join('\n')
-        : String(targetTranscript);
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const prompt = `Analyze this business call transcript between SalesPilot's AI Voice Agent and a prospect named ${leadName} from ${company}.
-      
-Transcript:
-${transcriptString}
-
-You must respond with a JSON object containing the exact following schema:
-{
-  "sentiment": "positive" | "neutral" | "negative" | "warm" | "defensive",
-  "objections": string[], // array of detected sales objections (e.g., ["Price", "Competitor", "Timing", "None"])
-  "actionItems": string[], // list of concrete follow-up actions (e.g., ["Send business proposal", "Email brochure"])
-  "aiScore": number, // an overall score from 0 to 100 on how successful the call was (lead qualification, interest level, etc.)
-  "leadStatusUpdate": "QUALIFIED" | "INTERESTED" | "NEW" | "OUTREACH" | "READY" | "RESEARCH",
-  "followUpTasks": { "text": string, "dueDate": string }[], // tasks to schedule in CRM. Use ISO date format for dueDate (e.g. tomorrow or in 3 days)
-  "bookMeeting": boolean, // true if the prospect agreed to a meeting/demo in the call
-  "meetingTime": string, // ISO timestamp if booked, or null
-  "createDeal": boolean, // true if the lead is highly qualified and we should create a sales pipeline deal
-  "dealValueInr": number // estimated deal value in INR if createDeal is true (e.g., 59990 or 24990), else 0
-}
-
-Ensure your output is valid JSON and nothing else.`;
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        primaryModel: 'gemini-3.5-flash',
-        config: {
-          responseMimeType: 'application/json'
-        }
-      });
-
-      const result = JSON.parse(response.text || '{}');
-
-      // 1. Update/create call record with analytics
-      const updatedCall = call || {
-        id: callId || 'call-' + Math.random().toString(36).substr(2, 9),
-        leadId,
-        leadName,
-        company,
-        direction: 'outbound',
-        status: 'completed',
-        duration: 95,
-        transcript: targetTranscript,
-        createdAt: new Date().toISOString()
-      };
-
-      updatedCall.sentiment = result.sentiment || 'neutral';
-      updatedCall.objections = result.objections || [];
-      updatedCall.actionItems = result.actionItems || [];
-      updatedCall.aiScore = result.aiScore || 70;
-      updatedCall.recordingUrl = updatedCall.recordingUrl || '/recordings/demo-call.mp3';
-
-      const existingCallIdx = dbCalls.findIndex((c: any) => c.id === updatedCall.id);
-      if (existingCallIdx !== -1) {
-        dbCalls[existingCallIdx] = updatedCall;
-      } else {
-        dbCalls.push(updatedCall);
-      }
-      (localDb.db as any).calls = dbCalls;
-
-      // 2. Automatically update CRM (Lead status, tasks, notes, timeline)
-      if (lead) {
-        // Update Lead Status
-        if (result.leadStatusUpdate) {
-          lead.status = result.leadStatusUpdate as any;
-        }
-
-        // Add call to Lead Timeline
-        lead.timelineList = lead.timelineList || [];
-        lead.timelineList.push({
-          id: 'timeline-' + Date.now() + '-call',
-          event: 'AI Outbound Call Completed',
-          details: `AI calling assistant finished outreach. Score: ${updatedCall.aiScore}/100. Sentiment: ${updatedCall.sentiment.toUpperCase()}. Objections: ${updatedCall.objections.join(', ') || 'None'}.`,
-          createdAt: new Date().toISOString()
-        });
-
-        // Save recording / transcript as a Lead Note
-        lead.notesList = lead.notesList || [];
-        lead.notesList.push({
-          id: 'note-' + Date.now() + '-call',
-          text: `[AI Voice Call Record] Recording: ${updatedCall.recordingUrl}\nAI Score: ${updatedCall.aiScore}\nSentiment: ${updatedCall.sentiment}\nAction Items: ${updatedCall.actionItems.join(', ') || 'None'}\n\nTranscript:\n${transcriptString}`,
-          createdAt: new Date().toISOString()
-        });
-
-        // Create follow-up tasks
-        lead.tasksList = lead.tasksList || [];
-        if (result.followUpTasks && Array.isArray(result.followUpTasks)) {
-          result.followUpTasks.forEach((t: any) => {
-            lead.tasksList?.push({
-              id: 'task-' + Math.random().toString(36).substr(2, 9),
-              text: t.text,
-              completed: false,
-              dueDate: t.dueDate || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
-            });
-          });
-        }
-      }
-
-      // 3. Book meeting automatically (Calendar integration)
-      let bookedAppointment = null;
-      if (result.bookMeeting && lead) {
-        const meetingDateTime = result.meetingTime || new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
-        const aptId = 'apt-' + Math.random().toString(36).substr(2, 9);
-        
-        bookedAppointment = {
-          id: aptId,
-          leadId: lead.id,
-          leadName: `${lead.firstName} ${lead.lastName}`,
-          company: lead.company,
-          email: lead.email,
-          dateTime: meetingDateTime,
-          durationMins: 30,
-          status: 'SCHEDULED' as const,
-          meetingLink: `https://meet.google.com/sp-demo-${lead.id}`,
-          notes: `Meeting booked automatically by SalesPilot AI Voice Assistant following call. AI Success Score: ${updatedCall.aiScore}%`,
-          timezone: 'Asia/Kolkata',
-          googleSynced: true,
-          timelineList: [
-            { id: 'tl-' + aptId, event: 'Meeting Scheduled', details: 'Meeting allocated automatically in SalesPilot calendar by AI calling assistant.', createdAt: new Date().toISOString() }
-          ]
-        };
-
-        const dbApts = localDb.getAllAppointments() || [];
-        dbApts.push(bookedAppointment);
-        localDb.db.appointments = dbApts;
-
-        if (lead) {
-          lead.status = 'MEETING_BOOKED';
-          lead.timelineList.push({
-            id: 'timeline-' + Date.now() + '-apt',
-            event: 'Meeting Scheduled',
-            details: `Demo meeting booked for ${new Date(meetingDateTime).toLocaleString()} via AI Voice Assistant.`,
-            createdAt: new Date().toISOString()
-          });
-        }
-      }
-
-      // 4. Create CRM Deal if qualified
-      let createdDeal = null;
-      if (result.createDeal && lead) {
-        const dealId = 'dl-' + Math.random().toString(36).substr(2, 9);
-        const dealValue = result.dealValueInr || 59990;
-        
-        createdDeal = {
-          id: dealId,
-          leadId: lead.id,
-          leadName: `${lead.firstName} ${lead.lastName}`,
-          company: lead.company,
-          valueInr: dealValue,
-          stage: 'QUALIFIED' as const,
-          updatedAt: new Date().toISOString(),
-          notes: `Deal qualified and generated by AI Voice Calling assistant. Estimated value: â‚¹${dealValue.toLocaleString()} INR.`
-        };
-
-        const dbDeals = localDb.getAllDeals() || [];
-        dbDeals.push(createdDeal);
-        localDb.db.deals = dbDeals;
-      }
-
-      // Sync and Save
-      localDb.save();
-
-      // Keep leads list in-memory up to date
-      leads = localDb.getAllLeads();
-      deals = localDb.getAllDeals();
-      appointments = localDb.getAllAppointments();
-
-      res.json({
-        success: true,
-        analytics: result,
-        call: updatedCall,
-        appointment: bookedAppointment,
-        deal: createdDeal
-      });
-    } catch (err: any) {
-      console.error('Error in call-analytics API:', err);
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/voice-notes - Transcribe & process voice note, save automatically to CRM
-  app.post('/api/voice-notes', async (req, res) => {
-    try {
-      const { leadId, noteText, title } = req.body;
-      const lead = leads.find(l => l.id === leadId);
-      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'General Prospect';
-
-      const prompt = `You are SalesPilot's AI Voice Note Intelligence Assistant.
-Analyze this spoken/dictated sales voice note regarding prospect "${leadName}":
----
-Note Content: "${noteText || ''}"
----
-
-Return a valid JSON object with the following schema:
-{
-  "summary": "2-3 sentence executive summary of the voice note",
-  "keyTakeaways": ["Key point 1", "Key point 2"],
-  "sentiment": "positive" | "neutral" | "negative" | "urgent",
-  "extractedTasks": [{"text": "Task description", "priority": "high" | "medium" | "low"}],
-  "suggestedCRMStatus": "QUALIFIED" | "INTERESTED" | "OUTREACH" | "RESEARCH"
-}`;
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        primaryModel: 'gemini-3.5-flash',
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const parsed = JSON.parse(response.text || '{}');
-
-      // Automatically store in Lead Notes and Timeline if lead is specified
-      let savedNoteObj = null;
-      if (lead) {
-        lead.notesList = lead.notesList || [];
-        savedNoteObj = {
-          id: 'vnote-' + Date.now(),
-          text: `[ğŸ™ï¸ AI Voice Note: ${title || 'Dictated Sales Note'}]\n\nSummary: ${parsed.summary}\n\nKey Takeaways:\n${(parsed.keyTakeaways || []).map((k: string) => `â€¢ ${k}`).join('\n')}\n\nRaw Audio Dictation:\n"${noteText}"`,
-          createdAt: new Date().toISOString()
-        };
-        lead.notesList.push(savedNoteObj);
-
-        lead.timelineList = lead.timelineList || [];
-        lead.timelineList.push({
-          id: 'timeline-' + Date.now() + '-vnote',
-          event: 'Voice Note Dictated',
-          details: `Processed voice note for ${leadName}. Sentiment: ${parsed.sentiment || 'neutral'}. Extracted ${parsed.extractedTasks?.length || 0} tasks.`,
-          createdAt: new Date().toISOString()
-        });
-
-        if (parsed.extractedTasks && Array.isArray(parsed.extractedTasks)) {
-          lead.tasksList = lead.tasksList || [];
-          parsed.extractedTasks.forEach((t: any) => {
-            lead.tasksList?.push({
-              id: 'task-' + Math.random().toString(36).substr(2, 9),
-              text: t.text,
-              completed: false,
-              dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-            });
-          });
-        }
-
-        localDb.save();
-      }
-
-      res.json({
-        success: true,
-        analysis: parsed,
-        savedNote: savedNoteObj,
-        lead
-      });
-    } catch (err: any) {
-      console.error('Error in voice-notes API:', err);
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/meeting-prep - Generate pre-meeting briefing dossier via Gemini
-  app.post('/api/meeting-prep', async (req, res) => {
-    try {
-      const { leadId, meetingTitle, dateTime } = req.body;
-      const lead = leads.find(l => l.id === leadId) || leads[0];
-      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
-      const company = lead ? lead.company : 'Target Company';
-
-      const prompt = `Generate a high-impact sales Pre-Meeting Briefing Dossier for an upcoming meeting with "${leadName}" at "${company}".
-Meeting Title: "${meetingTitle || 'Sales Discovery & Demo Call'}"
-Scheduled Time: "${dateTime || 'Upcoming'}"
-Prospect Info: Title: ${lead?.title || 'Executive'}, Email: ${lead?.email || 'N/A'}, Industry: ${lead?.enrichment?.industry || 'Software'}, Company Size: ${lead?.enrichment?.companySize || '50-200'}.
-Previous Notes: ${(lead?.notesList || []).map(n => n.text).join(' | ').slice(0, 500)}
-
-Return a valid JSON object with the following schema:
-{
-  "prospectSummary": "Concise overview of company & stakeholder background",
-  "dealContext": "Key drivers and why they are taking this call",
-  "recommendedTalkingPoints": ["Point 1", "Point 2", "Point 3"],
-  "objectionCheatSheet": [
-    { "objection": "e.g. Price is too high", "counterStrategy": "Highlight ROI within 60 days" },
-    { "objection": "e.g. We use another tool", "counterStrategy": "Emphasize native AI workflow integration" }
-  ],
-  "targetCallOutcome": "Exact goal for this meeting (e.g. Agreement on 14-day POC)"
-}`;
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        primaryModel: 'gemini-3.5-flash',
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const parsed = JSON.parse(response.text || '{}');
-
-      res.json({
-        success: true,
-        briefing: parsed,
-        lead
-      });
-    } catch (err: any) {
-      console.error('Error in meeting-prep API:', err);
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/generate-follow-up - Generate follow-up email/SMS from call transcript
-  app.post('/api/generate-follow-up', async (req, res) => {
-    try {
-      const { leadId, transcriptText, summaryText, channel } = req.body;
-      const lead = leads.find(l => l.id === leadId);
-      const leadName = lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect';
-      const company = lead ? lead.company : 'Company';
-
-      const prompt = `Write a polished, professional follow-up ${channel || 'email'} for prospect "${leadName}" at "${company}" after a recent sales call.
-Call Summary: "${summaryText || 'Discussed SalesPilot AI features and booked a follow-up demo'}"
-Call Transcript Excerpt: "${(transcriptText || '').slice(0, 1000)}"
-
-Return JSON:
-{
-  "subject": "Follow-up subject line",
-  "body": "Formatted email copy referencing key discussion points and clear CTA",
-  "smsVersion": "Short 160-char SMS follow-up"
-}`;
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        primaryModel: 'gemini-3.5-flash',
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const parsed = JSON.parse(response.text || '{}');
-
-      res.json({
-        success: true,
-        followUp: parsed
-      });
-    } catch (err: any) {
-      console.error('Error in generate-follow-up API:', err);
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // ==========================================
-  // CHROME EXTENSION BACKEND SYNC PLATFORM API
-  // ==========================================
-
-  // GET /api/v1/extension/check-duplicate
-  app.get('/api/v1/extension/check-duplicate', (req, res) => {
-    try {
-      const { email, linkedinUrl, fullName, company } = req.query;
-      const cleanEmail = (email || '').toString().trim().toLowerCase();
-      const cleanLinkedin = (linkedinUrl || '').toString().trim().toLowerCase();
-      const cleanName = (fullName || '').toString().trim().toLowerCase();
-      const cleanCompany = (company || '').toString().trim().toLowerCase();
-
-      let matchedLead: Lead | null = null;
-
-      if (cleanEmail) {
-        matchedLead = leads.find(l => (l.email || '').toLowerCase() === cleanEmail) || null;
-      }
-      if (!matchedLead && cleanLinkedin) {
-        matchedLead = leads.find(l => (l.enrichment?.linkedInUrl || '').toLowerCase().includes(cleanLinkedin) || (l.notesList || []).some(n => n.text.toLowerCase().includes(cleanLinkedin))) || null;
-      }
-      if (!matchedLead && cleanName && cleanCompany) {
-        matchedLead = leads.find(l => 
-          `${l.firstName} ${l.lastName}`.toLowerCase() === cleanName && 
-          (l.company || '').toLowerCase() === cleanCompany
-        ) || null;
-      }
-
-      res.json({
-        success: true,
-        isDuplicate: Boolean(matchedLead),
-        existingLead: matchedLead ? {
-          id: matchedLead.id,
-          fullName: `${matchedLead.firstName} ${matchedLead.lastName}`,
-          company: matchedLead.company,
-          email: matchedLead.email,
-          status: matchedLead.status,
-          createdAt: matchedLead.createdAt
-        } : null
-      });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/v1/extension/capture
-  app.post('/api/v1/extension/capture', async (req, res) => {
-    try {
-      const user = getAuthenticatedUser(req);
-      const { 
-        firstName, lastName, title, company, email, phone, 
-        linkedinUrl, website, pageUrl, notes, tags, source, forceSave 
-      } = req.body;
-
-      if (!firstName || !company) {
-        return res.status(400).json({ success: false, error: 'First Name and Company are required fields.' });
-      }
-
-      // Check for duplicate unless forceSave is true
-      const cleanEmail = (email || '').trim().toLowerCase();
-      let duplicate = null;
-      if (cleanEmail) {
-        duplicate = leads.find(l => (l.email || '').toLowerCase() === cleanEmail);
-      }
-      if (!duplicate && linkedinUrl) {
-        duplicate = leads.find(l => (l.enrichment?.linkedInUrl || '').toLowerCase() === linkedinUrl.toLowerCase());
-      }
-
-      if (duplicate && !forceSave) {
-        return res.json({
-          success: false,
-          isDuplicate: true,
-          message: 'Contact already exists in your SalesPilot CRM.',
-          existingLead: {
-            id: duplicate.id,
-            fullName: `${duplicate.firstName} ${duplicate.lastName}`,
-            company: duplicate.company,
-            email: duplicate.email,
-            status: duplicate.status
-          }
-        });
-      }
-
-      const newLead: Lead = {
-        id: 'ext_ld_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        firstName: firstName.trim(),
-        lastName: (lastName || '').trim(),
-        title: (title || 'Prospect').trim(),
-        company: company.trim(),
-        email: email ? email.trim() : `${firstName.toLowerCase().replace(/\s+/g, '')}@${company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-        phone: phone ? phone.trim() : '+1 555-0192',
-        status: 'NEW',
-        confidenceScore: 85,
-        scoreReason: 'Captured via SalesPilot Chrome Extension overlay',
-        source: source || 'Chrome Extension (LinkedIn/Web)',
-        lastUpdated: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        tags: Array.isArray(tags) && tags.length > 0 ? tags : ['ChromeExtension', 'LinkedInLead'],
-        notesList: notes ? [{
-          id: 'note_' + Date.now(),
-          text: `[Chrome Extension Capture] ${notes} (Page URL: ${pageUrl || 'N/A'})`,
-          createdAt: new Date().toISOString()
-        }] : [{
-          id: 'note_' + Date.now(),
-          text: `Captured from page: ${pageUrl || 'Browser page'}`,
-          createdAt: new Date().toISOString()
-        }],
-        timelineList: [{
-          id: 'tl_' + Date.now(),
-          event: 'Lead Captured via Chrome Extension',
-          details: `Captured prospect details from ${pageUrl || 'Web'}`,
-          createdAt: new Date().toISOString()
-        }],
-        tasksList: [],
-        enrichment: {
-          website: website || '',
-          linkedInUrl: linkedinUrl || '',
-          companySize: '50-200',
-          industry: 'Software & Services'
-        },
-        researchStatus: 'PENDING'
-      };
-
-      await insertLeadAsync(newLead);
-
-      res.json({
-        success: true,
-        message: 'Contact successfully saved directly to SalesPilot CRM!',
-        lead: newLead
-      });
-    } catch (err: any) {
-      console.error('Error in extension capture:', err);
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/v1/extension/research
-  app.post('/api/v1/extension/research', async (req, res) => {
-    try {
-      const { pageText, targetName, targetCompany } = req.body;
-
-      const prompt = `Perform a concise AI Sales Intelligence research analysis for lead "${targetName || 'Prospect'}" at "${targetCompany || 'Company'}".
-Here is page content scraped from their browser window:
----
-${(pageText || '').slice(0, 3000)}
----
-
-Return a valid JSON object with keys:
-{
-  "summary": "2-3 sentence summary of business & buying signals",
-  "techStack": ["Detected tool 1", "Tool 2"],
-  "painPoints": ["Pain point 1", "Pain point 2"],
-  "icpMatchScore": 88,
-  "suggestedHook": "Personalized opener for sales outreach"
-}`;
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const raw = (response as any).text || (response as any).response?.text() || '';
-      let parsed = {};
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = {
-          summary: `${targetName || 'Prospect'} at ${targetCompany || 'Company'} shows strong enterprise software signals.`,
-          techStack: ['HubSpot', 'Salesforce', 'React'],
-          painPoints: ['Outbound efficiency', 'Data duplication across CRMs'],
-          icpMatchScore: 92,
-          suggestedHook: `Hi ${targetName || 'there'}, noticed your team at ${targetCompany || 'your company'} is scaling sales operations.`
-        };
-      }
-
-      res.json({ success: true, research: parsed });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // POST /api/v1/extension/generate-outreach
-  app.post('/api/v1/extension/generate-outreach', async (req, res) => {
-    try {
-      const { targetName, targetCompany, title, channel, tone } = req.body;
-
-      const prompt = `Write a high-converting cold ${channel || 'email'} outreach message.
-Prospect: ${targetName || 'Prospect'}
-Title: ${title || 'Executive'}
-Company: ${targetCompany || 'Company'}
-Tone: ${tone || 'Professional & Direct'}
-
-Return JSON:
-{
-  "subject": "Compelling subject line",
-  "body": "Clear, concise 3-paragraph outreach copy with CTA"
-}`;
-
-      const aiInstance = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY || integrations.geminiApiKey || '',
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-
-      const response = await generateContentWithFallback(aiInstance, {
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const raw = (response as any).text || (response as any).response?.text() || '';
-      let parsed = {};
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = {
-          subject: `Accelerating outbound growth at ${targetCompany}`,
-          body: `Hi ${targetName},\n\nI came across your profile and was impressed by the work your team is doing at ${targetCompany}.\n\nSalesPilot automates lead enrichment and AI outreach directly inside your workflow. Would you be open to a quick 10-min chat this Thursday?\n\nBest,\nSalesPilot SDR`
-        };
-      }
-
-      res.json({ success: true, outreach: parsed });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || String(err) });
-    }
-  });
-
-  // 2. VITE DEV OR PRODUCTION STATIC FILES MIDDLEWARE SETUP
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  // Seed initial research profiles for seeded leads if they don't have one
-  console.log('[SERVER] Seeding initial AI research profiles for CRM database (asynchronously)...');
-  (async () => {
-    for (const lead of leads) {
-      if (!lead.researchProfile) {
-        try {
-          lead.researchProfile = await generateResearchProfile(lead);
-        } catch (err) {
-          console.error(`âŒ Failed to seed research profile for ${lead.company}:`, err);
-        }
-      }
-    }
-    console.log('[SERVER] CRM AI research profile seeding complete.');
-  })().catch(err => {
-    console.error('âŒ Async seeding error:', err);
-  });
-
-  // Attach Centralized API Error Handler
-  app.use(centralizedErrorHandler);
-
-  // Print resolved startup environment info
-  const startupAppUrl = process.env.APP_URL ? process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '') : '';
-  const startupRedirectUri = getGoogleRedirectUri(null);
-  console.log(`[STARTUP AUDIT] Resolved APP_URL from environment variables: "${startupAppUrl || '(not configured)'}"`);
-  console.log(`[STARTUP AUDIT] Configured/Expected Google Redirect URI: "${startupRedirectUri}"`);
-
-  // Listen on Port 3000 (bind to 0.0.0.0 as required by the environment)
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`ğŸš€ SalesPilot backend and client server online at http://localhost:${PORT}`);
-      try {
-        WorkflowScheduler.start();
-      } catch (err) {
-        console.error('Failed to start WorkflowScheduler:', err);
-      }
-    });
-  } else {
-    console.log('[SERVER] Running in Vercel Serverless environment. Listen skipped.');
-  }
-}
-
-startServer();
+ xœì½ÙrY² øÎ¯8âÍ€J ¸hI	J¦.DB"*¹ ¦nRM ©@2"@Š¥‚Y[[?M?ÌS·ÍX›ÍWôıúîOw?{,XHe¦ªºêv§ˆˆgñİıøñÃ˜õ?ÿ’U'nœxCöğ!ã9ÉôâgoO.¢ám}Zc¹ÿÉ¶;™_´Å^tCü•o5[›÷{Æn:±ªë·ã¸ÉÜ°`Zƒ(L¢Às‚èªzş·ÿüïÿóüö®Õa»Ç'?¾ívú£7ìuëààUk÷û÷ì7öCúvéú7l²¯>QÿÎØK÷Êcı+£3‡íy“ ºõÃ+ÅWnèà£ ¸p`ÜÉ­s^³×4[³~ş]8÷6ˆÜ!@";s»zæ1B*ûl0rÃĞš¬Ò>lu*ö /ò£4g2MFÕÜ¨©7i²o²#„îØƒîpí1À z±›úQXÉ6MR7&Ğ¸wº»Ûîõr ›ìº;ñâ$
+İÀÿP]ñ®(Xƒ ÉÖ¿ú$À1[wØIì]ûŞ=Fp ™%ix¨nÖÙÖæfmæ8ÎúyvàÔ‡¡Sw½¶ƒTkNuzÇ=şyÍ†\­ tƒi{aÚ8ÒÙ¾ˆ=÷ƒùÈÂøÀM<ö¬™Á4RhÊÆÉU©àü—3åì«O8;'ŒnªµÙù‹‚`zSoØI½qùø@ºÔi
+çç_}ÂÎ¥')>š1ñ$pÅƒÑxŒÖ¤nñ«”
+éˆ§È@‚Ns¤#ñm}'¥
+|wŞÖD~óãÏX4MôƒQn¾H™şHò`gû>ËA şSøS¸M<–ü„]úá0a·Ñ”İxAàäºWÄ~Ò>ÚY’[ÒÊ4W@rbæRjmº0 ²p¦a2ò/ÓªE'EÍ— ]Ê5œµNNºÇ?´*/VÏÊÇdG×nÀ¢+P.3ÊÀ¨eÆñ4½ˆ¦áy$ˆHdüBd~˜øCQ‹¬KB‚írª©áO< TÎUœ{ãú)ÒÒØ§0³Ñş`®˜hÕw‘æï%dÃó¬lXäÏK@ş†àÓó TD ÷Ô‡B÷qè ğ.nÌDn?x;ì^]ÆÑXÂ4â¨H#Ö;ìŸ°! àÚ‹Â@¾‹üù´}ÚŞûü ÏËë­Í•‘²µ™Å
+ÚIWİÖ` ¤˜&Nà…Wéˆíìì°Í¼bsÙk|í½JÖÚÁF^G1¶á¸sy÷lè' óC¨O@bÁ´’Ûp€‚)fo¢è*ğØÛ(şLÜ§¾üĞóR¤óÄ)³œ¼$mmfñ’¡±ÖI'G;y‰ç[húRı°=Ö€Vİkx2áåQÄÜi:ú4X$íÅ(ñ,´„¹±Ç¸H :ƒ†,õB–­oÜ[‡írà1>Š²N˜zWÜ|IJ‰<é­N|ö(ÛèÊ¬}«¨V®acw’Tê 
+»İã.ü¡%›b“Kv	T±Œ®–€´	¦·Rr†*cft*Øù0¹µµêÉ*˜!ß±±ã‰,«TWn d&ÕoM±˜cr¼›3°ù¬9½^…ş,Ö}·ùŞîÂúAMù
+Y¬ó«_2æZ––”;ĞØš‹C*,Û:öşÄB6Va£…–R%Ços,¡|c7M·c˜pğ»÷åª£}ÔÏ}{i|ÛJÁŞ˜àç9ñ1 Äe¶ÒrÎÊ3™×~¾İşkQï´K ºƒ–ºEî
+ú\Ø¨“¥:‚ìt0€¦—Ó ¸ñè–kpËò=û<Š|‘&ßZ]“oe591˜FÖîñQ¿µÛÏÉÄój‹A#òÀOÒË=‚NŞeäI®²Ì…IœIÚ\ U¼k’e‡õ<0«BÀÎBe†^
+JĞ÷¦Ñ˜ôéÄrÁI®
+óùÎöÃ‹:å="„&ëE#wÌª=Tó‰D)Sz­ï¹ãZ8–‹‰c!?m•ğÓn÷N†0è½"Ãk@?dØ|wµ¬ÒF›Å ;¤+èGRØ>C?´Ä6_ş6<¶½:mgylè&£‹æ¥ş%ÚphvÍç‚0]–ÒÛ	bñø´ßm·v÷üï4ğL.ÙÆ“À+Àvê}
+<ß÷¯Fl6ogL|4K-ÙˆÜ\ÍÕLÄ¢€–@`^Óº ®K7H¼Å¸5åÜáÉA;/ç–b¤íF²Ğ{^Òâ‹İ€Æ™¨q`¥A!ÄBcÎ.È–^€Q×ïbEŸ˜0#cNÿ’ <jĞóä7ñí³©hµW«^à!š¾¡g‡¢ÅôàiÍn_ŒGÃ§›ĞàÈ<'ĞÆ!-XÍóé4U¤eïÇş°á}ôSÄFÔËasø*xÑ8á Çÿ’|ºœ†"/LÀ›B+æ2ˆxT¬;CêF ƒ4½=²%zpñµ€ı§pfï+ü·ÿJû
+Ç`İÓ£~ç°ıÜL?õQz`”i„rå2æ:Úˆ=Œó;ˆ¢‰ãÎXùD€/•¿«à£T:Î´§%ÖÙÖ“ÍMÑ§Ê<XìØØ`Fƒ|ò.H×6kíwú=öú¸Ëúûm&….;éœ´:Gmü¿u'çÊOwÃø×[r!¿ğH« êÀÔI­nTøåüò¶úIJÙ&Kc\ }Õ´vo!épÄÉ´tÄ¦?,•ûŸ@ï ‹îÀË_À¼‰İqòÂzM®’l w«Tğ~ŸÂ—şQÙ]INà2Mã@Ày¬úxóq-’ôuF² ¸v%ç¡d«,­ŠbÎ
+0”#öÛôÔËÁ­8¹"ã~¨Ù”¬$0A‘…`T
+P%sq°!ˆ€—XwÆÈ—rs-ÒyH„:½îzícÄjä‘’C&D±`I¢Op¾ñÓß…£ËÇ¦;9ù`€ágÃÏ.l,Ø×Ã‡–Ú)ÚĞ Ë[ŠÏ_¯ô²Aa8_¾ÿÀê;°
+7LÁˆ9oÌ™œÅÓ%é)öTfHOüñØ"T‚[ÑEïÙ<¹Wµñc‚i6„ˆä$â[¬â	ÅéŒ=5²I£2S”› ˆoamÈÂCÓ½¯>­f¬%¢éª'½5‡íä/ùVm½Q'öÎ›öë­È»ôêuä»%fÿ†¿®ô»œšÒğËjâº„ñ>¨²öM KuA$—A2c:FÅ:‘ÖF"ü_¤‹ ½…ÏÕ¥Uì¡w{Åñw&¦ºí?µEüã×6¶)5{­¾™R‚£–I¦’kÆîeêXŸÙÀ¹}ÊE;”å6¯&Ïe§W¼E™ºÑíòFo—¿‡ëŠ^&`Æó<D&Ã(¦'Ì’çù>ğr²MNùK“mrQu-ÒT
+pñËÊ´b³[vØà@XÙ fJšÅ`‘XEëÆ‹¥0v\&Lç»#ËBR9U®vªpªØµû—¾ÇC#ÏÒÑ-‚4æcğì•ÿçğxïô Í¶6¦ˆ½_èh½=î~ßîöXşæNß~»uĞß'¨ K‚_R¬µNñ´<ã]¤ù3ÊŸYÔîµz ›Ä`G%»rsĞîz  óöı´‹p>ìlÿAq	ædøc?MN'È1Øà¹óü<Ûli*HãÛŸç½
+4×–º\ v¼ğ.³LÒG|'•’ŞÏé˜zH|o[ŸEÙ’–TzÖÉ)ZS•f&ı&#ö²J&?ğø|Á•J“¶ç§ F[ÈF„RšÇ@ájİ&Ù¼CÉÍn7aXµçÆƒÑwÒßk°¬ğ	uŒ¯ÒìÙ×;lËCá†xø,ÄğÎÑëcÜKÃÙ¡ÖØkˆÕ.½‚1Z´,-†–Ñ´şg5à[4½™ú*‰´ƒòø[ú1;_AÔÀêpN"ó'¤nOüşŸ;øp“öäÌºÎYóM“õ~ìõÛ‡ğä¨Ó?îb’ê^§õæè¸×ïìöØC)nv÷Û»ß¡#´?L%ğ0È{#ªşµ·Oònwä> íi¿›¢Ä}"™aA.'`Ó ·q» ğxø-O´¬ƒê¤­V¯WaåRå…Vä¼í†n“— a§ã@îì;´MfÚŞrPñº¸‰@s5f2¼è¡î€/´íÂQÒÄ
+É¥ ü	ïd‡î‰_»î¨Ë¯8+È–f V
+Ÿ!LE08‰ înÊ/ÌqªVĞÈH*5'ñ¦ÕŠ?„ŠÈê–‰E=Ù™Ax¡\û	Yhİ°ŒäzPLÀÒÓÒîFêW o0cÊ™ßŒy ÎVaİ˜[EÍíDÿUìõş|ÀTŠ½yUYm‚k%åØ
+¢ìŠäú±wê·ˆ!°åx~–îñ.ë;?À®YŒ/´Öö^1w{ÑÖšÂŒà„¡#äq—gù•Š¸uùFÁHFq•÷qàM–ŠÀ/;eZÙvd’ÀqkšÎsè€x‘bØB¤;^xí¼9>~sĞ>Û=è´úg½õ¼¨è¹öÚ»İvßäs5ŞÃ‡V7&;Úå	Zgæ- z{ÕÔ;ëì„S…Ù_úW`Û’IğÂ¦dsv¿ælæNbõa³$V9ôÉÈ`Y²V„LÁÄùqb†‘5§ÕX`ù9[ 2\š!òôşÈa:gq±sñF¤œe³ÏxøÄEÍë:.	È~ôÁ‘TXOò’·~:ªVÆÑàÃY¥V³YÄOh˜]…líÁ‹S0ëŞ@¬3Ó „‘Pí•Ì!W‚Ë|QÚâ’ÓNsÕº$ª=šH,qZÈC¹•ßkv61÷L~Ür£ƒBı*ì”8ÇG˜êjB†Ï %ŠˆTú¦9£Î^‘‹OMdŒİ›o+=±ë‚RºñÜM9ïÄ7¿ûìºs™g!oğy.ärKòH\s¸…¿W¬e~¦Ù–óŒ¦Pbµ¹gŞdæğ‘®˜•ªÈ;©£åfy®ævo®zâÀB“ÑeìyóÙi2É™]»­Şşën»û|9«+!#æ{ï¶ì#®ĞÏ¾oÿh±L¨¾/'³œø|úRëkM&–…“»“}S<p–ÔÀ&QW3PC§ $56†Ñg3x–›ô¹ô½HKäM_{±'n‚Û4Ç”ñé\»ÁÔKªÖìj‡Çª1
+äØŞLF|šAq^3û~É¶77YşûM-µ[‹¸QK·ßiéó„´êåÌ/¾ö±–bÆ43±uŞÀ=?ÔBßæÁË\ôõ8
+}p?aº£¢*ˆ„/q;–rP8tl‚ÔHàIO) Ûw/ÏØ1Š&^èúM 4±EvZ2y¢!&q(
+<>ÂüŸJ@·qkk³.úm2Œ‹h
+9ÉM¶ÉfWtæÚFÂ>88díğÊôÌhks³|T‹æ0:^œœ?ÎcsAÏœÇö@[Æ@¶0‡Ìèr<™3Ğ§6Ÿ”®n4Å\0c¬}zÀ~à;1?10g¨çO¬‘¶JGÂôŸøÂO±vÅ#ÀWìóc#+ÀrqL¼hxé\ÜÕPCì°İ(D¸-Á(â?wÈí§6ú•¢oOÃÁ#&æ
+ÕCöz‘‹t{sYÜéó`yZ9„§¬7ˆİ‰Ï‡éæ“åøàfä¦	ˆc¬·øë«)¨+Ğ÷Ì^Û7¥£%˜—kÅótßŠ<İW´V>Ì7ÛË­IªEcR¾áÇ Ù~˜°U>ËÇµBnkwŞv]r›¤ŞØÜ1{öì$)ß qƒû)-CroÃ•é••¯ÍH×Ç#¼‰™ò¯µVÑ@Â$¸’å¿?ÙÜDD¢$=M†ğÚy$9£K>Ác&›Îs[SCˆ.Ÿ=1z|´éqÓÙ~œïñ‰ÙcMA8áÎÚ¤FŒŒÄMÏ½ÆC³ÔãcçÙ¶´×´d"‹ôæòİë+0!& V=)ét¸Zï¯òYá«1ì¦u5šLSPŞ`İâ×ÎÛNÌìí|®ÿéM¨ÎQ¿ı¦Ûê·÷Ø^ûvrÜí·êìäôÕAgåB½m¿Ú?>ş÷¡[İïÛı“ƒÖ®™ Ì7¤>ëüÖDÖ`cì#plPì7h¯w
+¨ù›“éEàÈDÇ`ƒG(é:!£NúA~WífƒÅƒü‚ÖØÛpç›U/<~şPî^‰,iœFÖU=B‡ÕŞíqL£Ë]°:£Ùjı¨OöUk²‹(Â”Úìş[İìx	Ç,Eµ·c¯„˜]lnS^ÿl~ìù;Ş‡#–¦»ËÄêÒ ÍVİ€
+ô÷5{Š|h¤á‹Ít”f2²šŸG3¾ÛÉ€'·'O{î¹~Ì>ô^sfä™d—-Ç cÖ:íï·úİV¿s|Ä;{{í·­nÛ¤úC°ÕoğœùNÑÎiÏm¢bd{<°ÎFô#qğˆâ¿0’ÿŒ0<«Z!¬W`pA‹Jm~îÂ–Ê]¹
+§¡³?dà8ÇÁ¥ó‡Ìšã³u²	å|m<š²ÃÌ9NLìİÖ{;Uo@Î4½€20˜{wôìÕ-wò«©AÏ<Àà[AıLzĞëlíö;?´+fğ¡JrPz9;"÷Š	3?ÁdZT´fr‡Şœ4¦à}œø0@‹Šf)]}YcßŠş³Ìqä&Œ÷_<Gñ £‚´x9«[qŸØebŞúåSUFƒhÖ–[uİÉ¢Åm?Ï.î¼E ‘Ã[Ö²»É§JB‚âŞS«4 †5Ôh3d³°jç›üâ(Šã¼0^ñB^œú)V&–o?7¿H`ò$º%ÿıÂ¹$mw8Üó®½ šÄÑ•‘—Šù™• º:«€(Ä·“4˜‡Ãhüê6õ’êS´…!X·c´'×,³ahğ3“@5gİöŸOÛ½¾•Ô
+ü}àÒøßúİÄMGM‘éœ²)²»ÑĞãn^Ô¤5Æd6âWş„ªlmãlÂÿmåÒKbZ›MIB¢ãÇbihäÏÌ
+_Ë"Î)(ŞùÃ\\ñ°q‹L_F*Ğ”\´ïØRĞ^ô=uÛÒ›91¦¿·E™Znğ«È¾:¾M"¤ù’"dÛomoâ¬(;-u1Î1†œYRT–•2V·P¤ÌeyêK°½Ñú`ıÒ¹ÿ½°¿Åq©i¿“?;6$ŒÕÊ<Š_Q*ÜÅÂê³JJµHnEñYW¬ 3°Ì¾ }€İEÿ¤£Ï)¯“ˆKÙ¦òy»tŠlK¤×ayô4û¥íWNÀ•ÄnP> R×º@y :~8¦C İÊÁú‚–Eï¬		2ZÍ•rªiHÒN»r\Q$#k&XÌ¢¥0(À†±†Ÿ#?¬bÊjmv! ™…ÎmGzË¬ßí¼yƒIã<|ù
+¡âœ©LÍ,‡KwR?1FZì‚xápó%O×PRb ¶|›¨æ\ú8×U±>»õ¬Ma^£•[õš^úMÈÏ¿C²àœg:©ÈßU{Î,ºÔó¯e(Sœ7:¾øÙªIâÔ»NËÄé³9â”&ºÒQœ2Q¬Ÿ#f$‘¼(Z ÌşO½ã#‡£Ò¿¼­ê•Õ2Ú-7ğ¤oUM>Ø?lí²Ä¿
+Kà®rÛ	Ó¿äLY3ĞMw$¨¸ÌÜ»ƒj%¹ÛOâÙ‡÷Qsøa`9Ñš3ô¯<Lø'xªâ"}WÔ3#åZ×Ë+º…çp®‡1ğ)æŒ£Öà#-CbúËË[Q£!mˆçŒÚıîv1Ëô‘\¹a>İë¬Êkxa6.àãˆy.J.=Üc–Ú”óó`ğE!ßÛn`²zty):Cˆ‘1öĞÅ/ª
+–Ó8¨+èhrª3cr´%-Tf;Öb:ÖÂM ¨h‡!/•Øb*B$Ngºe™2xõè…j}¹·T.rsS ÷fä¸ø¢§owÌ¯µd2“.”7-Â*œQ%Ğ™Y×Òöªœ÷ìªj"h”-­SÙ¨PM£&]>t'xZ„ˆyb¦ÊJåßº.S£'a_jÄÍù€NkT4£q±n|03¿æõærŒÃøX€ÜÖE§4‰€
+dEÓ´Š»fI‡ò"ªi–àÿ„ s l>®‹>UBşIı„â›xà£z.÷ú|(J…Ğó56Ãó,@:FŞ¹YEG(i,„ Ñ(ñê¤–¡¢O"p#vG7Úó»Ju ½™}ó-{¤(ˆQp?·e %šÓ"ÏQ· È_½"Tá*r¥´7­šC©'~Uˆ‘‹©+ş°¦f´Lî{©×2SrÖŠq±Ø¥ºŸS•w«¤Ëô…r«„¹w¶×> ã¨ûc%…xÑŞ´¿úd3İL	¥úS Kf¬!
+êb4ÌîœêO£DÂ}V³*ïè\¢){¿ú$Q[D‚ÅefX5[î{aË<-Q3kˆUê¾Yèç‡wh15»ôÒÜ"KŸ—ln–óÏy»$ÍÊ^öò<´"³XÀI QtZª®bÍ¥föõ×Z’qA‡èò´*ä)ŠØÄK…0•Oë\sÖYÈUéAâ•æåÙ(Ì˜<Ùşu÷ø¨ß>¢=ÉöÁñI»+v&õ®ãZÁ†÷PJ‡ŞmÙ¹[íæò3c-³Úğ)<Æ¬İ7dËâ7/³ñ#qÀ£3ª86AÅyø ñR¹=Uv¾G7ágn+„Ü3<%²à í—¹by¬Ã¶u¦BgïÀ|_g*´Y·6nfNÿ®IJ~€ıÌßùÚ\xjWFd°L îîÈ @ÙÑ]Ê{B¹Æ·Î“ÉJŒ³¯>h—íÇ9õ"¯qP×7|ïåRZ€¸Õ•V.W?„Fèı$ö.ıMkEYÅ_ƒ	TG×¥P©¼öwê5á4_G†‡rgÈUy	‰ú¦ş“âEáæzj	Ë*™c˜œªâørl
+-¨2fsÛı«Œ	S€Åîk×m~);
+ÏõY¢hifp
+gÑ‚vM0İşÑ›¼wİHq§Í–ûõS³¡¬ÜÂÿĞùì³ÑšÏÅ?LOÀÈN7{Ï¶S$ŸiWJóÜ¯yÛŒÄ…Fƒ®”ÂŒãã†)&Å¬®fŸ“Eoó…’ë;üJT™_9O­ü½ëèÃİ\¢ãEì‹ÑzËåĞ©ğfsQtÔ¿®•CÖªï~µ§ŞŠÏ8=/k9|ip”dJJ–ÆC©… mïk HØ³¾Ã2Ùi÷`;‡ü²P½ßŒ>³vG°XJºIÂõf¿Š¥ëV~$í£p /Òä÷ĞÇÒ® [¨=Yã«¥•´$ìû+jƒeJñ*úY’)Q©TSğy$ô{>‚n¢ˆŸÿ±‚n^B•eñrw&£B§q©.ŞQ•}.Ü•©³üêï¸hŞİ*‹^$‡©!`!½ÙÔßPj=­°©Š4eöwt'üÔ¯Ø,, (›Ş·°“0ë:%.ÿÁr#YqÏugÏŸ?WÂSŠÇxy«ŞÈ‚ñXTa€¯ğÔ‡Ìü S»»ıWï#‰õ–´P–Õõ¨Wvà^$tH¦’“æGí·wå<&doWsÔÕY…¹ç=âi—j+Ñäå&I:V5û­Ù–x¦‚šJÖßït÷x>ğG#ttŒ©¿ŒŸä^6€D©&eòÅXFåĞ¤éòãÍ¶‰HÙ'âÅÊ1¥/vpiè%ƒØ§0lªİÅŞ =ıÄŠ;Q‘&^Ÿ0Ç†$w“°Ínğù»äî·»™œâ<:…¤°¦XW¶g‡_t¶„õÉ;)²=Ñ,äÈ+±·çØ…¦mÉÿ^Áu_9Le ±iş°¯«2Ñd­8vo?¡«æ»(h‰MöÎüı~µ0Ö=Œ_ƒıª
+Weã@ T}±´ÉkqìıíŞ%yì>6ñ!+c|İÒ$’sŠF`Ê"	ù¡E;Öz~(Ù–¸I$w·Â¥XF¸xvGü³S™!n/şnk¶lğEkK¯ß6é \—3<:îvş~B¨·Ûm·,3 ²¡>ÀCÈ^¨¹ælû‚kêâT—/ñg&%‰<Ø|Ú9_í«ÛÎ°ª†3mcşp¡eŒ÷ºU+ß¶¾ãéªtÌ·ğûÛÉwºlŠê·“ï*¶FÒåÍæŸÊ)Éèœ;…>Ş‹`¤»Xçs
+æ‚Ùè^|í±Á4I£qßb ¿Åâ¡b'K%ì÷ñhyH—;MìkDî”ÈUì”GÿÇŸX“É¥BP>=Á»àöÓqÀ±mvëŒİIµšX9¼2ÍôÛÀçsŞYÇÚşÖşeà}|ÁÜÀ¿
+~êáË‡§ÿ_°±_ùaã"JaÑMölòñÅúw¢+è,wAv7ˆ´Aşekóâù³-õ)˜ù£”	˜ÓÆÇŸ\DÁ:ûÛÿó»ıİ¢¡'»ÕÅOr„Ë­Ë'—Ï_ p‡Cª¾¼=ùÈâ Q<ôâFì}Ô»Õ —îØ°lxFt!ŒüÕ§döí%‡şv#ğùßç5‘£kAŠR|°w¼Ûÿñ¤ÍF€Õ…ıDc]t™Øw*9˜ıÃqLÇQ0ÿB%K}»ÁëÇ^ê’ÛYÇªæ“(N×‘ 0kgıÆ¦£µşÀkĞ:óùıAKIìl9›&ê?üÀF±w¹³>JÓIÒÜØ@HÉ"D »ô7I²ı’ƒo‡îjŞ úş¬ÑOàÿ?İÜ|(i'¹q'ë ¨`g—Œ</µÈŸêß<Ç+““f¡«B#’&kQ¼°ZQÇ³K÷r`7S´ém?ta¿³ÙÀzUÄVƒŸAø—·†âFcà‚‘ ú­ÍÍëQæ5ñI“en–VÄ½…”m¼š;tÙ§41é0õJú}´=É,7Ã=[>6’‘;Œn°œÁcÎu¬±ÿ‰¯.ª›ÿoƒm:[µ:ü…l‰Û²@øÈ©˜öñfv\ñ€÷‡¢Ã ‰ğœÄ¿xÛŞ³ËÍR€W‘\‰Õ¶ŸÄŞøEş½[O77‹ğg‰ÈBÚÛ¼ÜúfÛ-œåóÚt}“Ÿ˜ìúéão?»˜;­íÇs¨ˆ+”^)QFKsÙ« BF/GÒ9ÒËñ«)Å´Ää“,&Â;3‹<ƒH =şæÉ“§ÏËf8²×È‚*opÄ³ğaÇ^îñ‚UX ºHÃìm›Rú!]ø@)àKr£Æï"Ñ’ÃÿBĞÏÇÜ`'xŠ¶få/îÖ7H”Ëg’jtÉ^SÎÍƒYcû ı¬ê*à–ÍígßIl–|”§ùB¦l~ÍV'ÁÛç
+föèésÌ´Ü·‰Úl¸ÌêÒ´28f ÓååÒê"ÛšÔ¼%I»Ğúú2Š°ÄÇÉ:G°>ì>ºx¶9	T¥Ñdî›×4†¾İ0MÅoÑ.2ì¦¡Ş€›$`eƒÂ_7M(z)lå¼}Í2„X(Âl¸…ĞXÿÎ4EaˆÜb>$e×¿7‚ğC!¶Y;÷sÔzh‰‹²:òÒÒ‘@gé­å±İ¸¸#”FYœ‚Õy+kšòYÜFÓØ0¨éfeYòÜ©ä§U2C­-°6ÀÈù–7~°Q¼4jæÆ†Ş¦ı€áåè–£7³?Ø°¿}šOT¿(ÜYÏ†äUŠëâØÈÎ:É®Ñ'Ó”RÓÁM sëÂQÁuFµwÖ%áÙlù~Ì@†Ñ•ù˜ÇlWè“àftÆì•{ÁhŠÙ‹,SĞËÅø)İ$Ó‹±ŸÊnä•sª'É®KÊAlHìuÃ;äg˜¿İà}ßc@Ú$È¨Dêúw{^x[4Î·HB6QTÏEëúwr—!ÑœH‡
+r8$–¼ˆ£ğärhı„Ù"¤£òªÏç„Ş‚™¼orÍÚŠ*¡ş
+eãsLŸğBŒñ0öÇï£ª›>C`®®/Q,Ù1Rï)Î…#W²Y²{<ñÖc#ŞLPVĞ|ÉÎmÌ^Ò&Ñ¯Öptî{Ã‡4±›¶ÏU'Mv.ƒ¸*ŒµA}õ¤’+`œ¾š™tqvôoÌ‡rsQ¾7^èQMÈièÿ2õ2õŒ>ŒY[/ñˆ&¦âÃ3l¸Bò”Ÿ¥ºX,?2ÃóQìÆ>°p€Tğ’r¾ª‡lè]ºÓ€6DI¦”~¦¶38Ê×Ü¸x·ùŞŒ8^ú¡tÕ{Œ9yÙÏ^â–r@™“™¾»‡¯×WÅÙxÙŠPá™n¼ä–/ü~dÚ®9gJj¹@;Œ«.h S{Fó[¾Ë­æ½±)*‹F4	 ^ew*‹ÏÉ"ËFƒ9Í‘IÅjYLÍ‘–íÛİo½i³şñ÷í£^‘¼$D2’¶PjŸ]fŠ?ù®pp]gWÀ4é*8ìá:qÂ(HDÓ	ÆD9¥ĞÇ¤•¤Ğıñêb‰_sÂVÃê4•é ¯ĞÁ
+èFwïpÀ÷êP‰2£õ¢²<›¹²!¢şÚ-³"RÎ¬mp0§¥
+X«²zp[qõkYwÖ–¸6¤G:i<‹A _8EB€wS¡\T‚`7„.+&PyE­˜Ø'œ‡XS£€)W+‹zIü:¢kQ‹Ô‚±y?í ôm¡RyT”yaÓ¢‹zä%/°SÉY«ôjuKSWg<‹ê*T É]NÑÎ®yñjğNé[¤F)W,Í,ŒªBB›ãØÉÖa$•Öa\õ5{ôts“ı‘‹ÎT¡ò’l„2us«Á°JÍñW6aÄ(&PU+jûÔ—ZOâ$4éª3ÔU……zfŸŸ$x¢qKGÂ¯ÑåL÷ôÎ%òFf¦n`Ò”“Ó<Š“mJIŞŸ	`ğ‚•±aé*CªE”*¶4Y¥äşgC‰Z‚imj-ªb—£{`½¼»jÛÜ%’]—g2¦^.Ò©<x«½ËgÖ-ñÃl¾á…Q.yÉÓ‰S4pĞ†ÖÈ$ÀØK·T¡ìú×Ñõ²pØàø•°S×ÇßÂ‘¨QUáæÌ“Mï¡u2Êk5ÈçT9¿™†ùœÒ²T÷”–/•Ëñé4L¸<õ¯ÒüJö²ŸP_¤›=qT™uª<mQß=>:jïâãùèc7şà¥“ÀÌÏ:û"²Ñavú¡}Ş­œˆn¬~£I×Mmø°7¾`H7™ß…5÷Ğ·—¦xÕ åÁ9Ç:³›î¹*Ììö)§››Ëæ;§eûú¾n^\xb>d†´ ÛöQ0€/KSäy¨wIš6nç ¨*`Ôò­­à»ÛÀsaSnêjC× uº½L*ZÖ%ÊtÑÒ¥sËÍÄ¶'jÎ[Æf–RÏÃ>‚}^÷©55É­’$\ÀšÓğïŠ9&eIÊyŠ ¨ÇÕ’–‹±£`–Ãæ4#É[ïø‡óO(@•äÚ¿LŠÑR	Z–n?™ºÔ%Z9«g±÷äR¬Ü}Ä9by oş\¡4H¾/¥ågi™	¦(/6îvÉÌšºîf÷¸Û–—‚tÛ´ıØa¯»x,°qÚÃz½Õë­Ú½®´ó<ô˜<PZ„,±CGqû1Út¹ÛGê™âÍ+_×”UeùêçÙ]ïY]ùd’Ç¾ËÛˆxy¼û’(–«EÚPzq‰’ºŠi¬cÉ2€4–ƒÓª¡]E²åGks ­X >7G«ÖxP!ÂÏ"yF9mªlZ(å·ší‰ÂÁRX´é5½PIßÇl­JsÈïr€m>Çš“%Ó(‡7<û›°İîéŞ\ÑqÌ¥pdÜ¬™§áçàêâÀj®â&*ìZg	¸g¯Ğ®¨óØşô8æ÷õTÜ„îgot0Êi£ó9öÆo€ãÆ ¯Íh¶ì2Æx}îpJ¹<*‹É˜#èy(Y[±xÖÂEV¨‡õjùptiµìI–ïà¹ñ•—×å/KÈÖHyà°Én¼ı„$ qD7^¼ëÖ¥RyË?­y+/?pìtMñ_›ÔÕÀ‘géù~um¹ïG¢_¶9Ê/o,ZæFÉs‚Ÿ–E NîÈ³„ùè/ĞîšÙ™ƒÔ\­º‚;.Êjü“µ4ÊÜwœ5ŞBîEöËWúË‹¥¾ÄåÓˆßÒç51XoG0h”Æ¨’­Ü·ß-ó-~ÚPßŠ¦"SUYeX4Û½òC¢nƒ''¸åëÆ	Ú‡U!À%âH–if;.`ŠÒ^!–!«NXƒYñG˜-&|6$ !½ªü¸®»ùšyËrş§‹Åu–ª{~~]]kH¶èDÕ£à×+©C\üêyæUu>jsGû©·‚W¢®ªh Çh²hMFQ(	&¯3~Ê ¢ĞT×ƒâ*‘t5Å{²vÈ°©”–
+PƒS½ şã,[@µˆÉ£RYu `Ù^ Ò¾¼ .¬0dÏ 5ÅÁ¢y¢–·"õ2$ù¸öo¾8IzˆŸL)m5šì “úEºëÑ|Y¾åÚŠê-\ÿ‚óíÅ)>âêW Ò}^ …¶Ë‡•ÛR›Â:)À*(š"fc]äÔ²m$Nd½'B´^Êü(€É•â(÷¯Å™s&ÔÁêÁ©c
+;ÏÈ,±|4ûa'Ëû‘<F0ZXØG–e”3ä¿5]È	¢@(#SÑÇ=ˆCL£"kËC
+69Èù¯ £7.¦Á‡_“ğ<fAeÂ¤]Ãƒš.¸ã²`{•0Jõ‘ôOatLâA€â eu~9pMëx‡ƒòª#ãï§á“´vÌñ‘¶X±Ğ?=ázAşÊé†BûŞ‚{5ám	ğ&³—d6Ò5«¨mv›E+
+ó%Iñ’kêÜ÷ª¼•	>«?j	ñš+vìcr)£¸ ¿h+”>66cQ;Ò.²7°İ+à~Kº9ÁU*Ú¿È`÷ú'3wö&ÓdT¥Œ÷S@Fÿïy#>æ¥5;ab2yÛx·xgá@Qıj:ŠO†CÌÔI+[£!D½”l-Şl,¯›qñœˆ*ŒWmLcƒÑ<ÊÁx¶6'Ü3ıüZŸ{DSd¾<wT/¿IPE/d¸||¬BƒÛ›ƒßv8¾y;Ç£šé·¡¸ŒË¯áä%»–ê:’’©D8yûŸZ†¼Éc™ğJ”Y9nÈĞÀQ?„Ÿ¹¸P–\tqß[D»óÉVôñOº-ŸŸ¹á°¾EŠÁIp“ALÛö<<åPHÔŠjµ;ÀãQJÜxÊÃKæğêdşğcAˆkLÃdù‰ÂôöØ´N*B–‰e’Ô°91Œ§€Ğ2n¼‹TP“Uùğ²/ñ~şÕ§0ÖŒ=Ú–­nü”|½qUÇ`Úghs0u0ic^îs0
+£ ºº-¾lF©Ù	Ç]îºÙ,'ÓÌà)Ë‚{$ì!;ñ'Ö&Hæ°ÚÛ.ÅfÔrÙm‰|>¬ÿJæræÎcÒ—s™£x|ö™y-ç«­
+"e-4ƒ8ÑáS
+ˆ]	o²“=ø¨lU)“>ZÕ_ÃUëš—?`ËÖºÄOƒ[Ãà×n™œNËn2~§S•ÁˆVÑö>şÃı‘No÷ØºŒ÷®!,NÄäˆÈ!ğ<4	Ş~‹Æ~uq8aH,[¢Á–6Ù3Tú9LvŸbí’ÉÃa'z9Ÿuåhº¿ö3ó½aøÓ$ UckUëŸ ½0B$6äBßÁx"V¡#w0Çqô“:ş”œŒ:³¾éK¥pÂ2bb²&: ç­ØpáÅ9ùdÎ)´³{pÜkï½=>¢[†ÅRE‹™¼Ë;¾8mç·ÎheS…ç³„åùÙ8‚+&Rı•§xÜ-»CuÜdï”ğ‰+ 1¬€œ(2	zâ	/±¡”rEH|ìÄ”T¬òçÓÖAçu3<Yå¤{|rÜkœõÚG}|pÔ~sÜïP>3ş4Ğ¢àµ¦ïU•÷†aê.ØşU8Ï:È6K	ÕzU+AMè[u"­…·ó¤FéË;Zz%s\Îj¸+èV•ËÜ†àç‹X¥}Øê iM/~öiœcLÔ–4äòËnq³­ÙºĞbÀµş–6ŒVüÌá"~’LÖæCajr/E°më®¦ƒ¦ji>HåMˆA7Ì‘øËaÙ›C;Û´g²$[4ÍÏr‚¥±
+›'$ñÇüut´nçÈ
+q,Ç-¼é
+)do<‚fÕ€²ëÓ<Å™cÊuIòî}MÊqïÅç(bÆj.ËÉşÕAnÀ¬*C„YÌQôjÄÎ	/Õ/Ú®ê„ˆ>ø©n9Ş2^µg¦™bÛôªKı`àù×÷½u£xFè/™\!0Ü2äTÂ»Q×rX7p`ÑAŒ0v:ô<JfÃccÑd)b’WÕæ­	¿æ&á¿±Ç¯’!¦r¹2wç)óÒ—wä=µÌ—ãÁ»lUä1[LXT!€:]”G‚ªŒ%ÕöÛƒ¡(#¸tU¾´¦€Ü)u¹ Â´PİdÓ_[İ[!o\^—Üäk)h›Hcì€Ÿg-¼üG
+½İıöŞéqkå~L‘–B2o˜M3ÌõYlAºN‚ÒeHã@Lf9kÊ/r²©ï&æ	¦ß/ÅbÔr±H2Ë‰$JÀúX?.ºÂ’<,SÒÕŸà·ˆ{K·N8uiòál«R—[,•ÑÈtô`1¦§q4Mcôì&±Àˆñ~çÍ¾JwÃãæGgàÓ½éâ­ğË…êùÉl“é	„É*æxŒP§@_Ä¾wiÏè°½×9=4çÔ?Ş;¾ûd“ùA ‹ƒ»~ÈğrÌKyä
+¸cˆ'x8Õ˜çÓÓÙ;>j/9šÍûE€ÓŒá,y¶:¬·×eÕ®Ç³¨Án:uáÍİ§rıF2Œ7dÓ¥è×õÏà›euªì:g¼ŠâùŞ¶]'ØÏäûJ± @áˆ´k£@dãˆñçr¿íÅ5T>iWÍ³iÎy9•.Ğ&¿[mwµ¬zm¾m½¬?.”ó\G|>(te´2ñ¿“R¶õè
+¸”Ä3²œÙx2„÷qäâı xi<U’F±B+£Ãš& Q?ódPş°2sèOş!ÚnpûÀ>A$nDLQì‘“ã‚ÃéeB|c±”pà9«Ÿ.¸=Ë&U	Â°]DÿréM…Y©õ6Š?\ÑóÂ+?ô¤Ç=vÃ©‹Ş‚PûsØèa9Ñ¥Z/+½®MM9¢úÈÈüöæ3É=Q>…åÄ‚úŠ_Ê·"`>ë®Ê'~kÉÇT”Å›W´`	P›]Ëwx¶¾äÛóÖ~Íò(Ñ’Lv¾ê6Œ¢ç…[1ñ”¦bl®&ÆL `‰”iaŒ’ú—â@.å[yÙÊ9’O—n8<9h›¥‘õyq~:öÌLv4Àè.^ Ìä±K‹2®‰ò4pò-yadí–´P¾ü¨}wEöî¨5r…°tìE‘œS¤0{½Á4Ÿ§WGÂhŠarâø•XWë!ëÇBçy=ü‹óéRG|¸X/·¡eß4ÒoÒ¢#­å‘rÆÄ¼voäõ÷~4„@Ìğ:òÒbi1&,Å´ış³LY¦‰{‹~ğ!•gG'ÄO\Ì>CdtBöşgLüwš@Ã­ÇÏÍMñB$ßfpºï/fx°q¹2–Ò—am‰C1	·K˜ç&¾
+x—•×‘İ4ÄçŸ/¥„€éŠğæ°t»¯ß!Ÿğã,kõú/î7YÌ(1FÅçè)ööòq˜¹ºìÙw!*JîXKv4Rl Ü)È›éTzËc»KÉÃ~åK "£˜ax&±wíGÓDœG7éHáWx¬¾L­Zú¨ï&,AzwB|Q¯K`wÔ”äèæ‰¹â»{q’"ªdÇá1F7›¬×:h÷N:Ç}öªÛê±jë´|t|x|Ú£Ğ	¾g­7xÉ÷ÉA«ÿú¸{x¿B%3³er9™Æªæ GyÑFOV­Är	Â’*d§‹üÄŒŸ•°Lj\ò³
+û|&)ÌdlÏÿ‹'
+S´h­­pxâÅc,è‰Õ0xİM»˜:÷lĞ=äSøé-›è~í=(YÉŞ`Ê»­‚-/Î¾2¦!Œş'‹oæ†1=ŒàZxZ3<“7Ş´ûŒğÈ‘H1>`TL†u=è¤%–S‰ÂTLÂË£ü¤?‰y0#pû
+û¤Ø5úV–‘•=áÿ»“ˆø£™°ÔRŒäŒízo<IoïDNÖ<S	38ˆ_s0Ù^½(öZàBÚ¤*²ò¯Äæ†xäsËôL‰ÙÊÈ¥=›Ä\0ucÑKR3ÀY|®‹ÅÕ­©ünÜó"ç”Ü2Ğ"ıZ¾µ’™epŞ¤kfŒî#75xTÇn4£ÃµK÷ƒ±#XhììÀ¯¦¸ˆ¾
+aqD qàÑP»ØÙNa å‹ãM=¨ÑÏ¿&Xà”¸Ğè#ó)†‚8¤
+"@òÆ Ñ:Å”§èR}C	œü¨REVKÀ<WkË×U.!»ŠDã$£]…Ø{ˆĞ||š3Ëu‡ãXtÙÁ[§¤afO». º’Âki5 ¿†í•ó÷ib¿;›ÖŠf$˜]†jí§–~RÌª´pS^QUÁe¼ğ
+·Í‡â¢o†iê7 Ñ„ VÄ²(TOÿû°®È¬@Ğ$˜Ì¬¯î+gfÖaÔ§N¨œı%Nü’FÚ¼?ËZè„}a‡õi*ÈŞ!¸–dFğÁùñş²‘B&çQ[ükÕ­ÙKFß —¸	ùÃàûÑñšu|“vºsü¦àSuŸ-óè¾Ul:ÉŞ´(‹mÕ
+Âaâ"Š\~-k;¡;Ó/.ÆÎÁ3§~ºY7“ò’™ufÎ™¦¹ùZ±1¹'?ò¯FVÌÏ›ˆ-t‚¾YwxTäÇåÂÇîGn{ÃWîWB=”Öæ¦’6¬PfÅ-œi˜ŒüË´*PRË¶¶ÂÒøøŠÌĞ…¹ª&’L¤Tüğ22 v~Hâ’óS,$Ÿ¨GLX1êCk^@A
+TúH))Pçx‘˜ ¿àû™`DUÇèŒ““ø©báAn¤y KäQršÒYÁp“<¼PÄ*Ö/±Cú™y,”Sx‰™êù;RmÚ´|ÏvÕâõBàY6ÏI$iA²Œ­u¼Ù£ºØ—º½)yòTò8?[c›ús®²_øi¡ï<‚·x«\÷ŒcëéJ”$™ğ4AºŠÏ{/áJï‹¾`gÚê—]ä0b•ÜŒ§(Î6/é* t~(ßÙŒq€ñ½\QE5öïNòY÷S áO
+‚™ç‚Îû¨Ø¶å·‡‚XÖ„¾?Ã–áÙ	^
+tà£®®e”‘‚gG€şÃÄ§lnŒYº-9Äß•+ÊùñĞR)7FÇ#Ï‹óV®P	ºúoÌº	£Ô+¬.í]n¢Á«;ÀŸêªW¤ôiæ6háıMİÂé‚8Sã‰ZEV@åØ&ó]]şœ;´Ğ!ş–4Ñå·3UçLâB€NEĞ#,‚Âã…PèÓÍ¤\U…Ë›û‡ˆ›¤tFÆ†ğ*±¨2“™Ë„q¤³ÂÌº¶ÌH×eRÍ~*€÷·÷¨v·ı'~+ÆÌ9ÿı[N—Ë5ÚJYRÄ\]¾ğÓ¬S_š¡ÆëGWW·¡Â÷’ª]²ËÀµ†—e<øQ¼wëúKİ2Q5©Í€«)(TN,ØÖŸÄıïMQO¶O“]Dİo9³$—íŸ£}†¸š˜ÖAµ9ör²hx}X÷j”½eÆœË(n»`ÒW'ùŠÆêÜÊ<™Î‡â¹dCŠœËCç˜\¯9Ôé±ü¡–ÂLİ› d"7,G¿;ìÁƒIî±îM‡™~íî--¼,ÔÈÍÜÂª^¿çæØª»¾­ûá¸ƒ·cµ:GoÔv.İÖĞ>Ú;9îõ{+wÎ?è¨]' H€ÊeÅC¼SWâªF*1Vo'F3euBûQj°´AA‚šFø,ëñOìµG•„`¢4[4sV(µ]Z/vÅtÊ§j±â¼£¸'•=şş¤¦õ„8IhSpæ`.M9¯R~eŠºVğB$ÑÚ™÷jÛ”ï ˆfo	ã1±ÇŸÌn:tÓ‘ˆ^V¸å£§5Q®º]gÏÉ\4”
+ˆ¨Ií”ÆËr’_İÚ	#éJv¢ÌJ_HñS@8 ‘¦Ÿ3jğ:êğFu—ê@«„L6!hZ¬fg25Z˜ìüÑJWR)xG5UNUÏ_K®_}*Ûçá5Onˆ.„çóiSÓßïÏ§JÌQÚ…‰‘Yß   Eä²d†÷¥?09W‹>ãû¥Ù;"«N]ëáğG/²¼Ñù.ÆY}Oò¢&Ã/å¬bÄ…² ¸¿o·«ulaFıRŞŸeİ NÍA,…/€´Œ<Ï§ÁzÏıÀÃ“èÙ€‘ƒ+ ?[¸9úóŠy”c1'¾(íÅ´®›ˆ|æ™™;˜
+8ğ¸â–e×c÷úkÉñĞ@À‘!e‹lQ97ÈU\$'˜½È}$‚>ôıK,”HuŠU©ÒOd}ÒİwG("²ª¼£ì=O1ô2òüX6Ë†\]¿b%ºUŞ›(¿õ¶:æ…¸tVS†	/¼vŞ´;G3q1ÒŒq£f¢kì‡~‹_ •©y=JÓÉ1Ï×oG0c 2şYAÿ´A›?˜»xœı¨q1õƒ!ŞSQàU¨³›˜±ÃÎŒ¦G¢
+P'´Gœ OÓr~@‚£Sq4¢O<ÀëÜàr/¹cöı€)5zsÖú@×pM0<*ºª
+Áª³t3g&³ˆJâø×^Ò\ÛrÀJçÇ‡=vo¿qãqp‹²o=»>ó8Bˆ´tİYÛvØŸ§@œ—d¾‹êø_ÑnÙ0b‘\8?‚‡q·Lçá”1vÆX”qvWõœ+‡Ñq7:¥ÅÂğ|7†´y$‰AbÈƒç\„jWŸ@çÒY{ä°V˜Ü€&xİú3€J/	U8Õ­Nc‚B=5¿)°2ÏºnŠã0UÄMøX~2Àò-È°0ö#Lô®«V²ÀGfÓ ÀÃ"“Oà³òjûOÿş¬’rc… ¼0¥AŠçb=r=aÍ':k¦Î»ú8¾y2°!3€	E——<6Ñß½q$?”#ĞaúÈä4çßzÃĞK†.èÀµ'¸r¦‹Ğ#ºW±çáj6è<‡C +Æ œ.¨:]JP˜ªüXh-gí©ƒ¹ÏÔ;éÕIø© ßÄî%ånIq‡{mí{Ï›ÕjYé}LcoŸğ“ğt¶#Ø„MWÜ÷Š´³êVcaS?%áF6ê ˜„Ow l\<E4èb8R4½šÃö"RµSïüF7aÈq{o>%b 1!Y&Òæ¹¦ºwi}°ÈƒÛ:~VèN£Ğƒ•î«`b¿£¹öÕ§ªÔ3bïˆr#FÚú Ñ>rE]àD’â©.}*–lŸ¡Ä98ÕÙyM\÷ıSX©ÍÖT —È¨ğÈ:HSò/¢Êl}míÎEİi
+PAqßÌŞ_¯p¨‹4ó‚xö>}
+ı5€ıÂ|¨jµQ·TØ’Ÿ ale:àqäÃhè}^áº¡ñÈyÒ¸%7ª”	u*ÎÓÇéï¨	pp…ë´ÂlXe ‚¤Š$˜z&ÒÌÈ>µ÷FÀT/×»ş8ZSODdÃ-cÙûğ•6şƒÔfšK =›{û	g`ô74Ú´Oò³V ÎL_=çëXï£ M"	–‹¸UrŠ8â­Çn¢i0ÁMò„DBÿ5D7Â[
+Ú •µJ	,ıSçØß…ÇU
+É,p`±$Iğ(	sİÚb­Ã—ëÌ ‘y¶(…èHzêĞÕÂ³ƒtd¢·Ô»‡JÓ(ÇNÈDÔ±­‡…$‹C(z„•-Ö¼‰?ÏJı=#™†{V}=Ûf;#äêƒDËú)M}
+Ú4~É!5?›F©T]ø¬R)Õ?‚í­aÅ-US^îndA¯oYy™C×=©¥{Ò;è´@÷¨a›Ò-ÌÍì·¢Åë\pËäbš`IÚDÈ+Mõ^zã\+±ÜIèÓÆ·v °zæ0ïB˜ƒà p´>²ô3[CƒïWqÅ1äŠĞeê	Ïƒ—{Á¡¥ç}th*½Ágh¤İæbií2ÉuP )cî½)Œˆ¿¯\õ½úcè]bê<F­¿€º.wıŞ½¯£ğvå® ¸àt¸ĞÕún×Ù»õ<N¼^gëº	şêû@Wø×Xlëï‘d×Å!Y¼œ';$¹.”²bU¬¿&®›²z@ã°p€…ÃX¼~™,D%Gõ{Xúd]æÅò%òl¤*ŒÂ1¼‰ÚoksOÔ¯zCKÛà7 å«$]~!7OTwª+½2çÚËÚKM ÷(ìÃ½D*rL˜éõÛx)¸øyÔ~KÿŸö»íÖî>ı€¿ö~õÚ­.<&4r@N(¯sykÆºŞÉ]Né´¹zÄfêü0“é5êü0q:½c*!'Lt²üEW|ùšßRBĞ:º6¢ ãºÚ9æc‚$Ü$Íqä.-iƒ¬?TÇnÅ;,og,÷Ö`®êÔ3vğ(CĞÎ?æ›	XØ{Î”³ O0ÿLc‘>yã¡ı…ïƒÄ¶‹Eºq,ü—.è„±¢<;îc^ĞWÙ9êÒ~…š#N‚&&èşÉóçÏ7q9ÛášØ¸Ø\!Óæç@¥Õ‡ş|ÌSÙIĞğäu“€{üÌù¢|ºÙÇ¥Õ´6»åÔ»¢PØ`»´¶+ªy©Ö€^ğœçÁÃ¡[t«9ÿ¥òiV±R…·¤ƒ¿!ğmìÛ
+I.ÍNk4±!¾ËÍ=úÈ¸€ç»‹è<[\qGMÌ®FÅ”Ae‚4s{İ’¬)Õ£"]„¢âFaıí47°?b¤Z±ñ¬r¿ÌwÒ|ÜólŠB*‹ĞüØĞ\êkã™eª›ßKh>,ÿ’kã+ñ ¾øf³èNV ˆÓ©¦ô®uC=IHN6ÈpOeMZ¹m¸KÔ¶ÂN¦9|Éf¦ìsñ†¦hùŞ^Örû–Æ¹­ä¥v.5;o;t6¸ĞÁ¬RE5qã¯<´J©‡uR,(İkì[ö¨{¤¸¾×O÷Nd­;µ‡üu7tÉ'b­ff9Öp(½v>™¾˜¿%&¹*Qó3ÿÌ¢í‚8~ÌÙóš˜¢	I4«¬M…ÈÔ¾ªóÚÃƒ3s7€ÄænøarOˆWÑSq}g@Ó~‚çA°¸Œ0,L‡~TsÎ6ÀÖƒ&RŒd›)ùbêt2‘wfÍv¬dGö-U„¿Vg•¿ñaLÏ¼óEZ5š{îµÇ”`¦ÓƒÂq$l£ˆÚDº~P„qõ¶İø~)Tóx×ù;å{»´€÷â_ŠÚÛ 5eßì§ëmÌCéOábtb7<ï®Ã/
+Ít¥å{1
+
+Ïï§°Àõûlhæ7~ş.Ü«¹Ò¨İ›yA©!ˆ,ÇÓíXGQ«Z-kšåšè”É´(e2?å—yºÒ¢İÍ02IGP²ï”}#÷İ3ï…§ƒŸK§Ç¼ÌÎ¢ömY®ëé¦üOAÅ.k …ı¥lXCs=rØ+Ü,’Tvœ´*c£fdFkÎPK×ÌÆ ĞTk`ƒ*Çi"«æäñj°'*kMeøg÷…Ö‹Ì˜î$¥H%Xÿé]ÒÏ˜¼#+×h8ëöiy³)R¯Ÿ{Å¯0]&|YxÓ´§,¸Êš^ç®²Ö•Ş3±	›ıĞGeõhÓ|WPÊUÜl'º?ğÃ°FŒê%ÍºÀ¹¢8"N}#™4È+ö‡öZI‘à±A]R¾¸575òìF\ŒL^ª¿$Î›ÌÕ°æ‚zà/t‹l¥•øîÆ÷QğÁM]K_ñ•õnÁÏÚõeÒ2ïÁÂÿÉâàÜ©ã”¤,¹üQh^™5ê-L=¢ãøø¡½é#øÀVdá1Ï%t9ø¿÷ZŠHn{´øİÒîæ÷Æœ”TkY•Ã?âR>Çy{–ûç=³)2À³¶så°İîwŞœ½:>şûE¶å|Sv	c[±µÆ[í´»g¦À8ÛWŸ²2¼]£\ó}3ví»¼b›š«Y!‹UÒcGš&è>ñˆÕ¥—ÚGŒ+.,Ñ;Fà«Tí`ÄŒë€á2Í~øíŸJq™ñ:$`Š¶¨{-Y¥Á'øûkk±’¦^jFìÓ}Ó^¡Ô_¢š`‘|'ØØqSM
+A¥í[\±¶ŠŠ›NÿöŸşı«Oj¤ß9ê:çsE–¼ƒ×–Yô´HXíé[NdË)u)%ÿª(õÁ İµ5»‡L5´¦}·=^ØAÇ•1Tî<"Dq¿zÛ^İ6­§á¼µËFi;O¶d|ëÈaQi]¦#¤MÁkFH’Ãmm|¥‡mæí5³îL3e€éßÕ³A2		!¿q/?;Ü`Òå¼ğøıdôğô+lRgHO{hÄóZIŠ/õ|ç_ü3pÄõ'…Y¿Kr ¿ù&`F’€ÕóâÌT. 0v‚ù È©+ªB¢uëšµûœL€BÃ¡?H]½_ªqƒu8\§Q{^ëÆózsë…Ò€bË…’È$ˆùÆúlZ­uy>¼knñˆ½d•å]¶Ì¯¡À-ÈíÆ#•æ'‹¡à¡~qOÄ÷Ãôøvãï¶ï~ğÜ÷wß­ã¶?1&ÛÂ-Xıs{ı=}q‡-ëiŒÛò|@Ì`tqZnp¾û$78×©r‰Qí' køà{ÜÄ£ÇŞĞŸò]p€ÊúLÌlzuå%({º‡<¾ºpk6³%+6b×fÙµœ|‹/mkp©Á9é#¸õ7\u#ĞŞ6ÀSÚ´UVÃ-ãìh×Ê}dqˆÈ2ˆQNñ³ã‹Ÿ,â¬ñ»bÔ6Ó{.`{]±-ŠÓş¯ÿşı×ÿù?ş‹-)#IÖf«ìIyÇïvÆ•Ù{öäu7_}âw„\¡à)’®’"?­ŠV¦x±’x?Èí~Kõ·ÿøÿA×2)¹Øw×½tm3>;Ü®ü)4d©UsjÅØìüØ¸	y3Šû»m·ª÷['‘X²Ñr"Q˜êŒ»¨J}eöP$Æ·g¡q[ŠtİÖ–ò/e]?øpsÆ#ŞŸiã¬pÌ|¼°Y­ æ°|ø±ÂNÿñ‚æ%‘ßÏ#Ï¹cv	ƒ‚£}K9*	â8ªç%jÓ®vÚÅıÓÚÿ=½pjLbpFúIøİP¡*<M‚#0‰½˜BP<«;ïl˜ŞÙÛP[êšVÚe¸·ÓĞ¡6ï6ß.ä®ÙÉ¢Ñnqz²v[J\ÊSkøĞ+s‘>4É ä+‰¦=&:½‚Ï£âs‰Oò,Sı×uÊëº³&;íóË.á¥‰òÜØ“çÀÀO¥ 'úöè½¨x(ãÛĞ…B$~~*¦…m%Á»ŒšrP>Ã—¶AÚÒs©ÌêLÜg+[yê>Û£¾ï„Ã)¾[£‰:¨öÒñÅ[¾”è2ÅË‡ğ3Öóÿâ*À„èë'›íÍMPv°~Ã·ñë*ÿ<cÀq;'DIöJË<
+Hl0p½êf!ïÏîåJ´§}A°å>Øøˆµkd7¯M‹~ˆñÂŞ(
+À™`hæ_Å˜§Áİ3Àìò»%°#´ì†±‡³Ä±Æ[q ,fè†'9û<M›÷€üã1Ş?Ê0À'tê‘¼ËíY¯RıùH8˜*åb´7¢\—[2ŸŒ×8?J[¥œeÊ¯Œ"b ìs€%\½%PäAes@©^÷¸C`)š³\×å]°…#¼õèœ‹I—tÔ0
+JÆh'#7A²	ÉÿEs[İNg8~ë$®ù‚y’2Õñ4àQFq›ÒÆ¯",dEÇa}’»y¶n“lÉ‹B¶õ¸Ë ©¿[û§ûúí¾.oI¥·€>c¿§…#i ¡³j;G?$ı±Ñ;ì‰3äöÑ’¼¡“ï÷Îæ†‡X…ûÌFnzÁ—q½«Á³ĞÒy‹ŠâÙœ( Ì¾Ìq`*°TPq•IÂâ€kÖ¼aî%GÁ“Í‘Ü–¢ƒ5JTSøÊ@†ˆƒ$ƒ)ùÈvòÂ¥‡'«EtHæ;“Æt	´uh ãD_ûãÀ‹'<\µ)AœÁÓö 9Qx¨XX(T°—j‡×jLñaÌ€+`¤ŞF^iÀí¦A4¹p\zxûª‘¨ÜùR©€(N€GL°1Ûí·xÉ8ùKÉrØ£å[O7€¢˜;ÉéüS÷üS÷Ğÿd¡Ô=÷×6Bş·×9«V Üİï¶Yûßúí£^lúW­İïÛG{¬÷ãÑ®Upåş×ìúW×[€2<áí(ŞàCc8å´à­T›.m¼tõ«O\®`Aˆ$¡ÆğCÖXV—Ä+­F…«2
+ÏlñS~;@Ê½«ñ­š¨@É72i» Ÿ1:Å­§t÷…î¬Ze£ïÔÓ®RœU	•eû2öÆüVŸ*AC{¥Íµç`l:hÈšN£‡k¢83áçØ^ÿúWk§Ã*hóğ¡Õæcøä§§ÆÁßÓ¡—T3ãáú ïŸ'ài™úr½ÕV_9Ñü!Hay(!S4ß2¶›a¸•áKotàÈÑaá·b¶êÓ‚Å¯¬üdOÊš&¦Aã8UF[8â$oÂéen#Ìx›ÉÌ’üK™Yf3”æ‹yZfÓò$_³U.×W¦êšÄi¥âmkLùXĞYS‹¥Ÿ_Rñ:K×¸´ ó®VQ«­Õ
+r]€*så_â–+‰^©ë&£(4«¾XºïÆ»H|ÌÜ™ œè‰<qæâMI4Ñ/fàÑq‰®Ò{ÔÔä=wYÙq·R’¯±[FıÒu…BX—\ú^0,¹@•dågÈ7³i`“^Ÿ8ó¼´ÎŸ£MQê‘ò»ìÅ
+Ïüâ^ê®PØëŞ1ÇUSÂ*3XAÁqO_c¿Íc	çhMñÂL		e8Ë)rM)Í¦7./Âbƒ4[³×ùñvÃ¿Æ:öŞ¶%üóÉÜjiqŸøº™%îõãbaoˆ{İ´@Ø+q¯[å„½÷ºQbŸ(eFÒ~iWğã/{ãZèY0<Ë'œ-½}üÄP¾
+\Mı§¼«RË?W¶©Ê?mnÎ\ñíô^
+3å+à‹?rÔ9¿äÿÊÚa„wcÎ–]‡•ÆÜWİø)ùzãªSı«Š•5~÷ÜÆ_6ÏßËO‚!½ĞäÿÀtè_=Ê×[ìÉ“'Í­çÛE‡óÚo³şóøÄ˜gÆé|*oÒõÜ„NüïrM9¤ıZ“™F1X·˜™ÁU*íî­98i£¦ø—ğ‘ûªz DÒÆ[ï¢V±ÑÎ/—É&_"½Ã¼êí
+`’­ÔtÊDş!³I¾c›T¨é*ÁZXböjòxÊSNù¥ò^¡|¦¸Éç%{Wxölq^Uh'ïÏQJf¬z‚vÓi÷€gÓm ·1kwÏ„y¿ãÄéP,|BâÚİ«8ºA›
+ŸUîqö½)¬cVùì§`ÎÄe²I?‹ò³8(É}Rß¨²,J,
+B™«Šÿ\‹–i>X±Í`JõÛÚMX‘MùG6´)N2š,ê(pYøF·ÜÅ¶Ô¸ÚAW;äì!ëá¶1(~£‹şÏ£”^'í£½ÎÑUdR™°<Jê‡@D)"­…Ö|Uh±»Dóv…uÉeóˆŠ(<YŞ¶/˜Œ©˜Ëı£“ÊyaÂyùı˜”ÄÕ‡K6[y{Fœ Mlá;ñíLüÏòn²C'^Luˆ]*†¹x”6m¬Œ}9S•ŞE.mGá%¤j¶}¡ö‡ì™‘Î[V˜³ïÅä³àªd¨nìN¤˜äõ/„`¼î‰nx®?å¼^y…{:hOg¹dÿŞm² ¹ßHéWeÓÂŸ·”â_d¾q“zÄ¦ƒ”|±'Ë¿aşOÂèã_2³KT›¹ªbµHØĞ¿åş`rˆœ"+²={f'âïG½~b”x§²¤"uIÔ¡Õ=ş¹yt×Í£Ïµ%»7ü2S1WY„GîåßÈ/©?€W©˜N»Úfú¤Ò­MIÂŠ÷¡Üí	i\ğ…íªŠİó9r ÅÀ\)@yÌM°¸¦÷LbG‰Ô‚ÁìüeÅhhˆîO/z“ïZà	täuã/0ÛaïÍ5Ïá—ªfwyé|àv¼´Bw­H×uŒ;€%¨Ò»;‹!›ìù¶s4Ùà´ï³¨èŠ*Ì‘#¤×»é©çË@G
+~xFbàÒAPÁİOòœu°Sü±øÎ)òåVâ—İT[”R¢-P»¹ö+ëßR­«˜<¢N¥Ö—ÓÅ2IƒrQyyJ;DÁ°$1C.@ZhÊ÷læiL³ãšJ-L ]ÛÕ·<ÌáÙµ>ùŞĞ—(FĞI%¿ˆ¼2[TA%Oùæò¬Š]L¨++åQoâ­2i P¦isL¡ø§Vû§V»‡V#BÄ
+i º¥x“ŠTW`ŠbİÊœl¶]W¤Ş¼ÄŸÕñ„Á ®SHœcR–ğÍ,ë'1?4tÁ¯AÁ”VC5€ĞFtö??‡Îi?,sÉˆö‚åí!Š”#¤?Qe2í‚Z÷[›1şæ×°Àüú£iŒ÷|¼Äé¼Â{C¬YõöºwÓNr¶_vÚvØ~›íµ`Ç]vÒ=Ş;İícöI¯ßêwvÙëÎA»Ç;{{í·­n›õÚıÓ“5qšÊ6GÇ{í³öÑT²2¡‹tã*r-œÁ®ıTK %ùaÁ‹•@Kè'²óØ­)LwâÔàlÁãÉÄåA¹NT¦S`$ĞÑ½ğë¤­º“¢ZH²øc°“x¾\ààfX­u…*™¼Dğ„%P•ıÔŒf”MóÇ’lc/¾>ªêÁeO0®Õ:Q:*²ß™u…gk(ûü–Qíø
+ŞäoM /¡o$
++x};^óNU"eĞ"ˆ®ª•w½v÷‡v÷=u<+G Ö+Âà½C.€·JÊÌãhš +‡¯*,
+øqÕH`ø9Zã¢oÚF£,R9ô	ÙÜ ²«8;—iŸS@]û=?…kœ83¸Ó>hGxÎÿöÿşŸì59¼œ5Â;%ãø¤Ü!š5ÏíğYtGÿ·1ïdĞàÜã§öàgµ*–I…Õàb4ô3¡*\àT?\¾q*-BZiŠxÄr,Üvº2—Â]ûto·¼¹Ùe ÛQÑBÛË1F`AQ î¢SÌÇ¯} $ş~x­I¾Z“	/kÊ¤ÖÉÉÙi÷ 7YòOå²Ú·ùï*ëïÿŠÿùJìÜàv©rk¨®ÇµÍiìón’«¸ã\{‘a§ów S» =Yët¯ÓÇÂ—b‘r72WzíÆ¾{àá!Ì=¶–ŠvF¯\È{Í‡µÊlı|ñ¸»êƒöÇ	óğ50¹vÚí˜c‹ãCpda¤”)¸™'˜è‹Á+V½ğCb€M‡ş-%•) lc5¡K˜(ÚŞmHfCÒ	h¤êÉq·¨]£Dµ$©µìÿõßÿÛ4£ºhXâı<kÙ§€é˜?İı†oscƒN–Àk~õ	‡œ+î´%Ì[abÈãm±C «æl·¬ğÈpœ!6ğû|¿ÙñÌTYm–—İirÎ~ğb°×¸”„a`Ã‘(M>ø“	^*Ô(š™PÔğôÿ  ÿÿ N~áG
