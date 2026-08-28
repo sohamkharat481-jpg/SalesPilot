@@ -981,13 +981,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const redirectUri = window.location.origin;
-      console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", redirectUri);
+      const appUrl = (import.meta.env.VITE_APP_URL || '').trim();
+
+      if (!appUrl) {
+        throw new Error("VITE_APP_URL is not configured. Please configure VITE_APP_URL in your environment variables.");
+      }
+
+      console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", appUrl);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUri
+          redirectTo: appUrl
         }
       });
 

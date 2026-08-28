@@ -4,6 +4,8 @@ console.log("VERCEL:", process.env.VERCEL || "MISSING");
 console.log("VERCEL_ENV:", process.env.VERCEL_ENV || "MISSING");
 console.log("process.env.VITE_SUPABASE_URL:", process.env.VITE_SUPABASE_URL ? "FOUND" : "MISSING");
 console.log("process.env.VITE_SUPABASE_ANON_KEY:", process.env.VITE_SUPABASE_ANON_KEY ? "FOUND" : "MISSING");
+console.log("process.env.VITE_APP_URL:", process.env.VITE_APP_URL ? "FOUND" : "MISSING");
+console.log("process.env.APP_URL:", process.env.APP_URL ? "FOUND" : "MISSING");
 console.log("process.env.SUPABASE_URL:", process.env.SUPABASE_URL ? "FOUND" : "MISSING");
 console.log("process.env.SUPABASE_ANON_KEY:", process.env.SUPABASE_ANON_KEY ? "FOUND" : "MISSING");
 console.log("===== END =====");
