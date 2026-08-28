@@ -981,7 +981,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      const redirectUri = window.location.origin;
       console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", redirectUri);
 
       const { error } = await supabase.auth.signInWithOAuth({
