@@ -77,19 +77,19 @@ async function generateContentWithFallback(
   for (let i = 0; i < uniqueModels.length; i++) {
     const modelName = uniqueModels[i];
     try {
-      console.log(`ü§ñ Attempting Gemini call with model: ${modelName} (attempt ${i + 1}/${uniqueModels.length})...`);
+      console.log(`[AI] Attempting Gemini call with model: ${modelName} (attempt ${i + 1}/${uniqueModels.length})...`);
       const response = await ai.models.generateContent({
         model: modelName,
         contents: params.contents,
         config: params.config
       });
-      console.log(`‚úÖ Gemini call succeeded with model: ${modelName}`);
+      console.log(`[OK] Gemini call succeeded with model: ${modelName}`);
       return response;
     } catch (err: any) {
       lastError = err;
       const errMsg = err?.message || String(err);
       
-      console.log(`‚ÑπÔ∏è Gemini model ${modelName} encountered an issue: ${errMsg.substring(0, 100)}`);
+      console.log(`[INFO] Gemini model ${modelName} encountered an issue: ${errMsg.substring(0, 100)}`);
       
       if (i < uniqueModels.length - 1) {
         const delay = 500 + i * 300;
@@ -99,7 +99,7 @@ async function generateContentWithFallback(
   }
 
   // --- REAL ERROR PROPAGATION IN PRODUCTION ---
-  console.error(`‚ùå All Gemini models in the fallback chain failed: ${lastError?.message || lastError}. Propagating real error.`);
+  console.error(`[ERROR] All Gemini models in the fallback chain failed: ${lastError?.message || lastError}. Propagating real error.`);
   throw lastError || new Error("All Gemini models in the fallback chain failed.");
 }
 
@@ -458,7 +458,7 @@ const ignoreUnusedDummyLeads = [
     lastUpdated: new Date().toISOString(),
     notesList: [
       { id: 'n_1', text: 'Spoke briefly on LinkedIn. Requested a detailed presentation on pricing plans in INR currency.', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'n_2', text: 'Sent proposal for Professional Plan (‚Çπ8,500/month). Waiting on internal team feedback.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
+      { id: 'n_2', text: 'Sent proposal for Professional Plan (Rs.8,500/month). Waiting on internal team feedback.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
     ],
     tasksList: [
       { id: 't_1', text: 'Follow up on proposal review status', completed: false, dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() },
@@ -475,7 +475,7 @@ const ignoreUnusedDummyLeads = [
       techStack: ['WordPress', 'HubSpot', 'ActiveCampaign', 'Google Ads'],
       fundingRound: 'Bootstrapped',
       linkedInUrl: 'https://linkedin.com/in/ananya-sharma-apex',
-      annualRevenue: '‚Çπ2.5 Crore INR',
+      annualRevenue: 'Rs.2.5 Crore INR',
       website: 'www.apexmarketing.in',
       country: 'India',
       industry: 'Marketing',
@@ -518,7 +518,7 @@ const ignoreUnusedDummyLeads = [
       techStack: ['React', 'Next.js', 'FastAPI', 'PostgreSQL', 'AWS'],
       fundingRound: 'Series A',
       linkedInUrl: 'https://linkedin.com/in/rohan-mehta-stellartech',
-      annualRevenue: '‚Çπ12 Crore INR',
+      annualRevenue: 'Rs.12 Crore INR',
       website: 'www.stellartech.io',
       country: 'India',
       industry: 'IT Services',
@@ -556,7 +556,7 @@ const ignoreUnusedDummyLeads = [
       techStack: ['Salesforce', 'WhatsApp Business', 'Meta Ads'],
       fundingRound: 'Bootstrapped',
       linkedInUrl: 'https://linkedin.com/in/kabir-singhania-wealth',
-      annualRevenue: '‚Çπ45 Crore INR',
+      annualRevenue: 'Rs.45 Crore INR',
       website: 'www.wealthgrowth.in',
       country: 'India',
       industry: 'Real Estate',
@@ -587,7 +587,7 @@ const ignoreUnusedDummyLeads = [
       { id: 'n_4', text: 'Scheduled introductory SalesPilot demo for next week. She is excited about automatic LinkedIn profiling and INR pricing plans.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
     ],
     tasksList: [
-      { id: 't_4', text: 'Present customized startup tier discounting (‚Çπ4,200 INR)', completed: false, dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() }
+      { id: 't_4', text: 'Present customized startup tier discounting (Rs.4,200 INR)', completed: false, dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() }
     ],
     timelineList: [
       { id: 'tl_8', event: 'Lead Discovered', details: 'Scraped from Y-Combinator India directory.', createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString() },
@@ -598,7 +598,7 @@ const ignoreUnusedDummyLeads = [
       techStack: ['Vercel', 'Supabase', 'Stripe', 'OpenAI'],
       fundingRound: 'Seed',
       linkedInUrl: 'https://linkedin.com/in/sneha-kapoor-cloudflow',
-      annualRevenue: '‚Çπ80 Lakh INR',
+      annualRevenue: 'Rs.80 Lakh INR',
       website: 'www.cloudflow.app',
       country: 'India',
       industry: 'Software',
@@ -634,7 +634,7 @@ const ignoreUnusedDummyLeads = [
       companySize: '11-50 employees',
       techStack: ['Lusha', 'LinkedIn Sales Navigator', 'Zoho Recruit'],
       fundingRound: 'Bootstrapped',
-      annualRevenue: '‚Çπ1.8 Crore INR',
+      annualRevenue: 'Rs.1.8 Crore INR',
       website: 'www.talentgrid.co',
       country: 'India',
       industry: 'Human Resources',
@@ -852,7 +852,7 @@ function getSupabaseClient(): SupabaseClient | null {
       const missing: string[] = [];
       if (!url) missing.push('SUPABASE_URL');
       if (!key) missing.push('SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY');
-      console.warn(`‚ö†Ô∏è [SERVER SUPABASE DIAGNOSTIC] Missing backend env: ${missing.join(', ')}. Running server in Local Memory Fallback Mode.`);
+      console.warn(`[WARN] [SERVER SUPABASE DIAGNOSTIC] Missing backend env: ${missing.join(', ')}. Running server in Local Memory Fallback Mode.`);
     }
     return null;
   }
@@ -860,7 +860,7 @@ function getSupabaseClient(): SupabaseClient | null {
   if (!serverSupabaseInstance) {
     try {
       serverSupabaseInstance = createClient(url, key);
-      console.log('üîå Server-side Supabase client singleton initialized.');
+      console.log('[CONNECT] Server-side Supabase client singleton initialized.');
     } catch (err: any) {
       console.error('Failed to create Supabase client in server:', err?.message || err);
       return null;
@@ -1193,7 +1193,7 @@ export function generateComprehensiveResearchFallback(lead: Lead): LeadResearchP
     businessSize: lead.enrichment?.companySize || '25-80 employees',
     yearsInBusiness: '6 years',
     employeeGrowth: 'Steady 15% YoY growth in client success and sales divisions',
-    revenueEstimate: lead.enrichment?.annualRevenue || '‚Çπ5 Crore INR',
+    revenueEstimate: lead.enrichment?.annualRevenue || 'Rs.5 Crore INR',
     techStack: lead.enrichment?.techStack && lead.enrichment.techStack.length > 0 
       ? lead.enrichment.techStack 
       : ['Next.js', 'Salesforce', 'HubSpot', 'Google Analytics', 'Tailwind CSS'],
@@ -1241,7 +1241,7 @@ export function generateComprehensiveResearchFallback(lead: Lead): LeadResearchP
     salesOppWhyBuy: `By deploying SalesPilot, ${lead.company} can completely eliminate the manual research and logging friction for their sales representatives. Automating email and LinkedIn touchpoints while embedding dynamic AI background research cards will increase their active booking rate by up to 3x.`,
     salesOppRecommendedProduct: 'SalesPilot Growth Enterprise Suite',
     salesOppScore: 92,
-    salesOppBudgetRange: '‚Çπ35,000 - ‚Çπ75,000 INR per month',
+    salesOppBudgetRange: 'Rs.35,000 - Rs.75,000 INR per month',
     salesOppTimeline: 'Immediate (30-60 days)',
     salesOppPriorityLevel: 'HIGH',
     salesOppRecommendedOffer: 'Founder Account annual priority boarding with complimentary setup of their first multi-channel outreach sequence.',
@@ -1274,7 +1274,7 @@ export function generateComprehensiveResearchFallback(lead: Lead): LeadResearchP
     insightsHotnessScore: 94,
     insightsBuyingIntent: 'HIGH',
     insightsUrgency: 'HIGH',
-    insightsRevenuePotential: '‚Çπ14,40,000 INR ARR',
+    insightsRevenuePotential: 'Rs.14,40,000 INR ARR',
     insightsReplyProbability: 82,
     insightsMeetingProbability: 70,
     insightsConversionProbability: 55
@@ -1357,7 +1357,7 @@ function generateFallbackResearchProfile(lead: Lead, now: string): LeadResearchP
     businessSize: lead.enrichment?.companySize || '11-50 employees',
     yearsInBusiness: '5 years',
     employeeGrowth: 'Steady YoY growth',
-    revenueEstimate: lead.enrichment?.annualRevenue || '‚Çπ5 Crore INR',
+    revenueEstimate: lead.enrichment?.annualRevenue || 'Rs.5 Crore INR',
     techStack: lead.enrichment?.techStack || ['WordPress', 'HubSpot', 'GSuite'],
     socialPresence: ['LinkedIn (Highly Active)'],
     businessCategory: industry,
@@ -1389,7 +1389,7 @@ function generateFallbackResearchProfile(lead: Lead, now: string): LeadResearchP
     salesOppWhyBuy: 'Needs to streamline lead sourcing to scale regional customer acquisition efforts.',
     salesOppRecommendedProduct: 'SalesPilot Scale Suite',
     salesOppScore: 85,
-    salesOppBudgetRange: '‚Çπ35,000 INR per month',
+    salesOppBudgetRange: 'Rs.35,000 INR per month',
     salesOppTimeline: 'Immediate (1-3 months)',
     salesOppPriorityLevel: 'HIGH',
     salesOppRecommendedOffer: 'Founder Account onboarding audit',
@@ -1415,7 +1415,7 @@ function generateFallbackResearchProfile(lead: Lead, now: string): LeadResearchP
     insightsHotnessScore: 88,
     insightsBuyingIntent: 'HIGH',
     insightsUrgency: 'MEDIUM',
-    insightsRevenuePotential: '‚Çπ6,00,000 INR ARR',
+    insightsRevenuePotential: 'Rs.6,00,000 INR ARR',
     insightsReplyProbability: 70,
     insightsMeetingProbability: 60,
     insightsConversionProbability: 40
@@ -1473,7 +1473,7 @@ Your response MUST be a strictly valid JSON object with the exact fields and typ
   "businessSize": "Estimated size (e.g. '50-100 employees')",
   "yearsInBusiness": "E.g. '6 years'",
   "employeeGrowth": "Describe employee growth trends",
-  "revenueEstimate": "Estimated annual revenue (e.g. '‚Çπ5 Crore INR')",
+  "revenueEstimate": "Estimated annual revenue (e.g. 'Rs.5 Crore INR')",
   "techStack": ["List 3-4 key softwares they likely use"],
   "socialPresence": ["List 2-3 of their key social channels and activity level"],
   "businessCategory": "A clean business category (e.g. 'Marketing Technology')",
@@ -1509,7 +1509,7 @@ Your response MUST be a strictly valid JSON object with the exact fields and typ
   "salesOppWhyBuy": "Detailed reasoning why they should purchase SalesPilot now",
   "salesOppRecommendedProduct": "E.g. 'SalesPilot Scale Suite'",
   "salesOppScore": 88,
-  "salesOppBudgetRange": "E.g. '‚Çπ35,000 INR per month'",
+  "salesOppBudgetRange": "E.g. 'Rs.35,000 INR per month'",
   "salesOppTimeline": "E.g. 'Immediate (1-3 months)'",
   "salesOppPriorityLevel": "LOW, MEDIUM, HIGH, or CRITICAL",
   "salesOppRecommendedOffer": "E.g. 'Founder Account onboarding'",
@@ -1539,7 +1539,7 @@ Your response MUST be a strictly valid JSON object with the exact fields and typ
   "insightsHotnessScore": 92,
   "insightsBuyingIntent": "HIGH",
   "insightsUrgency": "MEDIUM",
-  "insightsRevenuePotential": "E.g. '‚Çπ12,00,000 INR ARR'",
+  "insightsRevenuePotential": "E.g. 'Rs.12,00,000 INR ARR'",
   "insightsReplyProbability": 75,
   "insightsMeetingProbability": 60,
   "insightsConversionProbability": 45
@@ -1582,7 +1582,7 @@ Do not include any markdown styling like \`\`\`json. Return only the valid JSON.
       businessSize: parsed.businessSize || '50-100 employees',
       yearsInBusiness: parsed.yearsInBusiness || '5 years',
       employeeGrowth: parsed.employeeGrowth || 'Steady YoY hiring',
-      revenueEstimate: parsed.revenueEstimate || '‚Çπ5 Crore INR',
+      revenueEstimate: parsed.revenueEstimate || 'Rs.5 Crore INR',
       techStack: parsed.techStack || ['Next.js', 'HubSpot'],
       socialPresence: parsed.socialPresence || ['LinkedIn'],
       businessCategory: parsed.businessCategory || 'Technology',
@@ -1614,7 +1614,7 @@ Do not include any markdown styling like \`\`\`json. Return only the valid JSON.
       salesOppWhyBuy: parsed.salesOppWhyBuy || 'Needs outbound scalability and automated context analysis.',
       salesOppRecommendedProduct: parsed.salesOppRecommendedProduct || 'SalesPilot Scale Suite',
       salesOppScore: parsed.salesOppScore || 88,
-      salesOppBudgetRange: parsed.salesOppBudgetRange || '‚Çπ35,000 INR per month',
+      salesOppBudgetRange: parsed.salesOppBudgetRange || 'Rs.35,000 INR per month',
       salesOppTimeline: parsed.salesOppTimeline || 'Immediate (1-3 months)',
       salesOppPriorityLevel: parsed.salesOppPriorityLevel || 'HIGH',
       salesOppRecommendedOffer: parsed.salesOppRecommendedOffer || 'Founder Account onboarding package',
@@ -1637,13 +1637,13 @@ Do not include any markdown styling like \`\`\`json. Return only the valid JSON.
       insightsHotnessScore: parsed.insightsHotnessScore || 90,
       insightsBuyingIntent: parsed.insightsBuyingIntent || 'HIGH',
       insightsUrgency: parsed.insightsUrgency || 'HIGH',
-      insightsRevenuePotential: parsed.insightsRevenuePotential || '‚Çπ10,00,000 INR ARR',
+      insightsRevenuePotential: parsed.insightsRevenuePotential || 'Rs.10,00,000 INR ARR',
       insightsReplyProbability: parsed.insightsReplyProbability || 75,
       insightsMeetingProbability: parsed.insightsMeetingProbability || 60,
       insightsConversionProbability: parsed.insightsConversionProbability || 45
     };
   } catch (error: any) {
-    console.warn('‚ö†Ô∏è Gemini Research Profile Generation failed or was rate limited, falling back to high-quality pre-baked profile:', error?.message || error);
+    console.warn('[WARN] Gemini Research Profile Generation failed or was rate limited, falling back to high-quality pre-baked profile:', error?.message || error);
     return generateFallbackResearchProfile(lead, now);
   }
 }
@@ -2245,7 +2245,7 @@ async function startServer() {
     logServerActivity(newUser.id, 'Registered new account (Verification Required)', 'Authentication', req);
     
     // Simulate Welcome & Verification Email
-    console.log(`‚úâÔ∏è Sending Email Verification PIN [123456] to ${newUser.email}`);
+    console.log(`[EMAIL] Sending Email Verification PIN [123456] to ${newUser.email}`);
     
     if (isFounderUser) {
       await applyFounderPrivileges(newUser);
@@ -2562,7 +2562,7 @@ async function startServer() {
       logServerActivity(userObj.id, 'Requested password recovery link', 'Authentication', req);
     }
 
-    console.log(`‚úâÔ∏è Sending Password Recovery link to ${email}`);
+    console.log(`[EMAIL] Sending Password Recovery link to ${email}`);
     res.json({ success: true, message: 'Recovery link successfully dispatched to registered inbox.' });
   };
   app.post('/auth/forgot-password', handleForgotPassword);
@@ -3122,7 +3122,7 @@ async function startServer() {
     serverTeamMembers.push(newMember);
     logServerActivity(defaultUser.id || 'usr_81927391', `Invited teammate ${email} as ${role}`, 'Team Management', req);
     
-    console.log(`‚úâÔ∏è Dispatched workspace invitation to ${email}`);
+    console.log(`[EMAIL] Dispatched workspace invitation to ${email}`);
 
     saveDb();
     res.json({ success: true, member: newMember, teamMembers: serverTeamMembers });
@@ -3757,7 +3757,7 @@ Return only JSON without markdown wrappers.`;
     let markdownContent = '';
 
     if (!geminiKey) {
-      markdownContent = `# B2B Business Proposal: ${title}\n\n**Prepared for:** ${lead.company}\n**Prepared by:** ${user?.fullName || 'SalesPilot Team'}\n**Date:** ${new Date().toLocaleDateString()}\n\n## 1. Executive Summary\nWe are pleased to submit this proposal to help ${lead.company} automate outreach and scale their outbound sales pipeline.\n\n## 2. Scope of Work\n${scope}\n\n## 3. Financial Summary\n${pricingSummary || 'Standard subscription fee: ‚Çπ45,000 INR / month'}\n\n## 4. Next Steps\n${nextSteps || '1. Sign service agreement.\n2. Initiate onboarding sequence.\n3. Configure dynamic campaign steps.'}`;
+      markdownContent = `# B2B Business Proposal: ${title}\n\n**Prepared for:** ${lead.company}\n**Prepared by:** ${user?.fullName || 'SalesPilot Team'}\n**Date:** ${new Date().toLocaleDateString()}\n\n## 1. Executive Summary\nWe are pleased to submit this proposal to help ${lead.company} automate outreach and scale their outbound sales pipeline.\n\n## 2. Scope of Work\n${scope}\n\n## 3. Financial Summary\n${pricingSummary || 'Standard subscription fee: Rs.45,000 INR / month'}\n\n## 4. Next Steps\n${nextSteps || '1. Sign service agreement.\n2. Initiate onboarding sequence.\n3. Configure dynamic campaign steps.'}`;
     } else {
       try {
         const ai = new GoogleGenAI({
@@ -3802,7 +3802,7 @@ Rules:
       organizationId: orgId,
       title,
       scope,
-      pricingSummary: pricingSummary || '‚Çπ45,000 INR / month',
+      pricingSummary: pricingSummary || 'Rs.45,000 INR / month',
       nextSteps: nextSteps || 'Sign contract',
       markdownContent,
       createdAt: new Date().toISOString()
@@ -5111,7 +5111,7 @@ Rules:
         companySize: '25-80 employees',
         techStack: ['Next.js', 'Salesforce', 'Marketo', 'PostgreSQL'],
         fundingRound: 'Bootstrapped / Self-sustaining',
-        annualRevenue: '‚Çπ5 Crore INR',
+        annualRevenue: 'Rs.5 Crore INR',
         industryGroup: lead.company.toLowerCase().includes('agency') ? 'Marketing Agencies' : 'SaaS Companies',
         aiBrief: `(Simulated AI Enrichment) ${lead.firstName} works as ${lead.title || 'Director'} at ${lead.company}. Based in Bangalore, India, they have a strong digital presence. Target key issues: scalable outbound automation, integration with their existing tech stack, and warm booking links. Recommend setting up email + LinkedIn sequence with a 2-day delay.`,
         linkedInUrl: `https://linkedin.com/company/${lead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}`
@@ -5138,7 +5138,7 @@ Generate a JSON object with enriched fields:
 1. companySize (estimated size, e.g. "10-50 employees")
 2. techStack (array of likely software they use, e.g. ["Vercel", "HubSpot"])
 3. fundingRound (estimated funding status, e.g. "Seed" or "Bootstrapped")
-4. annualRevenue (estimated revenue in Indian Rupees, e.g. "‚Çπ2 Crore INR")
+4. annualRevenue (estimated revenue in Indian Rupees, e.g. "Rs.2 Crore INR")
 5. aiBrief (A 3-sentence action plan summarizing what they do, their likely outbound pain points, and how to pitch SalesPilot to them)
 6. linkedInUrl (estimated LinkedIn company URL)
 
@@ -5159,7 +5159,7 @@ Ensure the output is strictly valid JSON format.`;
         companySize: parsedData.companySize || '11-50 employees',
         techStack: parsedData.techStack || ['Next.js', 'HubSpot'],
         fundingRound: parsedData.fundingRound || 'Bootstrapped',
-        annualRevenue: parsedData.annualRevenue || '‚Çπ1.5 Crore INR',
+        annualRevenue: parsedData.annualRevenue || 'Rs.1.5 Crore INR',
         linkedInUrl: parsedData.linkedInUrl || `https://linkedin.com/company/${lead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
         aiBrief: parsedData.aiBrief || `${lead.firstName} is high potential at ${lead.company}. Use customizable AI sequence to book demo.`,
         industryGroup: 'SaaS Companies'
@@ -5168,12 +5168,12 @@ Ensure the output is strictly valid JSON format.`;
       await updateLeadAsync(id, { enrichment });
       res.json(lead);
     } catch (error) {
-      console.error('‚ùå Gemini lead enrichment failed:', error);
+      console.error('[ERROR] Gemini lead enrichment failed:', error);
       const enrichment = {
         companySize: '15-45 employees',
         techStack: ['React', 'HubSpot'],
         fundingRound: 'Seed',
-        annualRevenue: '‚Çπ1.2 Crore INR',
+        annualRevenue: 'Rs.1.2 Crore INR',
         aiBrief: `Could not reach Gemini live API, loaded offline-ready insights. ${lead.firstName} is a premium buyer at ${lead.company}. Recommended approach: focus on how SalesPilot delivers 3x booking rates on performance.`,
         linkedInUrl: `https://linkedin.com/company/${lead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}`
       };
@@ -6170,7 +6170,7 @@ Ensure the output is strictly valid JSON format.`;
             companySize: companySize || '11-50 employees',
             techStack: cand.enrichment?.techStack || ['WordPress', 'GSuite', 'WhatsApp Business'],
             fundingRound: cand.enrichment?.fundingRound || 'Bootstrapped',
-            annualRevenue: revenueRange || '‚Çπ1 Crore - ‚Çπ5 Crore',
+            annualRevenue: revenueRange || 'Rs.1 Crore - Rs.5 Crore',
             website: verifiedWebsite,
             country: country || 'India',
             industry: industry || 'Software',
@@ -6394,7 +6394,7 @@ Ensure the output is strictly valid JSON format.`;
         }
       });
     } catch (error: any) {
-      console.error(`‚ùå Lead Sourcing failed:`, error);
+      console.error(`[ERROR] Lead Sourcing failed:`, error);
       res.status(500).json({ error: `Lead sourcing failed: ${error.message || error}` });
     }
   });
@@ -6492,7 +6492,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       const parsed = safeJSONParse(text);
       res.json({ success: true, suggestions: parsed });
     } catch (e: any) {
-      console.error('‚ùå Gemini suggestions call failed:', e);
+      console.error('[ERROR] Gemini suggestions call failed:', e);
       res.status(500).json({ error: `Gemini API failed: ${e?.message || String(e)}` });
     }
   });
@@ -6601,7 +6601,7 @@ Respond strictly with valid JSON.`;
 
       res.json({ steps: formattedSteps });
     } catch (error: any) {
-      console.error('‚ùå Gemini sequence generation failed:', error);
+      console.error('[ERROR] Gemini sequence generation failed:', error);
       res.status(500).json({ error: `Gemini API failed: ${error?.message || String(error)}` });
     }
   });
@@ -6712,7 +6712,7 @@ Respond strictly with valid JSON.`;
     const targetBizType = businessType || 'B2B Enterprise';
 
     if (!geminiKey) {
-      console.log('‚ö†Ô∏è No GEMINI_API_KEY. real AI outreach generation is disabled.');
+      console.log('[WARN] No GEMINI_API_KEY. real AI outreach generation is disabled.');
       res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server. Real AI email/outreach generation requires a verified Google GenAI API key.' });
       return;
     }
@@ -6787,7 +6787,7 @@ The copywriting must be extremely premium, professional, crisp, tailored to thei
       const text = response.text || '{}';
       res.json(JSON.parse(text));
     } catch (error) {
-      console.error('‚ùå Gemini outreach generation failed, returning high-quality fallback:', error);
+      console.error('[ERROR] Gemini outreach generation failed, returning high-quality fallback:', error);
       const fallbackResponse = {
         coldEmail: {
           subject: `Outbound scaling strategy for ${targetCompany}`,
@@ -6804,7 +6804,7 @@ The copywriting must be extremely premium, professional, crisp, tailored to thei
         },
         followUpMessage: {
           variationA: `Hi ${targetName} - following up on my previous note. I know you're busy running things at ${targetCompany}. Just wanted to check if scaling your ${targetIndustry} outbound channel is still a priority this quarter?`,
-          variationB: `Hey ${targetName}, just bumping this to the top of your mind. We helped a similar size firm in ${targetCountry} scale to ‚Çπ25 Lakh in recurring bookings using this exact approach. Open for a brief sync?`
+          variationB: `Hey ${targetName}, just bumping this to the top of your mind. We helped a similar size firm in ${targetCountry} scale to Rs.25 Lakh in recurring bookings using this exact approach. Open for a brief sync?`
         },
         meetingInvitation: {
           subject: `Meeting Invitation: SalesPilot x ${targetCompany}`,
@@ -6833,7 +6833,7 @@ The copywriting must be extremely premium, professional, crisp, tailored to thei
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) {
       // Fallback classification
-      console.log('‚ö†Ô∏è No GEMINI_API_KEY. Using local rule analyzer.');
+      console.log('[WARN] No GEMINI_API_KEY. Using local rule analyzer.');
       const lower = replyText.toLowerCase();
       let category = 'Need More Information';
       let confidence = 0.82;
@@ -6928,7 +6928,7 @@ Keep the recommendedAction precise, brief, and actionable. Do not add any extra 
         ] : []
       });
     } catch (error) {
-      console.error('‚ùå Gemini reply analyzer failed, returning offline classification:', error);
+      console.error('[ERROR] Gemini reply analyzer failed, returning offline classification:', error);
       const lower = replyText.toLowerCase();
       let category = 'Need More Information';
       let confidence = 0.82;
@@ -6982,7 +6982,7 @@ The sales representative is asking this strategic question: "${query}"
 Current workspace statistics:
 - Sourced Leads: ${leadsCount || 0}
 - Outreach Sequences running: ${campaignsCount || 0}
-- Revenue Deal Pipeline value: ‚Çπ${(dealsValue || 0).toLocaleString('en-IN')}
+- Revenue Deal Pipeline value: Rs.${(dealsValue || 0).toLocaleString('en-IN')}
 
 Answer their strategic question in exactly 2 to 3 sentences. Provide very tactical, direct, high-ticket SaaS outbound recommendations. Speak with an authoritative, analytical, and professional tone. Avoid generic statements; be highly specific. Do not use markdown headers or lists.`;
 
@@ -6993,7 +6993,7 @@ Answer their strategic question in exactly 2 to 3 sentences. Provide very tactic
 
       res.json({ answer: response.text || 'No insights generated.' });
     } catch (error: any) {
-      console.error('‚ùå Gemini ask-insights failed:', error);
+      console.error('[ERROR] Gemini ask-insights failed:', error);
       res.status(500).json({
         error: `Gemini API failed: ${error?.message || String(error)}`
       });
@@ -7040,7 +7040,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       res.json({ answer: response.text || 'I am here to help you coordinate your outreach performance.' });
     } catch (error: any) {
-      console.error('‚ùå Client Portal AI chat failed:', error);
+      console.error('[ERROR] Client Portal AI chat failed:', error);
       res.status(500).json({ error: `Gemini API failed: ${error?.message || String(error)}` });
     }
   });
@@ -7825,7 +7825,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     // Store in backend pending orders list
     pendingOrders.set(orderId, { tier: tier as SubscriptionTier, valueInr, status: 'PENDING' });
 
-    console.log(`üí≥ [Cashfree PG] Generated order ${orderId} for ‚Çπ${valueInr} INR (Tier: ${tier})`);
+    console.log(`[PAYMENT] [Cashfree PG] Generated order ${orderId} for Rs.${valueInr} INR (Tier: ${tier})`);
     res.json({
       success: true,
       message: 'Cashfree order session successfully provisioned.',
@@ -7853,7 +7853,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     defaultUser.tier = finalTier;
     order.status = 'SUCCESS';
 
-    console.log(`üîí [Cashfree PG Verification] Securely verified payment for order ${order_id}. Upgraded to tier ${finalTier}`);
+    console.log(`[SECURE] [Cashfree PG Verification] Securely verified payment for order ${order_id}. Upgraded to tier ${finalTier}`);
 
     res.json({
       success: true,
@@ -7875,7 +7875,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     let paymentStatus = payload.data?.payment?.payment_status || payload.payment_status || payload.tx_status || 'SUCCESS';
     let transactionId = payload.data?.payment?.cf_payment_id || payload.referenceId || `cf_tx_web_${Date.now()}`;
     
-    console.log(`üì• [Cashfree Webhook Received] Order: ${orderId}, Status: ${paymentStatus}`);
+    console.log(`[INBOX] [Cashfree Webhook Received] Order: ${orderId}, Status: ${paymentStatus}`);
 
     // Signature Verification (Never trust frontend status!)
     if (signature) {
@@ -7886,13 +7886,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         .digest('base64');
       
       if (computed !== signature) {
-        console.warn(`‚ùå [Cashfree Webhook Security Alert] Webhook signature mismatch! Rejecting.`);
+        console.warn(`[ERROR] [Cashfree Webhook Security Alert] Webhook signature mismatch! Rejecting.`);
         res.status(400).json({ error: 'Signature mismatch' });
         return;
       }
-      console.log(`üîí [Cashfree Webhook Security] Signature verified successfully.`);
+      console.log(`[SECURE] [Cashfree Webhook Security] Signature verified successfully.`);
     } else {
-      console.log(`‚ö†Ô∏è [Cashfree Webhook Demo] Signature header omitted. Proceeding under sandbox/demo mode.`);
+      console.log(`[WARN] [Cashfree Webhook Demo] Signature header omitted. Proceeding under sandbox/demo mode.`);
     }
 
     if (!orderId) {
@@ -7906,12 +7906,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       order.status = paymentStatus;
       if (paymentStatus === 'SUCCESS') {
         defaultUser.tier = order.tier;
-        console.log(`‚ö° [Cashfree Webhook Success] Activated tier ${order.tier} for workspace.`);
+        console.log(`[FAST] [Cashfree Webhook Success] Activated tier ${order.tier} for workspace.`);
       } else {
-        console.log(`‚ö†Ô∏è [Cashfree Webhook Status] Transaction updated to status: ${paymentStatus}`);
+        console.log(`[WARN] [Cashfree Webhook Status] Transaction updated to status: ${paymentStatus}`);
       }
     } else {
-      console.warn(`‚ö†Ô∏è [Cashfree Webhook Warning] Webhook received for untracked order ${orderId}. Defaulting update.`);
+      console.warn(`[WARN] [Cashfree Webhook Warning] Webhook received for untracked order ${orderId}. Defaulting update.`);
     }
 
     res.json({ status: 'ACCEPTED', order_id: orderId });
@@ -9577,9 +9577,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const hasCalendarEvents = scopesArr.includes('https://www.googleapis.com/auth/calendar.events');
 
       console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Verifying required API scopes for account "${email}":
-        - https://www.googleapis.com/auth/gmail.send: ${hasGmailSend ? 'GRANTED ‚úÖ' : 'MISSING ‚ùå'}
-        - https://www.googleapis.com/auth/calendar: ${hasCalendar ? 'GRANTED ‚úÖ' : 'MISSING ‚ùå'}
-        - https://www.googleapis.com/auth/calendar.events: ${hasCalendarEvents ? 'GRANTED ‚úÖ' : 'MISSING ‚ùå'}`);
+        - https://www.googleapis.com/auth/gmail.send: ${hasGmailSend ? 'GRANTED [OK]' : 'MISSING [ERROR]'}
+        - https://www.googleapis.com/auth/calendar: ${hasCalendar ? 'GRANTED [OK]' : 'MISSING [ERROR]'}
+        - https://www.googleapis.com/auth/calendar.events: ${hasCalendarEvents ? 'GRANTED [OK]' : 'MISSING [ERROR]'}`);
 
       if (!hasGmailSend || !hasCalendar || !hasCalendarEvents) {
         console.warn(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] [FAILED] User "${email}" did not grant all required scopes. Aborting integration.`);
@@ -9588,7 +9588,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             <body style="font-family: sans-serif; text-align: center; padding: 40px; background-color: #fef2f2; color: #991b1b; display: flex; align-items: center; justify-content: center; min-height: 80vh; margin: 0;">
               <div style="max-width: 600px; width: 100%; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); border: 1px solid #fee2e2; text-align: left;">
                 <h2 style="color: #dc2626; margin-top: 0; font-size: 24px; border-bottom: 2px solid #fee2e2; padding-bottom: 12px; display: flex; align-items: center;">
-                  <span style="margin-right: 10px; font-size: 28px;">‚ö†Ô∏è</span> Authorization Scopes Missing
+                  <span style="margin-right: 10px; font-size: 28px;">[WARN]</span> Authorization Scopes Missing
                 </h2>
                 <p style="color: #4b5563; line-height: 1.6; font-size: 15px; margin-top: 15px;">
                   Your Google Account was authenticated successfully, but you did not grant all required permissions. 
@@ -9597,9 +9597,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                 
                 <div style="background-color: #fbfbfe; padding: 18px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #dc2626; font-size: 14px; color: #374151; font-family: monospace;">
                   <strong style="display: block; margin-bottom: 10px; font-family: sans-serif; font-size: 15px; color: #1e293b;">Missing Scopes:</strong>
-                  ${!hasGmailSend ? '<div style="margin-bottom: 6px; color: #b91c1c;">‚ùå <code>https://www.googleapis.com/auth/gmail.send</code> (Send emails on your behalf)</div>' : ''}
-                  ${!hasCalendar ? '<div style="margin-bottom: 6px; color: #b91c1c;">‚ùå <code>https://www.googleapis.com/auth/calendar</code> (Manage your Google Calendar)</div>' : ''}
-                  ${!hasCalendarEvents ? '<div style="margin-bottom: 6px; color: #b91c1c;">‚ùå <code>https://www.googleapis.com/auth/calendar.events</code> (Manage individual events)</div>' : ''}
+                  ${!hasGmailSend ? '<div style="margin-bottom: 6px; color: #b91c1c;">[ERROR] <code>https://www.googleapis.com/auth/gmail.send</code> (Send emails on your behalf)</div>' : ''}
+                  ${!hasCalendar ? '<div style="margin-bottom: 6px; color: #b91c1c;">[ERROR] <code>https://www.googleapis.com/auth/calendar</code> (Manage your Google Calendar)</div>' : ''}
+                  ${!hasCalendarEvents ? '<div style="margin-bottom: 6px; color: #b91c1c;">[ERROR] <code>https://www.googleapis.com/auth/calendar.events</code> (Manage individual events)</div>' : ''}
                 </div>
 
                 <div style="margin: 25px 0; font-size: 14px; color: #4b5563; line-height: 1.5; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
@@ -11329,7 +11329,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         res.write('data: [DONE]\n\n');
         res.end();
       } catch (err: any) {
-        console.error('‚ùå Streaming completion error:', err.message || err);
+        console.error('[ERROR] Streaming completion error:', err.message || err);
         res.write(`data: ${JSON.stringify({ error: err.message || 'Stream processing failed' })}\n\n`);
         res.end();
       }
@@ -11362,7 +11362,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
         res.json({ success: true, response, traces });
       } catch (err: any) {
-        console.error('‚ùå OpenAI completion route error:', err.message || err);
+        console.error('[ERROR] OpenAI completion route error:', err.message || err);
         res.status(err.message?.includes('Rate limit') || err.message?.includes('limit reached') ? 429 : 500)
            .json({ error: err.message || 'AI processing failure.' });
       }
@@ -11540,7 +11540,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           ],
           pricingComparison: {
             competitor: "$150/user/month billed USD",
-            salespilot: "‚Çπ50,000 INR prepaid for 6-months flat (all features)"
+            salespilot: "Rs.50,000 INR prepaid for 6-months flat (all features)"
           }
         };
       }
@@ -12004,18 +12004,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   function triggerOutreachAutomation(leadId: string) {
     const lead = leads.find(l => l.id === leadId);
     if (!lead) {
-      console.error(`‚ùå [OUTREACH ERROR] Failed to trigger automation: Lead ${leadId} not found.`);
+      console.error(`[ERROR] [OUTREACH ERROR] Failed to trigger automation: Lead ${leadId} not found.`);
       return;
     }
 
     // Prevent duplicate jobs
     const existingJob = outreachWorkflowQueue.find(j => j.leadId === leadId);
     if (existingJob) {
-      console.log(`‚ÑπÔ∏è [OUTREACH DISPATCH] Lead ${leadId} already has an active outreach workflow. Skipping trigger.`);
+      console.log(`[INFO] [OUTREACH DISPATCH] Lead ${leadId} already has an active outreach workflow. Skipping trigger.`);
       return;
     }
 
-    console.log(`üöÄ [EVENT BUS] Captured 'lead.created' event for ${lead.firstName} ${lead.lastName} of ${lead.company}.`);
+    console.log(`[LAUNCH] [EVENT BUS] Captured 'lead.created' event for ${lead.firstName} ${lead.lastName} of ${lead.company}.`);
     
     const newJob: OutreachWorkflowJob = {
       id: `wf_job_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
@@ -12036,7 +12036,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     };
 
     outreachWorkflowQueue.push(newJob);
-    console.log(`üìã [EVENT BUS] Registered and queued Outreach Automation Job ${newJob.id} for lead ${lead.id}.`);
+    console.log(`[LOG] [EVENT BUS] Registered and queued Outreach Automation Job ${newJob.id} for lead ${lead.id}.`);
   }
 
   // Complete 12-step background queue processor
@@ -12213,11 +12213,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                 }
               }
             } catch (aiErr: any) {
-              console.log(`‚ÑπÔ∏è [AI COPYWRITING FALLBACK] Gemini call failed: ${aiErr.message || aiErr}. Deploying organic fallback copy.`);
-   xúºXÔn€FˇûßòA@, 2z∏ƒÅØPe6Qa[™dÁ>A¥&◊jó^.•ËT˝Z†Ëp∏wª'Ë#tvπ§¯O∂QÄòÜ3≥Û˚ÕÏÃòﬂÊŸ3»˝n˘µíU¿â'∞Ü(ææ•Æ<ÄkÓ≠`Û¶"idáq4≥÷Öw ë§·1¸„†Ùòë9=ÜF∑=Æñ¬ó>õÇ√¶>£ç≤p$âå#_ızŒx\ò”("ST8yKDRB*"ŒH‡ˇoæ;˙x,%ÓËú¯,}9KÜ™_¨Õı¶aO ˙•è$ô„J]¬)∞ö∂‰˝Ò`,zn5_lö’π±î…1∆c˙™(pçû} ?* ‚íà¬´c(∆∂›≠_ú«ÅÙ[ΩaåcLc
-}¶V„s∂7XØvÄïÍa$Z/·‘èB"›ŸkRXB‚~¢n∏ò©ƒ+Ö?'bŒy∑¸≈[7q≈ÆË˝§ Quÿùé†œ$áY<'H
-æ Ë7Ö\Œ"	Ù≥©†Ëÿ˜%ù#∆)·Ù3˚∆gûu'ˇÑ;€«¥:9Å…›«kÖàÔm&% ¯7`=ØhmB≤¢ëòE3ˇFVÄE}ﬁq—^9rö}îJ™ØJºÕÑ…ãµ∫¡%âH™G0Ob‘®w˘<$lu¨ŸÊÆF,Åô°1Ø €§Õï©omÛ~˛&=é*\MRùÊ∆;c≥Œ9UÿJ
-u≠Cmçw4¯Ùa…„¿É¿ˇDô·&F@–)û≤µ‚±Äà4Ç–ë´åVöKé°sq⁄øx[#≤/ç´%ß¶¢+–ÎΩ+–Î]_ºSi“Í≥÷Âå∂Œ8°õ¶Ã[tæ&cÓï)öì:YZ*@ù?[/_nÌŸI¸µÜÇjb)Ω©d&˜±;éÔªgç7%ÒdQäˇg|
-'Y°˝)´∏eS‰b: +gÕß∂*∂\˘¶cZåcçü’tıKÍ˙Î*œ≤⁄^g´N¸‹Õ˜Óí$;{RF]¯HgüÅúQ»*∫ç$’•ÃódD5'©w@‰ı#©í@ÔúÓ‡ }Ïåˇ^—pS≠›V=An§Ÿ¿pSΩ^q]3µgQwÚEmƒü^ÅÍäNÁÕ9?8ΩÀùl≥ı{‹8P¨Œ*∂'ï -IÑÙT;…ã’
-AâéÑµv≠∫Øà∫Y‘†÷ÙıÄ7†ñÇªE7ñºEºaÆùqò¢~@Dà~eX∫?èˆ›À:áª63ı&+HCt«˜® '	Ÿt”ù√Ìt¶˚/Ë¢'Á…ˆFÆãó7q¨¿3ä}ÏWL§ßü,|í5◊„ÛÀ°bIV_c¯ÈtˆÓ=:ùùx·õﬁË∫ÿÔ-|â´Y1gì±TÃ‚à=4E¬Ìè\g◊ î7á{ˆSÄQó¬Ë≥”√,5öqõTñT¸U+©Á°á;ÔØ‡—˛ ÌﬂMª=l—™!º§ùS)Vw∂•æ78û9óïjØ§‚–SG]âÇªVæˇYFÁh-≤Í[^ıû2 ´¢…¯ú„z;G-ÂÉû†¿Ec&PŸ—∆íãO7_ÍaK[.TÑøf^Œﬂ´∂óTÕö¸ÒøﬂÖüWó#ß€{4‡~Y´Æâ¨ó`∏´û
-N ~§ 	\¥|dó[¸˚YÁ—≤Ã∫«±ßFu˘jÉºV[ÑÖ≈1‡XôoJhGÚç˛˝÷6h´È∆Ñ7ã‘Û2·d)EÛ(rf8 pÅ˜µÀ~6Æ˝&ΩE:Ì¶ùZ°+˚PmK≥$‹ÍçÆ*T™£*T”§®Te?väL®Ûô9IIe˛eD˙FAﬂKa€-Å ET¶˜ñ’T£iäÅ15(}≠'Y\ûÊà3ˇÕ6mtî¨∆ˇˇ˚[.o~ºrÆ¿aCÜ¡ú—h0˙–8Ä<'“m‡Ôááá˙.çP´’⁄W™|ÃìBëvá}pòrb§dÒ#lºÏ)ïV£MBøΩË¥IˆU;LI°ñ†wÿWFπ8‡ù}qf≠ëJÂh&¶ßÕô€£m∂è}oá›dÍF°‹!B¡dròp´æ∏MèPèAÊ>1a‘$A=€$T∆ÇÈï%˘a}s¯M3]•._Û∑ŒkwW'ô∏ù7∂H’D™ëêGÑse:•‚ﬁà¨u}EÍn Yozòµﬁ‰÷õ»‹ø‰√ íçf_Õw±/heç∆√46[Z∆‚õr(Lı?∆OczêkèÍ‚k‘õ‚‹F“˜6ìbD1ﬁ˚ÿŒ}œ∞Ω⁄∫‹˘.Ê¥XPïŸqh™Ñ…eõ≤Ö}18u>:Ôì£|„≈˙4Ω°∆”Áy…˜Œ®Áú5Ò_(£'@‘ÒG≤QSÂ«XôY˝÷`H◊9ˇŒπGì0`j9‰≈Â*TU˚˘∆≥|˙+ ƒµîA{´%JÇêƒ«p$êC"gËé3˚´@∂nwÈYÕh(°F… ÷z°dí‡Y©ûfNL'ÛﬂpÀﬁAÕÒà2Ô{?†÷÷~™Mc∂“œˆLŒÉF™z≥≠m J†€yk8]¢¸°≠ˇ)ã•$»u%ˇ˘∆ÍTvËòñI‘Aƒå©!	r!ëBJ•9GT6—".VH>˘  ˇˇ Ìã|
+              console.log(`[INFO] xúºYmo€8˛ﬁ_15äB>ƒrÏ·⁄πÖÎ®≠˜íÿk']Ç†a$∆f*ì
+EŸız˝ﬂwHQ∂^Ï$nMÅ6¢F3√gûŒ∞WÌ.tz˝ˇˇ1Ë^tœ?¡«ˆÈÈávÁ◊âNg‡ì0Ñ;¬B¬õaûîÓÑ∆1Q¯Î/0KNhä9„#rD8ÛÒ£0º%˛7E4woÍGØ ˜≥|Uxº∑nDÊ° √‚‰ˆû˙jnE0áÂQE8£ÿçíxÏ,
+Ô bE£C¯œ^iôì	=Ñöﬁ/˙3ìLig=>bú÷ ¬±"*âQ|xŸÈx√aE¿"p7ü(ßí(@De,8	Ÿü¯·‡àDIJ¸1–	3¶∆Ÿ∆PıõÖ˝}Yso ˙CäLp'úŒ‡8uWâÓ∞7T=wÍE8ÎUà¸DJ ’Ò@Lﬂn—≥o˘•B@|SxwElõM0 ≈Y*÷Ëå	Á4ÑﬂöPËrΩ&¯Œ¡z∑%Xô˛"©£ıNXÂè_±Z/KÑÏ§
+ÓÑú•#àøA$ŸÑ»9xgÌÓ)4dSäè~Íä[—˚#ë*£ÍÒÉ „J¿8ô$ä§òíÃõ¬æ‡±˙ù≈É}W—	∆8#úYsÔú8˛/<∏”Í¯nææYËà∞`YŒHvŒÎä÷:îCV4íxÃÓT%∞®F¡^9√ç.J•’◊!%¡πa¬ÕõÖ~¿-…XÈ•%ÿïêÿÖÍ}1âüEÆ}⁄ ñÜôab^â0¨ì6W¶~uÌ™ÆÇ7Å*|CRìÊ÷;ksìs∫∞ïöZá⁄jüiä=Ë¬L$a !˚Fô·ßF@“ëÅ∂5âÑòÑ4ÜàE»UN´Õ%Gﬂ;?¡2øAdWWKŒÜä^¨@ÔwÆ@Ô∑U |ÒYßI£Àc⁄8"Çvñ2ü–˘Û¨L1ú4…í“R‰Ÿ˘≥6ÒˆÌ⁄ûõ‚o4¨BPM,≠7ì\…}m˜˚ÉﬁóˆiÌ®$ûnJÛˇTå‡xUhØV7§|Ñ\l@Î∫¸±v÷~ÍÍbØµo”"é¸|™¶Îü¥ÆøØÚlU€7Ÿ⁄$˛ÓÊã{{F“ì=-£íN“ôqPc
+´ ü#iå6•ÃèdD5'4©O@C‰ı3©íÜﬁ;Ÿ¬ï«"∞ˇù–ÚP›x¨í‹){Ä·°z;‚˚"·˙Ã¢>û‰”çàøºm*:≠˝£D`‡˝Êu.∂F`ù≠Ò‡@±M˛P)±≠8Æ 4#1“Sü RêË%¡p§¨u7™˚âQ∑õ⁄!ËÖ=˝º¿€†ñ¡”¢ù(— ¡îpﬂù°~RÄòWñ•ªÛh◊≥¨µøÌ0”oV©èÓ∞ÄJR»~†õnÌoißW∫ˇÅ.˙ÊÃŒÄq‚˚¯Î]Üs¨bå>ˆ+∂	2”œ¶å¨öÎ·ŸEﬂbFÊ?c¯iµvÓ=Z≠≠Ò¬7ù¡¥±ﬂõ2Öªôsgì°“ÃÍ„à=4E¬Ìπ÷∂A(oœÏón@}!åˆ@∑òùf©’å«§∂§Ò◊≠§ôáûÓºJ v‡¡÷ ‚õæmó°É-zHu¢a/hH'T…y≈ùu©ÔÙŒ˙ßﬁE•⁄k©$
+ÙU@[°‡∂ùÔ~ó—:ÿBãUı-ÔÜ/êu—‰b"pø≠ÉÜˆ¡LP‡£1‘Íjc&‰∑ªPÃÃ∞e,*¬?3/Áüu€+B™AsnÆÏfÆ·™wy1⁄ùœ∞äœ5¸&na’Ø6õ}XÎµBı¬1Ä≈∫vÈ;Ø÷ÅA?Æ‹\=NΩÄﬁë$TeÍ=èBTó["πı9·`[q8[Ê;ì'zí|7Çˇ˛öø«≥ÿ„rΩ¯¡fr¶ƒ,Âi>‘ñ°´S<m∏¿Ü«˙åÀ~÷.9˝•F6ÚfÌZ°+ªmÕµn˝∑âÆÆTÈ˚*uÁ§©TMl%4ôPÁ+{ùí…¸aE∫VA7»¬∂]ÉSï=;N]œßY¨©^Èk3Œ‚ˆGt0Ûﬂ¨s«†‰‘Æº¡†7»ÁŒÔóﬁ•8uË§Í ®ÌAûJÀ=¯˜˛˛æy Pj4Î)K◊ëIZ1“¬vø"Å@∆Z?¬ÃQÂ‘ö$bÕi´IV_53pöH¥Ωp$}ÿ√3ŒaÅOÓ},∏≥–tD:ïMMßN€À∑g€l≤`ã›t¸F°‹mB¡dz´pØø∏œÓPèI&1ÆXQPœ:ë%Uâ‰fgié8øÏˇRœviÇó/˛kÁç;\Ë+M<◊kÎHm@™äH$‚' ¡|ç®|ëÖ©±Hﬂ%§˚ÕnµÀ‹~Sô«∑º_Ÿ≤’ÃÙêÒê0I+{¥fÿ¨ËXãGe(Ï	pàü&t/◊'m¬◊™∑W≈π√§,oäàb2|aÿNXÑÿÁJ
+MSÚòèy-ßTgwŸJaÛŸ•|Íû˜NºØﬁ˘óÙNﬂâπVØÈ9ıu^Úã7Ëxßı˛SmÙàæIOl™˝jìrU√çÈ"Áﬂôh
+¶∂ïC^\Ã#]…±±ØΩ ßø¶LSGt◊Z‚Ñ¸Dñ:Ü≥ÅÍ5FÁpFª˜XV˚ˆgÅSﬂÉö™ï`ΩóZ&œ…Ù‘sb&ôˇÖ«ˆj¶è)>≤ê:k˚ô24çŸJøªc5	kôÍÂ∫∂i+°ÈÎù~opÅÚ˚Æ˘£-ñí`›ûú∂/œ;üØa®Øh˚,ƒ‘Lëôpn˛∑åC$§BiµˆRQ€E´∏a©l‡pÂo   ˇˇ {∞ù
