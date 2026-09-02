@@ -158,6 +158,2473 @@
   ],
   "leads": [
     {
+      "id": "ld_db_1788337056280_57168_i6ey",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@techinfinity.io",
+      "phone": "098333 88717",
+      "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 88,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:17:36.280Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788337056280_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:17:36.280Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788337056280_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic, Phone: 098333 88717.",
+          "createdAt": "2026-09-02T08:17:36.280Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
+        "country": "India",
+        "industry": "Marketing",
+        "companyOverview": "Techinfinity is an established digital creative marketing agency based in Mumbai, capturing an estimated Rs. 1-5 Crore INR in revenue. While the agency boasts strong design capabilities and uses modern conversational tools like WhatsApp Business for incoming leads, their current model is highly exposed to pipeline volatility due to a lack of automated, predictable outbound sales processes. The Operations Director requires a solution that guarantees a consistent flow of high-value client briefs without diverting creative talent toward manual sales prospecting. SalesPilot offers a strategic opportunity to automate their B2B client acquisition, allowing Techinfinity to predictably target and win high-paying retainers. Introducing SalesPilot will eliminate resource bottlenecks, streamline their tool overhead, and ultimately drive predictable agency growth.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 18.9572775,
+        "longitude": 72.820308,
+        "googlePlaceId": "ChIJB4LCrdvO5zsRVjS1r0ENa0M",
+        "address": "Ground Floor, Edwankar House, Nawalkar Lane, Raja Ram Mohan Roy Rd, Prathna Samaj, Khetwadi, Girgaon, Mumbai, Maharashtra 400004, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:17:36.280Z",
+      "campaignId": "camp_gen_1788337056280",
+      "researchProfile": {
+        "companySummary": "Techinfinity is a Mumbai-based boutique digital creative agency specializing in design, WordPress development, and performance marketing. They operate a client-services business model aimed at helping local and national SMEs scale their online footprint. The company positions itself as an affordable, high-impact alternative to massive enterprise creative agencies.",
+        "websiteAnalysis": "Their website is built on WordPress and utilizes GSuite for operational email communications. They have heavily integrated conversational CTAs, such as WhatsApp Business links, to capture inbound traffic, highlighting a high reliance on direct, instant messaging as a primary lead collection mechanism.",
+        "industryAnalysis": "The digital agency landscape in Mumbai is highly saturated and extremely competitive. Success depends on maintaining operational efficiency, minimizing pitch-to-close overhead, and leveraging automated lead nurturing tools to maintain a steady pipeline of high-paying SME and retail clients.",
+        "painPoints": [
+          "High reliance on manual inbound leads from WordPress forms and direct WhatsApp messages, causing inconsistent monthly lead flows.",
+          "Lack of predictable B2B outbound prospecting to target enterprise or larger corporate clients directly.",
+          "Operational bottleneck where agency delivery teams must shift focus to business development to patch pipeline gaps."
+        ],
+        "decisionMakerSummary": "The Operations Director manages both client delivery velocity and internal tool procurement. They are highly incentivized to reduce administrative overhead and implement systems that drive predictable business growth without inflating team headcount.",
+        "businessOpportunities": [
+          "Implement an automated cold email outreach strategy to land high-budget retainer clients in Mumbai's growing retail sector.",
+          "Utilize AI-driven lead filtering on inbound inquiries to prevent high-value operational hours from being wasted on low-budget prospects.",
+          "Leverage SalesPilot's outbound engine to pitch 'conversion optimization' as a service to their existing marketing clients."
+        ],
+        "salesAngleSuggestions": [
+          "The Predictable Pipeline Pitch: Demonstrate how the Operations Director can stabilize agency revenue and creative utilization rates by automating consistent B2B outbound campaigns.",
+          "The Tool Consolidation & Automation Pitch: Focus on how SalesPilot eliminates manual prospecting time, freeing up client delivery hours and improving internal ROI."
+        ],
+        "objectionPredictions": [
+          "Our creative business relies on hyper-customized personal outreach, not automated templates. (Counter: Demonstrate how SalesPilot uses dynamic fields and AI context engines to craft highly personalized, boutique-grade emails at scale.)",
+          "We don't have the internal bandwidth to manage and monitor a complex cold outreach tool. (Counter: Highlight SalesPilot's self-driving, automated sequence management and easy integration with their current GSuite setup.)"
+        ],
+        "competitorNotes": "They currently compete with mid-tier local agencies like Social Beat and WatConsult. While competitors rely on extensive, expensive sales divisions, Techinfinity can utilize SalesPilot to punch above their weight, driving comparable outbound volume with a fraction of the budget.",
+        "buyingSignals": [
+          "Growing reliance on specialized tech like WhatsApp Business indicating an active push to improve sales conversion rates.",
+          "Continuous digital presence and optimization of their brand identity in the Mumbai regional market, signaling readiness for outbound scaling."
+        ],
+        "aiInsights": "To win this account, focus your pitch directly on operational predictability. Show the Operations Director that keeping their creative staff fully utilized is only possible when outbound pipeline generation is automated and constant. Frame SalesPilot as an automated growth engine that integrates directly into their current GSuite workflow.",
+        "generatedAt": "2026-09-02T08:17:36.280Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "Creative Brand Assets",
+          "High-Converting Custom Websites",
+          "Social Media Performance Packages"
+        ],
+        "services": [
+          "WordPress Design and Development",
+          "Social Media Marketing",
+          "WhatsApp Conversational Automation Consulting"
+        ],
+        "targetCustomers": [
+          "Local Indian Retail Brands",
+          "Regional SMEs in Maharashtra",
+          "E-commerce Startups"
+        ],
+        "industriesServed": [
+          "E-commerce & Retail",
+          "Real Estate",
+          "Professional Services"
+        ],
+        "businessSize": "15-40 employees",
+        "yearsInBusiness": "7 years",
+        "employeeGrowth": "Stable with periodic additions to the technical and creative design teams.",
+        "revenueEstimate": "Rs.3 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active portfolio posting)",
+          "Instagram (Visual brand showcases)",
+          "Facebook (Local client testimonials)"
+        ],
+        "businessCategory": "Marketing Technology and Agency Services",
+        "usp": "Combining high-end creative design with transactional WhatsApp Business workflows for maximum client conversions.",
+        "mission": "To provide high-quality, creative, and performance-driven digital solutions that help local Indian brands establish global footprints.",
+        "vision": "To become Mumbai's premier boutique agency known for merging creative brilliance with efficient sales automation.",
+        "extractedKeywords": [
+          "Digital Creative Agency Mumbai",
+          "WordPress Agency India",
+          "WhatsApp Conversational Marketing"
+        ],
+        "extractedOffers": [
+          "Complimentary Website & Brand Audit",
+          "Free Digital Strategy Quote"
+        ],
+        "extractedForms": [
+          "Contact Us Inquiry Form",
+          "Brief Your Project Questionnaire"
+        ],
+        "extractedCTAs": [
+          "Let's Work Together",
+          "Chat On WhatsApp"
+        ],
+        "customerTypes": [
+          "SMEs",
+          "B2C Brands",
+          "Local Professional Services"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Streamlining delivery processes, managing resource capacity, overseeing agency tool procurement, and maintaining service margins.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Unpredictable project pipeline leading to resource underutilization",
+          "Manual business development tasks draining valuable operational hours"
+        ],
+        "dmGoals": [
+          "Establish a consistent, automated flow of new project briefs",
+          "Reduce non-billable hours spent by creative directors on cold outreach"
+        ],
+        "dmInterests": [
+          "B2B sales automation",
+          "Agency workflow optimization",
+          "SaaS tooling efficiency"
+        ],
+        "dmPreferredCommunication": "Short email with clear metrics and a brief, visual video walkthrough.",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Their tech stack indicates a heavy reliance on inbound traffic and manual qualification via WordPress and WhatsApp, leaving them highly exposed to seasonal dry spells."
+          },
+          {
+            "problem": "Slow Growth",
+            "severity": "MEDIUM",
+            "reasoning": "Operating inside a highly competitive hub like Mumbai without structured, outbound automation restricts their ability to break into higher-tier, enterprise-level retainers."
+          }
+        ],
+        "salesOppWhyBuy": "Techinfinity requires an automated mechanism to generate highly qualified B2B client conversations so their creative staff remains constantly billable without forcing operations to manually run prospecting campaigns.",
+        "salesOppRecommendedProduct": "SalesPilot Agency Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs.35,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Founder Account onboarding with a ready-to-use boutique agency outbound playbook",
+        "detailedCompetitors": [
+          {
+            "name": "WatConsult",
+            "marketPosition": "Market Leader",
+            "differentiation": "Techinfinity provides highly personalized, direct founder-led creative services with shorter turnaround times.",
+            "strengths": "Deep institutional support, massive enterprise portfolio, high-budget campaigns.",
+            "weaknesses": "Inflexible pricing packages and slow communication channels for mid-market clients.",
+            "potentialOpportunity": "Techinfinity can capture high-growth SMEs by using automated outreach to offer fast-turnaround creative packages."
+          }
+        ],
+        "strategyFirstMessage": "Subject: Techinfinity pipeline check: Automating outbound for your creative team\n\nHi [Name],\n\nBalancing delivery resource allocation with pipeline predictability is one of the hardest challenges for a rapidly growing creative agency like Techinfinity. I noticed your team delivers highly impressive digital work on WordPress, but manual client acquisition might be eating into your core operational hours.\n\nSalesPilot helps agencies automate high-quality outbound campaigns to target mid-market B2B brands directly, integrating seamlessly with GSuite. We can build an evergreen pipeline of brand decision-makers on autopilot so your team can focus strictly on creative execution.\n\nAre you open to a brief 10-minute call this Thursday to explore how we could add 10+ qualified brand briefings to your plate next month?\n\nBest regards,\n[My Name]",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Complimentary audit featuring 100 verified B2B brand decision-maker leads in their target bracket",
+        "strategyFollowUpSequence": [
+          "LinkedIn Connection Request with a message focused on modern agency operational scaling.",
+          "Follow-up email detailing a case study of a digital agency that used automated cold outreach to secure three long-term marketing retainers within 60 days."
+        ],
+        "strategyMeetingAngle": "How to build an automated, evergreen agency outbound engine that operates in the background while you focus on delivery.",
+        "strategyExpectedObjections": [
+          "We don't have the bandwidth to set up and manage an outbound tool.",
+          "Our clients come strictly via word-of-mouth."
+        ],
+        "strategyObjectionHandling": [
+          "SalesPilot offers fully managed onboarding where we set up your target parameters and provide customized templates.",
+          "Word-of-mouth is highly valuable but unpredictable. SalesPilot works as an operational hedge to ensure your creative team is always billable."
+        ],
+        "executiveSummary": "Techinfinity is an established digital creative marketing agency based in Mumbai, capturing an estimated Rs. 1-5 Crore INR in revenue. While the agency boasts strong design capabilities and uses modern conversational tools like WhatsApp Business for incoming leads, their current model is highly exposed to pipeline volatility due to a lack of automated, predictable outbound sales processes. The Operations Director requires a solution that guarantees a consistent flow of high-value client briefs without diverting creative talent toward manual sales prospecting. SalesPilot offers a strategic opportunity to automate their B2B client acquisition, allowing Techinfinity to predictably target and win high-paying retainers. Introducing SalesPilot will eliminate resource bottlenecks, streamline their tool overhead, and ultimately drive predictable agency growth.",
+        "insightsHotnessScore": 88,
+        "insightsBuyingIntent": "MEDIUM",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs.4,20,000 INR ARR",
+        "insightsReplyProbability": 72,
+        "insightsMeetingProbability": 58,
+        "insightsConversionProbability": 42
+      }
+    },
+    {
+      "id": "ld_db_1788337030108_98150_h0wz",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@digitalcorsel.com",
+      "phone": "080885 50055",
+      "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 88,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:18:00.526Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788337030108_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:17:10.108Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788337030108_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://digitalcorsel.com/mumbai/, Phone: 080885 50055.",
+          "createdAt": "2026-09-02T08:17:10.108Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://digitalcorsel.com/mumbai/",
+        "country": "India",
+        "industry": "Marketing",
+        "companyOverview": "Digital Corsel is a high-potential Mumbai-based digital marketing agency specializing in SEO, PPC, and web development. The agency operates in an intensely crowded market with an estimated revenue of Rs. 1 Crore - Rs. 5 Crore. Currently, their client pipeline relies on manual prospecting and inbound channels. The Operations Director is motivated to find systems that reduce team administrative overhead and improve agency margins. Implementing SalesPilot provides a massive strategic opportunity to automate their B2B client acquisition, transforming manual lead sourcing into an automated, scalable engine. Approaching them with a target list of pre-qualified local prospects will provide the necessary proof of value to close the deal.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 19.122890599999998,
+        "longitude": 72.8627781,
+        "googlePlaceId": "ChIJNe7euiLJ5zsRtI_P61M6zdI",
+        "address": "Brahans Business Park, 303, Paper Box Rd, M.I.D.C, Radha Krishna Nagar, Aghadi Nagar, Andheri East, Mumbai, Maharashtra 400093, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:17:10.108Z",
+      "campaignId": "camp_gen_1788337030108",
+      "researchProfile": {
+        "companySummary": "Digital Corsel is a prominent digital marketing and web development agency based in Mumbai, India. They specialize in search engine optimization (SEO), pay-per-click (PPC) advertising, and website design, operating primarily on a B2B client services agency model. The firm positions itself as an ROI-focused partner dedicated to helping local and national businesses scale their digital footprints.",
+        "websiteAnalysis": "The agency’s digital presence is built on WordPress, featuring optimized landing pages, active client testimonials, and multiple lead generation funnels. Their technical setup relies on GSuite for core productivity and WhatsApp Business for direct client engagement, representing a standard service-agency stack that lacks advanced AI-driven outbound or pipeline automation.",
+        "industryAnalysis": "The digital marketing agency market in India, particularly in metropolitan hubs like Mumbai, is highly saturated and extremely competitive. Success is heavily dependent on maintaining predictable client acquisition channels, maximizing operational delivery margins, and minimizing team hours spent on manual prospecting.",
+        "painPoints": [
+          "High operational overhead and manual labor spent by the sales/ops team on building cold lead databases and outbound sourcing.",
+          "Unstable client acquisition pipeline due to an over-reliance on inbound referrals and sporadic manual outreach campaigns.",
+          "Inefficient multi-channel orchestration resulting in cold leads slipping through the cracks without structured automated follow-ups."
+        ],
+        "decisionMakerSummary": "As the Operations Director, the prospect is heavily focused on improving internal efficiencies, reducing manual software tasks, and optimizing the agency's delivery margins. They hold high purchasing power for tools that optimize day-to-day work and scale client outreach without expanding headcount.",
+        "businessOpportunities": [
+          "Automate the agency's internal B2B customer acquisition pipeline to systematically secure high-value retainer clients.",
+          "Expand their service offerings by utilizing automated outbound engines to deliver white-labeled lead-generation campaigns for their clients.",
+          "Standardize and streamline their client discovery and intake process via automated messaging systems."
+        ],
+        "salesAngleSuggestions": [
+          "Position SalesPilot as an operational force multiplier that frees up to 15 hours of manual work per week for their execution team by automating high-intent lead sourcing.",
+          "Showcase how SalesPilot seamlessly connects with their existing GSuite environment to construct predictable cold outbound engines targeting high-revenue local businesses."
+        ],
+        "objectionPredictions": [
+          "Objection: We already do manual prospecting on LinkedIn and Google Maps which works fine. Counter: Manual prospecting is costing you significant labor expenses. SalesPilot does this at 10x the speed and a fraction of the cost, letting your team focus on client execution.",
+          "Objection: We are a small agency and do not have the budget for complex CRM/outreach platforms. Counter: SalesPilot is built for high-growth agencies, offering direct ROI by securing just one new digital marketing retainer client."
+        ],
+        "competitorNotes": "They currently rely on manual outreach, GSuite, and standard networking. Competitors in Mumbai include ROI Minds and local digital agencies. SalesPilot can be positioned as the ultimate competitive edge that allows them to out-prospect larger competitors through hyper-personalized outbound automation.",
+        "buyingSignals": [
+          "Active implementation of WhatsApp Business indicates an openness to streamlining conversational marketing and client communication.",
+          "Frequent optimization of their online services list to target high-value local business niches."
+        ],
+        "aiInsights": "To convert Digital Corsel, bypass high-level marketing pitches. Provide the Operations Director with an operational diagnostic: show them a pre-packaged, highly accurate prospect list of 100 local Mumbai enterprises currently looking for SEO/PPC services, demonstrates SalesPilot's immediate power.",
+        "generatedAt": "2026-09-02T08:17:10.109Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "SEO Optimization Packages",
+          "PPC and Performance Marketing Campaigns",
+          "Custom WordPress Web Development"
+        ],
+        "services": [
+          "Search Engine Optimization",
+          "Google & Social Media Ads Management",
+          "Social Media Marketing"
+        ],
+        "targetCustomers": [
+          "Local SMEs in Mumbai",
+          "E-commerce Brands in India",
+          "Professional Service Providers"
+        ],
+        "industriesServed": [
+          "Real Estate",
+          "E-commerce",
+          "Healthcare and Wellness"
+        ],
+        "businessSize": "11-50 employees",
+        "yearsInBusiness": "6 years",
+        "employeeGrowth": "Stable holding pattern with selective additions to digital delivery and design roles.",
+        "revenueEstimate": "Rs. 1 Crore - Rs. 5 Crore",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "Facebook (Active)",
+          "Instagram (Active)"
+        ],
+        "businessCategory": "Digital Marketing Services",
+        "usp": "End-to-end performance marketing and SEO optimization with a strong focus on transparent, ROI-driven campaigns.",
+        "mission": "To provide cutting-edge, result-oriented digital marketing strategies that empower business growth online.",
+        "vision": "To become the most reliable and transparent performance-focused digital agency in the Mumbai region.",
+        "extractedKeywords": [
+          "Digital Marketing Agency Mumbai",
+          "Best SEO Company in Mumbai",
+          "PPC Management Services",
+          "WordPress Development India"
+        ],
+        "extractedOffers": [
+          "Free Website Audit",
+          "Free Digital Marketing Consultation"
+        ],
+        "extractedForms": [
+          "Request a Quote Form",
+          "Free SEO Audit Submission Form"
+        ],
+        "extractedCTAs": [
+          "Get Free Consultation",
+          "Contact Us Now"
+        ],
+        "customerTypes": [
+          "B2C Retail Brands",
+          "B2B Corporate Clients",
+          "Local Service Providers"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Overseeing operational delivery, campaign performance tracking, agency tool implementation, and team resource optimization.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Loss of time on repetitive lead sourcing and cold messaging operations.",
+          "Difficulty predicting pipeline growth for internal agency services."
+        ],
+        "dmGoals": [
+          "Reduce administrative sales time through systematic process automation.",
+          "Maintain a steady influx of qualified B2B agency leads."
+        ],
+        "dmInterests": [
+          "Operational Efficiency",
+          "B2B Sales Automation Tools",
+          "Agency Scaling Tactics"
+        ],
+        "dmPreferredCommunication": "Short email with clear ROI metrics and a direct booking link",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "With their current basic tech stack, lead discovery and early-stage cold outreach are almost certainly conducted manually by staff members."
+          },
+          {
+            "problem": "Slow Growth",
+            "severity": "MEDIUM",
+            "reasoning": "The competitive nature of Mumbai agencies coupled with a lack of automated, consistent outbound channels restricts rapid expansion."
+          }
+        ],
+        "salesOppWhyBuy": "As an agency, their inventory is their team's time. By automating lead sourcing and outreach campaigns, SalesPilot allows them to redirect hundreds of manual hours back into high-value client strategy, directly increasing profit margins.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs. 25,000 - Rs. 40,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Founder-level onboarding and 100 free verified enterprise lead credits",
+        "detailedCompetitors": [
+          {
+            "name": "ROI Minds",
+            "marketPosition": "Strong Competitor",
+            "differentiation": "Heavily focused on e-commerce optimization internationally.",
+            "strengths": "Deep case studies in e-commerce niche and high organic content reach.",
+            "weaknesses": "Higher pricing threshold, less hyper-focused on local Mumbai business solutions.",
+            "potentialOpportunity": "Digital Corsel can win local market share by using automated, highly personalized local campaigns."
+          }
+        ],
+        "strategyFirstMessage": "Hi [Name],\n\nI noticed Digital Corsel is driving incredible SEO and PPC results for brands in Mumbai. However, keeping the internal client pipeline full without spending hours on manual outbound sourcing is a constant battle for operations.\n\nWe built SalesPilot to help agencies like yours automate target account sourcing and personalized outreach. In fact, we curated a list of 100 pre-qualified Mumbai B2B companies looking for digital marketing partners right now.\n\nWould you be open to a brief 10-minute call next Tuesday to see the list and how we can automate your internal client pipeline?\n\nBest,\n[Your Name]",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Complimentary list of 100 verified Mumbai enterprise leads",
+        "strategyFollowUpSequence": [
+          "Send a brief 1-minute video demonstration of SalesPilot generating and sending personalized cold campaigns.",
+          "Share a case study of a digital marketing agency that scaled their retainer client acquisitions by 35% using SalesPilot."
+        ],
+        "strategyMeetingAngle": "Reviewing 100 high-intent local accounts in Mumbai ready for agency outreach",
+        "strategyExpectedObjections": [
+          "We rely on inbound referrals and SEO for ourselves.",
+          "We don't have the internal bandwidth to manage another complex sales system."
+        ],
+        "strategyObjectionHandling": [
+          "Inbound and SEO are vital, but outbound provides a predictable growth faucet you can turn on and off. SalesPilot operates in the background with zero maintenance.",
+          "SalesPilot is fully managed and integrates directly with GSuite in 15 minutes. We set up the initial campaign for you, requiring minimal team bandwidth."
+        ],
+        "executiveSummary": "Digital Corsel is a high-potential Mumbai-based digital marketing agency specializing in SEO, PPC, and web development. The agency operates in an intensely crowded market with an estimated revenue of Rs. 1 Crore - Rs. 5 Crore. Currently, their client pipeline relies on manual prospecting and inbound channels. The Operations Director is motivated to find systems that reduce team administrative overhead and improve agency margins. Implementing SalesPilot provides a massive strategic opportunity to automate their B2B client acquisition, transforming manual lead sourcing into an automated, scalable engine. Approaching them with a target list of pre-qualified local prospects will provide the necessary proof of value to close the deal.",
+        "insightsHotnessScore": 88,
+        "insightsBuyingIntent": "MEDIUM",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs. 3,60,000 INR ARR",
+        "insightsReplyProbability": 72,
+        "insightsMeetingProbability": 58,
+        "insightsConversionProbability": 42
+      },
+      "researchStatus": "RESEARCHING",
+      "researchProgress": 30,
+      "researchStatusText": "Querying Google Search and News API indexes..."
+    },
+    {
+      "id": "ld_db_1788336980962_72374_c9c2",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@www.howtodigital.in",
+      "phone": "",
+      "company": "How To Digital Agency",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 85,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing Agencies",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:16:20.962Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336980962_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:16:20.962Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788336980962_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: http://www.howtodigital.in/, Phone: .",
+          "createdAt": "2026-09-02T08:16:20.962Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "http://www.howtodigital.in/",
+        "country": "India",
+        "industry": "Marketing Agencies",
+        "companyOverview": "How To Digital Agency operates as an agile, mid-tier digital service agency in India with an estimated annual revenue of Rs.1 Crore - Rs.5 Crore. They support local businesses through localized WordPress development and targeted WhatsApp campaigns. However, their internal operational setup is constrained by manual workflows and a lack of integrated outreach technology. By targeting the Operations Director, we address a decision-maker deeply interested in maximizing team output and streamlining lead workflows. Presenting SalesPilot as a reliable automation engine that natively integrates with their existing GSuite workspace offers immediate operational leverage, saving substantial administrative time while opening predictable outbound pipelines to high-value markets.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 19.0011539,
+        "longitude": 72.8277303,
+        "googlePlaceId": "ChIJA0LHx5bR5zsRmDMQU4uTDxg",
+        "address": "Sun Mill Compound, Lower Parel, Mumbai, Maharashtra 400013, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:16:20.962Z",
+      "campaignId": "camp_gen_1788336980962",
+      "researchProfile": {
+        "companySummary": "How To Digital Agency is a specialized digital transformation and marketing services provider based in India, catering heavily to small and medium enterprises. They utilize accessible, high-engagement platforms like WordPress and WhatsApp Business to deliver affordable digital growth assets, operating primarily on a retainer-based client services business model.",
+        "websiteAnalysis": "The agency's web presence relies on a localized WordPress CMS infrastructure optimized for inbound digital inquiries. The lack of enterprise marketing automation tools or advanced lead tracking scripts indicates an opportunity to transition them from basic GSuite and manual tools to an automated customer acquisition ecosystem.",
+        "industryAnalysis": "The Indian digital marketing and web services sector is experiencing hyper-competition, creating downward pricing pressure. Agencies are forced to optimize internal cost structures through automation and seek higher-paying clients beyond regional hubs to maintain healthy margins.",
+        "painPoints": [
+          "High operational friction from manually qualifying incoming WhatsApp and web inquiry traffic.",
+          "Unpredictable sales pipeline relying heavily on inconsistent word-of-mouth and manual GSuite cold outreach.",
+          "Inefficient resource tracking during client onboarding, causing delivery delays and reducing team margins."
+        ],
+        "decisionMakerSummary": "As the Operations Director, the lead's focus is on maximizing agency delivery efficiency, minimizing execution bottle-necks, and implementing robust automation to streamline client acquisition and daily operational workflows.",
+        "businessOpportunities": [
+          "Package and resell automated lead generation platforms as a value-add service to their SME clients.",
+          "Automate their internal outbound prospecting to target higher-value B2B accounts in metropolitan cities.",
+          "Integrate their WordPress contact forms directly with GSuite automated follow-up channels using SalesPilot."
+        ],
+        "salesAngleSuggestions": [
+          "Position SalesPilot as an 'Operational Leverage Tool' that eliminates manual lead sourcing tasks and saves the Operations team up to 15 hours per week.",
+          "Frame SalesPilot as a 'Revenue Expansion Catalyst' that they can use to drive faster performance-marketing client results."
+        ],
+        "objectionPredictions": [
+          "We already run operations via WhatsApp Business and do not need another software subscription. Counter: SalesPilot works alongside WhatsApp to feed pre-qualified leads, ensuring high-value conversations only.",
+          "Our team doesn't have the technical bandwidth to learn a new tool right now. Counter: SalesPilot comes with full-service onboarding and plug-and-play GSuite integrations requiring zero code configuration."
+        ],
+        "competitorNotes": "They likely manage pipelines manually using shared Google Sheets or basic platforms like Zoho. Focus on SalesPilot's predictive lead intelligence and seamless outbound email/CRM capabilities as a unified, zero-overhead alternative.",
+        "buyingSignals": [
+          "Active integration of conversational WhatsApp Business tools, indicating investment in direct sales channels.",
+          "Operating in the Rs. 1 Crore to Rs. 5 Crore revenue band, where agency overhead forces immediate digital automation to sustain growth."
+        ],
+        "aiInsights": "The optimal path to conversion is presenting a pre-segmented lead dataset of 50 local SME prospects to the Operations Director. Proving how quickly SalesPilot generates targeted target accounts bypasses typical procurement friction by showing immediate operational ROI.",
+        "generatedAt": "2026-09-02T08:16:20.962Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "SEO & Local Search Packages",
+          "WordPress Development Blueprints",
+          "Social Media Retention Campaigns"
+        ],
+        "services": [
+          "Web Design & Optimization",
+          "WhatsApp Business Marketing Integration",
+          "Performance Lead Generation"
+        ],
+        "targetCustomers": [
+          "Local Indian Retailers",
+          "Tier-2 City Real Estate Developers",
+          "Regional Healthcare Providers"
+        ],
+        "industriesServed": [
+          "Retail",
+          "Real Estate",
+          "Professional Services"
+        ],
+        "businessSize": "11-50 employees",
+        "yearsInBusiness": "5 years",
+        "employeeGrowth": "Steady horizontal growth focusing on remote execution talent.",
+        "revenueEstimate": "Rs. 1 Crore - Rs. 5 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "Facebook (Moderate)",
+          "Instagram (Portfolio Showcase)"
+        ],
+        "businessCategory": "Digital Marketing & Agency Services",
+        "usp": "Affordable, rapid WordPress setup coupled with customized WhatsApp marketing automation strategies.",
+        "mission": "To equip growing local businesses with simple, robust, and highly-scalable digital marketing strategies.",
+        "vision": "To become a leading regional digital catalyst for SMEs navigating tier-2 digital transformations.",
+        "extractedKeywords": [
+          "WordPress Agency India",
+          "WhatsApp Marketing Setup",
+          "SME Lead Generation",
+          "Digital Transformation"
+        ],
+        "extractedOffers": [
+          "Free Site Health Audit",
+          "30-Minute Digital Consultation Call"
+        ],
+        "extractedForms": [
+          "Contact Inquiry Form",
+          "Free SEO Audit Form"
+        ],
+        "extractedCTAs": [
+          "Get Free Quote",
+          "Connect on WhatsApp"
+        ],
+        "customerTypes": [
+          "Local Retail Outlets",
+          "Regional B2C Service Providers"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Overseeing client project delivery timelines, optimizing digital internal tech stacks, and tracking agency performance metrics.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Excessive time spent tracking task statuses and manual client pipeline handoffs",
+          "Inability to scale outbound client prospecting systematically"
+        ],
+        "dmGoals": [
+          "Standardize agency client-delivery blueprints",
+          "Cut internal operational delivery costs by 20% using automation"
+        ],
+        "dmInterests": [
+          "Low-code workflows",
+          "Agency workflow optimization",
+          "SaaS automation engines"
+        ],
+        "dmPreferredCommunication": "Short, data-backed email detailing clear operational metrics.",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Their reliance on simple tools like GSuite and standard WordPress suggests they do not use automated, outbound systems to systematically secure new business."
+          },
+          {
+            "problem": "Poor Automation",
+            "severity": "MEDIUM",
+            "reasoning": "Operating with WhatsApp Business implies they see value in quick response, but manual dispatch likely dominates their everyday execution workflows."
+          }
+        ],
+        "salesOppWhyBuy": "As they hit the Rs. 1-5 Crore ceiling, maintaining manual operations causes quality drop-offs. Adopting SalesPilot automates their top-of-funnel lead flows, standardizing agency scale.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs. 30,000 - Rs. 50,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Custom Outbound Blueprint with 50 Verified SME Lead Audits",
+        "detailedCompetitors": [
+          {
+            "name": "Local Tier-2 Competitors",
+            "marketPosition": "Low-Cost Service Providers",
+            "differentiation": "How To Digital emphasizes client-side WhatsApp Business workflow optimization.",
+            "strengths": "Ultra-low localized operational pricing models.",
+            "weaknesses": "Highly manual workflows, non-scalable execution processes, and lack of technology depth.",
+            "potentialOpportunity": "Outperform regional competitors by running localized, highly-targeted outreach campaigns using modern prospecting tech."
+          }
+        ],
+        "strategyFirstMessage": "Hi [Name],\n\nI noticed How To Digital Agency does a fantastic job using WordPress and WhatsApp Business to scale SME operations.\n\nHowever, keeping an agency of your scale filled with predictable retainer clients usually means your team spends dozens of hours running manual outreach or chasing web leads.\n\nWe designed SalesPilot to help operations leaders at top agencies automate GSuite-based cold prospecting entirely. Could we schedule a brief 10-minute session to show you how we can add 50 verified B2B opportunities directly to your pipeline this week?\n\nBest regards,\n[My Name]",
+        "strategyOutreachChannel": "LinkedIn Message",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Free automated campaign execution design covering 50 validated local leads.",
+        "strategyFollowUpSequence": [
+          "Send a Loom video illustrating the integration of WordPress leads with SalesPilot GSuite campaigns.",
+          "Share an agency customer case study detailing a 3x lift in retainer signups using automated prospecting."
+        ],
+        "strategyMeetingAngle": "Removing 15+ hours of manual client prospecting overhead using native GSuite automation.",
+        "strategyExpectedObjections": [
+          "We rely mostly on inward client referrals.",
+          "Our current manual outreach is sufficient."
+        ],
+        "strategyObjectionHandling": [
+          "Referrals are vital, but unpredictable. SalesPilot works alongside them as a predictable client acquisition backup system.",
+          "Manual processes limit operational margin. Automating outreach lets your delivery staff focus entirely on high-paying client retainers."
+        ],
+        "executiveSummary": "How To Digital Agency operates as an agile, mid-tier digital service agency in India with an estimated annual revenue of Rs.1 Crore - Rs.5 Crore. They support local businesses through localized WordPress development and targeted WhatsApp campaigns. However, their internal operational setup is constrained by manual workflows and a lack of integrated outreach technology. By targeting the Operations Director, we address a decision-maker deeply interested in maximizing team output and streamlining lead workflows. Presenting SalesPilot as a reliable automation engine that natively integrates with their existing GSuite workspace offers immediate operational leverage, saving substantial administrative time while opening predictable outbound pipelines to high-value markets.",
+        "insightsHotnessScore": 85,
+        "insightsBuyingIntent": "MEDIUM",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs. 3,60,000 INR ARR",
+        "insightsReplyProbability": 72,
+        "insightsMeetingProbability": 58,
+        "insightsConversionProbability": 42
+      }
+    },
+    {
+      "id": "ld_db_1788336976587_23703_vrnd",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@techinfinity.io",
+      "phone": "098333 88717",
+      "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 86,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:16:16.587Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336976587_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:16:16.587Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788336976587_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic, Phone: 098333 88717.",
+          "createdAt": "2026-09-02T08:16:16.587Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
+        "country": "India",
+        "industry": "Marketing",
+        "companyOverview": "Techinfinity is a growing digital agency in Mumbai generating Rs. 1 Crore - Rs. 5 Crore in revenue, currently restricted by highly manual administrative processes. Utilizing WordPress for web presence and basic WhatsApp for communication, the agency faces significant operational overhead in lead intake, client onboarding, and ongoing reporting. This report identifies the Operations Director as the key operational champion. By positioning SalesPilot as a margin-preservation tool that automates client ingestion pipelines, reduces project coordinator overhead, and instantly bridges WordPress with WhatsApp, we can deliver a highly compelling business case that directly translates to reclaimed billable hours and increased agency profitability.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 18.9572775,
+        "longitude": 72.820308,
+        "googlePlaceId": "ChIJB4LCrdvO5zsRVjS1r0ENa0M",
+        "address": "Ground Floor, Edwankar House, Nawalkar Lane, Raja Ram Mohan Roy Rd, Prathna Samaj, Khetwadi, Girgaon, Mumbai, Maharashtra 400004, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:16:16.587Z",
+      "campaignId": "camp_gen_1788336976587",
+      "researchProfile": {
+        "companySummary": "Techinfinity is a Mumbai-based boutique digital creative agency specializing in website development, search engine optimization, and brand marketing. They operate on an agency client services business model, helping regional brands establish and grow their online footprint. The company positions itself as a localized, high-impact creative partner for growing small-to-medium enterprises.",
+        "websiteAnalysis": "Techinfinity's digital presence is centered around a WordPress-built website that acts as their primary lead capture portal. Their tech stack includes WordPress, GSuite, and a WhatsApp Business float widget, which indicates a highly conversational but largely manual sales and customer service funnel that is ripe for workflow automation.",
+        "industryAnalysis": "The Indian digital agency landscape is extremely fragmented and hyper-competitive, particularly in major hubs like Mumbai. Agencies face severe downward pricing pressure, making operational efficiency, rapid lead response times, and automated delivery models critical to maintaining healthy profit margins.",
+        "painPoints": [
+          "High lead leakage rates due to slow, manual lead distribution and follow-ups from their WordPress contact forms.",
+          "Fragmented and untracked client communications across multiple personal and business WhatsApp accounts, leading to a lack of a centralized system of record.",
+          "Significant billable hours wasted by project and delivery managers on manual onboarding, administrative tasks, and status reporting."
+        ],
+        "decisionMakerSummary": "The Operations Director focuses heavily on service delivery speed, project profitability, and workflow optimization. While they work closely with the founders on strategic decisions, they hold high directional influence over selecting and implementing tools that reduce overhead and keep campaigns on schedule.",
+        "businessOpportunities": [
+          "Introduce automated, system-triggered lead response playbooks to convert website traffic instantly.",
+          "Deploy a unified client communication engine that bridges WhatsApp chats directly into a centralized workflow portal.",
+          "Offer specialized MarTech automation as a high-margin add-on service to their existing SME client base."
+        ],
+        "salesAngleSuggestions": [
+          "The Margin Recovery Angle: Demonstrate how SalesPilot automates lead-to-rep routing and customer onboarding, instantly reclaiming up to 15% of their project managers' billable time.",
+          "The 'No Lead Left Behind' Angle: Pitch SalesPilot as an automated companion to their WordPress website that instantly engages every inbound inquiry via WhatsApp within 45 seconds, maximizing their marketing spend."
+        ],
+        "objectionPredictions": [
+          "Objection: 'Our team is already comfortable using GSuite and basic WhatsApp Business.' Counter: Highlight that manual tracking caps their ability to scale to Rs.10 Crore+ revenue without exponentially increasing headcount, whereas SalesPilot automates these channels seamlessly.",
+          "Objection: 'We do not have the technical bandwidth to set up a new platform.' Counter: Offer our complete 'done-for-you' onboarding service, configuring their initial pipelines within 48 hours with zero developer hours required from their side."
+        ],
+        "competitorNotes": "They compete with numerous mid-tier digital agencies in Mumbai (e.g., local boutique shops and freelancers). While competitors focus solely on creative outputs, Techinfinity can win and retain higher-value clients by leveraging SalesPilot to offer superior, faster communication and structured, professional onboarding workflows.",
+        "buyingSignals": [
+          "Active usage of conversational WhatsApp widgets, showing they rely heavily on messaging to close clients but lack back-end automation.",
+          "Operating in the Rs.1 Crore - Rs.5 Crore revenue sweet spot, where agencies typically hit a bottleneck trying to manage more than 15 retainer clients manually."
+        ],
+        "aiInsights": "The critical next step is targeting the Operations Director with an audit demonstrating their current lead response speed. Send them a personalized outreach displaying a simulated breakdown of how much revenue is lost when inquiries sit unattended, followed by a live video showing how SalesPilot's automated sequence triggers a personalized WhatsApp response in under 60 seconds.",
+        "generatedAt": "2026-09-02T08:16:16.587Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "Custom Web Development Packages",
+          "Brand Strategy Blueprint",
+          "Paid Advertising Campaigns"
+        ],
+        "services": [
+          "Website Design & Development",
+          "Social Media Management",
+          "Search Engine Optimization (SEO)"
+        ],
+        "targetCustomers": [
+          "Local Retail Brands",
+          "Real Estate Developers",
+          "Mid-Market B2B Service Providers"
+        ],
+        "industriesServed": [
+          "Real Estate",
+          "Retail & E-commerce",
+          "Professional Services"
+        ],
+        "businessSize": "11-50 employees",
+        "yearsInBusiness": "6 years",
+        "employeeGrowth": "Stable with periodic reliance on contract designers and developers.",
+        "revenueEstimate": "Rs.1 Crore - Rs.5 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "Instagram (Highly Active)",
+          "Facebook (Active)"
+        ],
+        "businessCategory": "Digital Marketing Agency",
+        "usp": "High-touch, localized creative marketing and web solutions delivered by a dedicated regional team in Mumbai.",
+        "mission": "To help mid-market brands navigate the digital landscape with customized, results-oriented marketing strategies.",
+        "vision": "To become Mumbai's premier creative partner for SMEs seeking digital transformation and rapid online growth.",
+        "extractedKeywords": [
+          "Best Digital Marketing Agency Mumbai",
+          "Creative Agency Mumbai",
+          "WordPress Website Developers",
+          "Social Media Agency"
+        ],
+        "extractedOffers": [
+          "Free Website Consultation Audit",
+          "Get a Customized Creative Proposal"
+        ],
+        "extractedForms": [
+          "Contact Us Inquiry Form",
+          "Floating WhatsApp Chat Widget"
+        ],
+        "extractedCTAs": [
+          "Get in Touch",
+          "Let's Collaborate",
+          "Chat Now on WhatsApp"
+        ],
+        "customerTypes": [
+          "SMEs",
+          "Regional B2C Brands",
+          "Local Retail Businesses"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Overseeing project delivery schedules, optimizing agency resource allocation, maintaining client satisfaction, and sourcing tools to improve operational workflow efficiency.",
+        "dmBuyingAuthority": "MEDIUM",
+        "dmPainPoints": [
+          "Inefficient manual reporting systems between the creative team and clients",
+          "High volume of fragmented, unlogged project requests coming via WhatsApp"
+        ],
+        "dmGoals": [
+          "Reduce project turnaround delays by 25%",
+          "Establish a centralized, easily searchable communication system for client assets and approvals"
+        ],
+        "dmInterests": [
+          "No-code agency management tools",
+          "Operational efficiency playbooks",
+          "Automation of repetitive client work"
+        ],
+        "dmPreferredCommunication": "Short, metric-driven emails detailing time-savings and platform integrations",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Relying on WordPress forms and basic WhatsApp Business without a connected CRM leads to untracked leads, delayed follow-up times, and lost pipeline opportunities."
+          },
+          {
+            "problem": "Poor Automation",
+            "severity": "HIGH",
+            "reasoning": "Using GSuite and manual WhatsApp updates creates massive administrative drag, forcing creative employees to spend hours copying data instead of working on client deliverables."
+          }
+        ],
+        "salesOppWhyBuy": "Techinfinity has reached a scaling ceiling where further revenue growth will require an unsustainable hiring spree unless they automate their workflow. SalesPilot allows them to automate their operational lead lifecycle and project check-ins, dramatically lowering delivery costs and raising profit margins without adding headcount.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs.15,000 - Rs.30,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Done-For-You Agency Workflow Setup + 14-day Free Pilot",
+        "detailedCompetitors": [
+          {
+            "name": "Social Beat",
+            "marketPosition": "Large-Scale National Digital Agency",
+            "differentiation": "Techinfinity wins by offering hyper-personalized local attention and lower project minimums.",
+            "strengths": "Deep budgets, specialized teams, massive enterprise client list.",
+            "weaknesses": "Slow execution times, complex communication layers, and pricing too high for mid-market SMEs.",
+            "potentialOpportunity": "Techinfinity can close the competitive gap by using SalesPilot to execute and respond 3x faster than corporate competitors."
+          }
+        ],
+        "strategyFirstMessage": "Subject: Techinfinity's Client Onboarding + WhatsApp Overhead\n\nHi [Name],\n\nI love Techinfinity's creative portfolio in Mumbai. Delivering top-tier work across WordPress and social media is complex, and as Operations Director, I imagine keeping track of client briefs across GSuite and manual WhatsApp messages eats up valuable hours.\n\nWe help agency operations teams automate client onboarding and inbound lead routing directly from WordPress to WhatsApp/CRM in under 45 seconds.\n\nThis typically reclaims 10-15 billable hours per week for your delivery managers so they can focus on campaigns, not admin.\n\nCan I send over a quick, 2-minute video showing how we set this up for agency teams?\n\nBest,\n[My Name]\nSalesPilot Enterprise Specialist",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Complimentary Agency Operational Flow Mapping Session",
+        "strategyFollowUpSequence": [
+          "Connect on LinkedIn; share an infographic showing how automation cuts agency administrative overhead by 30%.",
+          "Send a follow-up email with a simple comparison diagram contrasting their current manual WordPress workflow with a SalesPilot-automated flow."
+        ],
+        "strategyMeetingAngle": "Reclaiming 12 billable hours per project manager each week through simple automated workflows.",
+        "strategyExpectedObjections": [
+          "Our team is used to our current setup and doesn't want to learn a new tool.",
+          "We don't have budget allocated for software automation this quarter."
+        ],
+        "strategyObjectionHandling": [
+          "Explain that SalesPilot works directly with their existing WhatsApp and GSuite setups, requiring zero learning curve for the end users.",
+          "Position SalesPilot as an investment that pays for itself in month one by saving billable team hours equivalent to a fractional employee's salary."
+        ],
+        "executiveSummary": "Techinfinity is a growing digital agency in Mumbai generating Rs. 1 Crore - Rs. 5 Crore in revenue, currently restricted by highly manual administrative processes. Utilizing WordPress for web presence and basic WhatsApp for communication, the agency faces significant operational overhead in lead intake, client onboarding, and ongoing reporting. This report identifies the Operations Director as the key operational champion. By positioning SalesPilot as a margin-preservation tool that automates client ingestion pipelines, reduces project coordinator overhead, and instantly bridges WordPress with WhatsApp, we can deliver a highly compelling business case that directly translates to reclaimed billable hours and increased agency profitability.",
+        "insightsHotnessScore": 86,
+        "insightsBuyingIntent": "MEDIUM",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs.2,40,000 INR ARR",
+        "insightsReplyProbability": 70,
+        "insightsMeetingProbability": 55,
+        "insightsConversionProbability": 40
+      }
+    },
+    {
+      "id": "ld_db_1788336959681_51899_orj4",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@www.vervemedia.co.in",
+      "phone": "097736 36203",
+      "company": "Verve Media",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 92,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing Agencies",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:15:59.681Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336959681_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:15:59.681Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788336959681_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://www.vervemedia.co.in/, Phone: 097736 36203.",
+          "createdAt": "2026-09-02T08:15:59.681Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://www.vervemedia.co.in/",
+        "country": "India",
+        "industry": "Marketing Agencies",
+        "companyOverview": "Verve Media is a creative digital agency in India experiencing consistent delivery success but facing classic agency pipeline volatility due to a lack of proactive sales technology. By targeting their Operations Director with SalesPilot's automated outreach capabilities, we can offer a direct solution to their core operational bottleneck: manual, unpredictable business development. Providing an automated prospecting engine will allow them to capture premium regional contracts, maximize resource utilization, and scale predictably.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 19.1064781,
+        "longitude": 72.8890527,
+        "googlePlaceId": "ChIJ3YcQ_fGx5zsRJOF9p6isehk",
+        "address": "1C1, Gundecha Onclave, Kherani Road, Saki Naka, Metro Station, near Saki Naka, Ansa Industrial Estate, Chandivali, Andheri East, Mumbai, Maharashtra 400072, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:15:59.681Z",
+      "campaignId": "camp_gen_1788336959681",
+      "researchProfile": {
+        "companySummary": "Verve Media is a full-service creative digital agency based in India, specializing in visual communication, SEO, web development, and social media marketing. They operate on a client services model, helping B2B and B2C brands build, scale, and manage their online presence.",
+        "websiteAnalysis": "The company's digital footprint is anchored on a visually rich WordPress website designed to showcase their creative portfolio. Relying primarily on basic tools like WordPress, GSuite, and WhatsApp Business, they lack advanced automation or outbound lead tracking infrastructure, indicating a heavy reliance on manual inbound capture and referrals.",
+        "industryAnalysis": "The digital marketing agency landscape in India is highly fragmented and competitive, driving downward pressure on pricing. To maintain healthy margins, agencies must transition from low-ticket local clients to high-ticket regional and international accounts, requiring a robust, predictable B2B outbound engine.",
+        "painPoints": [
+          "High dependency on reactive inbound inquiries and word-of-mouth referrals, leading to inconsistent monthly pipeline velocity.",
+          "Inefficient manual prospecting processes that consume valuable account management hours which should be spent on client delivery.",
+          "Lack of systematic, multi-channel cold outreach infrastructure to consistently target and close high-value corporate accounts."
+        ],
+        "decisionMakerSummary": "The Operations Director at Verve Media is focused on driving agency profitability, optimizing resource allocation, and scaling internal business operations. They have high influence over technology purchases that directly reduce manual overhead and improve pipeline predictability.",
+        "businessOpportunities": [
+          "Transitioning their client acquisition model to predictive outbound prospecting to consistently source high-paying corporate retainers.",
+          "Expanding their target market geographically to high-yield regions like the UAE and Singapore using automated, highly personalized email outreach.",
+          "Using automated pipeline intelligence to align sales efforts with creative delivery bandwidth, eliminating utilization peaks and valleys."
+        ],
+        "salesAngleSuggestions": [
+          "The 'Predictable Retainer' Pitch: Demonstrate how SalesPilot can automate their agency lead generation to book 5-10 discovery calls monthly with high-budget brands without increasing marketing spend.",
+          "The 'Operational Efficiency' Pitch: Focus on how automating outbound sales tasks saves up to 20 hours per week for senior leadership, allowing them to focus strictly on creative direction and client retention."
+        ],
+        "objectionPredictions": [
+          "Objection: 'We already generate leads organically via SEO and our portfolio.' Counter: 'SEO is highly effective but slow; SalesPilot acts as an active, targeted accelerator to acquire specific dream clients immediately.'",
+          "Objection: 'We don't have a dedicated sales team to manage a complex outbound tool.' Counter: 'SalesPilot is designed for busy agency leaders; it runs completely in the background with zero maintenance, delivering warm replies directly to your inbox.'"
+        ],
+        "competitorNotes": "They compete against regional digital agencies like Schbang and WatConsult. While their creative delivery is strong, they can out-compete rivals on growth velocity by implementing a faster, AI-driven outbound sales engine to secure enterprise brand briefs before competitors are even aware of the opportunity.",
+        "buyingSignals": [
+          "Increased focus on visual content portfolios on social media platforms, indicating strong collateral ready to be leveraged in outbound campaigns.",
+          "Use of WhatsApp Business indicating an active interest in direct, conversational marketing and rapid client engagement tactics."
+        ],
+        "aiInsights": "Verve Media is prime for an automated outbound upgrade. Because they are highly creative, their case studies are highly compelling. Executing a highly visual, multi-channel cold email campaign using SalesPilot will dramatically increase their meeting conversion rate with major brand managers. Pitching a ready-made outreach playbook will bypass operational resistance.",
+        "generatedAt": "2026-09-02T08:15:59.681Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "Integrated Brand Campaigns",
+          "SEO Retainers",
+          "Web Development Packages"
+        ],
+        "services": [
+          "Social Media Marketing",
+          "Search Engine Optimization",
+          "Video Production & Graphic Design"
+        ],
+        "targetCustomers": [
+          "Medium-sized Consumer Brands",
+          "SMEs seeking Digital Transformation",
+          "D2C E-commerce Startups"
+        ],
+        "industriesServed": [
+          "E-commerce",
+          "Real Estate",
+          "Healthcare",
+          "Education"
+        ],
+        "businessSize": "50-100 employees",
+        "yearsInBusiness": "8 years",
+        "employeeGrowth": "Steady horizontal growth focusing on visual creators and developers",
+        "revenueEstimate": "Rs.1 Crore - Rs.5 Crore",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "Active LinkedIn Page",
+          "Highly visual Instagram Profile",
+          "Facebook Business Page"
+        ],
+        "businessCategory": "Marketing Technology",
+        "usp": "End-to-end creative visual storytelling integrated with search and web optimization",
+        "mission": "To craft distinct digital experiences that drive genuine growth and engagement for modern brands.",
+        "vision": "To become a premier creative partner known for translating complex brand ideas into highly engaging visual narratives.",
+        "extractedKeywords": [
+          "Digital Marketing Agency Mumbai",
+          "Social Media Marketing",
+          "SEO Services India",
+          "Video Production Agency"
+        ],
+        "extractedOffers": [
+          "Free Website Audit",
+          "Portfolio Presentation Download",
+          "Inquiry Consultation Form"
+        ],
+        "extractedForms": [
+          "Contact Us Inquiry Form",
+          "WhatsApp Live Chat Widget"
+        ],
+        "extractedCTAs": [
+          "Get in Touch",
+          "Let's Talk",
+          "Chat on WhatsApp"
+        ],
+        "customerTypes": [
+          "Corporate Brands",
+          "D2C Startups",
+          "Local Business Enterprises"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Overseeing client delivery, resource utilization, agency tool infrastructure, and team efficiency.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Time wasted on manual operational logistics",
+          "Inconsistent lead flow affecting team resource allocation"
+        ],
+        "dmGoals": [
+          "Standardize agency business development operations",
+          "Increase average client contract value"
+        ],
+        "dmInterests": [
+          "Workflow automation",
+          "Agency scalability",
+          "B2B SaaS solutions"
+        ],
+        "dmPreferredCommunication": "Short email with clear operational metrics and case study link",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "With no clear outbound tech or CRM detected in their public stack, their sales pipeline relies entirely on manual cold outreach or reactive inbound forms."
+          }
+        ],
+        "salesOppWhyBuy": "Implementing SalesPilot immediately solves their pipeline inconsistency and allows them to systematically win high-value corporate retainers with minimal operational effort.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs.35,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Founder Account onboarding with 100 hyper-verified target brand contacts pre-loaded",
+        "detailedCompetitors": [
+          {
+            "name": "WatConsult",
+            "marketPosition": "Large Market Leader",
+            "differentiation": "Verve Media offers a more agile, cost-effective, and personalized boutique partnership.",
+            "strengths": "Deep corporate backing, massive scale, enterprise client list.",
+            "weaknesses": "Higher pricing structure, slower adaptation times, impersonal client relationships.",
+            "potentialOpportunity": "Verve can win fast-growing mid-market brands requiring agile, creative pivots."
+          }
+        ],
+        "strategyFirstMessage": "Hi, I noticed Verve Media has been producing exceptional brand campaigns in India. However, relying purely on inbound/referrals often leaves agency pipelines unpredictable. We built a system specifically for agencies like yours to automate outbound outreach and secure warm introductory meetings with decision-makers at target brands like Nykaa or Mamaearth. Would you be open to seeing a 5-minute custom outreach framework we mapped out for Verve Media?",
+        "strategyOutreachChannel": "LinkedIn Message",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Complimentary 100 verified target brand leads audit",
+        "strategyFollowUpSequence": [
+          "Send a brief case study of a similar creative agency that scaled client acquisition using automated outbound sequencing.",
+          "Offer a live demo showcasing a pre-built campaign targeting 50 key marketing directors in Mumbai."
+        ],
+        "strategyMeetingAngle": "Reviewing an automated outreach plan mapped specifically to Verve Media's high-ticket SEO and video production offerings.",
+        "strategyExpectedObjections": [
+          "Our agency model relies heavily on personal trust; automated cold emails feel too cold.",
+          "We don't have dedicated sales reps to execute or follow up on these campaigns."
+        ],
+        "strategyObjectionHandling": [
+          "Our system uses highly personalized dynamic variables to make every automated email read as if it was written by you personally.",
+          "The system delivers only pre-qualified, warm responses directly to your inbox, so you only spend time talking to brands ready to buy."
+        ],
+        "executiveSummary": "Verve Media is a creative digital agency in India experiencing consistent delivery success but facing classic agency pipeline volatility due to a lack of proactive sales technology. By targeting their Operations Director with SalesPilot's automated outreach capabilities, we can offer a direct solution to their core operational bottleneck: manual, unpredictable business development. Providing an automated prospecting engine will allow them to capture premium regional contracts, maximize resource utilization, and scale predictably.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs.4,20,000 INR ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      }
+    },
+    {
+      "id": "ld_db_1788336949927_88095_wlif",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@digitalcorsel.com",
+      "phone": "080885 50055",
+      "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 92,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:15:49.927Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336949927_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:15:49.927Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788336949927_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://digitalcorsel.com/mumbai/, Phone: 080885 50055.",
+          "createdAt": "2026-09-02T08:15:49.927Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://digitalcorsel.com/mumbai/",
+        "country": "India",
+        "industry": "Marketing",
+        "companyOverview": "Digital Corsel is a prominent Mumbai-based digital marketing agency specializing in PPC, SEO, and web development, operating within an annual revenue bracket of Rs.1 Crore to Rs.5 Crore. To remain highly competitive, the company must streamline its operations and eliminate manual sales workflows. This report targets the Operations Director, identifying key pain points around high manual prospecting overhead and operational margin leaks. By positioning SalesPilot as an infrastructure automation tool that integrates seamlessly with GSuite and WordPress, we present a highly persuasive, ROI-driven business case that directly appeals to the decision maker's goal of scaling operational efficiency and growing client acquisition.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 19.122890599999998,
+        "longitude": 72.8627781,
+        "googlePlaceId": "ChIJNe7euiLJ5zsRtI_P61M6zdI",
+        "address": "Brahans Business Park, 303, Paper Box Rd, M.I.D.C, Radha Krishna Nagar, Aghadi Nagar, Andheri East, Mumbai, Maharashtra 400093, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:15:49.927Z",
+      "campaignId": "camp_gen_1788336949927",
+      "researchProfile": {
+        "companySummary": "Digital Corsel is a boutique digital marketing and SEO agency based in Mumbai, India, specializing in search engine optimization, pay-per-click advertising, social media marketing, and web development. Operating on a client services business model, the agency helps SMBs and local enterprises scale their digital footprints and acquire leads.",
+        "websiteAnalysis": "The company's digital presence is built primarily on WordPress, optimized for search engine indexing and landing page performance. It utilizes GSuite for corporate communication and WhatsApp Business for conversational customer touchpoints. There is a strong opportunity to integrate sophisticated automation for pipeline tracking and outbound customer acquisition.",
+        "industryAnalysis": "The digital agency landscape in India, particularly in major hubs like Mumbai, is highly competitive and fragmented. Agencies are experiencing severe pressure on service margins, making workflow automation and outbound customer acquisition systems crucial to maintaining profitability and growth.",
+        "painPoints": [
+          "High manual resource cost spent on outbound lead sourcing and client prospecting rather than delivery.",
+          "Potential leakage of incoming website leads due to a lack of automated, immediate multi-channel follow-up systems.",
+          "Difficulty in scaling high-ticket client acquisition predictably beyond localized search engine optimization and standard referrals."
+        ],
+        "decisionMakerSummary": "The Operations Director is focused on maximizing operational efficiency, managing delivery timelines, and optimizing the agency's software stack. They wield significant authority to evaluate and onboard systems that save team hours and boost operational margins.",
+        "businessOpportunities": [
+          "Deploy SalesPilot to automate their internal B2B client acquisition, targeting high-value e-commerce and B2B brands in India.",
+          "Package SalesPilot's outbound engine as a white-labeled service to upsell to their existing SEO and PPC clients.",
+          "Integrate advanced multi-channel prospecting to dramatically shorten their client acquisition cycle."
+        ],
+        "salesAngleSuggestions": [
+          "Pitch SalesPilot as a productivity multiplier that frees up their internal account managers from manual prospect hunting, allowing them to focus on high-value client delivery.",
+          "Position SalesPilot as an immediate revenue-generation engine that can be offered directly to their agency clients, creating a new high-margin recurring stream."
+        ],
+        "objectionPredictions": [
+          "Objection: 'We are a digital marketing agency and prefer to generate our own leads via organic SEO and PPC.' Counter: Highlight that outbound sales automation acts as a reliable, direct, and immediate hedge against the unpredictability of inbound search algorithms.",
+          "Objection: 'We already use manual processes that work fine.' Counter: Showcase a clear time-and-motion calculation demonstrating that automating these processes saves up to 80% of strategist time."
+        ],
+        "competitorNotes": "Digital Corsel competes with numerous local digital agencies in Mumbai, such as Blink Digital and WatConsult. While their competitors compete strictly on agency services, Digital Corsel can differentiate and win by leveraging cutting-edge AI and sales automation to execute hyper-targeted customer acquisition campaigns faster and cheaper than traditional methods.",
+        "buyingSignals": [
+          "Adoption of WhatsApp Business indicating a clear strategic push toward modern conversational communication channels.",
+          "A continuous focus on expanding high-intent PPC and SEO offerings to remain competitive in the Mumbai agency ecosystem."
+        ],
+        "aiInsights": "The absolute best next step is to run a highly targeted operational outreach sequence focused on efficiency. Pitch the Operations Director directly on a cost-reduction angle, showing them how automating manual lead operations can instantly recover margin leaks and allow them to scale client acquisition with zero additional hiring.",
+        "generatedAt": "2026-09-02T08:15:49.927Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "SEO Retention Packages",
+          "PPC Management Services",
+          "WordPress Web Development Projects"
+        ],
+        "services": [
+          "Search Engine Optimization (SEO)",
+          "Pay-Per-Click (PPC) Marketing",
+          "Social Media Management",
+          "Web Design & Development"
+        ],
+        "targetCustomers": [
+          "Indian Mid-Market Brands",
+          "Local Retail and Real Estate Businesses",
+          "SMEs seeking online visibility"
+        ],
+        "industriesServed": [
+          "Real Estate",
+          "E-commerce",
+          "Healthcare",
+          "Education"
+        ],
+        "businessSize": "11-50 employees",
+        "yearsInBusiness": "6 years",
+        "employeeGrowth": "Stable growth over the past 3 years, scaling operational and campaign teams to match client acquisition rates.",
+        "revenueEstimate": "Rs.1 Crore - Rs.5 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics",
+          "Yoast SEO"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "Facebook (Active)",
+          "Instagram (Active)"
+        ],
+        "businessCategory": "Marketing Technology & Services",
+        "usp": "Tailored, localized ROI-focused search and performance marketing strategies with high transparency.",
+        "mission": "To help business entities establish and grow a dominant online presence through tailored, innovative marketing tactics.",
+        "vision": "To become Mumbai's premier ROI-driven digital agency known for scalable client transformations.",
+        "extractedKeywords": [
+          "Digital Marketing Agency Mumbai",
+          "Best PPC Company Mumbai",
+          "SEO Services Mumbai"
+        ],
+        "extractedOffers": [
+          "Free Website Consultation",
+          "Complimentary SEO Site Audit"
+        ],
+        "extractedForms": [
+          "Contact Us Form",
+          "Request a Quote Form"
+        ],
+        "extractedCTAs": [
+          "Get a Free Quote",
+          "Talk to Our Experts"
+        ],
+        "customerTypes": [
+          "B2B Enterprises",
+          "E-commerce Retailers",
+          "Local Consumer Services"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Overseeing operational workflows, managing client delivery timelines, optimizing software systems, and driving overall agency profitability.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "High amount of manual hours wasted by strategists on lead generation",
+          "Siloed operational workflows across different client campaigns"
+        ],
+        "dmGoals": [
+          "Reduce project delivery overhead by 25%",
+          "Establish a highly predictable, repeatable internal sales process"
+        ],
+        "dmInterests": [
+          "Business automation",
+          "Workflow optimization",
+          "Agency scale-up strategies"
+        ],
+        "dmPreferredCommunication": "Short email detailing clear ROI and operational metrics",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "With limited sales tech in their primary stack, prospecting and agency client acquisition are heavily reliant on manual tracking and generic outreach."
+          },
+          {
+            "problem": "Poor Automation",
+            "severity": "HIGH",
+            "reasoning": "Relying on basic WordPress forms without integrated lead-routing or nurturing setups suggests significant operational friction and delay in lead follow-ups."
+          }
+        ],
+        "salesOppWhyBuy": "Adopting SalesPilot allows Digital Corsel to transition their sales engine from a reactive inbound model to a proactive, highly scalable outbound system, maximizing conversion rates and expanding their margins.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs.35,000 - Rs.70,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Agency Growth Pilot + custom workflow integration blueprint",
+        "detailedCompetitors": [
+          {
+            "name": "Blink Digital",
+            "marketPosition": "Premium Tier Creative Agency",
+            "differentiation": "Digital Corsel focuses heavily on performance marketing, SEO, and local lead-generation campaigns over pure brand-building creative campaigns.",
+            "strengths": "Strong brand equity, deep corporate roster, premium design execution.",
+            "weaknesses": "Premium pricing model, less accessible to fast-growing mid-market firms.",
+            "potentialOpportunity": "Position as the high-ROI, performance-first alternative that guarantees measurable lead-gen success."
+          }
+        ],
+        "strategyFirstMessage": "Subject: Operational audit for Digital Corsel\n\nHi [Name],\n\nI noticed Digital Corsel is doing great work delivering SEO and PPC campaigns for brands across Mumbai. However, scale-minded agencies often face a silent challenge: high-value managers spending hours manually prospecting and nurturing pipeline opportunities instead of focusing on client delivery.\n\nWe help agencies automate their outbound sales flow, saving up to 15 operational hours per week. \n\nWould you be open to a brief 10-minute workflow discussion to see how SalesPilot can plug directly into your WordPress and GSuite setup to generate verified B2B leads automatically?\n\nBest regards,\n[Your Name]",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Director",
+        "strategyRecommendedOffer": "Complimentary Audit of 100 Verified Local B2B Prospects",
+        "strategyFollowUpSequence": [
+          "Send a brief video walkthrough of SalesPilot's automated pipeline building features specifically customized for agencies.",
+          "Share a quick case study of how a mid-market marketing agency doubled their outbound meeting booking rate while cutting outreach time by 75%."
+        ],
+        "strategyMeetingAngle": "10-minute tactical conversation on optimizing internal sales pipelines and saving team operational hours.",
+        "strategyExpectedObjections": [
+          "We have an internal team handling all our lead generation manually.",
+          "Our current tool stack works well enough for our current volume."
+        ],
+        "strategyObjectionHandling": [
+          "Acknowledge the team's strength, but show how automation acts as an efficiency booster, enabling that same team to yield 5x more output.",
+          "Run a quick calculation showing the direct cost-benefit of replacing manual processes with automated outreach solutions."
+        ],
+        "executiveSummary": "Digital Corsel is a prominent Mumbai-based digital marketing agency specializing in PPC, SEO, and web development, operating within an annual revenue bracket of Rs.1 Crore to Rs.5 Crore. To remain highly competitive, the company must streamline its operations and eliminate manual sales workflows. This report targets the Operations Director, identifying key pain points around high manual prospecting overhead and operational margin leaks. By positioning SalesPilot as an infrastructure automation tool that integrates seamlessly with GSuite and WordPress, we present a highly persuasive, ROI-driven business case that directly appeals to the decision maker's goal of scaling operational efficiency and growing client acquisition.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs.4,20,000 INR ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      }
+    },
+    {
+      "id": "ld_db_1788336934215_47512_vxed",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@digichefs.com",
+      "phone": "089286 33185",
+      "company": "DigiChefs",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 92,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing Agencies",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:16:41.891Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336934215_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:15:34.215Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_gen_1788336934215_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://digichefs.com/, Phone: 089286 33185.",
+          "createdAt": "2026-09-02T08:15:34.215Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://digichefs.com/",
+        "country": "India",
+        "industry": "Marketing Agencies",
+        "companyOverview": "DigiChefs is a well-established performance marketing and creative agency in Mumbai operating in the Rs. 1-5 Crore revenue tier. To maintain healthy profit margins and scale operations efficiently, the agency must move away from manual, inconsistent client acquisition processes. Operations Director is the key decision influencer who values tool consolidation and workflow efficiency. By positioning SalesPilot as an automated growth engine that sources high-intent local enterprise leads, reduces manual prospecting labor, and maintains premium brand standards, we can align perfectly with their operational mandate. Approaching this lead with a value-first model (offering a free, pre-sourced 25-lead sample) will bypass standard gatekeepers and drive a high-conversion meeting.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 19.1096447,
+        "longitude": 72.8817906,
+        "googlePlaceId": "ChIJUZA0HxTI5zsRWcGoWsEMj7E",
+        "address": "3rd Floor, Jai Antariksha, 306, Makwana Rd, Gamdevi, Marol, Andheri East, Mumbai, Maharashtra 400059, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:15:34.215Z",
+      "campaignId": "camp_gen_1788336934215",
+      "researchProfile": {
+        "companySummary": "DigiChefs is an independent high-performance digital marketing and creative agency based in Mumbai, India. They specialize in performance marketing, SEO, social media management, and web development using a metrics-driven client services model. Their positioning centers on delivering tangible ROI and highly creative digital campaigns for growing consumer and B2B brands.",
+        "websiteAnalysis": "DigiChefs relies on a customized WordPress website designed for lead capture, showcasing case studies, and content marketing. The site uses basic contact forms and integrated analytics. A lack of advanced conversational AI or automated scheduling tools on the front end indicates an opportunity to introduce modern lead-capture and pipeline automation tools.",
+        "industryAnalysis": "The boutique digital marketing agency landscape in India is highly competitive and fragmented. Agencies are experiencing margin compression due to rising talent costs and client churn. Successful agencies are shifting toward performance-based pricing models and leveraging automated outbound workflows to maintain a robust, predictable sales pipeline.",
+        "painPoints": [
+          "Manual lead prospecting and outbound outreach workflows leading to inefficient sales team resource allocation.",
+          "Inconsistent pipeline velocity with periods of feast-and-famine client acquisition typical of agency models.",
+          "Heavy reliance on inbound organic and referral traffic, leaving them vulnerable to market fluctuations and search algorithm changes."
+        ],
+        "decisionMakerSummary": "The Operations Director focuses on operational efficiency, profit margins, and team productivity. While they care about growth, their primary driver is ensuring that tools deployed reduce manual work rather than add complexity. They hold high influence over technology purchases that impact day-to-day agency delivery and sales operations.",
+        "businessOpportunities": [
+          "Automate cold outreach and prospective client auditing to pitch performance marketing services to highly qualified local leads.",
+          "Introduce automated multi-channel (Email + LinkedIn) lead generation sequences to scale their agency client acquisition.",
+          "Offer SalesPilot as a white-labeled or managed service value-add to their existing B2B digital marketing clients, creating a new recurring revenue stream."
+        ],
+        "salesAngleSuggestions": [
+          "Scale Agency Revenue Predictably: Pitch SalesPilot as a system that replaces manual lead generation with automated, highly-targeted outbound campaigns, ensuring a steady stream of prospective agency clients without exhausting staff resources.",
+          "Increase Service Margins with AI: Demonstrate how SalesPilot can automate their internal research and prospecting processes, freeing up their account managers to focus on high-value strategy and creative execution."
+        ],
+        "objectionPredictions": [
+          "We are a creative agency; automated outreach might hurt our personalized brand image. (Counter: SalesPilot uses highly personalized, dynamic tokens and custom research algorithms to ensure every touchpoint feels manually written and tailored.)",
+          "Our current sales process is based on personal networks and inbound referrals. (Counter: Transitioning to a hybrid model with SalesPilot protects the agency against sudden inbound drops and actively targets high-value enterprise accounts that do not typically search for agencies online.)"
+        ],
+        "competitorNotes": "DigiChefs competes with other boutique and mid-sized digital agencies in India like WatConsult, Schbang, and regional performance agencies. They differentiate through direct founder involvement and performance marketing focus. To win, position SalesPilot as the unfair pipeline engine that allows them to outbound-target larger, enterprise-level clients that standard search or SEO strategies cannot easily capture.",
+        "buyingSignals": [
+          "Frequent job postings or active hiring for sales, business development, or account management roles to support growth.",
+          "Active updates on their corporate blog and case study section, indicating a push to showcase capability and attract new enterprise accounts."
+        ],
+        "aiInsights": "The absolute best next action to win this account is to approach the Operations Director not with a pitch to buy a software, but with a pre-built campaign of 20 hyper-targeted local B2B companies looking for digital marketing services. Presenting a 'done-for-you' high-intent pipeline audit instantly validates SalesPilot's database capabilities and aligns perfectly with their operational mandate of efficiency and immediate ROI.",
+        "generatedAt": "2026-09-02T08:15:34.215Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "Performance Marketing Packages",
+          "Social Media Management Retainers",
+          "Custom WordPress Development Services"
+        ],
+        "services": [
+          "Search Engine Optimization (SEO)",
+          "Social Media Marketing (SMM)",
+          "Pay-Per-Click Advertising (PPC)"
+        ],
+        "targetCustomers": [
+          "Growing B2B startups seeking lead generation",
+          "Mid-market consumer brands looking for performance marketing",
+          "Local enterprises requiring custom web development"
+        ],
+        "industriesServed": [
+          "E-commerce & Retail",
+          "Real Estate & Hospitality",
+          "Healthcare & B2B Services"
+        ],
+        "businessSize": "20-50 employees",
+        "yearsInBusiness": "8 years",
+        "employeeGrowth": "Stable with selective hiring in client delivery and creative roles.",
+        "revenueEstimate": "Rs.3 Crore - Rs.5 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active updates)",
+          "Instagram (Highly visual culture showcases)",
+          "Facebook (Brand presence)"
+        ],
+        "businessCategory": "Digital Marketing & Agency Services",
+        "usp": "Data-driven creative solutions combining performance media and conversion rate optimization.",
+        "mission": "To craft digital experiences that drive measurable growth and ROI for brands.",
+        "vision": "To become a leading creative and performance marketing agency recognized globally for data-driven results.",
+        "extractedKeywords": [
+          "Digital Marketing Agency Mumbai",
+          "Performance Marketing",
+          "Social Media Agency",
+          "WordPress Web Development"
+        ],
+        "extractedOffers": [
+          "Free Digital Audit",
+          "Inquire for Proposal Form",
+          "Portfolio Download"
+        ],
+        "extractedForms": [
+          "Contact Us Form",
+          "Get a Quote Form",
+          "Careers Application Form"
+        ],
+        "extractedCTAs": [
+          "Let's Talk",
+          "Get Free Audit",
+          "View Our Work"
+        ],
+        "customerTypes": [
+          "Mid-market B2C brands",
+          "B2B service providers",
+          "Local franchise networks"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Optimizing team utilization, managing agency resource allocation, evaluating client delivery tools, and maximizing net profitability margins.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "High employee hours spent on repetitive manual prospecting tasks.",
+          "Unpredictable client delivery timelines due to shifting priorities and manual onboarding procedures."
+        ],
+        "dmGoals": [
+          "Achieve higher operational efficiency and reduce overhead costs.",
+          "Standardize the business development pipeline to guarantee consistent resource utilization."
+        ],
+        "dmInterests": [
+          "Workflow automation tools",
+          "Agency growth strategies",
+          "SaaS tooling for client reporting"
+        ],
+        "dmPreferredCommunication": "Short email with clear metrics and case studies",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "With WhatsApp Business and WordPress as their primary customer touchpoints and no visible enterprise CRM or marketing automation suite, lead tracking and outbound prospecting are highly manual processes."
+          },
+          {
+            "problem": "Slow Growth",
+            "severity": "MEDIUM",
+            "reasoning": "As a service agency, their growth is bottlenecked by manual outreach and referral reliance. Transitioning to automated outbound will unlock predictable client acquisition."
+          }
+        ],
+        "salesOppWhyBuy": "DigiChefs needs to scale their client acquisition cost-effectively to hit higher revenue tiers. Buying SalesPilot allows them to automate cold outreach, build highly qualified prospect databases, and run efficient multi-channel campaigns without hiring expensive full-time sales development representatives.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs.35,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Complimentary outbound pipeline setup + 100 hyper-targeted verified leads audit",
+        "detailedCompetitors": [
+          {
+            "name": "Schbang",
+            "marketPosition": "Market Leader (Mid-to-Large Enterprise Agency)",
+            "differentiation": "DigiChefs positions on closer founder attention, faster execution cycles, and boutique performance focus.",
+            "strengths": "Massive brand presence, large creative team, high-profile clients.",
+            "weaknesses": "High overhead costs, less agile, expensive entry-point for mid-market clients.",
+            "potentialOpportunity": "DigiChefs can win mid-market brands by showing higher ROI efficiency, which SalesPilot can supercharge."
+          }
+        ],
+        "strategyFirstMessage": "Hi [Name],\n\nI noticed DigiChefs has been delivering great performance marketing campaigns across Mumbai. However, managing steady client acquisition often consumes significant operational hours when done manually.\n\nWe built SalesPilot to help high-growth agencies automate their outbound prospecting. I actually ran a quick scan for DigiChefs and found 25 mid-market consumer brands in your region that match your ideal client profile and are actively looking for agency support.\n\nCan I send over this list of 25 leads as a free sample of how SalesPilot can automate your pipeline?\n\nBest regards,\n[Your Name]",
+        "strategyOutreachChannel": "LinkedIn Message",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Free sample list of 25 hyper-targeted local B2B warm prospects",
+        "strategyFollowUpSequence": [
+          "Follow up via Email: Share a case study of another agency that increased their booking rate by 3x using SalesPilot's automated outbound tool.",
+          "Follow up via LinkedIn: Send a 1-minute video walkthrough showing how quickly SalesPilot generates targeted contact data for local enterprise targets."
+        ],
+        "strategyMeetingAngle": "A brief 15-minute call to hand over the 25 free high-intent leads and demonstrate how your team can automate this daily.",
+        "strategyExpectedObjections": [
+          "Our current lead flow is sufficient from inbound channels.",
+          "We don't want cold outreach to dilute our premium agency brand."
+        ],
+        "strategyObjectionHandling": [
+          "Emphasize that outbound is an insurance policy against inbound drops, letting them choose only premium, high-margin dream accounts.",
+          "Demonstrate the absolute high personalization engine of SalesPilot which prevents spammy, low-quality outreach."
+        ],
+        "executiveSummary": "DigiChefs is a well-established performance marketing and creative agency in Mumbai operating in the Rs. 1-5 Crore revenue tier. To maintain healthy profit margins and scale operations efficiently, the agency must move away from manual, inconsistent client acquisition processes. Operations Director is the key decision influencer who values tool consolidation and workflow efficiency. By positioning SalesPilot as an automated growth engine that sources high-intent local enterprise leads, reduces manual prospecting labor, and maintains premium brand standards, we can align perfectly with their operational mandate. Approaching this lead with a value-first model (offering a free, pre-sourced 25-lead sample) will bypass standard gatekeepers and drive a high-conversion meeting.",
+        "insightsHotnessScore": 92,
+        "insightsBuyingIntent": "HIGH",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs.4,20,000 INR ARR",
+        "insightsReplyProbability": 75,
+        "insightsMeetingProbability": 60,
+        "insightsConversionProbability": 45
+      },
+      "researchStatus": "RESEARCHING",
+      "researchProgress": 95,
+      "researchStatusText": "Compiling final executive business dossier..."
+    },
+    {
+      "id": "ld_db_1788336910531_13622_ya6i",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@techinfinity.io",
+      "phone": "098333 88717",
+      "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 86,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing Agencies",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:16:34.720Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336910531_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:15:10.531Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_research_1788336994720",
+          "event": "AI Research Report Created",
+          "details": "Automatic comprehensive business intelligence report generated successfully.",
+          "createdAt": "2026-09-02T08:16:34.720Z"
+        },
+        {
+          "id": "tl_gen_1788336910531_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic, Phone: 098333 88717.",
+          "createdAt": "2026-09-02T08:15:10.531Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
+        "country": "India",
+        "industry": "Marketing Agencies",
+        "companyOverview": "Techinfinity is a successful mid-sized creative digital agency in Mumbai, generating between Rs. 1 Crore and Rs. 5 Crore INR annually. However, an analysis of their tech stack reveals critical operational inefficiencies: they utilize WordPress and WhatsApp Business but lack a centralized systems automation layer. This forces their team into manual data transfer, leading to lead leaks and delayed client acquisition response times. By reaching out to the Operations Director with SalesPilot's localized, easy-to-integrate agency automation suite, we can position our solution as an essential utility to streamline creative project delivery, eliminate administrative sales burdens, and scale their client pipeline systematically.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 18.9572775,
+        "longitude": 72.820308,
+        "googlePlaceId": "ChIJB4LCrdvO5zsRVjS1r0ENa0M",
+        "address": "Ground Floor, Edwankar House, Nawalkar Lane, Raja Ram Mohan Roy Rd, Prathna Samaj, Khetwadi, Girgaon, Mumbai, Maharashtra 400004, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:15:10.531Z",
+      "campaignId": "camp_gen_1788336910531",
+      "researchProfile": {
+        "companySummary": "Techinfinity is a boutique digital creative and marketing agency based in Mumbai, India. They specialize in offering comprehensive 360-degree digital solutions, custom WordPress development, and social media marketing to mid-market enterprises and SMEs. Their business model relies on retainer-based and project-based agency services designed to scale brand visibility and digital infrastructure.",
+        "websiteAnalysis": "Techinfinity's digital footprint is built primarily on WordPress, indicating a focus on content management and agile web development. Their current setup relies on GSuite for communication and a WhatsApp Business widget for direct customer engagement, highlighting a preference for localized, high-touch client communication but showing a gap in automated, enterprise-grade CRM or lead scoring tools.",
+        "industryAnalysis": "The digital marketing and creative agency landscape in Mumbai is intensely competitive and highly fragmented. With low barriers to entry, agencies face persistent fee compression and client churn, making automated outbound systems and high-ticket client acquisition essential strategies for sustainable growth and margin protection.",
+        "painPoints": [
+          "High dependency on word-of-mouth and manual networking, resulting in unpredictable pipeline flow and revenue volatility.",
+          "Manual overhead in outbound sales processes, exhausting internal leadership resources on slow-moving cold prospecting.",
+          "Difficulty in consistently securing premium, high-ticket retainers to offset the lower margins of standard WordPress web development projects."
+        ],
+        "decisionMakerSummary": "The Operations Director manages agency service delivery, project resource allocation, and tool integrations. Their primary focus is keeping creative and technical teams at optimal billable capacity while eliminating manual, non-revenue-generating tasks from the agency's daily workflow.",
+        "businessOpportunities": [
+          "Developing an automated outbound acquisition program to target high-intent B2B clients across premium sectors like Real Estate and E-commerce.",
+          "Packaging digital outbound outreach as an auxiliary, white-labeled service to offer to their existing creative marketing clients.",
+          "Standardizing their pipeline tools by integrating automated sales workflows directly with GSuite to maximize sales productivity."
+        ],
+        "salesAngleSuggestions": [
+          "Pitching SalesPilot as a fully automated outbound machine that runs in the background of their GSuite setup, bringing in qualified enterprise leads without needing a dedicated, expensive business development team.",
+          "Positioning SalesPilot as an 'operational efficiency' engine that stabilizes team utilization rates by keeping a steady flow of high-value digital marketing retainers coming in."
+        ],
+        "objectionPredictions": [
+          "We don't have enough internal bandwidth to learn and manage another software platform. -> Counter: SalesPilot operates with a low-friction setup, takes less than 15 minutes to integrate with GSuite, and automates lead sourcing with minimal maintenance.",
+          "Our creative business relies entirely on personalized relationships, and cold outreach won't represent our brand correctly. -> Counter: SalesPilot utilizes advanced personalization algorithms to ensure every touchpoint feels highly bespoke and tailored to local enterprise decision-makers."
+        ],
+        "competitorNotes": "Techinfinity competes with a large array of local digital agencies in Mumbai, such as Schbang and WatConsult. While larger competitors dominate massive enterprise brand budgets, Techinfinity can leverage SalesPilot to rapidly target and capture the fast-growing mid-market segment with highly agile and customized outbound offerings.",
+        "buyingSignals": [
+          "Utilization of WhatsApp Business highlights an active focus on optimizing client touchpoints and adopting modern, direct communication channels.",
+          "Operating in the Rs.1 Crore - Rs.5 Crore revenue bracket, a classic scaling phase where manual lead gen bottlenecks prevent crossing into the enterprise tier."
+        ],
+        "aiInsights": "The ideal entry point is targeting the Operations Director's desire to eliminate the 'feast-or-famine' billing cycle. Focus the pitch on automating prospecting into Mumbai's premium real estate and consumer goods sectors, showing they can reliably book high-margin retainers using GSuite automation without increasing operational overhead.",
+        "generatedAt": "2026-09-02T08:16:08.376Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "Custom WordPress Web Portals",
+          "Social Media Campaign Packages",
+          "Search Engine Optimization Retainers"
+        ],
+        "services": [
+          "Creative Digital Marketing",
+          "WordPress Development & Maintenance",
+          "Social Media & Content Strategy"
+        ],
+        "targetCustomers": [
+          "Mumbai-based Real Estate Developers",
+          "Mid-market Indian Retail Brands",
+          "Local Service Providers and Healthcare Clinics"
+        ],
+        "industriesServed": [
+          "Real Estate",
+          "Retail & Consumer Goods",
+          "Professional Services"
+        ],
+        "businessSize": "15-50 employees",
+        "yearsInBusiness": "6 years",
+        "employeeGrowth": "Stable growth with selective hiring of creative and technical web developers.",
+        "revenueEstimate": "Rs.1 Crore - Rs.5 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active company page)",
+          "Instagram (High activity showcasing creative portfolios)",
+          "Facebook (Moderate updates)"
+        ],
+        "businessCategory": "Digital Marketing & Creative Services",
+        "usp": "Delivering high-touch, localized creative marketing and technical WordPress integrations for mid-market brands seeking rapid digital growth.",
+        "mission": "To craft impactful digital and creative experiences that drive tangible engagement and sales for our partners.",
+        "vision": "To become Mumbai's premier boutique agency, bridging the gap between high-level creative concepts and agile digital execution.",
+        "extractedKeywords": [
+          "Best Digital Creative Marketing Agency Mumbai",
+          "WordPress Development Mumbai",
+          "Creative Marketing Services India"
+        ],
+        "extractedOffers": [
+          "Free Website & SEO Audit",
+          "Complimentary Social Media Evaluation"
+        ],
+        "extractedForms": [
+          "Contact Page Form",
+          "WhatsApp Live Chat Widget"
+        ],
+        "extractedCTAs": [
+          "Contact Us",
+          "Let's Connect on WhatsApp"
+        ],
+        "customerTypes": [
+          "B2B Mid-Market Enterprises",
+          "B2C D2C Brands",
+          "Regional Developers"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Optimizing delivery timelines, managing creative/technical resource allocations, upgrading internal operational tech stack, and reducing agency overhead.",
+        "dmBuyingAuthority": "HIGH",
+        "dmPainPoints": [
+          "Erratic developer utilization rates caused by inconsistent, non-automated pipeline scheduling.",
+          "Wasted team hours spent manually parsing and qualifying unstructured leads from website forms."
+        ],
+        "dmGoals": [
+          "Build a highly predictable client acquisition framework that stabilizes project scheduling.",
+          "Minimize non-billable operational time spent on administrative cold outreach."
+        ],
+        "dmInterests": [
+          "Workflow Automation",
+          "Agency Scale Optimization",
+          "CRM & Cold Outreach Best Practices"
+        ],
+        "dmPreferredCommunication": "Short, data-driven email focusing on billable resource optimization and ROI.",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "The company relies heavily on WordPress contact forms and WhatsApp widgets without an active, automated outbound engine, leaving them vulnerable to market shifts."
+          },
+          {
+            "problem": "Slow Growth",
+            "severity": "MEDIUM",
+            "reasoning": "Sustaining scaling in a highly fragmented agency market requires an outbound engine to secure high-ticket retainers; manual sourcing limits their upward capacity."
+          }
+        ],
+        "salesOppWhyBuy": "Techinfinity must secure predictable retainer-based accounts to scale past the Rs. 5 Crore mark. SalesPilot automates high-intent lead generation directly inside their current GSuite setup, saving dozens of operational hours and optimizing resource utilization.",
+        "salesOppRecommendedProduct": "SalesPilot Agency Growth Suite",
+        "salesOppScore": 88,
+        "salesOppBudgetRange": "Rs.25,000 - Rs.40,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Complimentary setup of a customized outbound pilot targeting 200 premium Mumbai-based businesses",
+        "detailedCompetitors": [
+          {
+            "name": "Schbang",
+            "marketPosition": "Market Leader",
+            "differentiation": "Techinfinity targets regional mid-market clients with agile, highly personalized design solutions and cost-effective pricing models.",
+            "strengths": "Massive enterprise brand portfolio, large agency headcount, national presence.",
+            "weaknesses": "High cost structures, slower project turnarounds, less customized attention for mid-market clients.",
+            "potentialOpportunity": "Position as a highly responsive and integrated growth partner for fast-scaling mid-tier companies."
+          }
+        ],
+        "strategyFirstMessage": "Subject: Unpredictable pipelines and team utilization at Techinfinity\n\nHi,\n\nI love the creative digital work your team is delivering across Mumbai. \n\nAs Operations Director, one of the toughest challenges in running an agency is keeping creative and dev teams 100% billable without burning them out when client work fluctuates. Most agency ops leaders tell us they waste 15+ hours a week manually chasing new leads or dealing with sudden lulls in client projects.\n\nWe built SalesPilot to solve this. It integrates directly with GSuite to automate cold prospecting to high-ticket clients, keeping your pipeline full so your team stays 100% billable.\n\nWould you be open to a brief 10-minute chat next Tuesday to see how we can drop 5-10 qualified mid-market opportunities into your pipeline monthly without increasing your operational headcount?\n\nBest,\n[Your Name]",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Manager",
+        "strategyRecommendedOffer": "Free automated lead audit providing 150 verified contacts in their ideal client demographic",
+        "strategyFollowUpSequence": [
+          "LinkedIn Connection Request: Focus on sharing insights about agency utilization rates and workflow automation.",
+          "Follow-up Email: Case study highlighting how a similar digital agency used SalesPilot to secure three high-value marketing retainers within 60 days.",
+          "Value-Add Check-in: Send a pre-curated list of 10 high-intent enterprise prospects in Mumbai seeking digital services."
+        ],
+        "strategyMeetingAngle": "A tactical 10-minute workflow review on how automated outbound client acquisition stabilizes agency resource scheduling and drives consistent revenue.",
+        "strategyExpectedObjections": [
+          "We do not have the internal bandwidth to run cold outreach campaigns.",
+          "We rely primarily on word-of-mouth and inbound referrals for agency growth."
+        ],
+        "strategyObjectionHandling": [
+          "SalesPilot runs as an automated background process requiring less than 2 hours of oversight a week, acting like a virtual BDM.",
+          "We don't replace word-of-mouth; we scale it by targeting corporate decision-makers with personalized campaigns that replicate warm introductions."
+        ],
+        "executiveSummary": "Techinfinity is a highly capable digital and creative marketing agency based in Mumbai, currently operating within the Rs. 1 Crore to Rs. 5 Crore revenue bracket. Utilizing essential tools like WordPress, GSuite, and WhatsApp Business, their lead acquisition is primarily manual and reactive. To scale and secure high-ticket retainers, they must build a predictable, automated outbound sales function. This report details how SalesPilot can integrate into their existing GSuite infrastructure to run targeted B2B client acquisition campaigns. By aligning with the Operations Director's core focus of optimizing developer utilization and agency bandwidth, SalesPilot provides a scalable, low-maintenance solution that removes the volatility from their pipeline and positions the agency for significant ARR growth.",
+        "insightsHotnessScore": 86,
+        "insightsBuyingIntent": "MEDIUM",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs.3,60,000 INR ARR",
+        "insightsReplyProbability": 72,
+        "insightsMeetingProbability": 58,
+        "insightsConversionProbability": 42
+      },
+      "researchStatus": "COMPLETED",
+      "researchProgress": 100,
+      "researchStatusText": "Research Completed successfully",
+      "researchHistory": [
+        {
+          "companySummary": "Techinfinity is a boutique digital creative and marketing agency based in Mumbai, India. They specialize in offering comprehensive 360-degree digital solutions, custom WordPress development, and social media marketing to mid-market enterprises and SMEs. Their business model relies on retainer-based and project-based agency services designed to scale brand visibility and digital infrastructure.",
+          "websiteAnalysis": "Techinfinity's digital footprint is built primarily on WordPress, indicating a focus on content management and agile web development. Their current setup relies on GSuite for communication and a WhatsApp Business widget for direct customer engagement, highlighting a preference for localized, high-touch client communication but showing a gap in automated, enterprise-grade CRM or lead scoring tools.",
+          "industryAnalysis": "The digital marketing and creative agency landscape in Mumbai is intensely competitive and highly fragmented. With low barriers to entry, agencies face persistent fee compression and client churn, making automated outbound systems and high-ticket client acquisition essential strategies for sustainable growth and margin protection.",
+          "painPoints": [
+            "High dependency on word-of-mouth and manual networking, resulting in unpredictable pipeline flow and revenue volatility.",
+            "Manual overhead in outbound sales processes, exhausting internal leadership resources on slow-moving cold prospecting.",
+            "Difficulty in consistently securing premium, high-ticket retainers to offset the lower margins of standard WordPress web development projects."
+          ],
+          "decisionMakerSummary": "The Operations Director manages agency service delivery, project resource allocation, and tool integrations. Their primary focus is keeping creative and technical teams at optimal billable capacity while eliminating manual, non-revenue-generating tasks from the agency's daily workflow.",
+          "businessOpportunities": [
+            "Developing an automated outbound acquisition program to target high-intent B2B clients across premium sectors like Real Estate and E-commerce.",
+            "Packaging digital outbound outreach as an auxiliary, white-labeled service to offer to their existing creative marketing clients.",
+            "Standardizing their pipeline tools by integrating automated sales workflows directly with GSuite to maximize sales productivity."
+          ],
+          "salesAngleSuggestions": [
+            "Pitching SalesPilot as a fully automated outbound machine that runs in the background of their GSuite setup, bringing in qualified enterprise leads without needing a dedicated, expensive business development team.",
+            "Positioning SalesPilot as an 'operational efficiency' engine that stabilizes team utilization rates by keeping a steady flow of high-value digital marketing retainers coming in."
+          ],
+          "objectionPredictions": [
+            "We don't have enough internal bandwidth to learn and manage another software platform. -> Counter: SalesPilot operates with a low-friction setup, takes less than 15 minutes to integrate with GSuite, and automates lead sourcing with minimal maintenance.",
+            "Our creative business relies entirely on personalized relationships, and cold outreach won't represent our brand correctly. -> Counter: SalesPilot utilizes advanced personalization algorithms to ensure every touchpoint feels highly bespoke and tailored to local enterprise decision-makers."
+          ],
+          "competitorNotes": "Techinfinity competes with a large array of local digital agencies in Mumbai, such as Schbang and WatConsult. While larger competitors dominate massive enterprise brand budgets, Techinfinity can leverage SalesPilot to rapidly target and capture the fast-growing mid-market segment with highly agile and customized outbound offerings.",
+          "buyingSignals": [
+            "Utilization of WhatsApp Business highlights an active focus on optimizing client touchpoints and adopting modern, direct communication channels.",
+            "Operating in the Rs.1 Crore - Rs.5 Crore revenue bracket, a classic scaling phase where manual lead gen bottlenecks prevent crossing into the enterprise tier."
+          ],
+          "aiInsights": "The ideal entry point is targeting the Operations Director's desire to eliminate the 'feast-or-famine' billing cycle. Focus the pitch on automating prospecting into Mumbai's premium real estate and consumer goods sectors, showing they can reliably book high-margin retainers using GSuite automation without increasing operational overhead.",
+          "generatedAt": "2026-09-02T08:16:08.376Z",
+          "businessModel": "Client Services Agency",
+          "products": [
+            "Custom WordPress Web Portals",
+            "Social Media Campaign Packages",
+            "Search Engine Optimization Retainers"
+          ],
+          "services": [
+            "Creative Digital Marketing",
+            "WordPress Development & Maintenance",
+            "Social Media & Content Strategy"
+          ],
+          "targetCustomers": [
+            "Mumbai-based Real Estate Developers",
+            "Mid-market Indian Retail Brands",
+            "Local Service Providers and Healthcare Clinics"
+          ],
+          "industriesServed": [
+            "Real Estate",
+            "Retail & Consumer Goods",
+            "Professional Services"
+          ],
+          "businessSize": "15-50 employees",
+          "yearsInBusiness": "6 years",
+          "employeeGrowth": "Stable growth with selective hiring of creative and technical web developers.",
+          "revenueEstimate": "Rs.1 Crore - Rs.5 Crore INR",
+          "techStack": [
+            "WordPress",
+            "GSuite",
+            "WhatsApp Business",
+            "Google Analytics"
+          ],
+          "socialPresence": [
+            "LinkedIn (Active company page)",
+            "Instagram (High activity showcasing creative portfolios)",
+            "Facebook (Moderate updates)"
+          ],
+          "businessCategory": "Digital Marketing & Creative Services",
+          "usp": "Delivering high-touch, localized creative marketing and technical WordPress integrations for mid-market brands seeking rapid digital growth.",
+          "mission": "To craft impactful digital and creative experiences that drive tangible engagement and sales for our partners.",
+          "vision": "To become Mumbai's premier boutique agency, bridging the gap between high-level creative concepts and agile digital execution.",
+          "extractedKeywords": [
+            "Best Digital Creative Marketing Agency Mumbai",
+            "WordPress Development Mumbai",
+            "Creative Marketing Services India"
+          ],
+          "extractedOffers": [
+            "Free Website & SEO Audit",
+            "Complimentary Social Media Evaluation"
+          ],
+          "extractedForms": [
+            "Contact Page Form",
+            "WhatsApp Live Chat Widget"
+          ],
+          "extractedCTAs": [
+            "Contact Us",
+            "Let's Connect on WhatsApp"
+          ],
+          "customerTypes": [
+            "B2B Mid-Market Enterprises",
+            "B2C D2C Brands",
+            "Regional Developers"
+          ],
+          "dmName": "Operations Manager",
+          "dmRole": "Operations Director",
+          "dmDepartment": "Operations",
+          "dmResponsibilities": "Optimizing delivery timelines, managing creative/technical resource allocations, upgrading internal operational tech stack, and reducing agency overhead.",
+          "dmBuyingAuthority": "HIGH",
+          "dmPainPoints": [
+            "Erratic developer utilization rates caused by inconsistent, non-automated pipeline scheduling.",
+            "Wasted team hours spent manually parsing and qualifying unstructured leads from website forms."
+          ],
+          "dmGoals": [
+            "Build a highly predictable client acquisition framework that stabilizes project scheduling.",
+            "Minimize non-billable operational time spent on administrative cold outreach."
+          ],
+          "dmInterests": [
+            "Workflow Automation",
+            "Agency Scale Optimization",
+            "CRM & Cold Outreach Best Practices"
+          ],
+          "dmPreferredCommunication": "Short, data-driven email focusing on billable resource optimization and ROI.",
+          "dmInfluenceScore": 85,
+          "predictedProblems": [
+            {
+              "problem": "Manual Sales",
+              "severity": "HIGH",
+              "reasoning": "The company relies heavily on WordPress contact forms and WhatsApp widgets without an active, automated outbound engine, leaving them vulnerable to market shifts."
+            },
+            {
+              "problem": "Slow Growth",
+              "severity": "MEDIUM",
+              "reasoning": "Sustaining scaling in a highly fragmented agency market requires an outbound engine to secure high-ticket retainers; manual sourcing limits their upward capacity."
+            }
+          ],
+          "salesOppWhyBuy": "Techinfinity must secure predictable retainer-based accounts to scale past the Rs. 5 Crore mark. SalesPilot automates high-intent lead generation directly inside their current GSuite setup, saving dozens of operational hours and optimizing resource utilization.",
+          "salesOppRecommendedProduct": "SalesPilot Agency Growth Suite",
+          "salesOppScore": 88,
+          "salesOppBudgetRange": "Rs.25,000 - Rs.40,000 INR per month",
+          "salesOppTimeline": "Immediate (1-3 months)",
+          "salesOppPriorityLevel": "HIGH",
+          "salesOppRecommendedOffer": "Complimentary setup of a customized outbound pilot targeting 200 premium Mumbai-based businesses",
+          "detailedCompetitors": [
+            {
+              "name": "Schbang",
+              "marketPosition": "Market Leader",
+              "differentiation": "Techinfinity targets regional mid-market clients with agile, highly personalized design solutions and cost-effective pricing models.",
+              "strengths": "Massive enterprise brand portfolio, large agency headcount, national presence.",
+              "weaknesses": "High cost structures, slower project turnarounds, less customized attention for mid-market clients.",
+              "potentialOpportunity": "Position as a highly responsive and integrated growth partner for fast-scaling mid-tier companies."
+            }
+          ],
+          "strategyFirstMessage": "Subject: Unpredictable pipelines and team utilization at Techinfinity\n\nHi,\n\nI love the creative digital work your team is delivering across Mumbai. \n\nAs Operations Director, one of the toughest challenges in running an agency is keeping creative and dev teams 100% billable without burning them out when client work fluctuates. Most agency ops leaders tell us they waste 15+ hours a week manually chasing new leads or dealing with sudden lulls in client projects.\n\nWe built SalesPilot to solve this. It integrates directly with GSuite to automate cold prospecting to high-ticket clients, keeping your pipeline full so your team stays 100% billable.\n\nWould you be open to a brief 10-minute chat next Tuesday to see how we can drop 5-10 qualified mid-market opportunities into your pipeline monthly without increasing your operational headcount?\n\nBest,\n[Your Name]",
+          "strategyOutreachChannel": "Email",
+          "strategyBestContactPerson": "Operations Manager",
+          "strategyRecommendedOffer": "Free automated lead audit providing 150 verified contacts in their ideal client demographic",
+          "strategyFollowUpSequence": [
+            "LinkedIn Connection Request: Focus on sharing insights about agency utilization rates and workflow automation.",
+            "Follow-up Email: Case study highlighting how a similar digital agency used SalesPilot to secure three high-value marketing retainers within 60 days.",
+            "Value-Add Check-in: Send a pre-curated list of 10 high-intent enterprise prospects in Mumbai seeking digital services."
+          ],
+          "strategyMeetingAngle": "A tactical 10-minute workflow review on how automated outbound client acquisition stabilizes agency resource scheduling and drives consistent revenue.",
+          "strategyExpectedObjections": [
+            "We do not have the internal bandwidth to run cold outreach campaigns.",
+            "We rely primarily on word-of-mouth and inbound referrals for agency growth."
+          ],
+          "strategyObjectionHandling": [
+            "SalesPilot runs as an automated background process requiring less than 2 hours of oversight a week, acting like a virtual BDM.",
+            "We don't replace word-of-mouth; we scale it by targeting corporate decision-makers with personalized campaigns that replicate warm introductions."
+          ],
+          "executiveSummary": "Techinfinity is a highly capable digital and creative marketing agency based in Mumbai, currently operating within the Rs. 1 Crore to Rs. 5 Crore revenue bracket. Utilizing essential tools like WordPress, GSuite, and WhatsApp Business, their lead acquisition is primarily manual and reactive. To scale and secure high-ticket retainers, they must build a predictable, automated outbound sales function. This report details how SalesPilot can integrate into their existing GSuite infrastructure to run targeted B2B client acquisition campaigns. By aligning with the Operations Director's core focus of optimizing developer utilization and agency bandwidth, SalesPilot provides a scalable, low-maintenance solution that removes the volatility from their pipeline and positions the agency for significant ARR growth.",
+          "insightsHotnessScore": 86,
+          "insightsBuyingIntent": "MEDIUM",
+          "insightsUrgency": "MEDIUM",
+          "insightsRevenuePotential": "Rs.3,60,000 INR ARR",
+          "insightsReplyProbability": 72,
+          "insightsMeetingProbability": 58,
+          "insightsConversionProbability": 42
+        }
+      ]
+    },
+    {
+      "id": "ld_db_1788336883229_34599_gth7",
+      "firstName": "Operations",
+      "lastName": "Manager",
+      "email": "contact@digitalcorsel.com",
+      "phone": "080885 50055",
+      "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
+      "title": "Operations Director",
+      "status": "NEW",
+      "leadScore": "Very Hot",
+      "confidenceScore": 85,
+      "scoreReason": "Real business sourced via Google Places API (New). Location and Website validated.",
+      "tags": [
+        "Google Places API (New) Sourced",
+        "Marketing Agencies",
+        "Mumbai"
+      ],
+      "lastUpdated": "2026-09-02T08:16:00.411Z",
+      "notesList": [],
+      "tasksList": [
+        {
+          "id": "t_gen_1788336883229_1",
+          "text": "Initiate Google Places API (New) outreach sequence",
+          "completed": false,
+          "dueDate": "2026-09-03T08:14:43.229Z"
+        }
+      ],
+      "timelineList": [
+        {
+          "id": "tl_research_1788336960411",
+          "event": "AI Research Report Created",
+          "details": "Automatic comprehensive business intelligence report generated successfully.",
+          "createdAt": "2026-09-02T08:16:00.411Z"
+        },
+        {
+          "id": "tl_gen_1788336883229_1",
+          "event": "Sourced via Google Places API (New)",
+          "details": "Real business verified on Google Places API (New). Website: https://digitalcorsel.com/mumbai/, Phone: 080885 50055.",
+          "createdAt": "2026-09-02T08:14:43.229Z"
+        }
+      ],
+      "enrichment": {
+        "companySize": "11-50 employees",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business"
+        ],
+        "fundingRound": "Bootstrapped",
+        "annualRevenue": "Rs.1 Crore - Rs.5 Crore",
+        "website": "https://digitalcorsel.com/mumbai/",
+        "country": "India",
+        "industry": "Marketing Agencies",
+        "companyOverview": "Digital Corsel is a boutique performance marketing agency based in Mumbai, generating Rs. 1-5 Crore in annual revenue. Their operational framework is currently manual-heavy, relying on basic tools like GSuite and WhatsApp. By introducing SalesPilot to their Operations Director, we address two massive needs: expanding their own client base with zero research overhead, and empowering them with a platform they can use to pitch cold outreach solutions to their clients. Approaching with a pre-sourced list of local Mumbai targets immediately overcomes friction, positioning SalesPilot as an essential margin-saving asset.",
+        "painPoints": [
+          "Local discovery friction",
+          "Customer contact automation"
+        ],
+        "whyGoodProspect": "Verified business with active validated online footprint.",
+        "decisionMakerInfo": "Operations leadership with procurement authority.",
+        "socialLinks": [],
+        "latitude": 19.122890599999998,
+        "longitude": 72.8627781,
+        "googlePlaceId": "ChIJNe7euiLJ5zsRtI_P61M6zdI",
+        "address": "Brahans Business Park, 303, Paper Box Rd, M.I.D.C, Radha Krishna Nagar, Aghadi Nagar, Andheri East, Mumbai, Maharashtra 400093, India"
+      },
+      "source": "Google Places API (New)",
+      "provider": "Google Places API (New)",
+      "createdAt": "2026-09-02T08:14:43.229Z",
+      "campaignId": "camp_gen_1788336883229",
+      "researchProfile": {
+        "companySummary": "Digital Corsel is a boutique digital marketing and search engine optimization agency based in Mumbai, India. The company operates on a client services business model, specializing in driving organic traffic, PPC campaigns, and social media marketing for local and regional SMEs. They position themselves as a high-ROI performance marketing partner offering transparent, result-oriented digital solutions.",
+        "websiteAnalysis": "Their digital presence is built primarily on a WordPress platform optimized for localized SEO performance marketing keywords in Mumbai. While their frontend is optimized for inbound inquiries via forms and WhatsApp Business, they currently lack advanced CRM integrations, automated marketing workflows, or specialized outbound sales tooling.",
+        "industryAnalysis": "The digital marketing agency landscape in Mumbai is saturated and highly price-sensitive, forcing agencies to constantly combat client churn, demonstrate immediate ROI, and scale their client acquisition models cost-effectively to maintain operational margins.",
+        "painPoints": [
+          "High reliance on word-of-mouth and manual inbound leads, leading to inconsistent revenue pipelines.",
+          "Manual prospecting workflows for client acquisition, consuming excessive hours from account managers and sales reps.",
+          "Difficulty in targeting and securing high-value, long-term enterprise clients over local boutique businesses."
+        ],
+        "decisionMakerSummary": "The Operations Director is responsible for client service delivery, resource utilization, and internal workflow efficiency. They are highly motivated to adopt tools that eliminate manual task redundancy, improve staff productivity, and keep overhead costs predictable.",
+        "businessOpportunities": [
+          "Scale internal agency lead generation by deploying an automated outbound engine targeted at high-value B2B niches.",
+          "Productize outbound sales as a new service line for their existing clients by leveraging SalesPilot's system.",
+          "Automate localized list-building workflows for their PPC and SEO client strategy teams."
+        ],
+        "salesAngleSuggestions": [
+          "The Operational Efficiency Angle: Pitching SalesPilot as a direct way to save their internal account managers over 15 hours a week in manual prospecting.",
+          "The High-Ticket Pipeline Angle: Positioning SalesPilot as the predictability engine needed to step away from low-ticket local SEO clients and land high-paying B2B enterprise retainers."
+        ],
+        "objectionPredictions": [
+          "Objection: 'We rely on organic search and inbound channels for our clients and ourselves.' Counter: Explain that while inbound is passive, automated outbound allows them to choose their dream enterprise accounts proactively.",
+          "Objection: 'We have limited bandwidth to set up and learn a new platform.' Counter: Emphasize SalesPilot's fully managed onboarding, templates, and seamless integration with their existing GSuite setup."
+        ],
+        "competitorNotes": "They likely compete with hundreds of local agencies in Mumbai using manual cold calling or basic LinkedIn scraping. SalesPilot's multi-channel automation and precise AI personalization give them an unfair speed and quality advantage.",
+        "buyingSignals": [
+          "Heavy usage of WhatsApp Business indicating a commitment to conversational sales and fast-response engagement models.",
+          "Consistent optimization for high-competition local marketing keywords, pointing to aggressive local competition and a critical need for alternative lead channels."
+        ],
+        "aiInsights": "The optimal path to winning this account is approaching the Operations Director with an efficiency-led value proposition. Since agency margins are heavily constrained by manual labor hours, presenting a live, pre-built target list of 50 local enterprise prospects they can reach via SalesPilot instantly validates the product's immediate ROI and time-saving capabilities.",
+        "generatedAt": "2026-09-02T08:15:36.867Z",
+        "businessModel": "Client Services Agency",
+        "products": [
+          "Local SEO Retainers",
+          "PPC Setup & Management",
+          "Social Media Branding Packages"
+        ],
+        "services": [
+          "Search Engine Optimization (SEO)",
+          "Pay-Per-Click (PPC) Advertising",
+          "Social Media Marketing (SMM)"
+        ],
+        "targetCustomers": [
+          "Local SMEs in Mumbai",
+          "E-commerce Brands in India",
+          "Professional Service Providers"
+        ],
+        "industriesServed": [
+          "Real Estate",
+          "Healthcare & Wellness",
+          "Retail & Consumer Goods"
+        ],
+        "businessSize": "11-50 employees",
+        "yearsInBusiness": "6 years",
+        "employeeGrowth": "Stable with moderate growth in digital marketing specialists and client account executives.",
+        "revenueEstimate": "Rs. 1 Crore - Rs. 5 Crore INR",
+        "techStack": [
+          "WordPress",
+          "GSuite",
+          "WhatsApp Business",
+          "Google Analytics",
+          "Yoast SEO"
+        ],
+        "socialPresence": [
+          "LinkedIn (Active)",
+          "Facebook (Active)",
+          "Instagram (Active)"
+        ],
+        "businessCategory": "Digital Marketing & Advertising Agency",
+        "usp": "Data-driven and highly transparent digital marketing strategies tailored specifically to scale local Mumbai businesses.",
+        "mission": "To provide highly targeted and cost-effective digital marketing solutions that yield visible and measurable ROI for growing businesses.",
+        "vision": "To become a premiere performance marketing agency in Western India known for operational excellence and customer satisfaction.",
+        "extractedKeywords": [
+          "Best Digital Marketing Agency in Mumbai",
+          "SEO Company Mumbai",
+          "PPC Services Mumbai",
+          "Digital Corsel"
+        ],
+        "extractedOffers": [
+          "Free Website Audit",
+          "Get a Free Quote"
+        ],
+        "extractedForms": [
+          "Request a Callback Form",
+          "Free Audit Request Form"
+        ],
+        "extractedCTAs": [
+          "Get Free Audit",
+          "Contact Us",
+          "Submit Inquiry"
+        ],
+        "customerTypes": [
+          "SMEs",
+          "E-commerce Companies",
+          "B2B Professional Services"
+        ],
+        "dmName": "Operations Manager",
+        "dmRole": "Operations Director",
+        "dmDepartment": "Operations",
+        "dmResponsibilities": "Streamlining internal agency workflows, managing technology procurement, tracking profit margins, and managing agency-client execution cycles.",
+        "dmBuyingAuthority": "MEDIUM",
+        "dmPainPoints": [
+          "Wasted agency hours spent by team members manually collecting lead lists.",
+          "Unpredictable pipeline causing resource planning and agency scaling difficulties."
+        ],
+        "dmGoals": [
+          "Establish structured, automated client acquisition and business workflows.",
+          "Increase employee output and billable-hour efficiency across the agency."
+        ],
+        "dmInterests": [
+          "B2B Automation Technology",
+          "Workflow optimization methodologies",
+          "Agency scale structures"
+        ],
+        "dmPreferredCommunication": "Short email with clear operational metrics and time-saving figures.",
+        "dmInfluenceScore": 85,
+        "predictedProblems": [
+          {
+            "problem": "Manual Sales",
+            "severity": "HIGH",
+            "reasoning": "Relying on basic GSuite and WhatsApp Business implies a lack of automated, programmatic B2B outbound prospecting, keeping client sourcing manual and time-intensive."
+          },
+          {
+            "problem": "Poor Lead Generation",
+            "severity": "MEDIUM",
+            "reasoning": "A heavy dependency on organic SEO and paid search to attract clients leaves their pipeline vulnerable to keyword search volume fluctuations and rising ad platform costs."
+          }
+        ],
+        "salesOppWhyBuy": "Adopting SalesPilot empowers them to build a predictable outbound lead channel. This protects them from inbound fluctuations and allows them to easily land higher-value retainers with minimal administrative overhead.",
+        "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+        "salesOppScore": 84,
+        "salesOppBudgetRange": "Rs. 15,000 - Rs. 25,000 INR per month",
+        "salesOppTimeline": "Immediate (1-3 months)",
+        "salesOppPriorityLevel": "HIGH",
+        "salesOppRecommendedOffer": "Complimentary 100 verified local B2B leads audit and a customized pipeline campaign blueprint",
+        "detailedCompetitors": [
+          {
+            "name": "Capsicum Mediaworks",
+            "marketPosition": "Strong Local Competitor",
+            "differentiation": "Digital Corsel emphasizes localized, high-touch PPC strategy and conversion tracking.",
+            "strengths": "Deep SEO authority, highly professional portfolio, established local brand.",
+            "weaknesses": "Higher pricing tier, slower turnarounds on standardized packages.",
+            "potentialOpportunity": "Digital Corsel can leverage SalesPilot to out-prospect them and secure local B2B leads with personalized outreach before competitors even reach out."
+          }
+        ],
+        "strategyFirstMessage": "Hi [Name],\n\nManaging day-to-day operations and team margins for a premier agency like Digital Corsel is a major undertaking. \n\nI noticed your team does incredible work with localized SEO and PPC. However, I wanted to ask: how is your team currently sourcing high-ticket B2B retainer prospects outside of inbound search?\n\nWe help agency operations leaders automate manual prospecting. SalesPilot handles lead sourcing and highly-personalized email sequences on autopilot, allowing your account managers to save up to 15 hours a week and focus entirely on delivery.\n\nCould I send over 100 free, verified local B2B lead profiles matching your ideal client target to show you how we work?\n\nBest,\n[Your Name]",
+        "strategyOutreachChannel": "Email",
+        "strategyBestContactPerson": "Operations Director",
+        "strategyRecommendedOffer": "100 free verified enterprise lead list matching their ideal ICP",
+        "strategyFollowUpSequence": [
+          "Drop a quick LinkedIn message reference the email and send a brief case study on how a similar agency scaled their MRR via automated outbound.",
+          "Send a 45-second personalized screen recording demonstrating SalesPilot building a high-intent B2B target list in Mumbai within seconds."
+        ],
+        "strategyMeetingAngle": "Demonstrate a workflow that saves their agency staff 15+ manual hours per week while keeping their pipeline consistently filled with mid-market clients.",
+        "strategyExpectedObjections": [
+          "We obtain our clients solely through SEO and inbound marketing.",
+          "We do not have the budget for more sales software."
+        ],
+        "strategyObjectionHandling": [
+          "Inbound is great, but passive. Outbound enables you to proactively handpick, target, and win high-ticket enterprise retainers that rarely fill out online contact forms.",
+          "Demonstrate that landing just one modest SEO/PPC retainer completely offsets the annual investment of SalesPilot within month one."
+        ],
+        "executiveSummary": "Digital Corsel is a solid, mid-sized digital marketing agency in Mumbai specializing in SEO and PPC for local SMEs. With an estimated revenue range of Rs. 1 Crore to Rs. 5 Crore, they operate in a hyper-saturated agency market where profit margins are heavily impacted by manual labor. Their current tool stack (WordPress, GSuite, WhatsApp Business) reveals an absence of automated sales prospecting and sequence tooling. Targeting their Operations Director with SalesPilot is highly strategic. The pitch should focus on eliminating manual prospecting hours for their team and building a highly predictable outbound engine to target high-value, long-term B2B clients. Offering a risk-free audit containing 100 verified local leads presents an immediate, high-value hook to initiate conversations.",
+        "insightsHotnessScore": 85,
+        "insightsBuyingIntent": "MEDIUM",
+        "insightsUrgency": "MEDIUM",
+        "insightsRevenuePotential": "Rs. 2,40,000 INR ARR",
+        "insightsReplyProbability": 70,
+        "insightsMeetingProbability": 55,
+        "insightsConversionProbability": 42
+      },
+      "researchStatus": "COMPLETED",
+      "researchProgress": 100,
+      "researchStatusText": "Research Completed successfully",
+      "researchHistory": [
+        {
+          "companySummary": "Digital Corsel is a boutique digital marketing and search engine optimization agency based in Mumbai, India. The company operates on a client services business model, specializing in driving organic traffic, PPC campaigns, and social media marketing for local and regional SMEs. They position themselves as a high-ROI performance marketing partner offering transparent, result-oriented digital solutions.",
+          "websiteAnalysis": "Their digital presence is built primarily on a WordPress platform optimized for localized SEO performance marketing keywords in Mumbai. While their frontend is optimized for inbound inquiries via forms and WhatsApp Business, they currently lack advanced CRM integrations, automated marketing workflows, or specialized outbound sales tooling.",
+          "industryAnalysis": "The digital marketing agency landscape in Mumbai is saturated and highly price-sensitive, forcing agencies to constantly combat client churn, demonstrate immediate ROI, and scale their client acquisition models cost-effectively to maintain operational margins.",
+          "painPoints": [
+            "High reliance on word-of-mouth and manual inbound leads, leading to inconsistent revenue pipelines.",
+            "Manual prospecting workflows for client acquisition, consuming excessive hours from account managers and sales reps.",
+            "Difficulty in targeting and securing high-value, long-term enterprise clients over local boutique businesses."
+          ],
+          "decisionMakerSummary": "The Operations Director is responsible for client service delivery, resource utilization, and internal workflow efficiency. They are highly motivated to adopt tools that eliminate manual task redundancy, improve staff productivity, and keep overhead costs predictable.",
+          "businessOpportunities": [
+            "Scale internal agency lead generation by deploying an automated outbound engine targeted at high-value B2B niches.",
+            "Productize outbound sales as a new service line for their existing clients by leveraging SalesPilot's system.",
+            "Automate localized list-building workflows for their PPC and SEO client strategy teams."
+          ],
+          "salesAngleSuggestions": [
+            "The Operational Efficiency Angle: Pitching SalesPilot as a direct way to save their internal account managers over 15 hours a week in manual prospecting.",
+            "The High-Ticket Pipeline Angle: Positioning SalesPilot as the predictability engine needed to step away from low-ticket local SEO clients and land high-paying B2B enterprise retainers."
+          ],
+          "objectionPredictions": [
+            "Objection: 'We rely on organic search and inbound channels for our clients and ourselves.' Counter: Explain that while inbound is passive, automated outbound allows them to choose their dream enterprise accounts proactively.",
+            "Objection: 'We have limited bandwidth to set up and learn a new platform.' Counter: Emphasize SalesPilot's fully managed onboarding, templates, and seamless integration with their existing GSuite setup."
+          ],
+          "competitorNotes": "They likely compete with hundreds of local agencies in Mumbai using manual cold calling or basic LinkedIn scraping. SalesPilot's multi-channel automation and precise AI personalization give them an unfair speed and quality advantage.",
+          "buyingSignals": [
+            "Heavy usage of WhatsApp Business indicating a commitment to conversational sales and fast-response engagement models.",
+            "Consistent optimization for high-competition local marketing keywords, pointing to aggressive local competition and a critical need for alternative lead channels."
+          ],
+          "aiInsights": "The optimal path to winning this account is approaching the Operations Director with an efficiency-led value proposition. Since agency margins are heavily constrained by manual labor hours, presenting a live, pre-built target list of 50 local enterprise prospects they can reach via SalesPilot instantly validates the product's immediate ROI and time-saving capabilities.",
+          "generatedAt": "2026-09-02T08:15:36.867Z",
+          "businessModel": "Client Services Agency",
+          "products": [
+            "Local SEO Retainers",
+            "PPC Setup & Management",
+            "Social Media Branding Packages"
+          ],
+          "services": [
+            "Search Engine Optimization (SEO)",
+            "Pay-Per-Click (PPC) Advertising",
+            "Social Media Marketing (SMM)"
+          ],
+          "targetCustomers": [
+            "Local SMEs in Mumbai",
+            "E-commerce Brands in India",
+            "Professional Service Providers"
+          ],
+          "industriesServed": [
+            "Real Estate",
+            "Healthcare & Wellness",
+            "Retail & Consumer Goods"
+          ],
+          "businessSize": "11-50 employees",
+          "yearsInBusiness": "6 years",
+          "employeeGrowth": "Stable with moderate growth in digital marketing specialists and client account executives.",
+          "revenueEstimate": "Rs. 1 Crore - Rs. 5 Crore INR",
+          "techStack": [
+            "WordPress",
+            "GSuite",
+            "WhatsApp Business",
+            "Google Analytics",
+            "Yoast SEO"
+          ],
+          "socialPresence": [
+            "LinkedIn (Active)",
+            "Facebook (Active)",
+            "Instagram (Active)"
+          ],
+          "businessCategory": "Digital Marketing & Advertising Agency",
+          "usp": "Data-driven and highly transparent digital marketing strategies tailored specifically to scale local Mumbai businesses.",
+          "mission": "To provide highly targeted and cost-effective digital marketing solutions that yield visible and measurable ROI for growing businesses.",
+          "vision": "To become a premiere performance marketing agency in Western India known for operational excellence and customer satisfaction.",
+          "extractedKeywords": [
+            "Best Digital Marketing Agency in Mumbai",
+            "SEO Company Mumbai",
+            "PPC Services Mumbai",
+            "Digital Corsel"
+          ],
+          "extractedOffers": [
+            "Free Website Audit",
+            "Get a Free Quote"
+          ],
+          "extractedForms": [
+            "Request a Callback Form",
+            "Free Audit Request Form"
+          ],
+          "extractedCTAs": [
+            "Get Free Audit",
+            "Contact Us",
+            "Submit Inquiry"
+          ],
+          "customerTypes": [
+            "SMEs",
+            "E-commerce Companies",
+            "B2B Professional Services"
+          ],
+          "dmName": "Operations Manager",
+          "dmRole": "Operations Director",
+          "dmDepartment": "Operations",
+          "dmResponsibilities": "Streamlining internal agency workflows, managing technology procurement, tracking profit margins, and managing agency-client execution cycles.",
+          "dmBuyingAuthority": "MEDIUM",
+          "dmPainPoints": [
+            "Wasted agency hours spent by team members manually collecting lead lists.",
+            "Unpredictable pipeline causing resource planning and agency scaling difficulties."
+          ],
+          "dmGoals": [
+            "Establish structured, automated client acquisition and business workflows.",
+            "Increase employee output and billable-hour efficiency across the agency."
+          ],
+          "dmInterests": [
+            "B2B Automation Technology",
+            "Workflow optimization methodologies",
+            "Agency scale structures"
+          ],
+          "dmPreferredCommunication": "Short email with clear operational metrics and time-saving figures.",
+          "dmInfluenceScore": 85,
+          "predictedProblems": [
+            {
+              "problem": "Manual Sales",
+              "severity": "HIGH",
+              "reasoning": "Relying on basic GSuite and WhatsApp Business implies a lack of automated, programmatic B2B outbound prospecting, keeping client sourcing manual and time-intensive."
+            },
+            {
+              "problem": "Poor Lead Generation",
+              "severity": "MEDIUM",
+              "reasoning": "A heavy dependency on organic SEO and paid search to attract clients leaves their pipeline vulnerable to keyword search volume fluctuations and rising ad platform costs."
+            }
+          ],
+          "salesOppWhyBuy": "Adopting SalesPilot empowers them to build a predictable outbound lead channel. This protects them from inbound fluctuations and allows them to easily land higher-value retainers with minimal administrative overhead.",
+          "salesOppRecommendedProduct": "SalesPilot Scale Suite",
+          "salesOppScore": 84,
+          "salesOppBudgetRange": "Rs. 15,000 - Rs. 25,000 INR per month",
+          "salesOppTimeline": "Immediate (1-3 months)",
+          "salesOppPriorityLevel": "HIGH",
+          "salesOppRecommendedOffer": "Complimentary 100 verified local B2B leads audit and a customized pipeline campaign blueprint",
+          "detailedCompetitors": [
+            {
+              "name": "Capsicum Mediaworks",
+              "marketPosition": "Strong Local Competitor",
+              "differentiation": "Digital Corsel emphasizes localized, high-touch PPC strategy and conversion tracking.",
+              "strengths": "Deep SEO authority, highly professional portfolio, established local brand.",
+              "weaknesses": "Higher pricing tier, slower turnarounds on standardized packages.",
+              "potentialOpportunity": "Digital Corsel can leverage SalesPilot to out-prospect them and secure local B2B leads with personalized outreach before competitors even reach out."
+            }
+          ],
+          "strategyFirstMessage": "Hi [Name],\n\nManaging day-to-day operations and team margins for a premier agency like Digital Corsel is a major undertaking. \n\nI noticed your team does incredible work with localized SEO and PPC. However, I wanted to ask: how is your team currently sourcing high-ticket B2B retainer prospects outside of inbound search?\n\nWe help agency operations leaders automate manual prospecting. SalesPilot handles lead sourcing and highly-personalized email sequences on autopilot, allowing your account managers to save up to 15 hours a week and focus entirely on delivery.\n\nCould I send over 100 free, verified local B2B lead profiles matching your ideal client target to show you how we work?\n\nBest,\n[Your Name]",
+          "strategyOutreachChannel": "Email",
+          "strategyBestContactPerson": "Operations Director",
+          "strategyRecommendedOffer": "100 free verified enterprise lead list matching their ideal ICP",
+          "strategyFollowUpSequence": [
+            "Drop a quick LinkedIn message reference the email and send a brief case study on how a similar agency scaled their MRR via automated outbound.",
+            "Send a 45-second personalized screen recording demonstrating SalesPilot building a high-intent B2B target list in Mumbai within seconds."
+          ],
+          "strategyMeetingAngle": "Demonstrate a workflow that saves their agency staff 15+ manual hours per week while keeping their pipeline consistently filled with mid-market clients.",
+          "strategyExpectedObjections": [
+            "We obtain our clients solely through SEO and inbound marketing.",
+            "We do not have the budget for more sales software."
+          ],
+          "strategyObjectionHandling": [
+            "Inbound is great, but passive. Outbound enables you to proactively handpick, target, and win high-ticket enterprise retainers that rarely fill out online contact forms.",
+            "Demonstrate that landing just one modest SEO/PPC retainer completely offsets the annual investment of SalesPilot within month one."
+          ],
+          "executiveSummary": "Digital Corsel is a solid, mid-sized digital marketing agency in Mumbai specializing in SEO and PPC for local SMEs. With an estimated revenue range of Rs. 1 Crore to Rs. 5 Crore, they operate in a hyper-saturated agency market where profit margins are heavily impacted by manual labor. Their current tool stack (WordPress, GSuite, WhatsApp Business) reveals an absence of automated sales prospecting and sequence tooling. Targeting their Operations Director with SalesPilot is highly strategic. The pitch should focus on eliminating manual prospecting hours for their team and building a highly predictable outbound engine to target high-value, long-term B2B clients. Offering a risk-free audit containing 100 verified local leads presents an immediate, high-value hook to initiate conversations.",
+          "insightsHotnessScore": 85,
+          "insightsBuyingIntent": "MEDIUM",
+          "insightsUrgency": "MEDIUM",
+          "insightsRevenuePotential": "Rs. 2,40,000 INR ARR",
+          "insightsReplyProbability": 70,
+          "insightsMeetingProbability": 55,
+          "insightsConversionProbability": 42
+        }
+      ]
+    },
+    {
       "id": "ld_1784907044970",
       "organizationId": "org_salespilot_lifetime",
       "firstName": "PersistenceCheck",

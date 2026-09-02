@@ -5509,26 +5509,64 @@ Ensure the output is strictly valid JSON format.`;
       const countToGenerate = Math.min(Number(maxLeads) || 5, 10);
       
       const getProviderKey = (id: string) => {
-        if (id === 'google-maps' || id === 'googlemaps') return process.env.GOOGLE_MAPS_API_KEY || pluginCredentials['googlemaps']?.apiKey;
-        if (id === 'peopledatalabs') return process.env.PDL_API_KEY || pluginCredentials['peopledatalabs']?.apiKey;
-        if (id === 'clearbit') return process.env.CLEARBIT_API_KEY || pluginCredentials['clearbit']?.apiKey;
-        if (id === 'hunter') return process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey;
-        if (id === 'crunchbase') return process.env.CRUNCHBASE_API_KEY || pluginCredentials['crunchbase']?.apiKey;
-        if (id === 'google-search' || id === 'serper') return process.env.SERPER_API_KEY || pluginCredentials['serper']?.apiKey;
-        if (id === 'linkedin-extractor') return process.env.LINKEDIN_SCRAPER_API_KEY || pluginCredentials['linkedin']?.apiKey;
-        if (id === 'zoominfo-direct') return process.env.ZOOMINFO_API_KEY || pluginCredentials['zoominfo']?.apiKey;
-        if (id === 'dropcontact') return process.env.DROPCONTACT_API_KEY || pluginCredentials['dropcontact']?.apiKey;
-        if (id === 'builtwith') return process.env.BUILTWITH_API_KEY || pluginCredentials['builtwith']?.apiKey;
+        if (id === 'google-maps' || id === 'googlemaps') {
+          const k = process.env.GOOGLE_MAPS_API_KEY || 
+                    process.env.GOOGLE_PLACES_API_KEY || 
+                    process.env.GOOGLE_MAPS_KEY || 
+                    process.env.GOOGLE_API_KEY || 
+                    process.env.VITE_GOOGLE_MAPS_API_KEY || 
+                    pluginCredentials['googlemaps']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'google-search' || id === 'serper') {
+          const k = process.env.SERPER_API_KEY || 
+                    process.env.SERPER_KEY || 
+                    process.env.SERPER_API || 
+                    process.env.VITE_SERPER_API_KEY || 
+                    pluginCredentials['serper']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'peopledatalabs') {
+          const k = process.env.PDL_API_KEY || pluginCredentials['peopledatalabs']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'clearbit') {
+          const k = process.env.CLEARBIT_API_KEY || pluginCredentials['clearbit']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'hunter') {
+          const k = process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'crunchbase') {
+          const k = process.env.CRUNCHBASE_API_KEY || pluginCredentials['crunchbase']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'linkedin-extractor') {
+          const k = process.env.LINKEDIN_SCRAPER_API_KEY || pluginCredentials['linkedin']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'zoominfo-direct') {
+          const k = process.env.ZOOMINFO_API_KEY || pluginCredentials['zoominfo']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'dropcontact') {
+          const k = process.env.DROPCONTACT_API_KEY || pluginCredentials['dropcontact']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'builtwith') {
+          const k = process.env.BUILTWITH_API_KEY || pluginCredentials['builtwith']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
         return null;
       };
 
-      const gmapsKey = getProviderKey('google-maps') || customApiKey;
-      const serperKey = getProviderKey('google-search') || (providerId === 'serper' || providerId === 'google-search' ? customApiKey : undefined) || process.env.SERPER_API_KEY;
+      const gmapsKey = getProviderKey('google-maps') || (customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
+      const serperKey = getProviderKey('google-search') || ((providerId === 'serper' || providerId === 'google-search') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
 
       const formatKeyLog = (key: string | undefined | null) => {
-        if (!key) return 'NOT_LOADED';
-        if (key.length <= 8) return 'LOADED_SHORT';
-        return `LOADED (${key.substring(0, 4)}...${key.substring(key.length - 4)})`;
+        if (!key) return 'NOT_LOADED (length: 0)';
+        return `LOADED (length: ${key.length})`;
       };
 
       const requestLogs: string[] = [];

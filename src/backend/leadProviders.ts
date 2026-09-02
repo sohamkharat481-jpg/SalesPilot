@@ -335,9 +335,15 @@ export class GoogleMapsLeadProvider implements LeadProvider {
   public apiKeyEnvName = 'GOOGLE_MAPS_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY || params.customApiKey;
+    const rawKey = process.env.GOOGLE_MAPS_API_KEY || 
+                   process.env.GOOGLE_PLACES_API_KEY || 
+                   process.env.GOOGLE_MAPS_KEY || 
+                   process.env.GOOGLE_API_KEY || 
+                   process.env.VITE_GOOGLE_MAPS_API_KEY || 
+                   params.customApiKey;
+    const apiKey = rawKey ? String(rawKey).trim().replace(/^["']|["']$/g, '') : '';
     const apiKeyExists = !!apiKey;
-    console.log(`[DEBUG] [Google Maps Local Scraper] API Key Exists: ${apiKeyExists}`);
+    console.log(`[DEBUG] [Google Maps Local Scraper] API Key Exists: ${apiKeyExists} (length: ${apiKey.length})`);
 
     if (!apiKey) {
       console.log(`[DEBUG] [Google Maps Local Scraper] Sourcing completed with 0 results. Reason: API Key is missing.`);
@@ -972,9 +978,14 @@ export class GoogleSearchLeadProvider implements LeadProvider {
   public apiKeyEnvName = 'SERPER_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const apiKey = process.env.SERPER_API_KEY || params.customApiKey;
+    const rawKey = process.env.SERPER_API_KEY || 
+                   process.env.SERPER_KEY || 
+                   process.env.SERPER_API || 
+                   process.env.VITE_SERPER_API_KEY || 
+                   params.customApiKey;
+    const apiKey = rawKey ? String(rawKey).trim().replace(/^["']|["']$/g, '') : '';
     const apiKeyExists = !!apiKey;
-    console.log(`[DEBUG] [Google Search Web Scraper] API Key Exists: ${apiKeyExists}`);
+    console.log(`[DEBUG] [Google Search Web Scraper] API Key Exists: ${apiKeyExists} (length: ${apiKey.length})`);
 
     if (!apiKey) {
       console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API Key is missing.`);
