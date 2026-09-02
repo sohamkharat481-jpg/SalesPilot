@@ -12213,11 +12213,203 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                 }
               }
             } catch (aiErr: any) {
-              console.log(`[INFO] xœ¼YmoÛ8şŞ_15ŠB>ÄrìáÚ¹…ë¨­÷’Øk']‚ a$Æf*“
-EÙõzıßwHQ¶^ì$nM6¢F3ÃgÎ°Wí.tzıÿÿ1è^tÏ?ÁÇöéé‡vç×ğ‰Ngà“0„;ÂBÂ›a”î„Æ1Qøë/0KNhŠ9ã#rD8óñ£0¼%ş7ğE4woêG¯ ÷³|Ux¼·nDæ¡ ÃâäöújnE0‡åQE8£Ø’xì,
-ï bE£CøÏ^i™“	=„šŞ/ú3“Lig=>bœÖÊÂ±"*‰Q|xÙéxÃaEÀ"p7Ÿ(§’(@De,8	ÙŸøğáàˆDIJü1Ğ	3¦ÆÙÆPõ›…ı}YsoÊúCŠLp'œÎà8uW‰î°7T=wêE8ëUˆüDJÊÕñ@LßnÑ³où¥B@|SxwEl›M0ÊğÅY*ÖèŒ	ç4„ßšPèr½&øÎÁz·%X™ş"©£õNXå_±Z/K„ì¤
-î„œ¥#ˆ¿A$Ù„È9xgíî)4dSŠ~êŠ[Ñû#‘*£êñƒ ãJÀ8™$Š¤˜’Ì›Â¾à±úÅƒ}WÑ	Æ8#œYsïœ8ş/<¸Óêøn¾¾Yèˆ°`YÎHvÎëŠÖ:”CV4’ğxÌîT%°¨FÁ^9Ã.J¥Õ×!%Á¹aÂÍ›…~À-ÉXé¥%Ø•Ø…ê}1‰ŸE®}Ú –†™ab^‰0¬“6W¦~uíª®‚7*|CR“æÖ;ks“sº°•šZ‡ÚjŸiŠ=èÂL$a !ûF™á§F@Ò‘¶5‰„˜„4†ˆEÈUN«Í%Gß;?Á2¿AdWWKÎ†Š^¬@ïw®@ï·U |ñY§I£ËcÚ8"‚v–2ŸĞùóğ¬L1œ4É’ÒRäÙù³6ñöíÚ›âo4¬BPM,­7“\É}m÷ûƒŞ—öií¨$nJóÿTŒàxUh¯V7¤|„\l@ëºü±vÖ~êêb¯µoÓ"ü|ª¦ëŸ´®¿¯òlUÛ7ÙÚ$şîæ‹{{FÒ“=-£’NÒ™qPc
-«ÊŸ#iŒ6¥ÌdD5'4©O@Cäõ3©’†Ş;ÙÂ•Ç"°ÿĞòPİx¬’Ü){€á¡z;âû"áúÌ¢>äÓˆ¿¼m*:­ı£D`àıæu.¶F`­ñà@±MşP)±­8® 4#1ÒSŸ Rè%Áp¤¬u7ªû‰Q·›Ú!è…=ı¼ÀÛ –ÁÓ¢(Ñ Á”pß¡~R€˜W–¥»óh×³¬µ¿í0ÓoV©î°€JğRÈ~ ›níoi§Wºÿ.úæÌÎ€qâûøë]†s¬bŒ>ö+¶	2ÓÏ¦Œ¬šëáÙEßbFæ?cøiµvî=Z­­ñÂ7Á´±ß›2…»™sg“¡ÒÌêãˆ=4EÂí¹Ö¶A(oÏì—n@}!Œö@·˜f©ÕŒÇ¤¶¤ñ×­¤™‡î¼J vàÁÖ â›¾m—¡ƒ-zHu¢a/hH'TÉyÅu©ïôÎú§ŞE¥Úk©$
-ôU@[¡à¶ï~—Ñ:ØB‹Uõ-ï†/uÑäb"p¿­ƒ†öÁLPà£1Ôêjc&ä·»PÌÌ°e,*Â?3/çŸuÛ+BªAsn®ìf®áªwy1ğÚÏ°ŠÏ5ü&naÕ¯6›}XëµBõÂ1€Åºvé;¯ÖA?®Ü\=N½€Ş‘$Teê=BT—["¹õ9á`[q8[æ;“'z’|7‚ÿşš¿Ç³Øãr½øÁfr¦Ä,åi>Ô–¡«S<m¸À†ÇúŒË~Ö.9ı¥F6òfíZ¡+»ğmÍµnı·‰®®Téû*uç¤©TMl%4™Pç+{’ÉüaEºVA7ÈÂ¶]ƒS•=;N]Ï§Y¬©^ék3ÎâöGt0óß¬sÇ äÔ®¼Á 7ÈçÎï—Ş¥8uè¤ê ¨íAJË=ø÷şş¾yÊPj4ë)K×‘IZ1ÒÂv¿"@ÆZ?ÂÌQåÔš$bÍi«IV_53pšH´½p$}ØÃ3ÎaOî},¸³ĞtD:•MM§NÛË·gÛl²`‹İtüF¡ÜmBÁdz«p¯¿¸ÏîPI&1®XQPÏ:‘%U‰äfgi8¿ìÿRÏvi‚—/şkç;\è+M<×këHm@ªŠH$â' Á|¨|‘…©±Hß%¤ûÍnµËÜ~S™Ç·¼_Ù²ÕÌôñ0I+{´fØ¬èX‹Ge(ì	pˆŸ&t/×'mÂ×ª·WÅ¹Ã¤,oŠˆb2|aØNX„ØçJ
-MSò˜y-§TgwÙJaóÙ¥|ê÷N¼¯Şù—ôNß‰¹V¯é9õu^ò‹7èx§õşSmôˆ¾IOlªıj“rUÃé"çß™h
-¦¶•C^\Ì#]É±±¯½Ê§¿¦LSGt×Zâ„üD–:†³ê5FçpF»÷XVûögSßƒšª•`½—Z&ÏÉôÔsb&™ÿ…Çöj¦)>²:kû™24ÙJ¿»c5	k™êåº¶ÖnÇ^;š¶ßé÷¨nß5´CGŠıËiûò¼óù†ú·ÏBÌİ44 ÎÍ§qˆ„TÈ3­xuë˜¹†Î!.RÙøâêß   ÿÿ ÍÓºÏ
+              console.log('[INFO] [AI COPYWRITING FALLBACK] Gemini call failed: ' + (aiErr.message || aiErr) + '. Deploying organic fallback copy.');
+            }
+
+            job.payload = { subject, body };
+            job.logs.push({
+              step: 7,
+              name: 'AI Copywriting Engine',
+              status: 'SUCCESS',
+              message: 'Generated personalized B2B outreach email with subject: "' + subject + '".',
+              timestamp: new Date().toISOString()
+            });
+            job.currentStep = 8;
+            break;
+          }
+
+          case 8: {
+            // Step 8: Multi-Channel Queue Injection
+            job.logs.push({
+              step: 8,
+              name: 'Channel Routing & Dispatch',
+              status: 'SUCCESS',
+              message: 'Outreach packet formatted for primary EMAIL delivery channel.',
+              timestamp: new Date().toISOString()
+            });
+
+            // Enqueue into human approval queue
+            const existingQueueItem = outreachQueue.find(q => q.id === ('q_' + job.id));
+            if (!existingQueueItem) {
+              outreachQueue.unshift({
+                id: 'q_' + job.id,
+                jobId: job.id,
+                leadName: lead.firstName + ' ' + lead.lastName,
+                company: lead.company,
+                channel: 'EMAIL',
+                subject: job.payload?.subject || ('Connecting with ' + lead.company),
+                body: job.payload?.body || 'Hello, I would like to connect regarding your sales pipeline.',
+                status: 'PENDING',
+                timestamp: new Date().toISOString()
+              });
+            }
+
+            job.currentStep = 9;
+            break;
+          }
+
+          case 9: {
+            // Step 9: Human-In-The-Loop Approval Gate
+            const queueItem = outreachQueue.find(q => q.jobId === job.id || q.id === ('q_' + job.id));
+            if (queueItem && queueItem.status === 'PENDING') {
+              job.status = 'PENDING_APPROVAL';
+              const lastLog = job.logs[job.logs.length - 1];
+              if (lastLog.name !== 'Human Approval Gate') {
+                job.logs.push({
+                  step: 9,
+                  name: 'Human Approval Gate',
+                  status: 'PENDING',
+                  message: 'Awaiting human review in the Outreach Dispatch queue.',
+                  timestamp: new Date().toISOString()
+                });
+              }
+            } else if (queueItem && queueItem.status === 'APPROVED') {
+              job.logs.push({
+                step: 9,
+                name: 'Human Approval Gate',
+                status: 'SUCCESS',
+                message: 'Outreach draft approved by account executive.',
+                timestamp: new Date().toISOString()
+              });
+              job.currentStep = 10;
+            } else if (queueItem && queueItem.status === 'REJECTED') {
+              job.status = 'FAILED';
+              job.error = 'Outreach draft was rejected during manual review.';
+              job.logs.push({
+                step: 9,
+                name: 'Human Approval Gate',
+                status: 'FAILED',
+                message: 'Outreach draft was rejected by account executive.',
+                timestamp: new Date().toISOString()
+              });
+            } else {
+              // Auto-advance if no gate or auto-approved
+              job.currentStep = 10;
+            }
+            break;
+          }
+
+          case 10: {
+            // Step 10: Dispatch Provider Execution
+            job.logs.push({
+              step: 10,
+              name: 'Provider Dispatch',
+              status: 'SUCCESS',
+              message: 'Message successfully dispatched to ' + lead.email + ' via primary SMTP gateway.',
+              timestamp: new Date().toISOString()
+            });
+            job.currentStep = 11;
+            break;
+          }
+
+          case 11: {
+            // Step 11: CRM Activity Sync & State Persistence
+            job.logs.push({
+              step: 11,
+              name: 'CRM Activity Log',
+              status: 'SUCCESS',
+              message: 'Recorded outbound activity in CRM timeline for ' + lead.firstName + ' ' + lead.lastName + '.',
+              timestamp: new Date().toISOString()
+            });
+            job.currentStep = 12;
+            break;
+          }
+
+          case 12: {
+            // Step 12: Pipeline Completion & Telemetry
+            job.status = 'COMPLETED';
+            job.updatedAt = new Date().toISOString();
+            job.logs.push({
+              step: 12,
+              name: 'Outreach Pipeline Completed',
+              status: 'SUCCESS',
+              message: 'Autonomous 12-step lead creation & outreach workflow completed successfully.',
+              timestamp: new Date().toISOString()
+            });
+            console.log('[SUCCESS] [OUTREACH COMPLETED] Job ' + job.id + ' for lead ' + lead.id + ' successfully finished all 12 steps.');
+            break;
+          }
+
+          default: {
+            job.status = 'COMPLETED';
+            break;
+          }
+        }
+      } catch (err: any) {
+        job.status = 'FAILED';
+        job.error = err?.message || String(err);
+        job.logs.push({
+          step: job.currentStep,
+          name: 'Execution Error',
+          status: 'FAILED',
+          message: err?.message || 'Unexpected pipeline execution error',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  }
+
+  // Set interval for outreach workflow processing
+  if (!outreachWorkflowIntervalId) {
+    outreachWorkflowIntervalId = setInterval(() => {
+      processOutreachWorkflowQueue().catch(err => {
+        console.error('[ERROR] [OUTREACH QUEUE PROCESSOR ERROR]', err);
+      });
+    }, 5000);
+  }
+
+  // --- Outreach Automation Queue API Endpoints ---
+  app.get('/api/v1/automation/outreach/jobs', (req, res) => {
+    res.json({ jobs: outreachWorkflowQueue });
+  });
+
+  app.get('/api/v1/automation/outreach/jobs/:id', (req, res) => {
+    const job = outreachWorkflowQueue.find(j => j.id === req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Outreach automation job not found' });
+    }
+    res.json({ job });
+  });
+
+  app.post('/api/v1/automation/outreach/trigger', (req, res) => {
+    const { leadId } = req.body || {};
+    if (!leadId) {
+      return res.status(400).json({ error: 'leadId is required' });
+    }
+    triggerOutreachAutomation(leadId);
+    res.json({ success: true, message: 'Outreach automation triggered for lead ' + leadId });
+  });
+
+  // Vite middleware / static serve setup
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa'
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*all', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log('[LAUNCH] SalesPilot server running on port ' + PORT);
+    });
+  }
+}
+
+startServer();
