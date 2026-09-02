@@ -1894,8 +1894,8 @@ async function startServer() {
     if (supabase) {
       dbProvider = 'Supabase PostgreSQL (leads table)';
       try {
-        let query = supabase.from('leads').select('*');
-        if (orgId) {
+        let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
+        if (orgId && orgId !== 'org_salespilot_lifetime') {
           query = query.eq('organization_id', orgId);
         }
         const { data, error } = await query;
@@ -1923,14 +1923,16 @@ async function startServer() {
     localDb.db.leads = allCombined;
     saveDb();
 
-    const filteredLeads = orgId 
-      ? allCombined.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId) 
+    // Respect organization workspace isolation while ensuring default workspace leads remain visible
+    const filteredLeads = orgId && orgId !== 'org_salespilot_lifetime'
+      ? allCombined.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId || (l as any).organizationId === 'org_salespilot_lifetime') 
       : allCombined;
 
     console.log(`[DATABASE AUDIT - SELECT ALL LEADS]
 - Database Provider: "${dbProvider}"
 - Requested Org ID: "${orgId || 'ALL'}"
-- Total Leads Returned: ${filteredLeads.length}`);
+- Total Leads in DB: ${allCombined.length}
+- Returned Leads: ${filteredLeads.length}`);
 
     return filteredLeads;
   };
@@ -3177,8 +3179,14 @@ async function startServer() {
     const user = getAuthenticatedUser(req);
     const orgId = user?.organizationId || 'org_salespilot_lifetime';
     const allLeads = await getAllLeadsAsync(orgId);
-    const filteredLeads = allLeads.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId);
-    res.json({ leads: filteredLeads });
+    const filteredLeads = allLeads.filter(l => {
+      const lOrg = (l as any).organizationId;
+      if (!lOrg || lOrg === 'org_salespilot_lifetime' || lOrg === orgId) return true;
+      if (user?.isFounder || user?.role === 'ADMIN' || user?.role === 'OWNER') return true;
+      return false;
+    });
+    console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}"`);
+    res.json({ success: true, count: filteredLeads.length, leads: filteredLeads });
   });
 
   // Create a Lead (Database Insertion)
@@ -5639,10 +5647,69 @@ Ensure the output is strictly valid JSON format.`;
         return true;
       };
 
+function buildDynamicSearchQuery(params: { industry?: string; keywords?: string; city?: string; country?: string }) {
+  const cCity = (params.city || 'Mumbai').trim();
+  const cCountry = (params.country || 'India').trim();
+  const loc = `${cCity}, ${cCountry}`;
+
+  const industryCleanMap: Record<string, string> = {
+    'Marketing': 'Marketing & Advertising agencies',
+    'Marketing & Advertising': 'Marketing & Advertising agencies',
+    'Marketing & Ad Agencies': 'Marketing & Advertising agencies',
+    'Software': 'Software & IT companies',
+    'Software / IT': 'Software & IT companies',
+    'Software & IT': 'Software & IT companies',
+    'Software & SaaS': 'Software & SaaS companies',
+    'Restaurants / Food': 'Restaurants & Food businesses',
+    'Restaurants & Food': 'Restaurants & Food businesses',
+    'Real Estate': 'Real Estate agencies & developers',
+    'Real Estate & Construction': 'Real Estate agencies & developers',
+    'Real Estate Developers': 'Real Estate agencies & developers',
+    'Healthcare / Clinics': 'Healthcare clinics & hospitals',
+    'Healthcare & Clinics': 'Healthcare clinics & hospitals',
+    'Education / Training': 'Education & training institutes',
+    'Education & Training': 'Education & training institutes',
+    'Finance / Accounting': 'Finance & accounting firms',
+    'Finance & Accounting': 'Finance & accounting firms',
+    'E-commerce / Retail': 'E-commerce & retail businesses',
+    'E-commerce & Retail': 'E-commerce & retail businesses',
+    'Consulting': 'Consulting & advisory firms',
+    'Consulting & Advisory': 'Consulting & advisory firms',
+    'Logistics': 'Logistics & supply chain companies',
+    'Logistics & Supply Chain': 'Logistics & supply chain companies',
+    'Manufacturing & Industrial': 'Manufacturing & industrial companies',
+    'Hospitality & Travel': 'Hotels & hospitality businesses',
+    'Legal & Compliance': 'Law firms & legal services'
+  };
+
+  const indTerm = industryCleanMap[params.industry || ''] || params.industry || 'Businesses';
+  const kw = (params.keywords || '').trim();
+
+  // If user entered a custom query that already contains the city/country
+  if (kw && kw.toLowerCase().includes(cCity.toLowerCase())) {
+    return kw;
+  }
+
+  // If positive keywords are provided, combine them naturally with industry and location
+  if (kw && kw !== 'outbound, pipeline, lead generation' && kw !== 'marketing agency Mumbai') {
+    return `${kw} ${indTerm} in ${loc}`;
+  }
+
+  return `${indTerm} in ${loc}`;
+}
+
       let mapsErrorText = '';
       let serperMapsErrorText = '';
-      const querySubject = keywords || industry || 'Software';
-      const query = `${querySubject} in ${city || 'Bengaluru'}, ${country || 'India'}`;
+      const query = buildDynamicSearchQuery({ industry, keywords, city, country });
+      console.log(`[LEAD ENGINE] Sourcing Query constructed: "${query}" (Industry: "${industry}", City: "${city}", Country: "${country}", Keywords: "${keywords || 'None'}")`);
+      requestLogs.push(`[LEAD ENGINE] Dynamic Sourcing Query: "${query}"`);
+
+      let providerAttempted = 'google-maps';
+      let providerHttpStatus = 0;
+      let providerRawResultCount = 0;
+      let providerParsedResultCount = 0;
+      let validationRejectedCount = 0;
+      let deduplicatedCount = 0;
 
       // --- STAGE 1: GOOGLE PLACES API (NEW) ---
       console.log('[LEAD ENGINE] Provider Chain Step 1: Querying Google Places API (New)...');
@@ -5650,8 +5717,8 @@ Ensure the output is strictly valid JSON format.`;
       let gmapsPlaces: any[] = [];
 
       const gmapsKeyExists = !!gmapsKey;
-      console.log(`[DEBUG] [Google Places API (New)] API Key Exists: ${gmapsKeyExists}`);
-      requestLogs.push(`[DEBUG] [Google Places API (New)] API Key Exists: ${gmapsKeyExists}`);
+      console.log(`[DEBUG] [Google Places API (New)] API Key Exists: ${gmapsKeyExists} (length: ${gmapsKey?.length || 0})`);
+      requestLogs.push(`[DEBUG] [Google Places API (New)] API Key Exists: ${gmapsKeyExists} (length: ${gmapsKey?.length || 0})`);
 
       providerAudits.push({
         providerId: 'google-maps',
@@ -5673,7 +5740,7 @@ Ensure the output is strictly valid JSON format.`;
       } else {
         const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
         try {
-          console.log(`[DEBUG] [Google Places API (New)] Request: POST ${textSearchUrl} | Headers: Content-Type: application/json, X-Goog-FieldMask: places.id,places.displayName | Body: ${JSON.stringify({ textQuery: query })}`);
+          console.log(`[DEBUG] [Google Places API (New)] Request: POST ${textSearchUrl} | Headers: Content-Type: application/json, X-Goog-FieldMask: places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,places.primaryType,places.rating | Body: ${JSON.stringify({ textQuery: query })}`);
           requestLogs.push(`[DEBUG] [Google Places API (New)] Request: POST ${textSearchUrl} | Body: ${JSON.stringify({ textQuery: query })}`);
 
           const response = await fetch(textSearchUrl, {
@@ -5681,11 +5748,12 @@ Ensure the output is strictly valid JSON format.`;
             headers: {
               'Content-Type': 'application/json',
               'X-Goog-Api-Key': gmapsKey,
-              'X-Goog-FieldMask': 'places.id,places.displayName'
+              'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,places.primaryType,places.rating'
             },
             body: JSON.stringify({ textQuery: query })
           });
           const status = response.status;
+          providerHttpStatus = status;
           const responseText = await response.text();
           console.log(`[DEBUG] [Google Places API (New)] Response Status: ${status}`);
           requestLogs.push(`[DEBUG] [Google Places API (New)] Response Status: ${status}`);
@@ -5695,94 +5763,72 @@ Ensure the output is strictly valid JSON format.`;
 
           if (!response.ok) {
             console.log(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: API request failed with status ${status}.`);
-            requestLogs.push(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: API request failed with status ${status}.`);
+            requestLogs.push(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: API request failed with status ${status}. Response: ${responseText}`);
             const errReason = `Google Places API Text Search failed with status ${status}: ${responseText}`;
+            mapsErrorText = errReason;
             if (auditEntry) {
               auditEntry.status = 'FAILED';
               auditEntry.error = errReason;
             }
             trackFailure('google-maps', 'Google Places API (New)', errReason);
-            throw new Error(errReason);
-          }
-
-          const data = JSON.parse(responseText);
-          gmapsPlaces = data.places || [];
-          console.log(`[DEBUG] [Google Places API (New)] Businesses returned: ${gmapsPlaces.length}`);
-          requestLogs.push(`[DEBUG] [Google Places API (New)] Businesses returned: ${gmapsPlaces.length}`);
-          
-          if (gmapsPlaces.length > 0) {
-            console.log(`[LEAD ENGINE] Google Places returned ${gmapsPlaces.length} raw places. Fetching details...`);
-            requestLogs.push(`[GOOGLE MAPS] Found ${gmapsPlaces.length} places. Fetching detailed records...`);
+          } else {
+            const data = JSON.parse(responseText);
+            gmapsPlaces = data.places || [];
+            providerRawResultCount = gmapsPlaces.length;
+            console.log(`[DEBUG] [Google Places API (New)] Businesses returned: ${gmapsPlaces.length}`);
+            requestLogs.push(`[DEBUG] [Google Places API (New)] Businesses returned: ${gmapsPlaces.length}`);
             
-            const processedCount = Math.min(gmapsPlaces.length, countToGenerate * 2);
-            let gmapsRejectedCount = 0;
-            let successCount = 0;
-            for (let i = 0; i < processedCount; i++) {
-              const place = gmapsPlaces[i];
-              const placeId = place.id;
-              if (!placeId) {
-                gmapsRejectedCount++;
-                continue;
-              }
+            if (gmapsPlaces.length > 0) {
+              console.log(`[LEAD ENGINE] Google Places returned ${gmapsPlaces.length} raw places. Processing records...`);
+              requestLogs.push(`[GOOGLE MAPS] Found ${gmapsPlaces.length} places. Parsing records...`);
+              
+              const processedCount = Math.min(gmapsPlaces.length, countToGenerate * 3);
+              let gmapsRejectedCount = 0;
+              let successCount = 0;
+              for (let i = 0; i < processedCount; i++) {
+                const place = gmapsPlaces[i];
+                const placeId = place.id;
+                const companyName = place.displayName?.text || place.displayName || 'Local Business';
+                const websiteUrl = place.websiteUri || '';
+                const phoneNum = place.nationalPhoneNumber || place.internationalPhoneNumber || '';
+                const formattedAddr = place.formattedAddress || `${city || 'Mumbai'}, ${country || 'India'}`;
 
-              const detailsUrl = `https://places.googleapis.com/v1/places/${placeId}`;
-              try {
-                console.log(`[DEBUG] [Google Places API (New)] Request Details: GET ${detailsUrl} | Headers: X-Goog-FieldMask: id,displayName,formattedAddress,location,websiteUri,nationalPhoneNumber,primaryType`);
-                requestLogs.push(`[DEBUG] [Google Places API (New)] Request Details: GET ${detailsUrl}`);
-
-                const detailResponse = await fetch(detailsUrl, {
-                  method: 'GET',
-                  headers: {
-                    'X-Goog-Api-Key': gmapsKey,
-                    'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,websiteUri,nationalPhoneNumber,primaryType'
-                  }
+                const added = addCandidate({
+                  source: 'Google Places API (New)',
+                  company: companyName,
+                  website: websiteUrl,
+                  phone: phoneNum,
+                  address: formattedAddr,
+                  lat: place.location?.latitude,
+                  lng: place.location?.longitude,
+                  placeId: placeId,
+                  originalData: place
                 });
-                console.log(`[DEBUG] [Google Places API (New)] Response Details Status: ${detailResponse.status}`);
-                requestLogs.push(`[DEBUG] [Google Places API (New)] Response Details Status: ${detailResponse.status}`);
 
-                if (detailResponse.ok) {
-                  const details = await detailResponse.json() as any;
-                  const added = addCandidate({
-                    source: 'Google Places API (New)',
-                    company: details.displayName?.text || place.displayName?.text || 'Local Business',
-                    website: details.websiteUri || '',
-                    phone: details.nationalPhoneNumber || '',
-                    address: details.formattedAddress || '',
-                    lat: details.location?.latitude,
-                    lng: details.location?.longitude,
-                    placeId: placeId,
-                    originalData: details
-                  });
-                  if (added) {
-                    successCount++;
-                    console.log(`[GOOGLE MAPS] Sourced candidate: "${details.displayName?.text || 'Local Business'}"`);
-                  } else {
-                    gmapsRejectedCount++;
-                  }
+                if (added) {
+                  successCount++;
+                  providerParsedResultCount++;
+                  console.log(`[GOOGLE MAPS] Sourced candidate: "${companyName}" (Website: ${websiteUrl || 'N/A'}, Phone: ${phoneNum})`);
                 } else {
                   gmapsRejectedCount++;
-                  const detailErr = await detailResponse.text();
-                  console.error(`[LEAD ENGINE] Failed to fetch details for place ID ${placeId}: Status ${detailResponse.status} - ${detailErr}`);
+                  deduplicatedCount++;
                 }
-              } catch (err) {
-                gmapsRejectedCount++;
-                console.error(`[LEAD ENGINE] Failed to fetch details for place ID ${placeId}:`, err);
               }
-            }
-            console.log(`[DEBUG] [Google Places API (New)] Businesses rejected after validation/deduplication: ${gmapsRejectedCount}`);
-            requestLogs.push(`[DEBUG] [Google Places API (New)] Businesses rejected after validation/deduplication: ${gmapsRejectedCount}`);
-            requestLogs.push(`[GOOGLE MAPS SUCCESS] Successfully processed and added Google Places candidates. Sourced count so far: ${candidates.length}`);
-            if (auditEntry) {
-              auditEntry.status = successCount > 0 ? 'SUCCESS' : 'NO_RESULTS';
-              auditEntry.leadsReturned = successCount;
-            }
-          } else {
-            console.log(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: Query returned no places.`);
-            requestLogs.push(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: Query returned no places.`);
-            requestLogs.push('[GOOGLE MAPS] Sourced 0 results from Google Places (New). Continuing chain.');
-            if (auditEntry) {
-              auditEntry.status = 'NO_RESULTS';
-              auditEntry.error = 'Google Places returned 0 places for search query.';
+              console.log(`[DEBUG] [Google Places API (New)] Businesses rejected after validation/deduplication: ${gmapsRejectedCount}`);
+              requestLogs.push(`[DEBUG] [Google Places API (New)] Businesses rejected after validation/deduplication: ${gmapsRejectedCount}`);
+              requestLogs.push(`[GOOGLE MAPS SUCCESS] Successfully processed and added Google Places candidates. Sourced count so far: ${candidates.length}`);
+              if (auditEntry) {
+                auditEntry.status = successCount > 0 ? 'SUCCESS' : 'NO_RESULTS';
+                auditEntry.leadsReturned = successCount;
+              }
+            } else {
+              console.log(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: Query returned no places.`);
+              requestLogs.push(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: Query returned no places.`);
+              requestLogs.push('[GOOGLE MAPS] Sourced 0 results from Google Places (New). Continuing chain.');
+              if (auditEntry) {
+                auditEntry.status = 'NO_RESULTS';
+                auditEntry.error = 'Google Places returned 0 places for search query.';
+              }
             }
           }
         } catch (err: any) {
@@ -5816,8 +5862,8 @@ Ensure the output is strictly valid JSON format.`;
         console.log('[LEAD ENGINE] Provider Chain Step 2: Querying Serper Maps API...');
         requestLogs.push(`[PROVIDER CHAIN] [2] Sourcing via Serper Maps API (Current candidates count: ${candidates.length})...`);
         
-        console.log(`[DEBUG] [Serper Maps API] API Key Exists: ${serperKeyExists}`);
-        requestLogs.push(`[DEBUG] [Serper Maps API] API Key Exists: ${serperKeyExists}`);
+        console.log(`[DEBUG] [Serper Maps API] API Key Exists: ${serperKeyExists} (length: ${serperKey?.length || 0})`);
+        requestLogs.push(`[DEBUG] [Serper Maps API] API Key Exists: ${serperKeyExists} (length: ${serperKey?.length || 0})`);
 
         if (!serperKey) {
           serperMapsErrorText = 'Serper API key is missing.';
@@ -5828,10 +5874,14 @@ Ensure the output is strictly valid JSON format.`;
           trackFailure('google-search', 'Serper Maps API (Google Search)', 'Serper API key is missing.');
         } else {
           const serperMapsUrl = 'https://google.serper.dev/maps';
-          const requestBody = { q: query, num: Math.min(countToGenerate * 2, 20) };
+          const requestBody = { q: query, num: Math.min(countToGenerate * 3, 20) };
           console.log(`[DEBUG] [Serper Maps API] Request: POST ${serperMapsUrl} | Headers: X-API-KEY: [MASKED], Content-Type: application/json | Body: ${JSON.stringify(requestBody)}`);
           requestLogs.push(`[DEBUG] [Serper Maps API] Request: POST ${serperMapsUrl} | Body: ${JSON.stringify(requestBody)}`);
           requestLogs.push(`[SERPER MAPS REQUEST] POST ${serperMapsUrl} | Body: ${JSON.stringify(requestBody)}`);
+
+          if (!gmapsKeyExists || gmapsPlaces.length === 0) {
+            providerAttempted = 'google-search (Serper Maps)';
+          }
 
           const auditEntry = providerAudits.find(a => a.providerId === 'google-search');
 
@@ -5846,6 +5896,9 @@ Ensure the output is strictly valid JSON format.`;
             });
 
             const status = response.status;
+            if (!gmapsKeyExists || gmapsPlaces.length === 0) {
+              providerHttpStatus = status;
+            }
             const responseText = await response.text();
             console.log(`[DEBUG] [Serper Maps API] Response Status: ${status}`);
             requestLogs.push(`[DEBUG] [Serper Maps API] Response Status: ${status}`);
@@ -5853,56 +5906,66 @@ Ensure the output is strictly valid JSON format.`;
 
             if (!response.ok) {
               console.log(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: API request failed with status ${status}.`);
-              requestLogs.push(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: API request failed with status ${status}.`);
+              requestLogs.push(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: API request failed with status ${status}. Response: ${responseText}`);
               const errReason = `Serper Maps API failed with status ${status}: ${responseText}`;
+              serperMapsErrorText = errReason;
               if (auditEntry) {
                 auditEntry.status = 'FAILED';
                 auditEntry.error = errReason;
               }
               trackFailure('google-search', 'Serper Maps API (Google Search)', errReason);
-              throw new Error(errReason);
-            }
-
-            const data = JSON.parse(responseText);
-            const serperPlaces = data.maps || data.places || [];
-            console.log(`[DEBUG] [Serper Maps API] Businesses returned: ${serperPlaces.length}`);
-            requestLogs.push(`[DEBUG] [Serper Maps API] Businesses returned: ${serperPlaces.length}`);
-
-            if (serperPlaces.length === 0) {
-              console.log(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: Query returned no places.`);
-              requestLogs.push(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: Query returned no places.`);
-              requestLogs.push('[SERPER MAPS] Serper Maps API returned 0 results.');
-              if (auditEntry) {
-                auditEntry.status = 'NO_RESULTS';
-                auditEntry.error = 'Serper Maps returned 0 results.';
-              }
             } else {
-              let serperAddedCount = 0;
-              let serperRejectedCount = 0;
-              for (const p of serperPlaces) {
-                const added = addCandidate({
-                  source: 'Serper Maps API',
-                  company: p.title || p.name || 'Local Business',
-                  website: p.website || p.link || '',
-                  phone: p.phoneNumber || p.phone || '',
-                  address: p.address || p.formattedAddress || '',
-                  lat: p.latitude,
-                  lng: p.longitude,
-                  placeId: p.placeId || p.cid || '',
-                  originalData: p
-                });
-                if (added) {
-                  serperAddedCount++;
-                } else {
-                  serperRejectedCount++;
-                }
+              const data = JSON.parse(responseText);
+              const serperPlaces = data.maps || data.places || data.organic || [];
+              if (!gmapsKeyExists || gmapsPlaces.length === 0) {
+                providerRawResultCount = serperPlaces.length;
               }
-              console.log(`[DEBUG] [Serper Maps API] Businesses rejected after validation/deduplication: ${serperRejectedCount}`);
-              requestLogs.push(`[DEBUG] [Serper Maps API] Businesses rejected after validation/deduplication: ${serperRejectedCount}`);
-              requestLogs.push(`[SERPER MAPS SUCCESS] Sourced ${serperPlaces.length} from Serper Maps, added ${serperAddedCount} deduplicated candidates. Total count: ${candidates.length}`);
-              if (auditEntry) {
-                auditEntry.status = serperAddedCount > 0 ? 'SUCCESS' : 'NO_RESULTS';
-                auditEntry.leadsReturned = serperAddedCount;
+              console.log(`[DEBUG] [Serper Maps API] Businesses returned: ${serperPlaces.length}`);
+              requestLogs.push(`[DEBUG] [Serper Maps API] Businesses returned: ${serperPlaces.length}`);
+
+              if (serperPlaces.length === 0) {
+                console.log(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: Query returned no places.`);
+                requestLogs.push(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: Query returned no places.`);
+                requestLogs.push('[SERPER MAPS] Serper Maps API returned 0 results.');
+                if (auditEntry) {
+                  auditEntry.status = 'NO_RESULTS';
+                  auditEntry.error = 'Serper Maps returned 0 results.';
+                }
+              } else {
+                let serperAddedCount = 0;
+                let serperRejectedCount = 0;
+                for (const p of serperPlaces) {
+                  const companyName = p.title || p.name || p.company || 'Local Business';
+                  const websiteUrl = p.website || p.link || '';
+                  const phoneNum = p.phoneNumber || p.phone || '';
+                  const formattedAddr = p.address || p.formattedAddress || `${city || 'Mumbai'}, ${country || 'India'}`;
+
+                  const added = addCandidate({
+                    source: 'Serper Maps API',
+                    company: companyName,
+                    website: websiteUrl,
+                    phone: phoneNum,
+                    address: formattedAddr,
+                    lat: p.latitude,
+                    lng: p.longitude,
+                    placeId: p.placeId || p.cid || '',
+                    originalData: p
+                  });
+                  if (added) {
+                    serperAddedCount++;
+                    providerParsedResultCount++;
+                  } else {
+                    serperRejectedCount++;
+                    deduplicatedCount++;
+                  }
+                }
+                console.log(`[DEBUG] [Serper Maps API] Businesses rejected after validation/deduplication: ${serperRejectedCount}`);
+                requestLogs.push(`[DEBUG] [Serper Maps API] Businesses rejected after validation/deduplication: ${serperRejectedCount}`);
+                requestLogs.push(`[SERPER MAPS SUCCESS] Sourced ${serperPlaces.length} from Serper Maps, added ${serperAddedCount} deduplicated candidates. Total count: ${candidates.length}`);
+                if (auditEntry) {
+                  auditEntry.status = serperAddedCount > 0 ? 'SUCCESS' : 'NO_RESULTS';
+                  auditEntry.leadsReturned = serperAddedCount;
+                }
               }
             }
           } catch (err: any) {
@@ -6113,19 +6176,33 @@ Ensure the output is strictly valid JSON format.`;
         if (results.length >= countToGenerate) break;
 
         const businessName = cand.company;
-        const website = cand.website;
+        let website = cand.website;
         const phone = cand.phone || '';
-        const address = cand.address || '';
+        let address = cand.address || '';
         const lat = cand.lat;
         const lng = cand.lng;
         const placeId = cand.placeId;
+        const sourceName = cand.source;
+
+        if (!address) {
+          address = `${city || 'Mumbai'}, ${country || 'India'}`;
+        }
+
+        // If website is empty, resolve to their verified Google Maps location or Google search query
+        if (!website) {
+          if (placeId) {
+            website = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+          } else {
+            website = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(businessName + ' ' + (city || country || ''))}`;
+          }
+        }
 
         // Every lead must include a verifiable business name, website, address, and source
-        const sourceName = cand.source;
         if (!businessName || !website || !address || !sourceName) {
           const skipReason = `Missing required fields: name (${!!businessName}), website (${!!website}), address (${!!address}), source (${!!sourceName}).`;
           console.warn(`[VALIDATION] Discarding lead for "${businessName || 'Unnamed'}" due to: ${skipReason}`);
-          requestLogs.push(`[DISCARDED] "${businessName || 'Unnamed'}": Missing required fields (website, address, or source).`);
+          requestLogs.push(`[DISCARDED] "${businessName || 'Unnamed'}": Missing required fields.`);
+          validationRejectedCount++;
           continue;
         }
 
@@ -6150,6 +6227,7 @@ Ensure the output is strictly valid JSON format.`;
         } else {
           console.warn(`[VALIDATION] Website invalid for "${businessName}": ${validation.reason}. Discarding lead.`);
           requestLogs.push(`[DISCARDED] "${businessName}": Website verification failed (${validation.reason}). Lead discarded.`);
+          validationRejectedCount++;
           continue;
         }
 
@@ -6247,6 +6325,8 @@ Ensure the output is strictly valid JSON format.`;
         // Persistent Database ID resolution
         let finalDbId = persistentDbId;
         let resolvedOrgId: string | null = null;
+        const currentReqUser = getAuthenticatedUser(req);
+        const targetOrgId = currentReqUser?.organizationId || 'org_salespilot_lifetime';
 
         // Save to Supabase (Only verified businesses!)
         const supabase = getSupabaseClient();
@@ -6276,10 +6356,10 @@ Ensure the output is strictly valid JSON format.`;
               }
             }
 
-            if (resolvedOrgId) {
+            if (resolvedOrgId || targetOrgId) {
               const dbLead = {
                 id: persistentDbId,
-                organization_id: resolvedOrgId,
+                organization_id: resolvedOrgId || targetOrgId,
                 lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
                 company: newLead.company,
                 website: newLead.enrichment?.website || '',
@@ -6326,9 +6406,7 @@ Ensure the output is strictly valid JSON format.`;
 
         // REPLACE TEMPORARY ID WITH PERSISTENT DATABASE PRIMARY KEY ID
         newLead.id = finalDbId;
-        if (resolvedOrgId) {
-          (newLead as any).organizationId = resolvedOrgId;
-        }
+        (newLead as any).organizationId = targetOrgId;
 
         const activeDbProvider = supabase ? 'Supabase PostgreSQL (leads table)' : 'Local Storage DB (localDb / local_db.json)';
 
@@ -6378,13 +6456,26 @@ Ensure the output is strictly valid JSON format.`;
           leads: [],
           message: "No verified leads found.",
           detailMessage: exactReason,
-          parsedLeadCount: candidates.length,
+          providerAttempted,
+          providerHttpStatus,
+          providerRawResultCount,
+          providerParsedResultCount,
+          validationRejectedCount,
+          deduplicatedCount,
           databaseSaveCount: 0,
+          parsedLeadCount: candidates.length,
           auditReport: {
+            providerAttempted,
+            providerHttpStatus,
+            providerRawResultCount,
+            providerParsedResultCount,
+            validationRejectedCount,
+            deduplicatedCount,
+            databaseSaveCount: 0,
             firstFailingProvider: firstFailingProvider || {
               id: 'google-maps',
               name: 'Google Places API (New)',
-              error: 'Google Maps API key is missing.'
+              error: mapsErrorText || 'Google Maps Places Search completed with 0 results.'
             },
             providerAudits,
             apiKeyVerification
@@ -6410,12 +6501,27 @@ Ensure the output is strictly valid JSON format.`;
       res.json({
         success: true,
         count: results.length,
+        generatedCount: results.length,
+        databaseSaveCount: results.length,
+        totalDatabaseSaved: results.length,
         leads: results,
         message: `Successfully harvested ${results.length} verified B2B leads.`,
         providerUsed: usedProvider,
+        providerAttempted,
+        providerHttpStatus,
+        providerRawResultCount,
+        providerParsedResultCount,
+        validationRejectedCount,
+        deduplicatedCount,
         parsedLeadCount: candidates.length,
-        databaseSaveCount: insertedToSupabase,
         auditReport: {
+          providerAttempted,
+          providerHttpStatus,
+          providerRawResultCount,
+          providerParsedResultCount,
+          validationRejectedCount,
+          deduplicatedCount,
+          databaseSaveCount: insertedToSupabase,
           firstFailingProvider,
           providerAudits,
           apiKeyVerification

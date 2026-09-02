@@ -260,6 +260,7 @@ export default function App() {
         return;
       }
       try {
+        console.log(`[TELEMETRY RELOAD] fetchStarted: true`);
         const token = localStorage.getItem('salespilot_token');
         const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
@@ -273,17 +274,24 @@ export default function App() {
           fetch('/api/v1/dashboard/activities', { headers }).catch(() => null)
         ]);
 
-        const leadsData = await leadsRes.json();
-        const campsData = await campsRes.json();
-        const dealsData = await dealsRes.json();
-        const aptsData = await aptsRes.json();
-        const configData = await configRes.json();
+        console.log(`[TELEMETRY RELOAD] fetchHttpStatus: ${leadsRes.status}`);
 
-        setLeads(leadsData.leads);
-        setCampaigns(campsData.campaigns);
-        setDeals(dealsData.deals);
-        setAppointments(aptsData.appointments);
-        setIntegrations(configData.integrations);
+        const leadsData = await leadsRes.json().catch(() => ({ leads: [] }));
+        const campsData = await campsRes.json().catch(() => ({ campaigns: [] }));
+        const dealsData = await dealsRes.json().catch(() => ({ deals: [] }));
+        const aptsData = await aptsRes.json().catch(() => ({ appointments: [] }));
+        const configData = await configRes.json().catch(() => ({ integrations: {} }));
+
+        const loadedLeads = Array.isArray(leadsData?.leads) ? leadsData.leads : [];
+        console.log(`[TELEMETRY RELOAD] databaseReturnedCount: ${loadedLeads.length}`);
+
+        setLeads(loadedLeads);
+        console.log(`[TELEMETRY RELOAD] frontendStateCount: ${loadedLeads.length}`);
+
+        setCampaigns(Array.isArray(campsData?.campaigns) ? campsData.campaigns : []);
+        setDeals(Array.isArray(dealsData?.deals) ? dealsData.deals : []);
+        setAppointments(Array.isArray(aptsData?.appointments) ? aptsData.appointments : []);
+        setIntegrations(configData?.integrations || {});
 
         if (notRes) {
           const notData = await notRes.json();

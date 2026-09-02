@@ -75,13 +75,14 @@ export function LeadsView({
   // Create Campaign State
   const [newCampaignName, setNewCampaignName] = useState('');
   const [campCountry, setCampCountry] = useState('India');
-  const [campIndustry, setCampIndustry] = useState('Software');
+  const [campIndustry, setCampIndustry] = useState('Marketing & Advertising');
+  const [customIndustryInput, setCustomIndustryInput] = useState('');
   const [campSize, setCampSize] = useState('11-50 employees');
   const [campEmployeeMin, setCampEmployeeMin] = useState('10');
   const [campEmployeeMax, setCampEmployeeMax] = useState('100');
   const [campRevenue, setCampRevenue] = useState('₹1 Crore - ₹5 Crore');
   const [campTitles, setCampTitles] = useState('CEO, Founder, VP Sales');
-  const [campKeywords, setCampKeywords] = useState('outbound, pipeline, lead generation');
+  const [campKeywords, setCampKeywords] = useState('');
   const [campNegativeKeywords, setCampNegativeKeywords] = useState('student, intern, support');
   const [campLanguage, setCampLanguage] = useState('English');
   const [campMaxLeads, setCampMaxLeads] = useState('5');
@@ -103,6 +104,39 @@ export function LeadsView({
   // --- Enterprise Workspace Collaboration States ---
   const [teamMembersList, setTeamMembersList] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
+
+  // Rehydrate leads from server database on LeadsView mount to ensure UI is always fresh with persisted records
+  useEffect(() => {
+    const fetchPersistedLeads = async () => {
+      try {
+        console.log('[TELEMETRY RELOAD] fetchStarted: true');
+        const token = localStorage.getItem('salespilot_token');
+        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const res = await fetch('/api/v1/leads', { headers });
+        console.log('[TELEMETRY RELOAD] fetchHttpStatus:', res.status);
+        if (res.ok) {
+          const data = await res.json();
+          const serverLeads = Array.isArray(data?.leads) ? data.leads : [];
+          console.log('[TELEMETRY RELOAD] databaseReturnedCount:', serverLeads.length);
+          if (serverLeads.length > 0) {
+            setLeads(prev => {
+              const mergedMap = new Map<string, Lead>();
+              serverLeads.forEach((l: Lead) => mergedMap.set(l.id, l));
+              prev.forEach((l: Lead) => {
+                if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
+              });
+              const merged = Array.from(mergedMap.values());
+              console.log('[TELEMETRY RELOAD] frontendStateCount:', merged.length);
+              return merged;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[LEADS VIEW] Failed to refresh persisted leads on mount:', err);
+      }
+    };
+    fetchPersistedLeads();
+  }, [setLeads]);
 
   useEffect(() => {
     fetch('/api/v1/workspace/permissions/matrix')
@@ -462,6 +496,7 @@ export function LeadsView({
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
+    console.log('[TELEMETRY RELOAD] renderedLeadCount:', result.length);
     return result;
   }, [leads, search, filterCountry, filterIndustry, filterSize, filterRevenue, filterScore, filterStatus, filterTag, sortBy, sortOrder]);
 
@@ -802,13 +837,17 @@ export function LeadsView({
     }
 
     try {
+      const token = localStorage.getItem('salespilot_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/v1/leads/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           campaignName: newCampaignName,
           country: campCountry,
-          industry: campIndustry,
+          industry: campIndustry === 'Other' && customIndustryInput.trim() ? customIndustryInput.trim() : campIndustry,
           companySize: campSize,
           employeeRange: `${campEmployeeMin}-${campEmployeeMax}`,
           revenueRange: campRevenue,
@@ -833,6 +872,10 @@ export function LeadsView({
 
       if (response.ok) {
         setScraperProgress(100);
+        const generatedCount = data.generatedCount ?? data.count ?? (data.leads ? data.leads.length : 0);
+        const databaseSaveCount = data.databaseSaveCount ?? data.totalDatabaseSaved ?? data.count ?? 0;
+        console.log('[TELEMETRY GENERATE]', { generatedCount, databaseSaveCount });
+
         if (data.providerLogs && data.providerLogs.length > 0) {
           const providerLogsList = data.providerLogs.map((pl: any) => 
             `[PROVIDER REPORT] ${pl.provider} | Status: ${pl.status} | ${pl.message}`
@@ -841,8 +884,15 @@ export function LeadsView({
         }
         
         if (data.count > 0 && data.leads && data.leads.length > 0) {
-          setScraperLogs(prev => [...prev, `[SYSTEM] Scraper run completed! Successfully harvested ${data.count} highly-qualified B2B leads.`, `[SYSTEM] Saved matching records to SalesPilot directory.`]);
-          setLeads(prev => [...data.leads, ...prev]);
+          setScraperLogs(prev => [...prev, `[SYSTEM] Scraper run completed! Successfully harvested ${data.count} highly-qualified B2B leads.`, `[SYSTEM] Saved matching records to database (Save Count: ${databaseSaveCount}).`]);
+          setLeads(prev => {
+            const mergedMap = new Map<string, Lead>();
+            data.leads.forEach((l: Lead) => mergedMap.set(l.id, l));
+            prev.forEach((l: Lead) => {
+              if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
+            });
+            return Array.from(mergedMap.values());
+          });
           setSelectedLeadId(data.leads[0].id);
         } else {
           setScraperLogs(prev => [...prev, `[SYSTEM] ${data.message || "No verified leads found."}`]);
@@ -2369,12 +2419,30 @@ export function LeadsView({
                     onChange={(e) => setCampIndustry(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
                   >
-                    <option value="Software">Software & SaaS</option>
-                    <option value="Marketing">Marketing & Ad Agencies</option>
-                    <option value="Consulting">Consulting & Advisory</option>
-                    <option value="Real Estate">Real Estate Developers</option>
-                    <option value="Logistics">Logistics & Supply Chain</option>
+                    <option value="Marketing & Advertising">Marketing & Advertising</option>
+                    <option value="Software / IT">Software / IT</option>
+                    <option value="Restaurants / Food">Restaurants / Food</option>
+                    <option value="Real Estate">Real Estate</option>
+                    <option value="Healthcare / Clinics">Healthcare / Clinics</option>
+                    <option value="Education / Training">Education / Training</option>
+                    <option value="Finance / Accounting">Finance / Accounting</option>
+                    <option value="E-commerce / Retail">E-commerce / Retail</option>
+                    <option value="Consulting & Advisory">Consulting & Advisory</option>
+                    <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                    <option value="Manufacturing & Industrial">Manufacturing & Industrial</option>
+                    <option value="Hospitality & Travel">Hospitality & Travel</option>
+                    <option value="Legal & Compliance">Legal & Compliance</option>
+                    <option value="Other">Other / Custom Industry</option>
                   </select>
+                  {campIndustry === 'Other' && (
+                    <input 
+                      type="text" 
+                      placeholder="Enter custom industry (e.g. Architecture & Interior Design)"
+                      value={customIndustryInput}
+                      onChange={(e) => setCustomIndustryInput(e.target.value)}
+                      className="w-full mt-2 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-lg p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Company Size Bracket</label>
