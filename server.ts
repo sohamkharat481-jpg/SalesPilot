@@ -64,10 +64,10 @@ async function generateContentWithFallback(
     primaryModel?: string;
   }
 ) {
-  const primaryModel = params.primaryModel || 'gemini-3.6-flash';
+  const primaryModel = params.primaryModel || 'gemini-3.8-flash';
   const modelChain = [
     primaryModel,
-    'gemini-3.1-flash-lite',
+    'gemini-3.8-flash',
     'gemini-flash-latest'
   ];
 
@@ -90,9 +90,14 @@ async function generateContentWithFallback(
       const errMsg = err?.message || String(err);
       
       console.log(`[INFO] Gemini model ${modelName} encountered an issue: ${errMsg.substring(0, 100)}`);
+      if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('Quota exceeded')) {
+        geminiCooldownExpiry = Date.now() + 60000;
+        console.warn(`[WARN] Gemini quota exceeded. Enabled cooldown until ${new Date(geminiCooldownExpiry).toISOString()}`);
+        break;
+      }
       
       if (i < uniqueModels.length - 1) {
-        const delay = 500 + i * 300;
+        const delay = 300 + i * 200;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -1426,8 +1431,8 @@ export async function generateResearchProfile(lead: Lead, customApiKey?: string)
   const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
   const now = new Date().toISOString();
 
-  if (!geminiKey) {
-    console.log(`[AI RESEARCH PROFILE] No Gemini key found. Generating premium high-quality pre-baked fallback research profile for "${lead.company}"...`);
+  if (!geminiKey || Date.now() < geminiCooldownExpiry) {
+    console.log(`[AI RESEARCH PROFILE] ${!geminiKey ? 'No Gemini key found' : 'Gemini currently in rate-limit cooldown'}. Generating premium high-quality pre-baked fallback research profile for "${lead.company}"...`);
     return generateFallbackResearchProfile(lead, now);
   }
 
@@ -1548,7 +1553,7 @@ Your response MUST be a strictly valid JSON object with the exact fields and typ
 Do not include any markdown styling like \`\`\`json. Return only the valid JSON.`;
 
     const response = await generateContentWithFallback(ai, {
-      primaryModel: 'gemini-3.5-flash',
+      primaryModel: 'gemini-3.8-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json'
@@ -5657,6 +5662,7 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
     'Marketing': 'Marketing & Advertising agencies',
     'Marketing & Advertising': 'Marketing & Advertising agencies',
     'Marketing & Ad Agencies': 'Marketing & Advertising agencies',
+    'Marketing & Ad Agency': 'Marketing & Advertising agencies',
     'Software': 'Software & IT companies',
     'Software / IT': 'Software & IT companies',
     'Software & IT': 'Software & IT companies',
@@ -6244,7 +6250,8 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
                 'X-API-KEY': serperKey,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ q: serperQuery, num: 3 })
+              body: JSON.stringify({ q: serperQuery, num: 3 }),
+              signal: AbortSignal.timeout(3000)
             });
             if (serperRes.ok) {
               const serperData = await serperRes.json() as any;
@@ -6451,9 +6458,17 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
         console.log(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
         requestLogs.push(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
 
+        console.log(`[TELEMETRY] PROVIDER_ATTEMPTED: ${providerAttempted}`);
+        console.log(`[TELEMETRY] PROVIDER_HTTP_STATUS: ${providerHttpStatus}`);
+        console.log(`[TELEMETRY] PROVIDER_RAW_RESULT_COUNT: ${providerRawResultCount}`);
+        console.log(`[TELEMETRY] PROVIDER_PARSED_RESULT_COUNT: ${providerParsedResultCount}`);
+        console.log(`[TELEMETRY] VALIDATION_REJECTED_COUNT: ${validationRejectedCount}`);
+        console.log(`[TELEMETRY] GENERATED_COUNT: 0`);
+
         const responsePayload = {
           success: true,
           count: 0,
+          generatedCount: 0,
           leads: [],
           message: "No verified leads found.",
           detailMessage: exactReason,
@@ -6465,6 +6480,14 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
           deduplicatedCount,
           databaseSaveCount: 0,
           parsedLeadCount: candidates.length,
+          telemetry: {
+            PROVIDER_ATTEMPTED: providerAttempted,
+            PROVIDER_HTTP_STATUS: providerHttpStatus,
+            PROVIDER_RAW_RESULT_COUNT: providerRawResultCount,
+            PROVIDER_PARSED_RESULT_COUNT: providerParsedResultCount,
+            VALIDATION_REJECTED_COUNT: validationRejectedCount,
+            GENERATED_COUNT: 0
+          },
           auditReport: {
             providerAttempted,
             providerHttpStatus,
@@ -6499,6 +6522,13 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
       console.log(`[LEAD ENGINE SUCCESS] Sourcing completed! Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Database Save Count: ${insertedToSupabase} (Supabase) + ${results.length} (Local DB).`);
       requestLogs.push(`[SUMMARY] Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Database Save Count: ${insertedToSupabase}.`);
 
+      console.log(`[TELEMETRY] PROVIDER_ATTEMPTED: ${providerAttempted}`);
+      console.log(`[TELEMETRY] PROVIDER_HTTP_STATUS: ${providerHttpStatus}`);
+      console.log(`[TELEMETRY] PROVIDER_RAW_RESULT_COUNT: ${providerRawResultCount}`);
+      console.log(`[TELEMETRY] PROVIDER_PARSED_RESULT_COUNT: ${providerParsedResultCount}`);
+      console.log(`[TELEMETRY] VALIDATION_REJECTED_COUNT: ${validationRejectedCount}`);
+      console.log(`[TELEMETRY] GENERATED_COUNT: ${results.length}`);
+
       res.json({
         success: true,
         count: results.length,
@@ -6515,6 +6545,14 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
         validationRejectedCount,
         deduplicatedCount,
         parsedLeadCount: candidates.length,
+        telemetry: {
+          PROVIDER_ATTEMPTED: providerAttempted,
+          PROVIDER_HTTP_STATUS: providerHttpStatus,
+          PROVIDER_RAW_RESULT_COUNT: providerRawResultCount,
+          PROVIDER_PARSED_RESULT_COUNT: providerParsedResultCount,
+          VALIDATION_REJECTED_COUNT: validationRejectedCount,
+          GENERATED_COUNT: results.length
+        },
         auditReport: {
           providerAttempted,
           providerHttpStatus,

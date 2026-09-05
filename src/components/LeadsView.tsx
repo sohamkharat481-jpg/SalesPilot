@@ -86,9 +86,9 @@ export function LeadsView({
   const [isAddingTask, setIsAddingTask] = useState(false);
 
   // Create Campaign State
-  const [newCampaignName, setNewCampaignName] = useState('');
+  const [newCampaignName, setNewCampaignName] = useState('Mumbai Marketing Campaign');
   const [campCountry, setCampCountry] = useState('India');
-  const [campIndustry, setCampIndustry] = useState('Marketing & Advertising');
+  const [campIndustry, setCampIndustry] = useState('Marketing & Ad Agency');
   const [customIndustryInput, setCustomIndustryInput] = useState('');
   const [campSize, setCampSize] = useState('11-50 employees');
   const [campEmployeeMin, setCampEmployeeMin] = useState('10');
@@ -107,7 +107,7 @@ export function LeadsView({
   const [scraperProgress, setScraperProgress] = useState(0);
 
   // Advanced ICP Builder Target Parameters
-  const [campCity, setCampCity] = useState('Bengaluru');
+  const [campCity, setCampCity] = useState('Mumbai');
   const [campTechStack, setCampTechStack] = useState('React, HubSpot, Salesforce, Next.js');
   const [campDepartment, setCampDepartment] = useState('Sales & Outbound');
   const [campBusinessType, setCampBusinessType] = useState('B2B SaaS');
@@ -889,71 +889,107 @@ export function LeadsView({
     }
   };
 
-  // Run AI Lead Scraper Agent (Simulated Crawl with dynamic console telemetry log streaming!)
+  // Run AI Lead Scraper Agent (Real Lead Generation with dynamic console telemetry logging)
   const handleRunAIScraper = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCampaignName.trim()) {
-      alert('Please enter a Campaign Name first.');
-      return;
-    }
+    const finalCampaignName = newCampaignName.trim() || `${campCity || 'Mumbai'} ${campIndustry || 'Marketing & Ad Agency'} Campaign`;
+
+    const payload = {
+      campaignName: finalCampaignName,
+      country: campCountry,
+      city: campCity,
+      industry: campIndustry === 'Other' && customIndustryInput.trim() ? customIndustryInput.trim() : campIndustry,
+      keywords: campKeywords,
+      maxLeads: Number(campMaxLeads) || 5,
+      companySize: campSize,
+      employeeRange: `${campEmployeeMin}-${campEmployeeMax}`,
+      revenueRange: campRevenue,
+      jobTitles: campTitles,
+      negativeKeywords: campNegativeKeywords,
+      priority: campPriority,
+      providerId: selectedProviderId,
+      customApiKey: customProviderApiKey,
+      techStack: campTechStack,
+      department: campDepartment,
+      businessType: campBusinessType,
+      yearsInBusiness: campYearsInBusiness,
+      decisionMakerOnly: campDecisionMakerOnly,
+      language: campLanguage
+    };
+
+    console.log('[TELEMETRY] UI_SUBMIT_CLICKED', {
+      campaignName: payload.campaignName,
+      country: payload.country,
+      city: payload.city,
+      industry: payload.industry,
+      keywords: payload.keywords,
+      maxLeads: payload.maxLeads
+    });
 
     setIsScraperRunning(true);
-    setScraperProgress(10);
-    setScraperLogs(['[SYSTEM] SalesPilot AI Lead Generation Engine booting...', '[SYSTEM] Authenticating secure agent channels...']);
+    setScraperProgress(15);
+    setScraperLogs([
+      `[SYSTEM] Sourcing initiates for "${payload.industry}" in "${payload.city}, ${payload.country}" (Max: ${payload.maxLeads})...`,
+      '[PROVIDER CHAIN] Querying active discovery providers...'
+    ]);
 
-    const steps = [
-      { progress: 25, log: `[SPIDER] Initiating local target scan in country: "${campCountry}"...` },
-      { progress: 45, log: `[SPIDER] Found 14 company directory matches in industry: "${campIndustry}" matching size range "${campSize}"` },
-      { progress: 65, log: `[AGENT] Filtering decision makers with job title matching: [${campTitles}]` },
-      { progress: 80, log: `[GEMINI_API] Grading prospect matches via SalesPilot Qualification Scorer...` },
-      { progress: 95, log: `[ENRICHER] Pulling business emails, company size, revenue, and active social profiles...` }
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setScraperProgress(steps[i].progress);
-      setScraperLogs(prev => [...prev, steps[i].log]);
-    }
+    // Progress animation interval while fetch request is in flight
+    let currentProg = 15;
+    const progressTimer = setInterval(() => {
+      currentProg = Math.min(currentProg + 10, 85);
+      setScraperProgress(currentProg);
+    }, 400);
 
     try {
       const token = localStorage.getItem('salespilot_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
+      console.log('[TELEMETRY] REQUEST_SENT', {
+        method: 'POST',
+        endpoint: '/api/v1/leads/generate',
+        payload: {
+          campaignName: payload.campaignName,
+          country: payload.country,
+          city: payload.city,
+          industry: payload.industry,
+          keywords: payload.keywords,
+          maxLeads: payload.maxLeads
+        }
+      });
+
       const response = await fetch('/api/v1/leads/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          campaignName: newCampaignName,
-          country: campCountry,
-          industry: campIndustry === 'Other' && customIndustryInput.trim() ? customIndustryInput.trim() : campIndustry,
-          companySize: campSize,
-          employeeRange: `${campEmployeeMin}-${campEmployeeMax}`,
-          revenueRange: campRevenue,
-          jobTitles: campTitles,
-          keywords: campKeywords,
-          negativeKeywords: campNegativeKeywords,
-          priority: campPriority,
-          maxLeads: campMaxLeads,
-          providerId: selectedProviderId,
-          customApiKey: customProviderApiKey,
-          city: campCity,
-          techStack: campTechStack,
-          department: campDepartment,
-          businessType: campBusinessType,
-          yearsInBusiness: campYearsInBusiness,
-          decisionMakerOnly: campDecisionMakerOnly,
-          language: campLanguage
-        })
+        body: JSON.stringify(payload)
+      });
+
+      clearInterval(progressTimer);
+
+      console.log('[TELEMETRY] REQUEST_STATUS', {
+        status: response.status,
+        ok: response.ok
       });
 
       const data = await response.json();
 
+      const providerAttempted = data.providerAttempted || data.telemetry?.PROVIDER_ATTEMPTED || selectedProviderId;
+      const providerHttpStatus = data.providerHttpStatus ?? data.telemetry?.PROVIDER_HTTP_STATUS ?? (response.ok ? 200 : response.status);
+      const providerRawResultCount = data.providerRawResultCount ?? data.telemetry?.PROVIDER_RAW_RESULT_COUNT ?? (data.leads ? data.leads.length : 0);
+      const providerParsedResultCount = data.providerParsedResultCount ?? data.telemetry?.PROVIDER_PARSED_RESULT_COUNT ?? (data.leads ? data.leads.length : 0);
+      const validationRejectedCount = data.validationRejectedCount ?? data.telemetry?.VALIDATION_REJECTED_COUNT ?? 0;
+      const generatedCount = data.generatedCount ?? data.count ?? (data.leads ? data.leads.length : 0);
+
+      console.log('[TELEMETRY] PROVIDER_ATTEMPTED:', providerAttempted);
+      console.log('[TELEMETRY] PROVIDER_HTTP_STATUS:', providerHttpStatus);
+      console.log('[TELEMETRY] PROVIDER_RAW_RESULT_COUNT:', providerRawResultCount);
+      console.log('[TELEMETRY] PROVIDER_PARSED_RESULT_COUNT:', providerParsedResultCount);
+      console.log('[TELEMETRY] VALIDATION_REJECTED_COUNT:', validationRejectedCount);
+      console.log('[TELEMETRY] GENERATED_COUNT:', generatedCount);
+
       if (response.ok) {
         setScraperProgress(100);
-        const generatedCount = data.generatedCount ?? data.count ?? (data.leads ? data.leads.length : 0);
-        const databaseSaveCount = data.databaseSaveCount ?? data.totalDatabaseSaved ?? data.count ?? 0;
-        console.log('[TELEMETRY GENERATE]', { generatedCount, databaseSaveCount });
+        const databaseSaveCount = data.databaseSaveCount ?? data.totalDatabaseSaved ?? generatedCount;
 
         if (data.providerLogs && data.providerLogs.length > 0) {
           const providerLogsList = data.providerLogs.map((pl: any) => 
@@ -962,8 +998,12 @@ export function LeadsView({
           setScraperLogs(prev => [...prev, ...providerLogsList]);
         }
         
-        if (data.count > 0 && data.leads && data.leads.length > 0) {
-          setScraperLogs(prev => [...prev, `[SYSTEM] Scraper run completed! Successfully harvested ${data.count} highly-qualified B2B leads.`, `[SYSTEM] Saved matching records to database (Save Count: ${databaseSaveCount}).`]);
+        if (generatedCount > 0 && data.leads && data.leads.length > 0) {
+          setScraperLogs(prev => [
+            ...prev,
+            `[SYSTEM] Sourcing completed! Successfully harvested ${generatedCount} verified B2B leads.`,
+            `[SYSTEM] Database Save Count: ${databaseSaveCount}.`
+          ]);
           setLeads(prev => {
             const mergedMap = new Map<string, Lead>();
             data.leads.forEach((l: Lead) => mergedMap.set(l.id, l));
@@ -974,19 +1014,18 @@ export function LeadsView({
           });
           setSelectedLeadId(data.leads[0].id);
         } else {
-          setScraperLogs(prev => [...prev, `[SYSTEM] ${data.message || "No verified leads found."}`]);
+          setScraperLogs(prev => [...prev, `[SYSTEM] ${data.message || data.detailMessage || "No verified leads found."}`]);
         }
 
         setTimeout(() => {
           setIsScraperRunning(false);
           setActiveTab('database');
-          // Reset campaign form
-          setNewCampaignName('');
-        }, 1500);
+        }, 1200);
       } else {
         throw new Error(data.message || data.error || 'Server returned an error running lead agent.');
       }
     } catch (err: any) {
+      clearInterval(progressTimer);
       console.error(err);
       const errMsg = err.message || 'Failed to complete AI Lead Generation crawler run.';
       setScraperLogs(prev => [...prev, `❌ Sourcing Failed: ${errMsg}`]);
@@ -2347,11 +2386,10 @@ export function LeadsView({
               <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">1. Campaign Identity</span>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Campaign Name *</label>
+                  <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Campaign Name</label>
                   <input 
                     type="text" 
-                    required
-                    placeholder="e.g. Bangalore Series A Fintech Outbound"
+                    placeholder="e.g. Mumbai Marketing Campaign"
                     value={newCampaignName}
                     onChange={(e) => setNewCampaignName(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
@@ -2498,6 +2536,7 @@ export function LeadsView({
                     onChange={(e) => setCampIndustry(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
                   >
+                    <option value="Marketing & Ad Agency">Marketing & Ad Agency</option>
                     <option value="Marketing & Advertising">Marketing & Advertising</option>
                     <option value="Software / IT">Software / IT</option>
                     <option value="Restaurants / Food">Restaurants / Food</option>
