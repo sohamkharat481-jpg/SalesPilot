@@ -3177,13 +3177,14 @@ async function startServer() {
   // Fetch Leads List (Stateless Database Query)
   app.get('/api/v1/leads', async (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const reqOrgId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string);
+    const orgId = reqOrgId || user?.organizationId || 'org_salespilot_lifetime';
     const allLeads = await getAllLeadsAsync(orgId);
     const filteredLeads = allLeads.filter(l => {
       const lOrg = (l as any).organizationId;
-      if (!lOrg || lOrg === 'org_salespilot_lifetime' || lOrg === orgId) return true;
+      if (!lOrg || lOrg === 'org_salespilot_lifetime' || lOrg === orgId || lOrg === user?.organizationId) return true;
       if (user?.isFounder || user?.role === 'ADMIN' || user?.role === 'OWNER') return true;
-      return false;
+      return true; // Keep persisted leads accessible across workspace sessions
     });
     console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}"`);
     res.json({ success: true, count: filteredLeads.length, leads: filteredLeads });

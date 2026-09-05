@@ -91,7 +91,9 @@ function RestrictedViewPlaceholder({
 
 export default function App() {
   console.log("Stage B: App.tsx rendered");
-  const { user, logout, isLoading: authLoading, isSandbox } = useAuth();
+  const { user, organization, logout, isLoading: authLoading, isSandbox } = useAuth();
+  const authReady = !authLoading;
+  const workspaceId = user?.organizationId || organization?.id || 'org_salespilot_lifetime';
 
   const isFounderUser = Boolean(
     user && (
@@ -109,7 +111,34 @@ export default function App() {
     )
   );
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    if (hash && ['dashboard', 'leads', 'campaigns', 'pipeline', 'scheduler', 'analytics', 'voice', 'automation', 'crm', 'billing', 'settings'].includes(hash)) {
+      return hash;
+    }
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('salespilot_active_tab') : null;
+    return saved || 'dashboard';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('salespilot_active_tab', activeTab);
+      if (window.location.hash !== `#${activeTab}`) {
+        window.location.hash = `#${activeTab}`;
+      }
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== activeTab) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [trialTimeRemaining, setTrialTimeRemaining] = useState(() => {
     const saved = localStorage.getItem('salespilot_trial_time');
@@ -255,17 +284,20 @@ export default function App() {
   // Load initial data from Express Server
   useEffect(() => {
     async function loadData() {
-      if (!user) {
-        setLoading(false);
+      if (!authReady) {
         return;
       }
       try {
         console.log(`[TELEMETRY RELOAD] fetchStarted: true`);
         const token = localStorage.getItem('salespilot_token');
-        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+        const leadsUrl = workspaceId ? `/api/v1/leads?organizationId=${encodeURIComponent(workspaceId)}` : '/api/v1/leads';
 
         const [leadsRes, campsRes, dealsRes, aptsRes, configRes, notRes, actRes] = await Promise.all([
-          fetch('/api/v1/leads', { headers }),
+          fetch(leadsUrl, { headers }),
           fetch('/api/v1/campaigns', { headers }),
           fetch('/api/v1/deals', { headers }),
           fetch('/api/v1/appointments', { headers }),
@@ -285,8 +317,18 @@ export default function App() {
         const loadedLeads = Array.isArray(leadsData?.leads) ? leadsData.leads : [];
         console.log(`[TELEMETRY RELOAD] databaseReturnedCount: ${loadedLeads.length}`);
 
-        setLeads(loadedLeads);
-        console.log(`[TELEMETRY RELOAD] frontendStateCount: ${loadedLeads.length}`);
+        if (loadedLeads.length > 0) {
+          setLeads(prev => {
+            const map = new Map<string, Lead>();
+            loadedLeads.forEach((l: Lead) => map.set(l.id, l));
+            prev.forEach((l: Lead) => {
+              if (!map.has(l.id)) map.set(l.id, l);
+            });
+            const merged = Array.from(map.values());
+            console.log(`[TELEMETRY RELOAD] frontendStateCount: ${merged.length}`);
+            return merged;
+          });
+        }
 
         setCampaigns(Array.isArray(campsData?.campaigns) ? campsData.campaigns : []);
         setDeals(Array.isArray(dealsData?.deals) ? dealsData.deals : []);
@@ -319,7 +361,15 @@ export default function App() {
       }
     }
     loadData();
-  }, [user]);
+
+    // BFCache / pageshow listener to reload database state on browser Back navigation
+    const handlePageShow = (event: PageTransitionEvent) => {
+      console.log('[APP_DEBUG] pageshow event received', { persisted: event.persisted });
+      loadData();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [authReady, workspaceId, user]);
 
   // Real Lead addition handler
   const handleAddLead = async (leadData: Partial<Lead>) => {
@@ -1161,6 +1211,8 @@ export default function App() {
               onAddLead={handleAddLead} 
               onEnrichLead={handleEnrichLead} 
               onBookMeeting={handleBookMeeting} 
+              workspaceId={workspaceId}
+              authReady={authReady}
             />
           )}
 

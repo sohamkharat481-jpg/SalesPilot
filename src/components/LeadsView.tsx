@@ -18,6 +18,8 @@ interface LeadsViewProps {
   onAddLead: (leadData: Partial<Lead>) => Promise<void>;
   onEnrichLead: (leadId: string) => Promise<void>;
   onBookMeeting: (leadId: string, dateTime: string, notes: string) => Promise<void>;
+  workspaceId?: string;
+  authReady?: boolean;
 }
 
 export function LeadsView({ 
@@ -26,10 +28,21 @@ export function LeadsView({
   campaigns = [], 
   onAddLead, 
   onEnrichLead, 
-  onBookMeeting 
+  onBookMeeting,
+  workspaceId,
+  authReady
 }: LeadsViewProps) {
   // Tab control
-  const [activeTab, setActiveTab] = useState<'database' | 'campaign' | 'analytics' | 'crm-sync'>('database');
+  const [activeTab, setActiveTab] = useState<'database' | 'campaign' | 'analytics' | 'crm-sync'>(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('salespilot_leads_subtab') : null;
+    return (saved as any) || 'database';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('salespilot_leads_subtab', activeTab);
+    }
+  }, [activeTab]);
 
   // Search & Filters state
   const [search, setSearch] = useState('');
@@ -107,16 +120,34 @@ export function LeadsView({
 
   // Rehydrate leads from server database on LeadsView mount to ensure UI is always fresh with persisted records
   useEffect(() => {
+    console.log("[LEADS_DEBUG] mount");
+
     const fetchPersistedLeads = async () => {
+      if (authReady === false) {
+        console.log("[LEADS_DEBUG] waiting for workspace/user initialization...");
+        return;
+      }
       try {
+        console.log("[LEADS_DEBUG] before fetch", {
+          existingStateCount: leads.length
+        });
         console.log('[TELEMETRY RELOAD] fetchStarted: true');
-        const token = localStorage.getItem('salespilot_token');
-        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const res = await fetch('/api/v1/leads', { headers });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+        const url = workspaceId ? `/api/v1/leads?organizationId=${encodeURIComponent(workspaceId)}` : '/api/v1/leads';
+        const res = await fetch(url, { headers });
         console.log('[TELEMETRY RELOAD] fetchHttpStatus:', res.status);
+
         if (res.ok) {
           const data = await res.json();
           const serverLeads = Array.isArray(data?.leads) ? data.leads : [];
+          console.log("[LEADS_DEBUG] fetch response", {
+            status: res.status,
+            returnedCount: serverLeads.length
+          });
           console.log('[TELEMETRY RELOAD] databaseReturnedCount:', serverLeads.length);
           if (serverLeads.length > 0) {
             setLeads(prev => {
@@ -126,17 +157,39 @@ export function LeadsView({
                 if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
               });
               const merged = Array.from(mergedMap.values());
+              console.log("[LEADS_DEBUG] after state update", {
+                stateCount: merged.length
+              });
               console.log('[TELEMETRY RELOAD] frontendStateCount:', merged.length);
               return merged;
             });
           }
+        } else {
+          console.log("[LEADS_DEBUG] fetch response", {
+            status: res.status,
+            returnedCount: 0
+          });
         }
       } catch (err) {
-        console.warn('[LEADS VIEW] Failed to refresh persisted leads on mount:', err);
+        console.warn('[LEADS_DEBUG] Failed to refresh persisted leads on mount:', err);
       }
     };
+
     fetchPersistedLeads();
-  }, [setLeads]);
+
+    // BFCache / pageshow handling (Browser Back navigation)
+    const handlePageShow = (event: PageTransitionEvent) => {
+      console.log('[LEADS_DEBUG] pageshow event received', { persisted: event.persisted });
+      fetchPersistedLeads();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      console.log("[LEADS_DEBUG] unmount");
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [authReady, workspaceId, setLeads]);
 
   useEffect(() => {
     fetch('/api/v1/workspace/permissions/matrix')
@@ -496,15 +549,41 @@ export function LeadsView({
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
+    console.log('[LEADS_FILTER_DEBUG]', {
+      databaseLeadCount: leads.length,
+      leadStateCount: leads.length,
+      filteredLeadCount: result.length,
+      renderedLeadCount: Math.min(result.length, itemsPerPage),
+      filters: {
+        search,
+        filterCountry,
+        filterIndustry,
+        filterSize,
+        filterRevenue,
+        filterScore,
+        filterStatus,
+        filterTag,
+        sortBy,
+        sortOrder,
+        currentPage
+      }
+    });
+
+    if (leads.length > 0 && result.length === 0) {
+      console.warn('[LEADS_FILTER_DEBUG] Filter warning: leads exist in state (' + leads.length + ') but 0 are displayed! Checking filters...');
+    }
+
     console.log('[TELEMETRY RELOAD] renderedLeadCount:', result.length);
     return result;
   }, [leads, search, filterCountry, filterIndustry, filterSize, filterRevenue, filterScore, filterStatus, filterTag, sortBy, sortOrder]);
 
   // 4. PAGINATED LEADS
   const paginatedLeads = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
+    const maxPage = Math.max(1, Math.ceil(filteredAndSortedLeads.length / itemsPerPage));
+    const safePage = currentPage > maxPage ? 1 : currentPage;
+    const startIndex = (safePage - 1) * itemsPerPage;
     return filteredAndSortedLeads.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAndSortedLeads, currentPage]);
+  }, [filteredAndSortedLeads, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredAndSortedLeads.length / itemsPerPage) || 1;
 
@@ -1565,7 +1644,7 @@ export function LeadsView({
                               <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
                                 {lead.firstName} {lead.lastName}
                                 {lead.enrichment?.linkedInUrl && (
-                                  <a href={lead.enrichment.linkedInUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                  <a href={lead.enrichment.linkedInUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                                     <Linkedin className="w-3 h-3 text-blue-500 hover:text-blue-700" />
                                   </a>
                                 )}
@@ -1579,7 +1658,7 @@ export function LeadsView({
                               <div className="text-xs text-slate-800 dark:text-slate-200 font-semibold flex items-center gap-1">
                                 {lead.company}
                                 {lead.enrichment?.website ? (
-                                  <a href={lead.enrichment.website.startsWith('http') ? lead.enrichment.website : `https://${lead.enrichment.website}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-0.5 text-[10px]">
+                                  <a href={lead.enrichment.website.startsWith('http') ? lead.enrichment.website : `https://${lead.enrichment.website}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:text-blue-700 hover:underline flex items-center gap-0.5 text-[10px]">
                                     <ExternalLink className="w-2.5 h-2.5" />
                                   </a>
                                 ) : (
@@ -1791,7 +1870,7 @@ export function LeadsView({
                   <div className="flex justify-between">
                     <span className="text-slate-400 font-mono">Verified Website:</span>
                     {selectedLead.enrichment?.website ? (
-                      <a href={selectedLead.enrichment.website.startsWith('http') ? selectedLead.enrichment.website : `https://${selectedLead.enrichment.website}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-mono font-bold">
+                      <a href={selectedLead.enrichment.website.startsWith('http') ? selectedLead.enrichment.website : `https://${selectedLead.enrichment.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline font-mono font-bold">
                         {selectedLead.enrichment.website}
                       </a>
                     ) : (

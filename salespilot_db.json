@@ -12829,9 +12829,23 @@
     "jwt_token_au627ekd6bu96jak0eqay": {
       "userId": "usr_81927391",
       "expiresAt": 1788348933827
+    },
+    "jwt_token_yzm1gmrdn6frytnppn0vx": {
+      "userId": "usr_81927391",
+      "expiresAt": 1788641302680
     }
   },
   "activityLogs": [
+    {
+      "id": "al_1788634102669_594",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-05T18:48:22.669Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
     {
       "id": "al_1788341733819_160",
       "userId": "usr_81927391",
@@ -13014,6 +13028,17 @@
     }
   ],
   "loginHistory": [
+    {
+      "id": "lh_1788634102664",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-05T18:48:22.664Z"
+    },
     {
       "id": "lh_1788341733814",
       "userId": "usr_81927391",
