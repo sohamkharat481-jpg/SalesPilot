@@ -543,7 +543,26 @@ export function LeadsView({
       } else if (sortBy === 'status') {
         comparison = a.status.localeCompare(b.status);
       } else if (sortBy === 'date') {
-        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        const parseTime = (dateStr?: string, idStr?: string) => {
+          if (dateStr) {
+            const t = new Date(dateStr).getTime();
+            if (!isNaN(t)) return t;
+          }
+          if (idStr) {
+            const match = idStr.match(/(\d{13})/);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (!isNaN(num)) return num;
+            }
+          }
+          return 0;
+        };
+        const timeA = parseTime(a.createdAt, a.id);
+        const timeB = parseTime(b.createdAt, b.id);
+        comparison = timeA - timeB;
+        if (comparison === 0) {
+          comparison = (a.id || '').localeCompare(b.id || '');
+        }
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -573,16 +592,32 @@ export function LeadsView({
       console.warn('[LEADS_FILTER_DEBUG] Filter warning: leads exist in state (' + leads.length + ') but 0 are displayed! Checking filters...');
     }
 
-    console.log('[TELEMETRY RELOAD] renderedLeadCount:', result.length);
     return result;
   }, [leads, search, filterCountry, filterIndustry, filterSize, filterRevenue, filterScore, filterStatus, filterTag, sortBy, sortOrder]);
 
   // 4. PAGINATED LEADS
   const paginatedLeads = useMemo(() => {
     const maxPage = Math.max(1, Math.ceil(filteredAndSortedLeads.length / itemsPerPage));
-    const safePage = currentPage > maxPage ? 1 : currentPage;
-    const startIndex = (safePage - 1) * itemsPerPage;
-    return filteredAndSortedLeads.slice(startIndex, startIndex + itemsPerPage);
+    const safePage = currentPage > maxPage ? 1 : Math.max(1, currentPage);
+    const pageStart = (safePage - 1) * itemsPerPage;
+    const pageEnd = pageStart + itemsPerPage;
+    const sliced = filteredAndSortedLeads.slice(pageStart, pageEnd);
+
+    const sortedLeadIds = filteredAndSortedLeads.map(l => l.id);
+    const paginatedLeadIds = sliced.map(l => l.id);
+
+    console.log('[LEADS_TELEMETRY]', {
+      sortedLeadIds,
+      currentPage: safePage,
+      pageSize: itemsPerPage,
+      pageStart,
+      pageEnd,
+      paginatedLeadIds,
+      filteredLeadCount: filteredAndSortedLeads.length,
+      renderedLeadCount: sliced.length
+    });
+
+    return sliced;
   }, [filteredAndSortedLeads, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredAndSortedLeads.length / itemsPerPage) || 1;
