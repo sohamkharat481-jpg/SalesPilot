@@ -847,11 +847,50 @@ let integrations: IntegrationCredentials = {
 let serverSupabaseInstance: SupabaseClient | null = null;
 let serverSupabaseLoggedDiagnostic = false;
 
+interface SupabaseDiagnosticState {
+  configured: boolean;
+  supabaseHost: string;
+  hasServiceRoleKey: boolean;
+  hasAnonKey: boolean;
+  lastHealthCheckTime: string;
+  lastLeadInsertStatus: string;
+  lastLeadSelectStatus: string;
+  tables: Record<string, boolean>;
+  error: string | null;
+}
+
+const supabaseDiagnosticState: SupabaseDiagnosticState = {
+  configured: false,
+  supabaseHost: '',
+  hasServiceRoleKey: false,
+  hasAnonKey: false,
+  lastHealthCheckTime: '',
+  lastLeadInsertStatus: 'NONE',
+  lastLeadSelectStatus: 'NONE',
+  tables: {
+    leads: false,
+    organizations: false,
+    users: false,
+    profiles: false,
+    campaigns: false
+  },
+  error: null
+};
+
 function getSupabaseClient(): SupabaseClient | null {
-  const url = integrations.supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const key = integrations.supabaseAnonKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const url = process.env.SUPABASE_URL || integrations.supabaseUrl || process.env.VITE_SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || integrations.supabaseAnonKey || process.env.VITE_SUPABASE_ANON_KEY || '';
   
+  if (url) {
+    try {
+      supabaseDiagnosticState.supabaseHost = new URL(url).hostname;
+    } catch (_) {}
+  }
+  supabaseDiagnosticState.hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  supabaseDiagnosticState.hasAnonKey = Boolean(process.env.SUPABASE_ANON_KEY || integrations.supabaseAnonKey || process.env.VITE_SUPABASE_ANON_KEY);
+
   if (!url || !key) {
+    supabaseDiagnosticState.configured = false;
     if (!serverSupabaseLoggedDiagnostic) {
       serverSupabaseLoggedDiagnostic = true;
       const missing: string[] = [];
@@ -862,11 +901,19 @@ function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
+  supabaseDiagnosticState.configured = true;
+
   if (!serverSupabaseInstance) {
     try {
-      serverSupabaseInstance = createClient(url, key);
-      console.log('[CONNECT] Server-side Supabase client singleton initialized.');
+      serverSupabaseInstance = createClient(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log(`[CONNECT] Server-side Supabase client singleton initialized with host: ${supabaseDiagnosticState.supabaseHost}`);
     } catch (err: any) {
+      supabaseDiagnosticState.error = err?.message || String(err);
       console.error('Failed to create Supabase client in server:', err?.message || err);
       return null;
     }
@@ -1905,11 +1952,19 @@ async function startServer() {
         }
         const { data, error } = await query;
         if (error) {
+          supabaseDiagnosticState.lastLeadSelectStatus = `FAILED: ${error.message} (code: ${error.code})`;
+          supabaseDiagnosticState.tables.leads = false;
           console.warn(`[DATABASE AUDIT - SELECT ALL LEADS NOTICE] Supabase query notice:`, error?.message || error);
-        } else if (data && data.length > 0) {
-          fetchedLeads = data.map(mapSupabaseLeadToAppLead);
+        } else if (data) {
+          supabaseDiagnosticState.lastLeadSelectStatus = `SUCCESS (${data.length} records fetched from Supabase)`;
+          supabaseDiagnosticState.tables.leads = true;
+          if (data.length > 0) {
+            console.log(`[SUPABASE COLUMNS AUDIT] Columns in public.leads:`, Object.keys(data[0]));
+            fetchedLeads = data.map(mapSupabaseLeadToAppLead);
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
+        supabaseDiagnosticState.lastLeadSelectStatus = `EXCEPTION: ${err?.message || err}`;
         console.error(`[DATABASE AUDIT - SELECT ALL LEADS EXCEPTION]:`, err);
       }
     }
@@ -2053,41 +2108,52 @@ async function startServer() {
           researchHistory: newLead.researchHistory || []
         };
 
-        const dbLead = {
+        const dbLead: any = {
           id: newLead.id,
           organization_id: org_id || 'org_salespilot_lifetime',
-          lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
-          first_name: newLead.firstName,
-          last_name: newLead.lastName,
-          company: newLead.company,
-          business_email: newLead.email,
-          email: newLead.email,
+          first_name: newLead.firstName || 'Prospect',
+          last_name: newLead.lastName || '',
+          company: newLead.company || 'Company',
+          email: newLead.email || '',
           phone: newLead.phone || '',
           website: newLead.enrichment?.website || '',
           status: newLead.status || 'NEW',
-          score: newLead.confidenceScore || 80,
           source: newLead.source || 'Manual',
-          notes: JSON.stringify(fullNotesState)
+          score: newLead.confidenceScore || 80,
+          notes: JSON.stringify(fullNotesState),
+          tags: newLead.tags || [],
+          custom_fields: {
+            title: newLead.title,
+            industry: (newLead as any).industry || newLead.enrichment?.industry || '',
+            country: (newLead as any).country || newLead.enrichment?.country || 'India',
+            linkedin: (newLead as any).linkedin || newLead.enrichment?.socialLinks?.[0] || '',
+            enrichment: newLead.enrichment || {}
+          }
         };
 
         const { data: insData, error: insErr } = await supabase.from('leads').insert(dbLead).select('id');
         if (insErr) {
+          supabaseDiagnosticState.lastLeadInsertStatus = `FAILED: ${insErr.message}`;
           console.error(`[DATABASE AUDIT - INSERT ERROR] Supabase insert failed:`, insErr);
         } else {
           if (insData && insData.length > 0 && insData[0].id) {
             savedLeadId = String(insData[0].id);
             newLead.id = savedLeadId;
           }
+          supabaseDiagnosticState.lastLeadInsertStatus = `SUCCESS (ID: ${savedLeadId})`;
+          supabaseDiagnosticState.tables.leads = true;
           console.log(`[DATABASE AUDIT - INSERT LOG]
 - Lead INSERT Result: SUCCESS
 - Database Provider: "${dbProvider}"
 - Database Primary Key ID: "${savedLeadId}"
 - Details: ${newLead.firstName} ${newLead.lastName} (${newLead.company}, Email: ${newLead.email})`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        supabaseDiagnosticState.lastLeadInsertStatus = `EXCEPTION: ${err?.message || err}`;
         console.error(`[DATABASE AUDIT - INSERT EXCEPTION]:`, err);
       }
     } else {
+      supabaseDiagnosticState.lastLeadInsertStatus = `LOCAL_ONLY (ID: ${savedLeadId})`;
       console.log(`[DATABASE AUDIT - INSERT LOG]
 - Lead INSERT Result: SUCCESS
 - Database Provider: "${dbProvider}"
@@ -2123,13 +2189,11 @@ async function startServer() {
       try {
         const dbUpdates: any = { updated_at: lead.lastUpdated };
         if (updates.firstName !== undefined || updates.lastName !== undefined) {
-          dbUpdates.lead_name = `${lead.firstName} ${lead.lastName}`.trim();
           dbUpdates.first_name = lead.firstName;
           dbUpdates.last_name = lead.lastName;
         }
         if (updates.email !== undefined) {
           dbUpdates.email = updates.email;
-          dbUpdates.business_email = updates.email;
         }
         if (updates.company !== undefined) dbUpdates.company = updates.company;
         if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
@@ -3178,6 +3242,60 @@ async function startServer() {
   };
   app.delete('/team/remove', handleRemoveTeam);
   app.delete('/api/v1/team/remove', handleRemoveTeam);
+
+  // Database Health & Persistence Diagnostics Endpoint (Safe, no secrets logged or returned)
+  app.get('/api/v1/diagnostics/database', async (req, res) => {
+    const supabase = getSupabaseClient();
+    const result: any = {
+      supabaseConfigured: Boolean(supabase),
+      supabaseHost: supabaseDiagnosticState.supabaseHost,
+      runtime: process.env.VERCEL ? 'vercel-serverless' : 'persistent-container',
+      serviceRoleKeyConfigured: supabaseDiagnosticState.hasServiceRoleKey,
+      anonKeyConfigured: supabaseDiagnosticState.hasAnonKey,
+      lastLeadInsertStatus: supabaseDiagnosticState.lastLeadInsertStatus,
+      lastLeadSelectStatus: supabaseDiagnosticState.lastLeadSelectStatus,
+      tables: {
+        leads: false,
+        organizations: false,
+        users: false,
+        profiles: false,
+        campaigns: false
+      },
+      totalLeadsInServerMemory: leads.length,
+      timestamp: new Date().toISOString()
+    };
+
+    if (supabase) {
+      try {
+        const [leadsRes, orgsRes, usersRes, profilesRes, campsRes, sampleLeadRes] = await Promise.all([
+          supabase.from('leads').select('id').limit(1),
+          supabase.from('organizations').select('id').limit(1),
+          supabase.from('users').select('id').limit(1),
+          supabase.from('profiles').select('id').limit(1),
+          supabase.from('campaigns').select('id').limit(1),
+          supabase.from('leads').select('*').limit(1)
+        ]);
+
+        result.tables.leads = !leadsRes.error;
+        result.tables.organizations = !orgsRes.error;
+        result.tables.users = !usersRes.error;
+        result.tables.profiles = !profilesRes.error;
+        result.tables.campaigns = !campsRes.error;
+
+        result.leadsColumns = (sampleLeadRes.data && sampleLeadRes.data.length > 0) ? Object.keys(sampleLeadRes.data[0]) : [];
+
+        supabaseDiagnosticState.tables = result.tables;
+
+        if (leadsRes.error) {
+          result.leadsTableError = `${leadsRes.error.message} (${leadsRes.error.code || 'UNKNOWN'})`;
+        }
+      } catch (err: any) {
+        result.checkError = err?.message || String(err);
+      }
+    }
+
+    return res.json(result);
+  });
 
   // Fetch Leads List (Stateless Database Query)
   app.get('/api/v1/leads', async (req, res) => {
@@ -6352,6 +6470,8 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
             } else {
               console.log(`[SUPABASE] Creating default organization...`);
               const { data: newOrg, error: orgInsErr } = await supabase.from('organizations').insert({
+                id: targetOrgId || 'org_salespilot_lifetime',
+                name: 'Default Organization',
                 company_name: 'Default Organization',
                 country: country || 'India'
               }).select('id');
@@ -6365,34 +6485,55 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
             }
 
             if (resolvedOrgId || targetOrgId) {
-              const dbLead = {
+              const dbLead: any = {
                 id: persistentDbId,
                 organization_id: resolvedOrgId || targetOrgId,
-                lead_name: `${newLead.firstName} ${newLead.lastName}`.trim(),
-                company: newLead.company,
-                website: newLead.enrichment?.website || '',
-                industry: newLead.enrichment?.industry || industry || 'Software',
-                country: newLead.enrichment?.country || country || 'India',
-                business_email: newLead.email,
+                first_name: newLead.firstName || 'Prospect',
+                last_name: newLead.lastName || '',
+                company: newLead.company || 'Company',
+                email: newLead.email || '',
                 phone: newLead.phone || '',
-                linkedin: newLead.enrichment?.socialLinks?.[0] || '',
-                lead_score: newLead.confidenceScore || 0,
-                lead_temperature: newLead.leadScore === 'Very Hot' ? 'HOT' : (newLead.leadScore === 'Hot' ? 'WARM' : 'COLD'),
-                status: 'New',
-                tags: newLead.tags || [],
+                website: newLead.enrichment?.website || '',
+                status: 'NEW',
+                source: newLead.source || 'Lead Engine AI',
+                score: newLead.confidenceScore || 0,
                 notes: JSON.stringify({
-                  latitude: newLead.enrichment?.latitude,
-                  longitude: newLead.enrichment?.longitude,
-                  googlePlaceId: newLead.enrichment?.googlePlaceId,
-                  address: newLead.enrichment?.address,
-                  scoreReason: newLead.scoreReason
+                  firstName: newLead.firstName,
+                  lastName: newLead.lastName,
+                  email: newLead.email,
+                  company: newLead.company,
+                  title: newLead.title,
+                  source: newLead.source,
+                  leadScore: newLead.leadScore,
+                  confidenceScore: newLead.confidenceScore,
+                  scoreReason: newLead.scoreReason,
+                  tags: newLead.tags,
+                  notesList: newLead.notesList,
+                  timelineList: newLead.timelineList,
+                  tasksList: newLead.tasksList,
+                  enrichment: newLead.enrichment,
+                  researchStatus: newLead.researchStatus,
+                  researchProgress: newLead.researchProgress,
+                  researchStatusText: newLead.researchStatusText,
+                  researchProfile: newLead.researchProfile,
+                  researchHistory: newLead.researchHistory
                 }),
-                source: newLead.source || 'Google Maps'
+                tags: newLead.tags || [],
+                custom_fields: {
+                  title: newLead.title,
+                  industry: newLead.enrichment?.industry || industry || 'Software',
+                  country: newLead.enrichment?.country || country || 'India',
+                  linkedin: newLead.enrichment?.socialLinks?.[0] || '',
+                  leadScore: newLead.leadScore,
+                  leadTemperature: newLead.leadScore === 'Very Hot' ? 'HOT' : (newLead.leadScore === 'Hot' ? 'WARM' : 'COLD'),
+                  enrichment: newLead.enrichment || {}
+                }
               };
 
               console.log(`[SUPABASE] Inserting lead:`, JSON.stringify(dbLead, null, 2));
               const { data: insData, error: insErr } = await supabase.from('leads').insert(dbLead).select('id');
               if (insErr) {
+                supabaseDiagnosticState.lastLeadInsertStatus = `FAILED: ${insErr.message} (code: ${insErr.code})`;
                 rlsOrInsertErrors.push(insErr);
                 console.error('[SUPABASE] Lead insertion error:', insErr);
               } else {
@@ -6400,15 +6541,19 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
                   finalDbId = String(insData[0].id);
                 }
                 insertedToSupabase++;
+                supabaseDiagnosticState.lastLeadInsertStatus = `SUCCESS (ID: ${finalDbId})`;
+                supabaseDiagnosticState.tables.leads = true;
                 console.log(`[SUPABASE] Lead inserted successfully! Assigned Database ID: "${finalDbId}". Total inserted: ${insertedToSupabase}`);
               }
             } else {
               console.warn(`[SUPABASE] Skipped lead insertion because organization_id could not be resolved.`);
             }
-          } catch (dbErr) {
+          } catch (dbErr: any) {
+            supabaseDiagnosticState.lastLeadInsertStatus = `EXCEPTION: ${dbErr?.message || dbErr}`;
             console.error('[SUPABASE] lead insertion exception:', dbErr);
           }
         } else {
+          supabaseDiagnosticState.lastLeadInsertStatus = `LOCAL_ONLY (ID: ${finalDbId})`;
           console.log('[SUPABASE] Supabase is not configured or disabled. Saved lead to local primary key database.');
         }
 
@@ -6416,18 +6561,26 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
         newLead.id = finalDbId;
         (newLead as any).organizationId = targetOrgId;
 
-        const activeDbProvider = supabase ? 'Supabase PostgreSQL (leads table)' : 'Local Storage DB (localDb / local_db.json)';
+        const isSupabasePersisted = insertedToSupabase > 0;
+        const activeDbProvider = isSupabasePersisted 
+          ? 'Supabase PostgreSQL (leads table)' 
+          : (supabase ? 'Local Storage Fallback (WARNING: Remote Supabase write failed)' : 'Local Storage DB (localDb / local_db.json)');
 
         // AUDIT LOGGING FOR PERSISTENCE & ID MAPPING
         console.log(`[DATABASE AUDIT - LEAD INSERT LOG]
-- Lead INSERT Result: SUCCESS
+- Lead INSERT Result: ${isSupabasePersisted ? 'SUCCESS (Supabase Persistent)' : (process.env.VERCEL ? 'WARNING_EPHEMERAL_LOCAL_FALLBACK' : 'SUCCESS (Local Disk Persistent)')}
 - Temporary ID: "${tempLeadId}"
 - Database Primary Key ID: "${finalDbId}"
 - Database Name/Provider: "${activeDbProvider}"
+- Supabase Insert Status: ${isSupabasePersisted ? 'CONFIRMED_INSERTED' : (rlsOrInsertErrors.length > 0 ? `FAILED (${rlsOrInsertErrors[0]?.message || 'Unknown'})` : 'SKIPPED')}
 - Record Details: ${newLead.firstName} ${newLead.lastName} (${newLead.company}, ${newLead.email})
 - Organization ID: "${(newLead as any).organizationId || 'default'}"`);
 
-        requestLogs.push(`[LEAD PERSISTED] Temporary ID "${tempLeadId}" replaced with Database ID "${finalDbId}". Saved record for ${newLead.company} (${newLead.email}). Provider: ${activeDbProvider}.`);
+        if (!isSupabasePersisted && process.env.VERCEL) {
+          requestLogs.push(`[DATABASE WARNING] Record for ${newLead.company} (${newLead.email}) could not be written to Supabase! Saved only in ephemeral Vercel memory; will disappear on cold restart until Supabase schema is executed.`);
+        } else {
+          requestLogs.push(`[LEAD PERSISTED] Temporary ID "${tempLeadId}" replaced with Database ID "${finalDbId}". Saved record for ${newLead.company} (${newLead.email}). Provider: ${activeDbProvider}.`);
+        }
 
         leads.unshift(newLead);
         localDb.db.leads = leads;
