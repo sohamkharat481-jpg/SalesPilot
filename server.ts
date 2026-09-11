@@ -20,7 +20,7 @@ import {
 } from './src/types';
 import { WorkflowRunner } from './src/lib/workflowRunner';
 import { WorkflowScheduler } from './src/lib/workflowScheduler';
-import { LeadProviderRegistry, validateWebsite, calculateLeadScore } from './src/backend/leadProviders';
+import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery } from './src/backend/leadProviders';
 import { 
   executeAiCompletion, 
   getPromptTemplates, 
@@ -1371,7 +1371,7 @@ function safeJSONParse(text: string): any {
 }
 
 function generateFallbackResearchProfile(lead: Lead, now: string): LeadResearchProfile {
-  const industry = lead.enrichment?.industry || 'Software';
+  const industry = lead.enrichment?.industry || lead.tags?.[1] || 'Commercial Business';
   return {
     companySummary: `${lead.company} is an active and highly regarded player in the ${industry} sector, dedicated to delivering scalable results and maintaining a modern, responsive operational structure.`,
     websiteAnalysis: `Likely built using modern stack features. Has high load-speed optimization potentials, and would benefit from seamless automated outreach synchronization.`,
@@ -1491,16 +1491,27 @@ export async function generateResearchProfile(lead: Lead, customApiKey?: string)
 
     const activeProviders = Object.keys(researchProvidersConfig).filter(k => researchProvidersConfig[k as keyof typeof researchProvidersConfig].enabled);
 
-    const prompt = `You are a world-class elite corporate sales research intelligence bot and enterprise SaaS business scientist.
+    const targetInd = lead.enrichment?.industry || lead.tags?.[1] || 'Commercial Enterprise';
+    const targetLoc = lead.enrichment?.address || 'Local Region';
+
+    const prompt = `You are an elite corporate B2B sales research analyst.
 Analyze this lead's business coordinates:
 - Lead Name: ${lead.firstName} ${lead.lastName}
 - Title / Role: ${lead.title || 'Director'}
 - Company Name: ${lead.company}
+- Industry / Sector: ${targetInd}
+- Location: ${targetLoc}
+- Website: ${lead.enrichment?.website || 'N/A'}
 - Email: ${lead.email}
 - Estimated Revenue Range: ${lead.enrichment?.annualRevenue || 'Unknown'}
 - Primary Technologies Sourced: ${JSON.stringify(lead.enrichment?.techStack || [])}
 
 Active Enterprise Research Sources Enabled: ${activeProviders.join(', ')}
+
+CRITICAL MANDATORY CONSTRAINT:
+You are analyzing the REAL business "${lead.company}" in the "${targetInd}" industry.
+NEVER invent a fictional company or rename the business.
+Enrich and normalize your analysis strictly for this real business.
 
 Please generate an extremely detailed, comprehensive, and tactical B2B Business Intelligence Report for this lead.
 Your response MUST be a strictly valid JSON object with the exact fields and types described below:
@@ -1599,13 +1610,20 @@ Your response MUST be a strictly valid JSON object with the exact fields and typ
 
 Do not include any markdown styling like \`\`\`json. Return only the valid JSON.`;
 
-    const response = await generateContentWithFallback(ai, {
-      primaryModel: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
-      }
-    });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Gemini API research timed out (4s safety threshold)')), 4000)
+    );
+
+    const response = await Promise.race([
+      generateContentWithFallback(ai, {
+        primaryModel: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json'
+        }
+      }),
+      timeoutPromise
+    ]);
 
     const text = response.text || '{}';
     const parsed = safeJSONParse(text);
@@ -5712,7 +5730,7 @@ Ensure the output is strictly valid JSON format.`;
       console.log(`Selected Provider: "${providerId}"`);
       console.log('=========================================');
 
-      requestLogs.push(`[SYSTEM] Sourcing initialized for campaign: "${campaignName}" targeting "${industry || 'Software'}" in "${city || 'Bengaluru'}, ${country || 'India'}" using provider: "${providerId}".`);
+      requestLogs.push(`[SYSTEM] Sourcing initialized for campaign: "${campaignName || 'Lead Generation'}" targeting "${industry || 'All Industries'}" in "${[city, country].filter(Boolean).join(', ') || 'Target Region'}" using provider: "${providerId}".`);
       requestLogs.push(`[SYSTEM] API key status check: Google Maps Key: ${formatKeyLog(gmapsKey)}, Serper Key: ${formatKeyLog(serperKey)}.`);
 
       // Setup detailed provider Audits & API Verification
@@ -5770,58 +5788,6 @@ Ensure the output is strictly valid JSON format.`;
         candidates.push(cand);
         return true;
       };
-
-function buildDynamicSearchQuery(params: { industry?: string; keywords?: string; city?: string; country?: string }) {
-  const cCity = (params.city || 'Mumbai').trim();
-  const cCountry = (params.country || 'India').trim();
-  const loc = `${cCity}, ${cCountry}`;
-
-  const industryCleanMap: Record<string, string> = {
-    'Marketing': 'Marketing & Advertising agencies',
-    'Marketing & Advertising': 'Marketing & Advertising agencies',
-    'Marketing & Ad Agencies': 'Marketing & Advertising agencies',
-    'Marketing & Ad Agency': 'Marketing & Advertising agencies',
-    'Software': 'Software & IT companies',
-    'Software / IT': 'Software & IT companies',
-    'Software & IT': 'Software & IT companies',
-    'Software & SaaS': 'Software & SaaS companies',
-    'Restaurants / Food': 'Restaurants & Food businesses',
-    'Restaurants & Food': 'Restaurants & Food businesses',
-    'Real Estate': 'Real Estate agencies & developers',
-    'Real Estate & Construction': 'Real Estate agencies & developers',
-    'Real Estate Developers': 'Real Estate agencies & developers',
-    'Healthcare / Clinics': 'Healthcare clinics & hospitals',
-    'Healthcare & Clinics': 'Healthcare clinics & hospitals',
-    'Education / Training': 'Education & training institutes',
-    'Education & Training': 'Education & training institutes',
-    'Finance / Accounting': 'Finance & accounting firms',
-    'Finance & Accounting': 'Finance & accounting firms',
-    'E-commerce / Retail': 'E-commerce & retail businesses',
-    'E-commerce & Retail': 'E-commerce & retail businesses',
-    'Consulting': 'Consulting & advisory firms',
-    'Consulting & Advisory': 'Consulting & advisory firms',
-    'Logistics': 'Logistics & supply chain companies',
-    'Logistics & Supply Chain': 'Logistics & supply chain companies',
-    'Manufacturing & Industrial': 'Manufacturing & industrial companies',
-    'Hospitality & Travel': 'Hotels & hospitality businesses',
-    'Legal & Compliance': 'Law firms & legal services'
-  };
-
-  const indTerm = industryCleanMap[params.industry || ''] || params.industry || 'Businesses';
-  const kw = (params.keywords || '').trim();
-
-  // If user entered a custom query that already contains the city/country
-  if (kw && kw.toLowerCase().includes(cCity.toLowerCase())) {
-    return kw;
-  }
-
-  // If positive keywords are provided, combine them naturally with industry and location
-  if (kw && kw !== 'outbound, pipeline, lead generation' && kw !== 'marketing agency Mumbai') {
-    return `${kw} ${indTerm} in ${loc}`;
-  }
-
-  return `${indTerm} in ${loc}`;
-}
 
       let mapsErrorText = '';
       let serperMapsErrorText = '';
@@ -6399,7 +6365,7 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
           leadScore: 'Warm',
           confidenceScore: cand.confidenceScore || 80,
           scoreReason: cand.scoreReason || `Real business sourced via ${cand.source}. Location and Website validated.`,
-          tags: [`${cand.source} Sourced`, industry || 'Software', city || 'Local'].filter(Boolean),
+          tags: [`${cand.source} Sourced`, industry || 'Commercial', city || 'Local'].filter(Boolean),
           lastUpdated: new Date().toISOString(),
           notesList: [],
           tasksList: [
@@ -6415,10 +6381,10 @@ function buildDynamicSearchQuery(params: { industry?: string; keywords?: string;
             annualRevenue: revenueRange || 'Rs.1 Crore - Rs.5 Crore',
             website: verifiedWebsite,
             country: country || 'India',
-            industry: industry || 'Software',
+            industry: industry || 'Commercial Enterprise',
             companyOverview: companyOverview,
             painPoints: ['Local discovery friction', 'Customer contact automation'],
-            whyGoodProspect: 'Verified business with active validated online footprint.',
+            whyGoodProspect: `Active ${industry || 'commercial'} enterprise with verified operating presence.`,
             decisionMakerInfo: cand.enrichment?.decisionMakerInfo || 'Operations leadership with procurement authority.',
             socialLinks: cand.enrichment?.socialLinks || [],
             latitude: lat,

@@ -86,17 +86,17 @@ export function LeadsView({
   const [isAddingTask, setIsAddingTask] = useState(false);
 
   // Create Campaign State
-  const [newCampaignName, setNewCampaignName] = useState('Mumbai Marketing Campaign');
+  const [newCampaignName, setNewCampaignName] = useState('');
   const [campCountry, setCampCountry] = useState('India');
-  const [campIndustry, setCampIndustry] = useState('Marketing & Ad Agency');
+  const [campIndustry, setCampIndustry] = useState('');
   const [customIndustryInput, setCustomIndustryInput] = useState('');
   const [campSize, setCampSize] = useState('11-50 employees');
   const [campEmployeeMin, setCampEmployeeMin] = useState('10');
   const [campEmployeeMax, setCampEmployeeMax] = useState('100');
   const [campRevenue, setCampRevenue] = useState('₹1 Crore - ₹5 Crore');
-  const [campTitles, setCampTitles] = useState('CEO, Founder, VP Sales');
+  const [campTitles, setCampTitles] = useState('CEO, Founder, Director, Owner');
   const [campKeywords, setCampKeywords] = useState('');
-  const [campNegativeKeywords, setCampNegativeKeywords] = useState('student, intern, support');
+  const [campNegativeKeywords, setCampNegativeKeywords] = useState('student, intern, helper');
   const [campLanguage, setCampLanguage] = useState('English');
   const [campMaxLeads, setCampMaxLeads] = useState('5');
   const [campPriority, setCampPriority] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('HIGH');
@@ -107,10 +107,10 @@ export function LeadsView({
   const [scraperProgress, setScraperProgress] = useState(0);
 
   // Advanced ICP Builder Target Parameters
-  const [campCity, setCampCity] = useState('Mumbai');
-  const [campTechStack, setCampTechStack] = useState('React, HubSpot, Salesforce, Next.js');
-  const [campDepartment, setCampDepartment] = useState('Sales & Outbound');
-  const [campBusinessType, setCampBusinessType] = useState('B2B SaaS');
+  const [campCity, setCampCity] = useState('');
+  const [campTechStack, setCampTechStack] = useState('');
+  const [campDepartment, setCampDepartment] = useState('Operations & Management');
+  const [campBusinessType, setCampBusinessType] = useState('Commercial Business');
   const [campYearsInBusiness, setCampYearsInBusiness] = useState('3-5 years');
   const [campDecisionMakerOnly, setCampDecisionMakerOnly] = useState(true);
 
@@ -927,13 +927,13 @@ export function LeadsView({
   // Run AI Lead Scraper Agent (Real Lead Generation with dynamic console telemetry logging)
   const handleRunAIScraper = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalCampaignName = newCampaignName.trim() || `${campCity || 'Mumbai'} ${campIndustry || 'Marketing & Ad Agency'} Campaign`;
+    const finalCampaignName = newCampaignName.trim() || `${[campCity, campIndustry].filter(Boolean).join(' ') || 'Target'} Campaign`;
 
     const payload = {
       campaignName: finalCampaignName,
       country: campCountry,
       city: campCity,
-      industry: campIndustry === 'Other' && customIndustryInput.trim() ? customIndustryInput.trim() : campIndustry,
+      industry: campIndustry.trim() || (customIndustryInput.trim() || 'Commercial Enterprise'),
       keywords: campKeywords,
       maxLeads: Number(campMaxLeads) || 5,
       companySize: campSize,
@@ -2565,37 +2565,48 @@ export function LeadsView({
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Industry Segment *</label>
-                  <select 
+                  <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Industry / Business Field *</label>
+                  <input 
+                    type="text"
+                    list="lead-industry-options"
+                    placeholder="e.g. Construction, Restaurants, Software, Healthcare, Retail..."
                     value={campIndustry}
                     onChange={(e) => setCampIndustry(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
-                  >
-                    <option value="Marketing & Ad Agency">Marketing & Ad Agency</option>
-                    <option value="Marketing & Advertising">Marketing & Advertising</option>
-                    <option value="Software / IT">Software / IT</option>
-                    <option value="Restaurants / Food">Restaurants / Food</option>
-                    <option value="Real Estate">Real Estate</option>
-                    <option value="Healthcare / Clinics">Healthcare / Clinics</option>
-                    <option value="Education / Training">Education / Training</option>
-                    <option value="Finance / Accounting">Finance / Accounting</option>
-                    <option value="E-commerce / Retail">E-commerce / Retail</option>
-                    <option value="Consulting & Advisory">Consulting & Advisory</option>
-                    <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
-                    <option value="Manufacturing & Industrial">Manufacturing & Industrial</option>
-                    <option value="Hospitality & Travel">Hospitality & Travel</option>
-                    <option value="Legal & Compliance">Legal & Compliance</option>
-                    <option value="Other">Other / Custom Industry</option>
-                  </select>
-                  {campIndustry === 'Other' && (
-                    <input 
-                      type="text" 
-                      placeholder="Enter custom industry (e.g. Architecture & Interior Design)"
-                      value={customIndustryInput}
-                      onChange={(e) => setCustomIndustryInput(e.target.value)}
-                      className="w-full mt-2 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-lg p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
-                    />
-                  )}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                  />
+                  <datalist id="lead-industry-options">
+                    <option value="Construction" />
+                    <option value="Restaurants" />
+                    <option value="Software / SaaS" />
+                    <option value="IT Services" />
+                    <option value="Web Development" />
+                    <option value="Real Estate" />
+                    <option value="Interior Design" />
+                    <option value="Architecture" />
+                    <option value="Manufacturing" />
+                    <option value="Logistics" />
+                    <option value="Education" />
+                    <option value="Healthcare" />
+                    <option value="Finance" />
+                    <option value="Accounting" />
+                    <option value="Legal Services" />
+                    <option value="Hotels" />
+                    <option value="Retail" />
+                    <option value="E-commerce" />
+                    <option value="Automotive" />
+                    <option value="Travel" />
+                    <option value="Fitness" />
+                    <option value="Beauty" />
+                    <option value="Agriculture" />
+                    <option value="Renewable Energy" />
+                    <option value="Consulting" />
+                    <option value="Recruitment" />
+                    <option value="Insurance" />
+                    <option value="Electronics" />
+                    <option value="Wholesale" />
+                    <option value="Import/Export" />
+                    <option value="Marketing" />
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Company Size Bracket</label>
@@ -2705,7 +2716,7 @@ export function LeadsView({
                     value={campKeywords}
                     onChange={(e) => setCampKeywords(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                    placeholder="e.g. outbound, pipeline, growth budget, remote SDR"
+                    placeholder="e.g. residential builders, Italian dining, cloud ERP, commercial contractors, boutique hotels"
                   />
                 </div>
                 <div>

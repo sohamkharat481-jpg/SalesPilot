@@ -275,10 +275,9 @@ export function calculateLeadScore(lead: Partial<Lead>): { score: 'Hot' | 'Very 
 
   // 2. Industry Sectors
   const industry = lead.enrichment?.industry || lead.tags?.[1] || '';
-  const highIntentIndustries = ['software', 'saas', 'technology', 'marketing', 'consulting', 'digital'];
-  if (highIntentIndustries.some(ind => industry.toLowerCase().includes(ind))) {
+  if (industry && industry.trim().length > 0) {
     score += 20;
-    reasons.push('High-intent technology/digital delivery sector alignment');
+    reasons.push(`Target sector alignment: active operations in ${industry}`);
   } else {
     score += 10;
   }
@@ -324,6 +323,56 @@ export function calculateLeadScore(lead: Partial<Lead>): { score: 'Hot' | 'Very 
 }
 
 /**
+ * Generic, industry-agnostic dynamic search query builder.
+ * Combines industry, keywords, city, and country without hardcoded restrictions.
+ */
+export function buildDynamicSearchQuery(params: {
+  industry?: string;
+  keywords?: string;
+  city?: string;
+  country?: string;
+}): string {
+  const cCity = (params.city || '').trim();
+  const cCountry = (params.country || '').trim();
+  const locParts = [cCity, cCountry].filter(Boolean);
+  const loc = locParts.length > 0 ? locParts.join(', ') : '';
+
+  const rawInd = (params.industry || '').trim();
+  const rawKw = (params.keywords || '').trim();
+
+  // If user entered a custom query that already contains the city/location
+  if (rawKw && cCity && rawKw.toLowerCase().includes(cCity.toLowerCase())) {
+    return rawKw;
+  }
+
+  // Combine keywords and industry without repeating terms
+  const queryTerms: string[] = [];
+
+  if (rawKw && rawInd) {
+    const kwLower = rawKw.toLowerCase();
+    const indLower = rawInd.toLowerCase();
+
+    // If keywords already contains industry word or vice versa (e.g., "construction companies" and "Construction")
+    if (kwLower.includes(indLower)) {
+      queryTerms.push(rawKw);
+    } else if (indLower.includes(kwLower)) {
+      queryTerms.push(rawInd);
+    } else {
+      queryTerms.push(rawKw, rawInd);
+    }
+  } else if (rawKw) {
+    queryTerms.push(rawKw);
+  } else if (rawInd) {
+    queryTerms.push(rawInd);
+  } else {
+    queryTerms.push('Businesses');
+  }
+
+  const baseQuery = queryTerms.join(' ').trim();
+  return loc ? `${baseQuery} in ${loc}` : baseQuery;
+}
+
+/**
  * 2. Google Maps Sourced Local Lead Provider
  * Live Places Text Search results with physical verification
  */
@@ -353,7 +402,7 @@ export class GoogleMapsLeadProvider implements LeadProvider {
     console.log(`[LEAD PROVIDER - MAPS] Scanning places in "${params.country}"...`);
 
     try {
-      const query = `${params.industry} in ${params.city || 'Bengaluru'}, ${params.country}`;
+      const query = buildDynamicSearchQuery(params);
       const url = 'https://places.googleapis.com/v1/places:searchText';
       console.log(`[DEBUG] [Google Maps Local Scraper] Request: POST ${url} | Headers: Content-Type: application/json, X-Goog-FieldMask: places.id,places.displayName | Body: ${JSON.stringify({ textQuery: query })}`);
 
@@ -446,7 +495,7 @@ export class GoogleMapsLeadProvider implements LeadProvider {
             industry: params.industry,
             companyOverview: details.formattedAddress ? `Located at ${details.formattedAddress}.` : `${details.displayName?.text || place.displayName?.text} is a verified business.`,
             painPoints: ['Local digital discovery barriers', 'Customer booking conversion'],
-            whyGoodProspect: 'Requires localized digital marketing automation structures.',
+            whyGoodProspect: `Active ${params.industry || 'commercial'} enterprise with verified operating presence.`,
             decisionMakerInfo: 'Operations management overseeing local procurement.',
             socialLinks: []
           }
