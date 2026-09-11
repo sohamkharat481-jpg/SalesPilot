@@ -14,22 +14,14 @@
       "timezone": "Asia/Kolkata",
       "language": "English",
       "notificationPrefs": {
-        "email": true,
         "push": true,
+        "email": true,
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$SjgqSRaEfoh5rtOT998cWuGXpv/E6mZB60hqaJx4VHK7RsMgtLHZC",
       "isFounder": true,
       "subscriptionStatus": "LIFETIME",
-      "createdAt": "2026-07-23T06:56:37.176Z",
-      "onboardingCompleted": true,
-      "unlimitedFeatures": true,
-      "unlimitedOrganizations": true,
-      "unlimitedUsers": true,
-      "unlimitedAiUsage": true,
-      "unlimitedLeadSearches": true,
-      "unlimitedCampaigns": true,
-      "unlimitedApiAccess": true
+      "createdAt": "2026-07-23T06:56:37.176+00:00"
     },
     {
       "id": "usr_demo_101",
@@ -45,14 +37,14 @@
       "timezone": "Asia/Kolkata",
       "language": "English",
       "notificationPrefs": {
-        "email": true,
         "push": true,
+        "email": true,
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$SjgqSRaEfoh5rtOT998cWuGXpv/E6mZB60hqaJx4VHK7RsMgtLHZC",
       "isFounder": true,
       "subscriptionStatus": "LIFETIME",
-      "createdAt": "2026-07-23T06:56:37.176Z"
+      "createdAt": "2026-07-23T06:56:37.176+00:00"
     },
     {
       "id": "usr_1784906064494",
@@ -62,19 +54,20 @@
       "industry": "",
       "tier": "STARTER",
       "role": "ADMIN",
-      "createdAt": "2026-07-24T15:14:24.494Z",
+      "organizationId": null,
       "isVerified": true,
       "phone": "",
       "timezone": "Asia/Kolkata",
       "language": "English",
       "notificationPrefs": {
-        "email": true,
         "push": true,
+        "email": true,
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$sKfPdeTA8plXql3l52iWKuKkZYrRV6JhftShDzerW6wJJtgRsj/v.",
-      "apiKeys": [],
-      "subscriptionStatus": "INACTIVE"
+      "isFounder": false,
+      "subscriptionStatus": "INACTIVE",
+      "createdAt": "2026-07-24T15:14:24.494+00:00"
     },
     {
       "id": "usr_1784906773045",
@@ -84,19 +77,20 @@
       "industry": "",
       "tier": "STARTER",
       "role": "ADMIN",
-      "createdAt": "2026-07-24T15:26:13.045Z",
+      "organizationId": null,
       "isVerified": true,
       "phone": "",
       "timezone": "Asia/Kolkata",
       "language": "English",
       "notificationPrefs": {
-        "email": true,
         "push": true,
+        "email": true,
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$i.6lxsKjbOHrFn/syajPKOSZ8/DZzGPUmpFBC8EroU41Z/ovKZWxC",
-      "apiKeys": [],
-      "subscriptionStatus": "INACTIVE"
+      "isFounder": false,
+      "subscriptionStatus": "INACTIVE",
+      "createdAt": "2026-07-24T15:26:13.045+00:00"
     },
     {
       "id": "usr_1784907025312",
@@ -104,22 +98,22 @@
       "fullName": "Live Audit Tester",
       "companyName": "",
       "industry": "",
-      "organizationId": "org_salespilot_lifetime",
       "tier": "STARTER",
       "role": "ADMIN",
-      "createdAt": "2026-07-24T15:30:25.312Z",
+      "organizationId": "org_salespilot_lifetime",
       "isVerified": true,
       "phone": "",
       "timezone": "Asia/Kolkata",
       "language": "English",
       "notificationPrefs": {
-        "email": true,
         "push": true,
+        "email": true,
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$VkEqVlu.UfaUkdyCvArDhe641mx.Txmmjl/3LlcYwcxtMPoIhNtQe",
-      "apiKeys": [],
-      "subscriptionStatus": "INACTIVE"
+      "isFounder": false,
+      "subscriptionStatus": "INACTIVE",
+      "createdAt": "2026-07-24T15:30:25.312+00:00"
     }
   ],
   "organizations": [
@@ -2714,7 +2708,7 @@
       "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1788979356062",
+          "id": "n_1789025808568",
           "text": "Audit Note 777: Security evaluation and Supabase persistence verified.",
           "createdAt": "2026-07-24T15:30:44.97+00:00"
         }
@@ -2751,7 +2745,7 @@
       "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1788979356062",
+          "id": "n_1789025808568",
           "text": "Note for DebugLead 101: Key evaluation criteria confirmed.",
           "createdAt": "2026-07-24T15:26:24.01+00:00"
         }
@@ -2788,7 +2782,7 @@
       "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1788979356062",
+          "id": "n_1789025808568",
           "text": "Customer note 99: Interested in automated pipeline integration.",
           "createdAt": "2026-07-24T15:14:36.65+00:00"
         }
@@ -2825,7 +2819,7 @@
       "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1788979356062",
+          "id": "n_1789025808568",
           "text": "Customer requested custom enterprise SLA on Supabase integration.",
           "createdAt": "2026-07-24T15:11:23.044+00:00"
         }
@@ -2970,6 +2964,161 @@
       "researchProgress": 100,
       "researchStatusText": "AI Research Complete",
       "researchHistory": []
+    },
+    {
+      "id": "ld_1789025797464",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "VercelTest5",
+      "lastName": "Epsilon",
+      "email": "epsilon_1789025792949@testvercelsupabase.com",
+      "phone": "+15551000005",
+      "company": "Epsilon Analytics",
+      "title": "Director",
+      "status": "NEW",
+      "createdAt": "2026-09-10T07:36:37.589174+00:00",
+      "campaignId": null,
+      "tags": [],
+      "source": "Vercel Prod Test",
+      "lastUpdated": "2026-09-10T07:36:37.589174+00:00",
+      "confidenceScore": 80,
+      "scoreReason": "",
+      "notesList": [],
+      "timelineList": [],
+      "tasksList": [],
+      "enrichment": {
+        "companySize": "Unknown",
+        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
+        "techStack": [],
+        "website": ""
+      },
+      "researchStatus": "PENDING",
+      "researchProgress": 0,
+      "researchStatusText": "Queued in AI Research Engine",
+      "researchHistory": []
+    },
+    {
+      "id": "ld_1789025796412",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "VercelTest4",
+      "lastName": "Delta",
+      "email": "delta_1789025792949@testvercelsupabase.com",
+      "phone": "+15551000004",
+      "company": "Delta Robotics",
+      "title": "Director",
+      "status": "NEW",
+      "createdAt": "2026-09-10T07:36:37.066862+00:00",
+      "campaignId": null,
+      "tags": [],
+      "source": "Vercel Prod Test",
+      "lastUpdated": "2026-09-10T07:36:37.066862+00:00",
+      "confidenceScore": 80,
+      "scoreReason": "",
+      "notesList": [],
+      "timelineList": [],
+      "tasksList": [],
+      "enrichment": {
+        "companySize": "Unknown",
+        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
+        "techStack": [],
+        "website": ""
+      },
+      "researchStatus": "PENDING",
+      "researchProgress": 0,
+      "researchStatusText": "Queued in AI Research Engine",
+      "researchHistory": []
+    },
+    {
+      "id": "ld_1789025795182",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "VercelTest3",
+      "lastName": "Gamma",
+      "email": "gamma_1789025792949@testvercelsupabase.com",
+      "phone": "+15551000003",
+      "company": "Gamma Healthcare",
+      "title": "Director",
+      "status": "NEW",
+      "createdAt": "2026-09-10T07:36:35.182+00:00",
+      "campaignId": null,
+      "tags": [],
+      "source": "Vercel Prod Test",
+      "lastUpdated": "2026-09-10T07:36:35.182+00:00",
+      "confidenceScore": 80,
+      "scoreReason": "",
+      "notesList": [],
+      "timelineList": [],
+      "tasksList": [],
+      "enrichment": {
+        "website": "",
+        "companySize": "Unknown",
+        "aiBrief": "",
+        "techStack": []
+      },
+      "researchStatus": "COMPLETED",
+      "researchProgress": 100,
+      "researchStatusText": "AI Research Complete",
+      "researchHistory": []
+    },
+    {
+      "id": "ld_1789025794240",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "VercelTest2",
+      "lastName": "Beta",
+      "email": "beta_1789025792949@testvercelsupabase.com",
+      "phone": "+15551000002",
+      "company": "Beta Logistics",
+      "title": "Director",
+      "status": "NEW",
+      "createdAt": "2026-09-10T07:36:34.24+00:00",
+      "campaignId": null,
+      "tags": [],
+      "source": "Vercel Prod Test",
+      "lastUpdated": "2026-09-10T07:36:34.24+00:00",
+      "confidenceScore": 80,
+      "scoreReason": "",
+      "notesList": [],
+      "timelineList": [],
+      "tasksList": [],
+      "enrichment": {
+        "website": "",
+        "companySize": "Unknown",
+        "aiBrief": "",
+        "techStack": []
+      },
+      "researchStatus": "COMPLETED",
+      "researchProgress": 100,
+      "researchStatusText": "AI Research Complete",
+      "researchHistory": []
+    },
+    {
+      "id": "ld_1789025793257",
+      "organizationId": "org_salespilot_lifetime",
+      "firstName": "VercelTest1",
+      "lastName": "Alpha",
+      "email": "alpha_1789025792949@testvercelsupabase.com",
+      "phone": "+15551000001",
+      "company": "Alpha Dynamics",
+      "title": "Director",
+      "status": "NEW",
+      "createdAt": "2026-09-10T07:36:33.257+00:00",
+      "campaignId": null,
+      "tags": [],
+      "source": "Vercel Prod Test",
+      "lastUpdated": "2026-09-10T07:36:37.981+00:00",
+      "confidenceScore": 80,
+      "scoreReason": "",
+      "notesList": [],
+      "timelineList": [],
+      "tasksList": [],
+      "enrichment": {
+        "website": "",
+        "companySize": "Unknown",
+        "aiBrief": "",
+        "techStack": []
+      },
+      "researchStatus": "COMPLETED",
+      "researchProgress": 100,
+      "researchStatusText": "AI Research Complete",
+      "researchHistory": []
     }
   ],
   "campaigns": [],
@@ -2977,11 +3126,12 @@
   "appointments": [
     {
       "id": "apt_1784905894803_q4twq",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784905883044",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.725+00:00",
+      "dateTime": "2026-09-10T07:25:30.034+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-8l5-zddk-s72",
@@ -2990,16 +3140,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.034+00:00"
     },
     {
       "id": "apt_1784801964620_7lxs7",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784801955949",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.745+00:00",
+      "dateTime": "2026-09-10T07:25:30.065+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-apl-w04p-5u4",
@@ -3008,16 +3159,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.065+00:00"
     },
     {
       "id": "apt_1784799733971_1oqcb",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784799719456",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.764+00:00",
+      "dateTime": "2026-09-10T07:25:30.096+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-chg-7m7a-lah",
@@ -3026,16 +3178,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.096+00:00"
     },
     {
       "id": "apt_1784907060520_ih9bh",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784907044970",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.786+00:00",
+      "dateTime": "2026-09-10T07:25:30.122+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-ewm-hb9n-ocw",
@@ -3044,16 +3197,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.122+00:00"
     },
     {
       "id": "apt_1784906790830_4ejj9",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784906784010",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.809+00:00",
+      "dateTime": "2026-09-10T07:25:30.148+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-zqn-de0l-vp8",
@@ -3062,16 +3216,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.148+00:00"
     },
     {
       "id": "apt_1784906083532_q148b",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784906076650",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.831+00:00",
+      "dateTime": "2026-09-10T07:25:30.174+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-47n-sk2u-1tw",
@@ -3080,16 +3235,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.174+00:00"
     },
     {
       "id": "apt_1784796192240_znkz6",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_1784796184439",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.864+00:00",
+      "dateTime": "2026-09-10T07:25:30.203+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-2yo-rsll-n19",
@@ -3098,16 +3254,17 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.203+00:00"
     },
     {
       "id": "apt_1784796196673_7x01f",
+      "organizationId": "org_salespilot_lifetime",
       "leadId": "ld_db_1784796155363_37022_cstb",
       "leadName": "Lead Contact",
       "company": "Company",
       "email": "",
-      "dateTime": "2026-09-09T18:40:21.887+00:00",
+      "dateTime": "2026-09-10T07:25:30.228+00:00",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-ki8-m0nv-k53",
@@ -3116,8 +3273,8 @@
       "googleSynced": false,
       "googleEventId": "",
       "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "createdAt": "2026-09-10T07:25:30.228+00:00"
     }
   ],
   "sessions": {
