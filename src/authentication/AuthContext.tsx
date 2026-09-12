@@ -177,18 +177,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
-          const callbackCode = new URLSearchParams(window.location.search).get('code');
-          if (callbackCode) {
-            console.log('[SUPABASE OAUTH] Authorization code detected on SalesPilot callback URL. Exchanging code for session.');
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(callbackCode);
-            if (exchangeError) {
-              console.warn('[SUPABASE OAUTH] Authorization code exchange failed:', exchangeError.message);
-            }
-          }
+          const hasOAuthCallback = Boolean(window.location.search.includes('code=') || window.location.hash.includes('access_token'));
+          console.info('[AUTH_CALLBACK_REACHED]', hasOAuthCallback);
           const { data: { session }, error } = await supabase.auth.getSession();
           if (error) {
             console.warn('[SUPABASE GET SESSION WARNING]', error);
           }
+          console.info('[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null, '[USER_EMAIL]', session?.user?.email || null);
           if (session?.user) {
             console.log("[OAUTH STEP 3] Valid Supabase session detected:", session.user.email);
             const email = session.user.email || '';
@@ -216,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.setItem('salespilot_token', session.access_token);
             }
             localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+            console.info('[SESSION_PERSISTED]', Boolean(localStorage.getItem('salespilot_user')));
 
             // Clean up OAuth callback state in URL without full page reload
             if (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.pathname.includes('/auth/callback')) {
@@ -266,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log(`[SUPABASE AUTH STATE CHANGE] ${event}`);
+        console.info('[AUTH_EVENT]', event, '[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null, '[USER_EMAIL]', session?.user?.email || null);
         if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
           const email = session.user.email || '';
           const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
