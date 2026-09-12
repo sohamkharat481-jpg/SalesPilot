@@ -153,6 +153,15 @@ let serverSessions: Record<string, { user: any; expiresAt: number }> = {};
 let failedLoginAttempts: Record<string, { count: number; lockedUntil?: number }> = {};
 
 const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'sohamkharat481@gmail.com';
+const FOUNDER_EMAILS = new Set(
+  [
+    FOUNDER_EMAIL,
+    'sohamkharat481@gmail.com',
+    ...(process.env.FOUNDER_EMAILS || '').split(',')
+  ]
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean)
+);
 const FREE_ACCESS_EMAILS = new Set(
   (process.env.FREE_ACCESS_EMAILS || '')
     .split(',')
@@ -171,8 +180,7 @@ async function applyFounderPrivileges(userObj: any) {
   const emailLower = (userObj.email || '').toLowerCase();
   const isFounder = userObj.isFounder ||
                     userObj.subscriptionStatus === 'LIFETIME' ||
-                    emailLower === FOUNDER_EMAIL.toLowerCase() ||
-                    emailLower === 'sohamkharat481@gmail.com' ||
+                    FOUNDER_EMAILS.has(emailLower) ||
                     emailLower === 'soham@gmail.com' ||
                     emailLower.includes('founder') ||
                     emailLower.includes('soham') ||
