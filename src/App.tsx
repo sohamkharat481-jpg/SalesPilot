@@ -121,13 +121,14 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (authLoading) return;
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('salespilot_active_tab', activeTab);
       if (window.location.hash !== `#${activeTab}`) {
         window.location.hash = `#${activeTab}`;
       }
     }
-  }, [activeTab]);
+  }, [activeTab, authLoading]);
 
   useEffect(() => {
     const handleHashChange = () => {
