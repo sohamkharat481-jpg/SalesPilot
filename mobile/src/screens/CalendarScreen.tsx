@@ -11,11 +11,7 @@ interface Appointment {
 }
 
 export function CalendarScreen() {
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    { id: '1', leadName: 'Vijay Shekhar', company: 'Paytm', dateTime: 'Today • 11:30 AM', status: 'SCHEDULED', meetingLink: 'https://meet.google.com/sp-demo-paytm' },
-    { id: '2', leadName: 'Kunal Shah', company: 'Cred', dateTime: 'Tomorrow • 3:00 PM', status: 'SCHEDULED', meetingLink: 'https://meet.google.com/sp-demo-cred' },
-    { id: '3', leadName: 'Priya Sharma', company: 'Razorpay', dateTime: 'Wednesday, July 23 • 10:00 AM', status: 'SCHEDULED', meetingLink: 'https://meet.google.com/sp-demo-razorpay' }
-  ]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [newLeadName, setNewLeadName] = useState('');
@@ -23,26 +19,7 @@ export function CalendarScreen() {
   const [newDateTime, setNewDateTime] = useState('');
 
   const handleCreateMeeting = () => {
-    if (!newLeadName || !newCompany || !newDateTime) {
-      Alert.alert('Incomplete Form', 'Please fill out all fields.');
-      return;
-    }
-
-    const newApt: Appointment = {
-      id: 'apt-' + Math.random().toString(36).substr(2, 9),
-      leadName: newLeadName,
-      company: newCompany,
-      dateTime: newDateTime,
-      status: 'SCHEDULED',
-      meetingLink: `https://meet.google.com/sp-demo-${newCompany.toLowerCase()}`
-    };
-
-    setAppointments(prev => [...prev, newApt]);
-    setNewLeadName('');
-    setNewCompany('');
-    setNewDateTime('');
-    setIsAddModalVisible(false);
-    Alert.alert('Meeting Scheduled', 'Calendar invitation sent automatically.');
+    Alert.alert('Connect Google Calendar', 'Connect Google Calendar before scheduling a meeting.');
   };
 
   const handleJoinMeet = (link: string) => {

@@ -753,88 +753,6 @@ const unusedDummyDeals = [
 ];
 
 let appointments: Appointment[] = localDb.getAllAppointments();
-let dummyAppointments: any[] = [];
-const unusedDummyAppointments = [
-  {
-    id: 'apt_1',
-    leadId: 'ld_4',
-    leadName: 'Sneha Kapoor',
-    company: 'CloudFlow SaaS',
-    email: 'sneha@cloudflow.app',
-    dateTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000).toISOString(), // 2 days later, midday
-    durationMins: 30,
-    status: 'SCHEDULED',
-    meetingLink: 'https://meet.google.com/sp-demo-cloudflow',
-    notes: 'Discuss scaling outbound and integrating n8n webhook connectors.',
-    timezone: 'Asia/Kolkata',
-    googleSynced: true,
-    reminderSent: false,
-    timelineList: [
-      { id: 'tl_apt1_1', event: 'Meeting Scheduled', details: 'Booked via CRM interface. Google Meet room allocated.', createdAt: new Date(Date.now() - 3600 * 1000).toISOString() },
-      { id: 'tl_apt1_2', event: 'Google Calendar Synced', details: 'Bi-directional handshake successful. Invitation sent to sneha@cloudflow.app.', createdAt: new Date(Date.now() - 3500 * 1000).toISOString() }
-    ]
-  },
-  {
-    id: 'apt_2',
-    leadId: 'ld_1',
-    leadName: 'Rahul Sharma',
-    company: 'Alpha Growth India',
-    email: 'rahul@alphagrowth.in',
-    dateTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
-    durationMins: 45,
-    status: 'COMPLETED',
-    meetingLink: 'https://meet.google.com/sp-demo-alphagrowth',
-    notes: 'Incredible session. Rahul loved the automated follow-up sequences. Agreed to buy the Professional Outbound suite.',
-    timezone: 'Asia/Kolkata',
-    googleSynced: true,
-    reminderSent: true,
-    timelineList: [
-      { id: 'tl_apt2_1', event: 'Meeting Scheduled', details: 'Automated slot booked via Vesper Bot.', createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
-      { id: 'tl_apt2_2', event: 'Google Calendar Synced', details: 'Calendar invite created.', createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
-      { id: 'tl_apt2_3', event: 'SMS Reminder Sent', details: '1-hour reminder dispatched via Twilio Outbound.', createdAt: new Date(Date.now() - 25 * 3600 * 1000).toISOString() },
-      { id: 'tl_apt2_4', event: 'Meeting Completed', details: 'CRM state shifted automatically. Logged custom notes.', createdAt: new Date(Date.now() - 23 * 3600 * 1000).toISOString() }
-    ]
-  },
-  {
-    id: 'apt_3',
-    leadId: 'ld_2',
-    leadName: 'Michael Scott',
-    company: 'Dunder Mifflin',
-    email: 'michael@dundermifflin.com',
-    dateTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    durationMins: 30,
-    status: 'CANCELLED',
-    meetingLink: 'https://meet.google.com/sp-demo-dundermifflin',
-    notes: 'Cancelled due to internal budget review. Re-evaluate in Q3.',
-    timezone: 'America/New_York',
-    googleSynced: true,
-    reminderSent: false,
-    timelineList: [
-      { id: 'tl_apt3_1', event: 'Meeting Scheduled', details: 'CRM admin booked manually.', createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
-      { id: 'tl_apt3_2', event: 'Meeting Cancelled', details: 'Prospect clicked cancel link in invitation email. Reason: internal budget freeze.', createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() }
-    ]
-  },
-  {
-    id: 'apt_4',
-    leadId: 'ld_3',
-    leadName: 'Jessica Chen',
-    company: 'InnoTech Tokyo',
-    email: 'jessica@innotech.co.jp',
-    dateTime: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(), // Tomorrow morning
-    durationMins: 30,
-    status: 'SCHEDULED',
-    meetingLink: 'https://meet.google.com/sp-demo-innotech',
-    notes: 'Focus on multi-language template vaults and WhatsApp integration nodes.',
-    timezone: 'Asia/Tokyo',
-    googleSynced: true,
-    reminderSent: true,
-    timelineList: [
-      { id: 'tl_apt4_1', event: 'Meeting Scheduled', details: 'Lead booked via self-serve scheduler widget.', createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString() },
-      { id: 'tl_apt4_2', event: 'Google Calendar Synced', details: 'Invite generated with Zoom/Google Meet credentials.', createdAt: new Date(Date.now() - 11 * 3600 * 1000).toISOString() },
-      { id: 'tl_apt4_3', event: 'Email Reminder Sent', details: 'Automatic 24-hour reminder sent to jessica@innotech.co.jp.', createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString() }
-    ]
-  }
-];
 
 let integrations: IntegrationCredentials = {
   supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
@@ -7569,9 +7487,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     localDb.db.appointments = combinedApts;
     saveDb();
 
-    const filteredApts = orgId
-      ? combinedApts.filter(a => !(a as any).organizationId || (a as any).organizationId === orgId)
-      : combinedApts;
+    const filteredApts = combinedApts
+      .filter(a => {
+        const meetingLink = String(a.meetingLink || '');
+        return !meetingLink.includes('/mock-meet-') && !meetingLink.includes('/sp-demo-');
+      })
+      .filter(a => !orgId || !(a as any).organizationId || (a as any).organizationId === orgId);
 
     res.json({ appointments: filteredApts });
   });
@@ -7743,10 +7664,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           return;
         }
       } else {
-        // Fallback to high-fidelity mock booking
-        googleEventId = `evt_mock_${Date.now()}`;
-        meetingLink = `https://meet.google.com/mock-meet-${Math.random().toString(36).substring(2, 5)}-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 5)}`;
-        console.log(`[GOOGLE CALENDAR API - SANDBOX] No real Google Calendar connected. Created mock meeting. Link: ${meetingLink}`);
+        res.status(400).json({ error: 'No connected Google Calendar account. Connect Google Calendar before booking a meeting.' });
+        return;
       }
 
       // Real-time Gmail notification dispatch
@@ -9646,8 +9565,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Helper to dynamically construct the Google OAuth redirect URI
   const getGoogleRedirectUri = (req: any): string => {
+    const canonicalProductionOrigin = 'https://sales-pilot-f4uv.vercel.app';
+    const requestHost = String(req?.headers?.host || '').split(':')[0].toLowerCase();
+    if (process.env.VERCEL_ENV === 'production' || requestHost === 'sales-pilot-f4uv.vercel.app') {
+      return `${canonicalProductionOrigin}/api/auth/google/callback`;
+    }
     let baseUrl = '';
-    const envAppUrl = process.env.APP_URL ? process.env.APP_URL.trim().replace(/^['"]|['"]$/g, '') : '';
     const host = (req?.headers?.host || '').trim();
 
     // Log Vercel-specific and APP_URL environment variables to assist auditing
@@ -9661,7 +9584,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     const configuredAppUrl = (process.env.VITE_APP_URL || process.env.APP_URL || '').trim().replace(/^['"]|['"]$/g, '');
     if (configuredAppUrl) {
-      baseUrl = configuredAppUrl;
+      baseUrl = /^https?:\/\//i.test(configuredAppUrl) ? configuredAppUrl : `https://${configuredAppUrl}`;
       console.log(`[GOOGLE OAUTH REDIRECT] Using configured APP_URL/VITE_APP_URL: "${baseUrl}"`);
     } else {
       const proto = (req?.headers?.['x-forwarded-proto'] || (req?.secure ? 'https' : 'http')).trim();
@@ -9718,6 +9641,36 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Google OAuth URL generation
+  const createGoogleOAuthState = (req: any): string => {
+    const user = getAuthenticatedUser(req);
+    const secret = process.env.GOOGLE_CLIENT_SECRET || '';
+    if (!user || !secret) return '';
+
+    const payload = Buffer.from(JSON.stringify({
+      userId: user.id,
+      organizationId: user.organizationId || '',
+      issuedAt: Date.now()
+    })).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+  };
+
+  const readGoogleOAuthState = (state: unknown): { userId: string; organizationId?: string } | null => {
+    const secret = process.env.GOOGLE_CLIENT_SECRET || '';
+    if (typeof state !== 'string' || !secret) return null;
+    const [payload, signature] = state.split('.');
+    if (!payload || !signature) return null;
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+    try {
+      const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+      if (!parsed.userId || Date.now() - parsed.issuedAt > 10 * 60 * 1000) return null;
+      return { userId: parsed.userId, organizationId: parsed.organizationId || undefined };
+    } catch (_) {
+      return null;
+    }
+  };
+
   app.get('/api/auth/google/url', (req, res) => {
     console.log('[GOOGLE OAUTH URL GEN] Starting URL generation flow...');
     const rawClientId = process.env.GOOGLE_CLIENT_ID;
@@ -9749,6 +9702,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     // Log the redirect URI
     const redirectUri = getGoogleRedirectUri(req);
+    const state = createGoogleOAuthState(req);
+    if (!state) {
+      return res.status(401).json({ error: 'An authenticated SalesPilot session is required to connect Google Calendar.' });
+    }
     console.log(`[GOOGLE OAUTH AUDIT] FINAL RUNTIME REDIRECT URI: ${redirectUri}`);
     console.log(`[GOOGLE OAUTH URL GEN] Configured Redirect URI: ${redirectUri}`);
 
@@ -9773,7 +9730,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       response_type: 'code',
       scope: scopes.join(' '),
       access_type: 'offline',
-      prompt: 'consent'
+      prompt: 'consent',
+      state
     });
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     
@@ -9792,6 +9750,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     
     const clientId = rawClientId ? rawClientId.trim().replace(/^['"]|['"]$/g, '') : '';
     const clientSecret = rawClientSecret ? rawClientSecret.trim().replace(/^['"]|['"]$/g, '') : '';
+    const oauthContext = readGoogleOAuthState(req.query.state);
     
     if (!code) {
       console.error('[GOOGLE CALLBACK FLOW] ERROR: No auth code provided in query string.');
@@ -9803,12 +9762,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       console.error('[GOOGLE CALLBACK FLOW] ERROR: GOOGLE_CLIENT_SECRET is missing.');
     }
     
-    if (!code || !clientId || !clientSecret) {
+    if (!code || !clientId || !clientSecret || !oauthContext) {
       return res.send(`
         <html>
           <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
             <h3 style="color: #dc2626;">Authentication Configuration Error</h3>
-            <p style="color: #4b5563;">Missing parameters, client ID, or client secret configuration.</p>
+            <p style="color: #4b5563;">Missing parameters, client configuration, or expired SalesPilot session.</p>
             <script>
               if (window.opener) {
                 window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Missing parameters or client configuration.' }, '*');
@@ -9984,12 +9943,28 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       // Sync and save updated accounts
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering account synchronizations and database disk-persistence...');
-      saveAccountsToDisk();
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const googleAccountRows = [
+          { id: `ga_${email}`, user_id: oauthContext.userId, organization_id: oauthContext.organizationId || null, email, access_token, refresh_token: refresh_token || '', scopes: scopesArr, expiry_date: expiresAt, account_type: 'calendar' },
+          { id: `ga_${email}_gmail`, user_id: oauthContext.userId, organization_id: oauthContext.organizationId || null, email, access_token, refresh_token: refresh_token || '', scopes: scopesArr, expiry_date: expiresAt, account_type: 'gmail' }
+        ];
+        const { error: accountPersistError } = await supabase.from('google_accounts').upsert(googleAccountRows, { onConflict: 'id' });
+        if (accountPersistError) {
+          console.error('[GOOGLE CALLBACK FLOW] Supabase account persistence failed:', accountPersistError.message);
+          throw new Error('Google account could not be persisted. Please retry the connection.');
+        }
+        console.log('[GOOGLE CALLBACK FLOW] Supabase account persistence succeeded.');
+      } else {
+        saveAccountsToDisk();
+      }
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Disk write complete.');
 
       // Immediate Readback/Verification to ensure they are persisted and correct
       try {
-        if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
+        if (supabase) {
+          console.log('[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] Supabase persistence already acknowledged successfully.');
+        } else if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
           const verifyData = JSON.parse(fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8'));
           const foundGmail = verifyData.gmailAccounts?.find((a: any) => a.email === email);
           const foundCalendar = verifyData.calendarAccounts?.find((c: any) => c.email === email);
@@ -10026,8 +10001,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                   type: 'GOOGLE_AUTH_SUCCESS',
                   email: ${JSON.stringify(email)},
                   name: ${JSON.stringify(name)},
-                  accessToken: ${JSON.stringify(access_token)},
-                  refreshToken: ${JSON.stringify(refresh_token)},
                   expiresAt: ${JSON.stringify(expiresAt)}
                 }, '*');
               }
@@ -10383,6 +10356,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }
 
   function saveAccountsToDisk() {
+    if (getSupabaseClient()) return;
     try {
       synchronizeUnifiedAccounts();
       fs.writeFileSync(ACCOUNTS_STORE_PATH, JSON.stringify({
@@ -10541,6 +10515,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }
 
   function loadAccountsFromDisk() {
+    if (getSupabaseClient()) return;
     try {
       if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
         const raw = fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8');
@@ -10578,6 +10553,43 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   }
 
+  async function loadAccountsFromSupabase() {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const { data, error } = await supabase
+      .from('google_accounts')
+      .select('email, access_token, refresh_token, scopes, expiry_date, account_type');
+    if (error) {
+      console.error('[PERSISTENCE] Error loading Google accounts from Supabase:', error.message);
+      return;
+    }
+
+    for (const row of data || []) {
+      if (!row.email || !row.access_token) continue;
+      const account = {
+        email: row.email,
+        fullName: row.email.split('@')[0],
+        accessToken: row.access_token,
+        refreshToken: row.refresh_token || undefined,
+        expiresAt: row.expiry_date || new Date(Date.now() + 3600000).toISOString(),
+        status: 'CONNECTED' as const,
+        createdAt: new Date().toISOString(),
+        scopes: row.scopes || []
+      };
+      if (row.account_type === 'calendar') {
+        const existing = calendarAccounts.find(item => item.email === row.email);
+        if (existing) Object.assign(existing, account);
+        else calendarAccounts.push(account);
+      } else if (row.account_type === 'gmail') {
+        const existing = gmailAccounts.find(item => item.email === row.email);
+        if (existing) Object.assign(existing, account);
+        else gmailAccounts.push({ ...account, sendingLimit: 500, sentToday: 0, bounceCount: 0, retryCount: 0 });
+      }
+    }
+    synchronizeUnifiedAccounts();
+  }
+
   function validateAndTrimEmail(emailInput: any): { valid: boolean; email?: string; error?: string } {
     if (emailInput === null || emailInput === undefined) {
       return { valid: false, error: 'Email address is missing (null or undefined).' };
@@ -10598,6 +10610,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Load persisted accounts on start
   loadAccountsFromDisk();
+  loadAccountsFromSupabase().catch(err => {
+    console.error('[PERSISTENCE] Supabase Google account load failed:', err.message || String(err));
+  });
 
   // Shared helper to verify and auto-refresh Google tokens
   async function ensureAndRefreshGoogleToken(account: CalendarAccount | GmailAccount, serviceName: string, forceRefresh = false): Promise<string> {
@@ -11133,7 +11148,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           return res.json({ events: externalEvents });
         } else {
           const errText = await gRes.text();
-          console.warn('[GOOGLE CALENDAR API ERROR] non-ok response:', errText);
+          console.warn(`[GOOGLE CALENDAR API ERROR] status=${gRes.status} response=${errText.substring(0, 300)}`);
+          return res.status(gRes.status === 401 || gRes.status === 403 ? 401 : 502).json({ events: [], error: 'Unable to read Google Calendar events. Please reconnect Google Calendar.' });
         }
       } catch (err: any) {
         console.error('[GOOGLE CALENDAR API ERROR]', err);
@@ -11144,20 +11160,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       }
     }
 
-    const localEvents = appointments.map(apt => ({
-      id: apt.id,
-      summary: `SalesPilot: ${apt.leadName} (${apt.company})`,
-      description: apt.notes || '',
-      start: apt.dateTime,
-      end: new Date(new Date(apt.dateTime).getTime() + apt.durationMins * 60 * 1000).toISOString(),
-      location: 'Google Meet',
-      attendees: [apt.email],
-      meetingLink: apt.meetingLink,
-      status: apt.status,
-      isGoogleEvent: false
-    }));
-
-    res.json({ events: localEvents });
+    res.json({ events: [] });
   });
 
   // POST /calendar/availability

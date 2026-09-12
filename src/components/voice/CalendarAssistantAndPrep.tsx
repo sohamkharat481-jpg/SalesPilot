@@ -36,23 +36,26 @@ export function CalendarAssistantAndPrep({
       return;
     }
 
-    const newApt: Appointment = {
-      id: 'apt-' + Math.random().toString(36).substr(2, 9),
-      leadId: selectedLead.id,
-      leadName: `${selectedLead.firstName} ${selectedLead.lastName}`,
-      company: selectedLead.company,
-      email: selectedLead.email,
-      dateTime: new Date(meetingDateTime).toISOString(),
-      durationMins: 30,
-      status: 'SCHEDULED',
-      meetingLink: `https://meet.google.com/sp-demo-${selectedLead.id}`,
-      notes: `Meeting scheduled via AI Calendar Assistant. Goal: ${meetingTitle}`,
-      timezone: 'Asia/Kolkata',
-      googleSynced: true
-    };
-
-    setAppointments(prev => [...prev, newApt]);
-    triggerToast('🗓️ Meeting scheduled and synced to SalesPilot Calendar!');
+    fetch('/calendar/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        leadId: selectedLead.id,
+        dateTime: new Date(meetingDateTime).toISOString(),
+        durationMins: 30,
+        summary: meetingTitle,
+        notes: `Meeting scheduled via AI Calendar Assistant. Goal: ${meetingTitle}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        isOnline: true
+      })
+    })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to schedule meeting.');
+        setAppointments(prev => [data.appointment, ...prev]);
+        triggerToast('Meeting scheduled and synced to Google Calendar.');
+      })
+      .catch(error => triggerToast(error.message));
   };
 
   // Generate Pre-Meeting Briefing Dossier

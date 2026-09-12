@@ -151,7 +151,12 @@ export function SchedulerView({
     setLoadingId(isReconnect ? 'reconnect-calendar' : 'connect-calendar');
     try {
       console.log(`[GOOGLE OAUTH] Fetching auth URL from /api/auth/google/url...`);
-      const res = await fetch('/api/auth/google/url');
+      const authHeaders: Record<string, string> = {};
+      const sessionToken = localStorage.getItem('salespilot_token');
+      if (sessionToken) authHeaders.Authorization = `Bearer ${sessionToken}`;
+      const workspaceId = localStorage.getItem('salespilot_workspace_id');
+      if (workspaceId) authHeaders['x-organization-id'] = workspaceId;
+      const res = await fetch('/api/auth/google/url', { headers: authHeaders });
       if (!res.ok) {
         const errData = await res.json();
         console.error(`[GOOGLE OAUTH] Server returned error fetching auth URL:`, errData);
@@ -587,9 +592,16 @@ export function SchedulerView({
     return true;
   });
 
+  const visibleAppointments = googleCalendarConnected ? appointments : [];
+
   // Unified chronological agenda
   const unifiedAgenda = [
-    ...filteredAppointments.map(apt => ({
+    ...visibleAppointments.filter(apt => {
+      const matchesTab = activeStatusTab === 'ALL' || apt.status === activeStatusTab;
+      if (selectedDay === null) return matchesTab;
+      const aptDate = new Date(apt.dateTime);
+      return matchesTab && aptDate.getDate() === selectedDay && aptDate.getMonth() === currentMonth && aptDate.getFullYear() === currentYear;
+    }).map(apt => ({
       ...apt,
       keyId: `apt-${apt.id}`,
       itemType: 'CRM_APPOINTMENT' as const,
@@ -1430,7 +1442,7 @@ export function SchedulerView({
 
             {unifiedAgenda.length === 0 && (
               <div className="p-12 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-400 font-mono bg-slate-50/20">
-                No meetings scheduled for this filter. Use the interactive grid or click "Book New Consult" to schedule demo slots with your leads.
+                {googleCalendarConnected ? 'No meetings found.' : 'Connect Google Calendar to view your meetings.'}
               </div>
             )}
           </div>
