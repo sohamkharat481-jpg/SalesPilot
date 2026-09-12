@@ -177,6 +177,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          const callbackCode = new URLSearchParams(window.location.search).get('code');
+          if (callbackCode) {
+            console.log('[SUPABASE OAUTH] Authorization code detected on SalesPilot callback URL. Exchanging code for session.');
+            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(callbackCode);
+            if (exchangeError) {
+              console.warn('[SUPABASE OAUTH] Authorization code exchange failed:', exchangeError.message);
+            }
+          }
           const { data: { session }, error } = await supabase.auth.getSession();
           if (error) {
             console.warn('[SUPABASE GET SESSION WARNING]', error);
@@ -210,8 +218,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
 
             // Clean up OAuth callback state in URL without full page reload
-            if (window.location.hash.includes('access_token') || window.location.pathname.includes('/auth/callback')) {
-              window.history.replaceState({}, document.title, '/');
+            if (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.pathname.includes('/auth/callback')) {
+              window.history.replaceState({}, document.title, `${window.location.pathname === '/auth/callback' ? '/' : window.location.pathname}${window.location.hash && !window.location.hash.includes('access_token') ? window.location.hash : ''}`);
             }
 
             setIsLoading(false);
@@ -254,14 +262,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
 
-    initAuth();
-
     // Listen for Supabase auth state changes
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log(`[SUPABASE AUTH STATE CHANGE] ${event}`);
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
           const email = session.user.email || '';
           const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
 
@@ -286,8 +292,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('salespilot_token', session.access_token);
           localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
 
-          if (window.location.hash.includes('access_token') || window.location.pathname.includes('/auth/callback')) {
-            window.history.replaceState({}, document.title, '/');
+          if (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.pathname.includes('/auth/callback')) {
+            window.history.replaceState({}, document.title, `${window.location.pathname === '/auth/callback' ? '/' : window.location.pathname}${window.location.hash && !window.location.hash.includes('access_token') ? window.location.hash : ''}`);
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
@@ -299,10 +305,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
+      initAuth();
+
       return () => {
         subscription.unsubscribe();
       };
     }
+
+    initAuth();
   }, []);
 
   // Prevent Founder from seeing onboarding, setup, or billing screens
@@ -981,11 +991,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const appUrl = (import.meta.env.VITE_APP_URL || '').trim();
-
-      if (!appUrl) {
-        throw new Error("VITE_APP_URL is not configured. Please configure VITE_APP_URL in your environment variables.");
-      }
+      const configuredAppUrl = (import.meta.env.VITE_APP_URL || '').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
+      const currentOrigin = window.location.origin.replace(/\/+$/, '');
+      const productionOrigin = 'https://sales-pilot-f4uv.vercel.app';
+      const appUrl = window.location.hostname === 'sales-pilot-f4uv.vercel.app'
+        ? productionOrigin
+        : (configuredAppUrl || currentOrigin);
 
       console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", appUrl);
 
