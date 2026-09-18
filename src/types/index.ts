@@ -27,6 +27,15 @@ export interface Organization {
   createdAt: string;
 }
 
+export interface OrganizationMember {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: UserRole | string;
+  status: 'ACTIVE' | 'INVITED' | 'SUSPENDED';
+  createdAt: string;
+}
+
 export interface WorkspaceUser {
   id: string;
   email: string;
@@ -58,6 +67,8 @@ export interface OnboardingStepProgress {
 
 export interface TeamMember {
   id: string;
+  organizationId?: string;
+  userId?: string;
   email: string;
   fullName: string;
   role: UserRole;

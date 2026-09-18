@@ -93,21 +93,27 @@ export default function App() {
   console.log("Stage B: App.tsx rendered");
   const { user, organization, logout, isLoading: authLoading, isSandbox } = useAuth();
   const authReady = !authLoading;
-  const workspaceId = user?.organizationId || organization?.id || 'org_salespilot_lifetime';
+  const workspaceId = user?.organizationId || organization?.id || '';
 
   const isFounderUser = Boolean(
     user && (
       user.isFounder ||
       user.subscriptionStatus === 'LIFETIME' ||
-      user.tier === 'ENTERPRISE' ||
-      user.role === 'SUPER_ADMIN' ||
-      user.role === 'OWNER' ||
       (user.email && (
         user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
         user.email.toLowerCase() === 'soham@gmail.com' ||
         user.email.toLowerCase().includes('founder') ||
         user.email.toLowerCase().includes('soham')
       ))
+    )
+  );
+
+  const isEnterpriseUser = Boolean(
+    user && (
+      isFounderUser ||
+      user.tier === 'ENTERPRISE' ||
+      user.subscriptionStatus === 'ACTIVE' ||
+      user.subscriptionStatus === 'LIFETIME'
     )
   );
 
@@ -150,9 +156,9 @@ export default function App() {
     return saved === null ? true : saved === 'true';
   });
 
-  // Simulated 1-Day Trial countdown interval timer (bypassed for Founder accounts)
+  // Simulated 1-Day Trial countdown interval timer (bypassed for Founder & Enterprise accounts)
   useEffect(() => {
-    if (isFounderUser) return; // Founder accounts completely bypass trial timer
+    if (isFounderUser || isEnterpriseUser) return; // Founder & Enterprise accounts completely bypass trial timer
     if (!trialActive || trialTimeRemaining <= 0) return;
     const interval = setInterval(() => {
       setTrialTimeRemaining(prev => {
@@ -169,7 +175,7 @@ export default function App() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isFounderUser, trialActive, trialTimeRemaining]);
+  }, [isFounderUser, isEnterpriseUser, trialActive, trialTimeRemaining]);
 
   const formatTrialTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -192,6 +198,16 @@ export default function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showActivities, setShowActivities] = useState(false);
+
+  // Clear workspace-specific data whenever active workspace or user identity switches
+  useEffect(() => {
+    setLeads([]);
+    setCampaigns([]);
+    setDeals([]);
+    setAppointments([]);
+    setNotifications([]);
+    setActivities([]);
+  }, [workspaceId, user?.id]);
   
   // Modals for Global Enterprise Launch & Status
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -218,29 +234,18 @@ export default function App() {
     'Compile pipeline health review'
   ]);
   
-  const [notifications, setNotifications] = useState([
-    { id: 'not-1', text: 'Lead "Rajesh Kumar" status advanced to QUALIFIED', time: '10 mins ago', read: false },
-    { id: 'not-2', text: 'Astra Agent scanned 15 new SaaS profiles in Chennai', time: '1 hr ago', read: false },
-    { id: 'not-3', text: 'Vesper Agent generated 4 personalized email copies', time: '3 hrs ago', read: true },
-    { id: 'not-4', text: 'Google Meet reservation confirmed with Soham', time: '1 day ago', read: true }
-  ]);
-
-  const [activities, setActivities] = useState([
-    { id: 'act-1', text: 'Soham Kharat logged into enterprise workspace', time: 'Just now', icon: 'Users', color: 'text-blue-500' },
-    { id: 'act-2', text: 'Astra Prospector scraped 12 marketing agencies', time: '15 mins ago', icon: 'Bot', color: 'text-purple-500' },
-    { id: 'act-3', text: 'New lead "Preeti Sen" added manually', time: '1 hr ago', icon: 'Users', color: 'text-emerald-500' },
-    { id: 'act-4', text: 'Campaign "Growth Outbound July" active sequence updated', time: '2 hrs ago', icon: 'Sparkles', color: 'text-amber-500' }
-  ]);
+  const [notifications, setNotifications] = useState<Array<{ id: string; text: string; time: string; read: boolean }>>([]);
+  const [activities, setActivities] = useState<Array<{ id: string; text: string; time: string; icon: string; color: string }>>([]);
 
   // Redirect non-subscribers/non-founders to billing immediately
   useEffect(() => {
-    if (isFounderUser) return; // Founder accounts bypass all billing redirects
+    if (isFounderUser || isEnterpriseUser) return; // Founder & Enterprise accounts bypass all billing redirects
     if (user && !user.isFounder && user.subscriptionStatus !== 'ACTIVE' && user.subscriptionStatus !== 'TRIAL' && !trialActive) {
       if (activeTab !== 'billing') {
         setActiveTab('billing');
       }
     }
-  }, [isFounderUser, user, activeTab, trialActive]);
+  }, [isFounderUser, isEnterpriseUser, user, activeTab, trialActive]);
 
   // Synchronize Dark Mode on Document Element
   useEffect(() => {

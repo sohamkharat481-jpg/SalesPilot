@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../lib/supabase.server';
 import { 
-  WorkspaceUser, Organization, TeamMember, Lead, Campaign, Deal, Appointment, UserRole,
+  WorkspaceUser, Organization, OrganizationMember, TeamMember, Lead, Campaign, Deal, Appointment, UserRole,
   AiCompanyResearch, AiContactProfile, AiEmailGeneration, AiFollowup, AiMeetingBrief, AiProposal, AiScore,
   OrgRole, OrgPermission, OrgMemberPermission, OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
   AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory,
@@ -18,6 +18,7 @@ const GOOGLE_ACCOUNTS_FILE_PATH = path.join(process.cwd(), 'google_accounts_stor
 export interface DBStructure {
   users: any[];
   organizations: Organization[];
+  organizationMembers?: OrganizationMember[];
   teamMembers: TeamMember[];
   leads: Lead[];
   campaigns: Campaign[];
@@ -69,6 +70,7 @@ export class LocalDB {
   public db: DBStructure = {
     users: [],
     organizations: [],
+    organizationMembers: [],
     teamMembers: [],
     leads: [],
     campaigns: [],
@@ -171,6 +173,9 @@ export class LocalDB {
         if (!this.db.agentLogs) this.db.agentLogs = [];
         if (!this.db.agentWorkflows) this.db.agentWorkflows = [];
         if (!this.db.agentPermissions) this.db.agentPermissions = [];
+        if (!this.db.organizationMembers) this.db.organizationMembers = [];
+
+        this.ensureDefaultWorkspacesAndMemberships();
 
         console.log(`[LocalDB] Loaded database with ${this.db.users?.length || 0} users and ${this.db.leads?.length || 0} leads.`);
       } catch (err) {
@@ -242,6 +247,16 @@ export class LocalDB {
         name: 'SalesPilot',
         domain: 'salespilot.co',
         industry: 'SaaS & Software',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'org_pordigy_enterprise',
+        name: 'Pordigy Enterprise',
+        domain: 'pordigy.ai',
+        industry: 'AI & Enterprise Software',
+        ownerId: 'usr_pordigy_auth_01',
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
         createdAt: new Date().toISOString()
       },
       {
@@ -665,25 +680,29 @@ export class LocalDB {
 
       const { data: users } = await this.supabase.from('users').select('*');
       if (users && users.length > 0) {
-        this.db.users = users.map(u => ({
-          id: u.id,
-          email: u.email,
-          fullName: u.full_name,
-          companyName: u.company_name,
-          industry: u.industry,
-          tier: u.tier,
-          role: u.role,
-          organizationId: u.organization_id,
-          isVerified: u.is_verified,
-          phone: u.phone,
-          timezone: u.timezone,
-          language: u.language,
-          notificationPrefs: u.notification_prefs,
-          passwordHash: u.password_hash,
-          isFounder: u.is_founder,
-          subscriptionStatus: u.subscription_status,
-          createdAt: u.created_at
-        }));
+        this.db.users = users.map(u => {
+          const existing = (this.db.users || []).find(loc => loc.id === u.id || loc.email === u.email);
+          return {
+            id: u.id,
+            supabaseAuthId: existing?.supabaseAuthId || (u as any).supabase_auth_id || (u as any).supabaseAuthId,
+            email: u.email,
+            fullName: u.full_name,
+            companyName: u.company_name,
+            industry: u.industry,
+            tier: u.tier,
+            role: u.role,
+            organizationId: u.organization_id,
+            isVerified: u.is_verified,
+            phone: u.phone,
+            timezone: u.timezone,
+            language: u.language,
+            notificationPrefs: u.notification_prefs,
+            passwordHash: u.password_hash,
+            isFounder: u.is_founder,
+            subscriptionStatus: u.subscription_status,
+            createdAt: u.created_at
+          };
+        });
       }
 
       const { data: members } = await this.supabase.from('team_members').select('*');
@@ -1083,6 +1102,155 @@ export class LocalDB {
     return false;
   }
 
+  // --- Organization Members Operations ---
+  public getOrganizationMembers(organizationId?: string): OrganizationMember[] {
+    if (!this.db.organizationMembers) this.db.organizationMembers = [];
+    if (!organizationId) return this.db.organizationMembers;
+    return this.db.organizationMembers.filter(m => m.organizationId === organizationId);
+  }
+
+  public getMemberByUserId(userId: string): OrganizationMember | null {
+    if (!this.db.organizationMembers) this.db.organizationMembers = [];
+    return this.db.organizationMembers.find(m => m.userId === userId) || null;
+  }
+
+  public addOrUpdateOrganizationMember(member: OrganizationMember): OrganizationMember {
+    if (!this.db.organizationMembers) this.db.organizationMembers = [];
+    const idx = this.db.organizationMembers.findIndex(m => m.userId === member.userId && m.organizationId === member.organizationId);
+    if (idx >= 0) {
+      this.db.organizationMembers[idx] = { ...this.db.organizationMembers[idx], ...member };
+    } else {
+      this.db.organizationMembers.push(member);
+    }
+    this.save();
+    return member;
+  }
+
+  public getOrganizationByUserId(userId: string): Organization | null {
+    const member = this.getMemberByUserId(userId);
+    if (member) {
+      return this.getOrganizationById(member.organizationId);
+    }
+    const user = this.getUserById(userId);
+    if (user?.organizationId) {
+      return this.getOrganizationById(user.organizationId);
+    }
+    return null;
+  }
+
+  public ensureDefaultWorkspacesAndMemberships(): void {
+    if (!this.db.organizationMembers) this.db.organizationMembers = [];
+    if (!this.db.organizations) this.db.organizations = [];
+    if (!this.db.users) this.db.users = [];
+
+    // 1. Soham Kharat workspace & membership
+    const sohamUser = this.db.users.find(u => u.email?.toLowerCase() === 'sohamkharat481@gmail.com' || u.id === 'usr_81927391');
+    if (sohamUser) {
+      sohamUser.organizationId = 'org_salespilot_lifetime';
+      sohamUser.role = 'OWNER';
+      sohamUser.tier = 'ENTERPRISE';
+      sohamUser.isFounder = true;
+      sohamUser.subscriptionStatus = 'LIFETIME';
+    }
+
+    let sohamOrg = this.getOrganizationById('org_salespilot_lifetime');
+    if (!sohamOrg) {
+      sohamOrg = {
+        id: 'org_salespilot_lifetime',
+        name: 'SalesPilot',
+        companyName: 'SalesPilot',
+        domain: 'salespilot.co',
+        industry: 'SaaS & Software',
+        ownerId: sohamUser ? sohamUser.id : 'usr_81927391',
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
+        createdAt: '2026-07-23T06:56:37.176+00:00'
+      };
+      this.db.organizations.push(sohamOrg);
+    } else {
+      sohamOrg.ownerId = sohamUser ? sohamUser.id : 'usr_81927391';
+      sohamOrg.subscriptionPlan = 'ENTERPRISE';
+    }
+
+    const sohamUserId = sohamUser ? sohamUser.id : 'usr_81927391';
+    const sohamMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === sohamUserId && m.organizationId === 'org_salespilot_lifetime');
+    if (sohamMemberIdx === -1) {
+      this.db.organizationMembers.push({
+        id: `orgm_${sohamUserId}_org_salespilot_lifetime`,
+        organizationId: 'org_salespilot_lifetime',
+        userId: sohamUserId,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    // 2. Pordigy Enterprise workspace & membership
+    let pordigyUser = this.db.users.find(u => u.email?.toLowerCase() === 'pordigyai@gmail.com' || u.id === 'usr_pordigy_auth_01');
+    if (!pordigyUser) {
+      const salt = bcrypt.genSaltSync(10);
+      pordigyUser = {
+        id: 'usr_pordigy_auth_01',
+        email: 'pordigyai@gmail.com',
+        fullName: 'Pordigy Enterprise',
+        companyName: 'Pordigy AI',
+        industry: 'AI & Enterprise Software',
+        tier: 'ENTERPRISE',
+        role: 'OWNER',
+        organizationId: 'org_pordigy_enterprise',
+        isVerified: true,
+        phone: '',
+        timezone: 'Asia/Kolkata',
+        language: 'English',
+        notificationPrefs: { email: true, push: true, weeklyReport: true },
+        passwordHash: bcrypt.hashSync('pordigy2026!', salt),
+        isFounder: false,
+        subscriptionStatus: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.users.push(pordigyUser);
+    } else {
+      pordigyUser.organizationId = 'org_pordigy_enterprise';
+      pordigyUser.role = 'OWNER';
+      pordigyUser.tier = 'ENTERPRISE';
+      pordigyUser.isFounder = false;
+      pordigyUser.subscriptionStatus = 'ACTIVE';
+    }
+
+    let pordigyOrg = this.getOrganizationById('org_pordigy_enterprise');
+    if (!pordigyOrg) {
+      pordigyOrg = {
+        id: 'org_pordigy_enterprise',
+        name: 'Pordigy Enterprise',
+        companyName: 'Pordigy Enterprise',
+        domain: 'pordigy.ai',
+        industry: 'AI & Enterprise Software',
+        ownerId: pordigyUser.id,
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.organizations.push(pordigyOrg);
+    } else {
+      pordigyOrg.ownerId = pordigyUser.id;
+      pordigyOrg.subscriptionPlan = 'ENTERPRISE';
+    }
+
+    const pordigyMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === pordigyUser.id && m.organizationId === 'org_pordigy_enterprise');
+    if (pordigyMemberIdx === -1) {
+      this.db.organizationMembers.push({
+        id: `orgm_${pordigyUser.id}_org_pordigy_enterprise`,
+        organizationId: 'org_pordigy_enterprise',
+        userId: pordigyUser.id,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    this.save();
+  }
+
   // --- Team Members Operations ---
   public addTeamMember(member: TeamMember): void {
     this.db.teamMembers.push(member);
@@ -1115,15 +1283,18 @@ export class LocalDB {
   // --- Leads Operations with Tenants isolation ---
   public getLeads(organizationId: string | undefined): Lead[] {
     if (!organizationId) return [];
-    return this.db.leads.filter(l => l.campaignId === organizationId || (l as any).organizationId === organizationId);
+    return this.db.leads.filter(l => (l as any).organizationId === organizationId);
   }
 
   public getAllLeads(): Lead[] {
     return this.db.leads;
   }
 
-  public getLeadById(id: string): Lead | null {
-    return this.db.leads.find(l => l.id === id) || null;
+  public getLeadById(id: string, organizationId?: string): Lead | null {
+    const lead = this.db.leads.find(l => l.id === id);
+    if (!lead) return null;
+    if (organizationId && (lead as any).organizationId !== organizationId) return null;
+    return lead;
   }
 
   public addLead(lead: Lead & { organizationId?: string }): void {
@@ -1131,9 +1302,12 @@ export class LocalDB {
     this.save();
   }
 
-  public updateLead(id: string, data: Partial<Lead>): boolean {
+  public updateLead(id: string, data: Partial<Lead>, organizationId?: string): boolean {
     const idx = this.db.leads.findIndex(l => l.id === id);
     if (idx !== -1) {
+      if (organizationId && (this.db.leads[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
       this.db.leads[idx] = { ...this.db.leads[idx], ...data };
       this.save();
       return true;
@@ -1141,10 +1315,13 @@ export class LocalDB {
     return false;
   }
 
-  public deleteLead(id: string): boolean {
-    const initialLen = this.db.leads.length;
-    this.db.leads = this.db.leads.filter(l => l.id !== id);
-    if (this.db.leads.length !== initialLen) {
+  public deleteLead(id: string, organizationId?: string): boolean {
+    const idx = this.db.leads.findIndex(l => l.id === id);
+    if (idx !== -1) {
+      if (organizationId && (this.db.leads[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
+      this.db.leads.splice(idx, 1);
       this.save();
       if (this.supabase) {
         this.supabase.from('leads').delete().eq('id', id).then();
@@ -1164,8 +1341,11 @@ export class LocalDB {
     return this.db.campaigns;
   }
 
-  public getCampaignById(id: string): Campaign | null {
-    return this.db.campaigns.find(c => c.id === id) || null;
+  public getCampaignById(id: string, organizationId?: string): Campaign | null {
+    const c = this.db.campaigns.find(camp => camp.id === id);
+    if (!c) return null;
+    if (organizationId && (c as any).organizationId !== organizationId) return null;
+    return c;
   }
 
   public addCampaign(campaign: Campaign & { organizationId?: string }): void {
@@ -1173,9 +1353,12 @@ export class LocalDB {
     this.save();
   }
 
-  public updateCampaign(id: string, data: Partial<Campaign>): boolean {
+  public updateCampaign(id: string, data: Partial<Campaign>, organizationId?: string): boolean {
     const idx = this.db.campaigns.findIndex(c => c.id === id);
     if (idx !== -1) {
+      if (organizationId && (this.db.campaigns[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
       this.db.campaigns[idx] = { ...this.db.campaigns[idx], ...data };
       this.save();
       return true;
@@ -1183,10 +1366,13 @@ export class LocalDB {
     return false;
   }
 
-  public deleteCampaign(id: string): boolean {
-    const initialLen = this.db.campaigns.length;
-    this.db.campaigns = this.db.campaigns.filter(c => c.id !== id);
-    if (this.db.campaigns.length !== initialLen) {
+  public deleteCampaign(id: string, organizationId?: string): boolean {
+    const idx = this.db.campaigns.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      if (organizationId && (this.db.campaigns[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
+      this.db.campaigns.splice(idx, 1);
       this.save();
       if (this.supabase) {
         this.supabase.from('campaigns').delete().eq('id', id).then();
@@ -1206,14 +1392,24 @@ export class LocalDB {
     return this.db.deals;
   }
 
+  public getDealById(id: string, organizationId?: string): Deal | null {
+    const deal = this.db.deals.find(d => d.id === id);
+    if (!deal) return null;
+    if (organizationId && (deal as any).organizationId !== organizationId) return null;
+    return deal;
+  }
+
   public addDeal(deal: Deal & { organizationId?: string }): void {
     this.db.deals.push(deal);
     this.save();
   }
 
-  public updateDeal(id: string, data: Partial<Deal>): boolean {
+  public updateDeal(id: string, data: Partial<Deal>, organizationId?: string): boolean {
     const idx = this.db.deals.findIndex(d => d.id === id);
     if (idx !== -1) {
+      if (organizationId && (this.db.deals[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
       this.db.deals[idx] = { ...this.db.deals[idx], ...data };
       this.save();
       return true;
@@ -1231,14 +1427,24 @@ export class LocalDB {
     return this.db.appointments;
   }
 
+  public getAppointmentById(id: string, organizationId?: string): Appointment | null {
+    const apt = this.db.appointments.find(a => a.id === id);
+    if (!apt) return null;
+    if (organizationId && (apt as any).organizationId !== organizationId) return null;
+    return apt;
+  }
+
   public addAppointment(appointment: Appointment & { organizationId?: string }): void {
     this.db.appointments.push(appointment);
     this.save();
   }
 
-  public updateAppointment(id: string, data: Partial<Appointment>): boolean {
+  public updateAppointment(id: string, data: Partial<Appointment>, organizationId?: string): boolean {
     const idx = this.db.appointments.findIndex(a => a.id === id);
     if (idx !== -1) {
+      if (organizationId && (this.db.appointments[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
       this.db.appointments[idx] = { ...this.db.appointments[idx], ...data };
       this.save();
       return true;
