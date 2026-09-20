@@ -107,7 +107,10 @@ export function VoiceCallingView({
   const fetchCalls = async () => {
     setIsLoadingCalls(true);
     try {
-      const res = await fetch('/api/calls');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/v1/calls', { headers });
       const data = await res.json();
       if (data.success) {
         setCalls(data.calls);
@@ -229,9 +232,13 @@ export function VoiceCallingView({
 
     setIsAgentReplying(true);
     try {
-      const response = await fetch('/api/voice-agent', {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch('/api/v1/voice-agent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           leadId: selectedLeadId || 'lead-demo-1',
           customerInput: text,
@@ -298,15 +305,19 @@ export function VoiceCallingView({
     };
 
     try {
-      await fetch('/api/calls', {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch('/api/v1/calls', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(callLog)
       });
 
-      const analyticsRes = await fetch('/api/call-analytics', {
+      const analyticsRes = await fetch('/api/v1/call-analytics', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           callId: currentCallId,
           transcript: liveTranscript

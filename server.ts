@@ -16,7 +16,7 @@ import {
   AiFollowup, AiMeetingBrief, AiProposal,
   Organization, OrgRole, OrgPermission, OrgMemberPermission,
   OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
-  AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory
+  AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory, LeadGenJob
 } from './src/types';
 import { WorkflowRunner } from './src/lib/workflowRunner';
 import { WorkflowScheduler } from './src/lib/workflowScheduler';
@@ -1741,6 +1741,21 @@ async function startServer() {
     };
   };
 
+  const extractDomain = (urlStr: string): string => {
+    if (!urlStr) return '';
+    try {
+      let clean = urlStr.trim().toLowerCase();
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = 'https://' + clean;
+      }
+      const parsed = new URL(clean);
+      let hostname = parsed.hostname.replace(/^www\./, '');
+      return hostname;
+    } catch {
+      return urlStr.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].trim();
+    }
+  };
+
   // Async Production Database Query Helpers (Vercel Serverless Stateless Compatible)
   const getAllLeadsAsync = async (orgId?: string): Promise<Lead[]> => {
     if (!orgId) {
@@ -1826,6 +1841,109 @@ async function startServer() {
     }
 
     return null;
+  };
+
+  const mapSupabaseJobToAppJob = (row: any): LeadGenJob => {
+    return {
+      jobId: row.job_id || row.jobId,
+      organizationId: row.organization_id || row.organizationId,
+      status: row.status || 'QUEUED',
+      progress: row.progress ?? 0,
+      total: row.total ?? 0,
+      processed: row.processed ?? 0,
+      created: row.created ?? 0,
+      skipped: row.skipped ?? 0,
+      errorMessage: row.error_message !== undefined ? row.error_message : row.errorMessage,
+      createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+      updatedAt: row.updated_at || row.updatedAt || new Date().toISOString()
+    };
+  };
+
+  const getLeadGenJobsAsync = async (orgId: string): Promise<LeadGenJob[]> => {
+    if (!orgId) return [];
+    const supabase = getSupabaseClient();
+    let fetchedJobs: LeadGenJob[] = [];
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('lead_gen_jobs').select('*').eq('organization_id', orgId).order('created_at', { ascending: false });
+        if (!error && data) {
+          fetchedJobs = data.map(mapSupabaseJobToAppJob);
+        }
+      } catch (err) {
+        console.error(`[JOBS] Supabase fetch error:`, err);
+      }
+    }
+    const localJobs = localDb.getLeadGenJobs(orgId);
+    const jobMap = new Map<string, LeadGenJob>();
+    localJobs.forEach(j => jobMap.set(j.jobId, j));
+    fetchedJobs.forEach(j => jobMap.set(j.jobId, j));
+    return Array.from(jobMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  };
+
+  const getLeadGenJobByIdAsync = async (jobId: string, orgId: string): Promise<LeadGenJob | null> => {
+    if (!jobId || !orgId) return null;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('lead_gen_jobs').select('*').eq('job_id', jobId).eq('organization_id', orgId).maybeSingle();
+        if (!error && data) {
+          return mapSupabaseJobToAppJob(data);
+        }
+      } catch (err) {
+        console.error(`[JOBS] Supabase fetch by ID error:`, err);
+      }
+    }
+    return localDb.getLeadGenJobById(jobId, orgId);
+  };
+
+  const addLeadGenJobAsync = async (job: LeadGenJob): Promise<void> => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('lead_gen_jobs').upsert({
+          job_id: job.jobId,
+          organization_id: job.organizationId,
+          status: job.status,
+          progress: job.progress,
+          total: job.total,
+          processed: job.processed,
+          created: job.created,
+          skipped: job.skipped,
+          error_message: job.errorMessage || null,
+          created_at: job.createdAt,
+          updated_at: job.updatedAt
+        }, { onConflict: 'job_id' });
+      } catch (err) {
+        console.error(`[JOBS] Supabase insert error:`, err);
+      }
+    }
+    localDb.addLeadGenJob(job);
+  };
+
+  const updateLeadGenJobAsync = async (jobId: string, data: Partial<LeadGenJob>, orgId: string): Promise<boolean> => {
+    const updatedData = {
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const dbUpdates: any = {};
+        if (updatedData.status !== undefined) dbUpdates.status = updatedData.status;
+        if (updatedData.progress !== undefined) dbUpdates.progress = updatedData.progress;
+        if (updatedData.total !== undefined) dbUpdates.total = updatedData.total;
+        if (updatedData.processed !== undefined) dbUpdates.processed = updatedData.processed;
+        if (updatedData.created !== undefined) dbUpdates.created = updatedData.created;
+        if (updatedData.skipped !== undefined) dbUpdates.skipped = updatedData.skipped;
+        if (updatedData.errorMessage !== undefined) dbUpdates.error_message = updatedData.errorMessage;
+        dbUpdates.updated_at = updatedData.updatedAt;
+
+        await supabase.from('lead_gen_jobs').update(dbUpdates).eq('job_id', jobId).eq('organization_id', orgId);
+      } catch (err) {
+        console.error(`[JOBS] Supabase update error:`, err);
+      }
+    }
+    return localDb.updateLeadGenJob(jobId, updatedData, orgId);
   };
 
   const findLeadByIdAsync = getLeadByIdAsync;
@@ -6467,6 +6585,9 @@ Ensure the output is strictly valid JSON format.`;
       console.log(`[LEAD ENGINE] Starting validation of ${candidates.length} candidate business websites...`);
       requestLogs.push(`[VALIDATION] Starting website and DNS verifications for ${candidates.length} candidate businesses...`);
 
+      // Fetch existing leads for the authenticated organization only (Tenant-Scoped Isolation)
+      const existingOrgLeads = (await getAllLeadsAsync(orgId)).filter(l => (l as any).organization_id === orgId || (l as any).organizationId === orgId);
+
       for (const cand of candidates) {
         if (results.length >= countToGenerate) break;
 
@@ -6519,6 +6640,52 @@ Ensure the output is strictly valid JSON format.`;
           finalDomain = validation.domain || '';
           console.log(`[VALIDATION] Successfully verified "${businessName}"!`);
           requestLogs.push(`[VERIFIED] "${businessName}": Website resolves successfully (${validation.reason}).`);
+
+          // Production-Safe Tenant-Scoped Lead Deduplication
+          const candidateEmail = cand.email || (finalDomain ? `contact@${finalDomain}` : '');
+          const normNewEmail = candidateEmail ? candidateEmail.toLowerCase().trim() : '';
+          const normNewDomain = finalDomain ? finalDomain.toLowerCase().trim() : extractDomain(verifiedWebsite);
+          const normNewCompany = businessName ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '').trim() : '';
+          const normNewContact = ((cand.firstName || '') + ' ' + (cand.lastName || '')).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+          let isDuplicate = false;
+          let duplicateReason = '';
+
+          for (const exLead of existingOrgLeads) {
+            const exEmail = (exLead.email || '').toLowerCase().trim();
+            const exWebsite = exLead.enrichment?.website || (exLead as any).website || '';
+            const exDomain = extractDomain(exWebsite);
+            const exCompany = (exLead.company || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+            const exContact = ((exLead.firstName || '') + ' ' + (exLead.lastName || '')).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+            // 1. Match by normalized email
+            if (normNewEmail && exEmail && normNewEmail === exEmail) {
+              isDuplicate = true;
+              duplicateReason = `Matching email: ${normNewEmail}`;
+              break;
+            }
+            // 2. Match by company domain
+            if (normNewDomain && exDomain && normNewDomain === exDomain) {
+              isDuplicate = true;
+              duplicateReason = `Matching domain: ${normNewDomain}`;
+              break;
+            }
+            // 3. Match by company name + contact name when email is unavailable
+            if (!normNewEmail && !exEmail && normNewCompany && exCompany && normNewCompany === exCompany) {
+              if (normNewContact && exContact && normNewContact === exContact) {
+                isDuplicate = true;
+                duplicateReason = `Matching company & contact: ${normNewCompany} / ${normNewContact}`;
+                break;
+              }
+            }
+          }
+
+          if (isDuplicate) {
+            console.log(`[LEAD DEDUPLICATION] Skipped duplicate lead "${businessName}" (${duplicateReason}) for org "${orgId}".`);
+            requestLogs.push(`[DUPLICATE SKIPPED] Skipped "${businessName}" as it already exists in organization (Reason: ${duplicateReason}).`);
+            deduplicatedCount++;
+            continue;
+          }
         } else {
           console.warn(`[VALIDATION] Website invalid for "${businessName}": ${validation.reason}. Discarding lead.`);
           requestLogs.push(`[DISCARDED] "${businessName}": Website verification failed (${validation.reason}). Lead discarded.`);
@@ -6891,6 +7058,88 @@ Ensure the output is strictly valid JSON format.`;
     } catch (error: any) {
       console.error(`[ERROR] Lead Sourcing failed:`, error);
       res.status(500).json({ error: `Lead sourcing failed: ${error.message || error}` });
+    }
+  });
+
+  // --- Lead Generation Jobs API (Phase 2 Step 2B) ---
+
+  // POST Create Lead Generation Job
+  app.post('/api/v1/leads/generate/jobs', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+      if (orgErr || !orgId) {
+        return res.status(orgStatus || 403).json({ success: false, error: orgErr || 'Organization access denied.' });
+      }
+
+      const { count = 10, criteria } = req.body;
+      const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const now = new Date().toISOString();
+
+      const newJob: LeadGenJob = {
+        jobId,
+        organizationId: orgId, // strictly tenant-scoped from authenticated context
+        status: 'QUEUED',
+        progress: 0,
+        total: Number(count) || 10,
+        processed: 0,
+        created: 0,
+        skipped: 0,
+        errorMessage: null,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      await addLeadGenJobAsync(newJob);
+      res.status(201).json({ success: true, job: newJob });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET List Lead Generation Jobs for Organization
+  app.get('/api/v1/leads/generate/jobs', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+      if (orgErr || !orgId) {
+        return res.status(orgStatus || 403).json({ success: false, error: orgErr || 'Organization access denied.' });
+      }
+
+      const jobs = await getLeadGenJobsAsync(orgId);
+      res.json({ success: true, jobs });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET Lead Generation Job Status by ID
+  app.get('/api/v1/leads/generate/jobs/:jobId', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+      if (orgErr || !orgId) {
+        return res.status(orgStatus || 403).json({ success: false, error: orgErr || 'Organization access denied.' });
+      }
+
+      const { jobId } = req.params;
+      const job = await getLeadGenJobByIdAsync(jobId, orgId);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job not found or access denied.' });
+      }
+
+      res.json({ success: true, job });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -9666,7 +9915,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const successCount = orgRuns.filter(r => r.status === 'COMPLETED').length;
       const failedCount = orgRuns.filter(r => r.status === 'FAILED').length;
       const successRate = totalExecutions > 0 ? Math.round((successCount / totalExecutions) * 100) : 100;
-      const activeWorkflows = orgWorkflows.filter(w => w.status === 'ACTIVE').length;
+      const activeWorkflows = orgWorkflows.filter(w => w.status === 'PUBLISHED').length;
       const averageDurationMs = totalExecutions > 0 
         ? Math.round(orgRuns.reduce((acc, curr) => acc + (curr.durationMs || 0), 0) / totalExecutions) 
         : 0;
@@ -9682,6 +9931,85 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           failedCount
         }
       });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // In-memory call logs store tenant-scoped
+  let callLogs: any[] = [];
+
+  app.get('/api/v1/calls', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      const filtered = callLogs.filter(c => c.organizationId === orgId);
+      res.json({ success: true, calls: filtered });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/calls', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      const callData = { ...req.body, organizationId: orgId, createdAt: req.body.createdAt || new Date().toISOString() };
+      const idx = callLogs.findIndex(c => c.id === callData.id);
+      if (idx >= 0) {
+        callLogs[idx] = callData;
+      } else {
+        callLogs.unshift(callData);
+      }
+      res.json({ success: true, call: callData });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/voice-agent', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const responses = [
+        "That sounds very interesting. Could you share more details about your pricing plans?",
+        "We are actively looking to improve our outbound conversion rates. How does your AI assistant integrate with our CRM?",
+        "Let's set up a demo call next Tuesday at 2 PM to review this further.",
+        "Thanks for reaching out! Please send the documentation over to our team."
+      ];
+      const text = responses[Math.floor(Math.random() * responses.length)];
+      res.json({ success: true, text });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/call-analytics', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId } = resolveVerifiedOrganizationId(req, user);
+      const { callId, transcript } = req.body;
+      const call = callLogs.find(c => c.id === callId) || {
+        id: callId || 'call-' + Date.now(),
+        organizationId: orgId,
+        leadId: 'lead-demo-1',
+        leadName: 'Prospect',
+        company: 'Enterprise Inc',
+        phone: '+91 99999 88888',
+        direction: 'outbound',
+        status: 'completed',
+        duration: 45,
+        transcript: transcript || [],
+        createdAt: new Date().toISOString()
+      };
+      res.json({ success: true, call, summary: 'Call completed successfully with positive engagement.' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

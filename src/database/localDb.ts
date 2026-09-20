@@ -11,6 +11,7 @@ import {
   ApiKey, OAuthClient, OAuthToken, WebhookEndpoint, WebhookDelivery, IntegrationConfig, MarketplaceApp, DeveloperLog
 } from '../types';
 import { AIAgent, AgentTask, AgentMemory, AgentLog, AgentWorkflow, AgentPermission } from '../types/brain';
+import { LeadGenJob } from '../types';
 
 const DB_FILE_PATH = path.join(process.cwd(), 'salespilot_db.json');
 const GOOGLE_ACCOUNTS_FILE_PATH = path.join(process.cwd(), 'google_accounts_store.json');
@@ -63,6 +64,7 @@ export interface DBStructure {
   agentLogs?: AgentLog[];
   agentWorkflows?: AgentWorkflow[];
   agentPermissions?: AgentPermission[];
+  leadGenJobs?: LeadGenJob[];
 }
 
 export class LocalDB {
@@ -2378,5 +2380,38 @@ export class LocalDB {
     if (!this.db.developerLogs) this.db.developerLogs = [];
     this.db.developerLogs.push(log);
     this.save();
+  }
+
+  public getLeadGenJobs(organizationId: string): LeadGenJob[] {
+    if (!this.db.leadGenJobs) this.db.leadGenJobs = [];
+    return this.db.leadGenJobs.filter(j => j.organizationId === organizationId);
+  }
+
+  public getLeadGenJobById(jobId: string, organizationId: string): LeadGenJob | null {
+    if (!this.db.leadGenJobs) this.db.leadGenJobs = [];
+    const job = this.db.leadGenJobs.find(j => j.jobId === jobId);
+    if (!job || job.organizationId !== organizationId) return null;
+    return job;
+  }
+
+  public addLeadGenJob(job: LeadGenJob): void {
+    if (!this.db.leadGenJobs) this.db.leadGenJobs = [];
+    this.db.leadGenJobs.push(job);
+    this.save();
+  }
+
+  public updateLeadGenJob(jobId: string, data: Partial<LeadGenJob>, organizationId: string): boolean {
+    if (!this.db.leadGenJobs) this.db.leadGenJobs = [];
+    const idx = this.db.leadGenJobs.findIndex(j => j.jobId === jobId && j.organizationId === organizationId);
+    if (idx !== -1) {
+      this.db.leadGenJobs[idx] = {
+        ...this.db.leadGenJobs[idx],
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+      this.save();
+      return true;
+    }
+    return false;
   }
 }

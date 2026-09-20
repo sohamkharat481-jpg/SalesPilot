@@ -682,6 +682,22 @@ export interface MarketplaceApp {
   requiredScopes: string[];
 }
 
+export type LeadGenJobStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+
+export interface LeadGenJob {
+  jobId: string;
+  organizationId: string;
+  status: LeadGenJobStatus;
+  progress: number;
+  total: number;
+  processed: number;
+  created: number;
+  skipped: number;
+  errorMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DeveloperLog {
   id: string;
   organizationId: string;
