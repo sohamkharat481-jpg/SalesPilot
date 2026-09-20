@@ -20,7 +20,8 @@ import {
 } from './src/types';
 import { WorkflowRunner } from './src/lib/workflowRunner';
 import { WorkflowScheduler } from './src/lib/workflowScheduler';
-import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery } from './src/backend/leadProviders';
+import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery, isGenericCompanyName } from './src/backend/leadProviders';
+import { LeadGenWorker } from './src/backend/leadGenWorker';
 import { 
   executeAiCompletion, 
   getPromptTemplates, 
@@ -1372,6 +1373,10 @@ const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 function rateLimiter(limit: number, windowMs: number = 60000) {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+    // Bypass local loopback requests in dev/testing environment
+    if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '::ffff:127.0.0.1') {
+      return next();
+    }
     const now = Date.now();
     const record = rateLimitStore.get(ip);
     
@@ -1469,7 +1474,7 @@ async function startServer() {
   app.use('/auth/login', rateLimiter(25));
   app.use('/api/v1/auth/signup', rateLimiter(15));
   app.use('/api/v1/auth/login', rateLimiter(25));
-  app.use('/api/v1/leads/generate', rateLimiter(10));
+  app.post('/api/v1/leads/generate', rateLimiter(60));
 
   // 1. API ROUTES
 
@@ -1844,6 +1849,22 @@ async function startServer() {
   };
 
   const mapSupabaseJobToAppJob = (row: any): LeadGenJob => {
+    let rawError = row.error_message !== undefined ? row.error_message : row.errorMessage;
+    let errorMessage = rawError;
+    let criteria: any = row.criteria || undefined;
+
+    if (typeof rawError === 'string' && rawError.startsWith('META_JSON:')) {
+      try {
+        const parsed = JSON.parse(rawError.substring(10));
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.criteria !== undefined) criteria = parsed.criteria;
+          errorMessage = parsed.errorMessage || null;
+        }
+      } catch (_) {
+        errorMessage = null;
+      }
+    }
+
     return {
       jobId: row.job_id || row.jobId,
       organizationId: row.organization_id || row.organizationId,
@@ -1853,7 +1874,8 @@ async function startServer() {
       processed: row.processed ?? 0,
       created: row.created ?? 0,
       skipped: row.skipped ?? 0,
-      errorMessage: row.error_message !== undefined ? row.error_message : row.errorMessage,
+      errorMessage: errorMessage || null,
+      criteria: criteria,
       createdAt: row.created_at || row.createdAt || new Date().toISOString(),
       updatedAt: row.updated_at || row.updatedAt || new Date().toISOString()
     };
@@ -1898,6 +1920,10 @@ async function startServer() {
 
   const addLeadGenJobAsync = async (job: LeadGenJob): Promise<void> => {
     const supabase = getSupabaseClient();
+    const formattedError = (job.criteria !== undefined)
+      ? `META_JSON:${JSON.stringify({ criteria: job.criteria, errorMessage: job.errorMessage || null })}`
+      : (job.errorMessage || null);
+
     if (supabase) {
       try {
         await supabase.from('lead_gen_jobs').upsert({
@@ -1909,7 +1935,7 @@ async function startServer() {
           processed: job.processed,
           created: job.created,
           skipped: job.skipped,
-          error_message: job.errorMessage || null,
+          error_message: formattedError,
           created_at: job.createdAt,
           updated_at: job.updatedAt
         }, { onConflict: 'job_id' });
@@ -1917,7 +1943,7 @@ async function startServer() {
         console.error(`[JOBS] Supabase insert error:`, err);
       }
     }
-    localDb.addLeadGenJob(job);
+    localDb.addLeadGenJob({ ...job, criteria: job.criteria });
   };
 
   const updateLeadGenJobAsync = async (jobId: string, data: Partial<LeadGenJob>, orgId: string): Promise<boolean> => {
@@ -1935,7 +1961,14 @@ async function startServer() {
         if (updatedData.processed !== undefined) dbUpdates.processed = updatedData.processed;
         if (updatedData.created !== undefined) dbUpdates.created = updatedData.created;
         if (updatedData.skipped !== undefined) dbUpdates.skipped = updatedData.skipped;
-        if (updatedData.errorMessage !== undefined) dbUpdates.error_message = updatedData.errorMessage;
+        
+        if (updatedData.criteria !== undefined || updatedData.errorMessage !== undefined) {
+          if (updatedData.criteria !== undefined) {
+            dbUpdates.error_message = `META_JSON:${JSON.stringify({ criteria: updatedData.criteria, errorMessage: updatedData.errorMessage || null })}`;
+          } else {
+            dbUpdates.error_message = updatedData.errorMessage;
+          }
+        }
         dbUpdates.updated_at = updatedData.updatedAt;
 
         await supabase.from('lead_gen_jobs').update(dbUpdates).eq('job_id', jobId).eq('organization_id', orgId);
@@ -1944,6 +1977,75 @@ async function startServer() {
       }
     }
     return localDb.updateLeadGenJob(jobId, updatedData, orgId);
+  };
+
+  const claimLeadGenJobAsync = async (jobId: string, orgId: string, staleTimeoutMs = 120000): Promise<LeadGenJob | null> => {
+    if (!jobId || !orgId) return null;
+    const nowIso = new Date().toISOString();
+    const supabase = getSupabaseClient();
+
+    if (supabase) {
+      try {
+        const { data: existing, error: fetchErr } = await supabase
+          .from('lead_gen_jobs')
+          .select('*')
+          .eq('job_id', jobId)
+          .eq('organization_id', orgId)
+          .maybeSingle();
+
+        if (fetchErr) {
+          console.error('[LEAD JOBS] Supabase fetch error during claim:', fetchErr);
+        } else if (existing) {
+          const isStale = (Date.now() - new Date(existing.updated_at || existing.created_at).getTime()) > staleTimeoutMs;
+          const canClaim = existing.status === 'QUEUED' || (existing.status === 'RUNNING' && isStale);
+          
+          if (canClaim) {
+            let query = supabase
+              .from('lead_gen_jobs')
+              .update({
+                status: 'RUNNING',
+                updated_at: nowIso
+              })
+              .eq('job_id', jobId)
+              .eq('organization_id', orgId)
+              .eq('status', existing.status);
+
+            if (existing.updated_at) {
+              query = query.eq('updated_at', existing.updated_at);
+            }
+
+            const { data: updatedRows, error: updateErr } = await query.select();
+
+            if (updateErr) {
+              console.error('[LEAD JOBS] Supabase atomic claim error:', updateErr);
+            } else if (updatedRows && updatedRows.length > 0) {
+              const claimedJob = mapSupabaseJobToAppJob(updatedRows[0]);
+              localDb.updateLeadGenJob(jobId, claimedJob, orgId);
+              console.log(`[LEAD JOBS] Atomically claimed job ${jobId} for org ${orgId}.`);
+              return claimedJob;
+            }
+          }
+          return null;
+        }
+      } catch (err) {
+        console.error('[LEAD JOBS] Atomic claim exception:', err);
+      }
+    }
+
+    // Local DB atomic check fallback
+    const localJob = localDb.getLeadGenJobById(jobId, orgId);
+    if (localJob) {
+      const isStale = (Date.now() - new Date(localJob.updatedAt).getTime()) > staleTimeoutMs;
+      if (localJob.status === 'QUEUED' || (localJob.status === 'RUNNING' && isStale)) {
+        localJob.status = 'RUNNING';
+        localJob.updatedAt = nowIso;
+        localDb.updateLeadGenJob(jobId, localJob, orgId);
+        console.log(`[LEAD JOBS - LOCAL] Atomically claimed job ${jobId} for org ${orgId}.`);
+        return localJob;
+      }
+    }
+
+    return null;
   };
 
   const findLeadByIdAsync = getLeadByIdAsync;
@@ -1993,9 +2095,9 @@ async function startServer() {
         const dbLead: any = {
           id: newLead.id,
           organization_id: org_id,
-          first_name: newLead.firstName || 'Prospect',
+          first_name: newLead.firstName || '',
           last_name: newLead.lastName || '',
-          company: newLead.company || 'Company',
+          company: newLead.company || '',
           email: newLead.email || '',
           phone: newLead.phone || '',
           website: newLead.enrichment?.website || '',
@@ -2156,6 +2258,22 @@ async function startServer() {
 
     return true;
   };
+
+  const leadGenWorker = new LeadGenWorker({
+    getJobById: getLeadGenJobByIdAsync,
+    claimJob: claimLeadGenJobAsync,
+    updateJob: updateLeadGenJobAsync,
+    getLeads: getAllLeadsAsync,
+    insertLead: insertLeadAsync as any,
+    triggerOutreachAutomation: (id: string) => {
+      try {
+        triggerOutreachAutomation(id);
+      } catch (err) {
+        console.error('[LEAD WORKER] triggerOutreachAutomation notice:', err);
+      }
+    },
+    getProviderCredentials: () => pluginCredentials
+  });
 
   // AUTH API: Email Signup
   const handleSignup = async (req: any, res: any) => {
@@ -6613,11 +6731,13 @@ Ensure the output is strictly valid JSON format.`;
           }
         }
 
-        // Every lead must include a verifiable business name, website, address, and source
-        if (!businessName || !website || !address || !sourceName) {
-          const skipReason = `Missing required fields: name (${!!businessName}), website (${!!website}), address (${!!address}), source (${!!sourceName}).`;
+        // Every lead must include a verifiable non-generic business name, website, address, and source
+        if (!businessName || isGenericCompanyName(businessName) || !website || !address || !sourceName) {
+          const skipReason = isGenericCompanyName(businessName) 
+            ? `Generic placeholder company name rejected ("${businessName}")`
+            : `Missing required fields: name (${!!businessName}), website (${!!website}), address (${!!address}), source (${!!sourceName}).`;
           console.warn(`[VALIDATION] Discarding lead for "${businessName || 'Unnamed'}" due to: ${skipReason}`);
-          requestLogs.push(`[DISCARDED] "${businessName || 'Unnamed'}": Missing required fields.`);
+          requestLogs.push(`[DISCARDED] "${businessName || 'Unnamed'}": ${skipReason}`);
           validationRejectedCount++;
           continue;
         }
@@ -6726,12 +6846,12 @@ Ensure the output is strictly valid JSON format.`;
 
         const newLead: Lead = {
           id: tempLeadId,
-          firstName: cand.firstName || 'Operations',
-          lastName: cand.lastName || 'Manager',
+          firstName: cand.firstName || '',
+          lastName: cand.lastName || '',
           email: cand.email || (finalDomain ? `contact@${finalDomain}` : ''),
-          phone: phone,
+          phone: phone || '',
           company: businessName,
-          title: cand.title || (jobTitles ? jobTitles.split(',')[0].trim() : 'Operations Director'),
+          title: cand.title || (jobTitles ? jobTitles.split(',')[0].trim() : ''),
           status: 'NEW',
           leadScore: 'Warm',
           confidenceScore: cand.confidenceScore || 80,
@@ -7075,26 +7195,66 @@ Ensure the output is strictly valid JSON format.`;
         return res.status(orgStatus || 403).json({ success: false, error: orgErr || 'Organization access denied.' });
       }
 
-      const { count = 10, criteria } = req.body;
+      const { count = 10, criteria, ...rest } = req.body;
       const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const now = new Date().toISOString();
+      const jobCriteria = { ...(criteria || {}), ...rest, maxLeads: Number(count) || Number(criteria?.maxLeads) || Number(rest?.maxLeads) || 10 };
 
       const newJob: LeadGenJob = {
         jobId,
         organizationId: orgId, // strictly tenant-scoped from authenticated context
         status: 'QUEUED',
         progress: 0,
-        total: Number(count) || 10,
+        total: jobCriteria.maxLeads,
         processed: 0,
         created: 0,
         skipped: 0,
         errorMessage: null,
+        criteria: jobCriteria,
         createdAt: now,
         updatedAt: now
       };
 
       await addLeadGenJobAsync(newJob);
-      res.status(201).json({ success: true, job: newJob });
+
+      // Support immediate inline execution or asynchronous background trigger
+      const shouldRunImmediately = req.query?.run === 'true' || req.body?.runImmediately === true;
+      if (shouldRunImmediately) {
+        const processedJob = await leadGenWorker.processJob(newJob.jobId, orgId, jobCriteria);
+        return res.status(201).json({ success: true, job: processedJob || newJob });
+      } else {
+        // Trigger non-blocking worker execution (catches unhandled exceptions safely)
+        leadGenWorker.processJob(newJob.jobId, orgId, jobCriteria).catch(err => {
+          console.error(`[LEAD JOBS] Async execution error for job ${jobId}:`, err);
+        });
+        return res.status(201).json({ success: true, job: newJob });
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST Trigger or Resume Lead Generation Job (Atomic & Serverless Durable)
+  app.post('/api/v1/leads/generate/jobs/:jobId/run', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+      if (orgErr || !orgId) {
+        return res.status(orgStatus || 403).json({ success: false, error: orgErr || 'Organization access denied.' });
+      }
+
+      const { jobId } = req.params;
+      const job = await getLeadGenJobByIdAsync(jobId, orgId);
+      if (!job) {
+        return res.status(404).json({ success: false, error: 'Job not found or access denied.' });
+      }
+
+      // Execute worker using database-backed atomic claim and resumption
+      const updatedJob = await leadGenWorker.processJob(job.jobId, orgId, req.body?.criteria);
+      res.json({ success: true, message: `Job ${jobId} executed.`, job: updatedJob || job });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

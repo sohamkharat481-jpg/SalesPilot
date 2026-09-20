@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { 
   Plus, Search, SlidersHorizontal, Sparkles, Loader2, 
   Linkedin, Briefcase, Mail, Phone, ExternalLink, Calendar, 
@@ -6,10 +6,11 @@ import {
   Tag, ChevronLeft, ChevronRight, Clock, ArrowUpDown, 
   CheckSquare, Square, Filter, BarChart3, X, Check, CheckCircle2, 
   AlertCircle, DollarSign, TrendingUp, HelpCircle, Activity, Play,
-  CloudLightning, RefreshCw
+  CloudLightning, RefreshCw, Zap, Server
 } from 'lucide-react';
-import { Lead, LeadStatus, LeadNote, LeadTask, LeadTimelineEvent, Campaign } from '../types';
+import { Lead, LeadStatus, LeadNote, LeadTask, LeadTimelineEvent, Campaign, LeadGenJob } from '../types';
 import { LeadIntelligenceSection } from './crm/LeadIntelligenceSection';
+import { LeadGenJobsManager } from './crm/LeadGenJobsManager';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -114,68 +115,170 @@ export function LeadsView({
   const [campYearsInBusiness, setCampYearsInBusiness] = useState('3-5 years');
   const [campDecisionMakerOnly, setCampDecisionMakerOnly] = useState(true);
 
+  // Asynchronous Lead Generation Job States & Polling
+  const [leadGenMode, setLeadGenMode] = useState<'ASYNC' | 'SYNC'>('ASYNC');
+  const [activeJob, setActiveJob] = useState<LeadGenJob | null>(null);
+  const [recentJobs, setRecentJobs] = useState<LeadGenJob[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Timer cleanup helper
+  const stopPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
   // --- Enterprise Workspace Collaboration States ---
   const [teamMembersList, setTeamMembersList] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
 
-  // Rehydrate leads from server database on LeadsView mount to ensure UI is always fresh with persisted records
-  useEffect(() => {
-    console.log("[LEADS_DEBUG] mount");
+  // Rehydrate leads from server database to ensure UI is always fresh with persisted records
+  const fetchPersistedLeads = useCallback(async () => {
+    if (authReady === false) {
+      console.log("[LEADS_DEBUG] waiting for workspace/user initialization...");
+      return;
+    }
+    try {
+      console.log("[LEADS_DEBUG] before fetch", {
+        existingStateCount: leads.length
+      });
+      console.log('[TELEMETRY RELOAD] fetchStarted: true');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (workspaceId) headers['x-organization-id'] = workspaceId;
 
-    const fetchPersistedLeads = async () => {
-      if (authReady === false) {
-        console.log("[LEADS_DEBUG] waiting for workspace/user initialization...");
-        return;
-      }
-      try {
-        console.log("[LEADS_DEBUG] before fetch", {
-          existingStateCount: leads.length
+      const url = workspaceId ? `/api/v1/leads?organizationId=${encodeURIComponent(workspaceId)}` : '/api/v1/leads';
+      const res = await fetch(url, { headers });
+      console.log('[TELEMETRY RELOAD] fetchHttpStatus:', res.status);
+
+      if (res.ok) {
+        const data = await res.json();
+        const serverLeads = Array.isArray(data?.leads) ? data.leads : [];
+        console.log("[LEADS_DEBUG] fetch response", {
+          status: res.status,
+          returnedCount: serverLeads.length
         });
-        console.log('[TELEMETRY RELOAD] fetchStarted: true');
+        console.log('[TELEMETRY RELOAD] databaseReturnedCount:', serverLeads.length);
+        if (serverLeads.length > 0) {
+          setLeads(prev => {
+            const mergedMap = new Map<string, Lead>();
+            serverLeads.forEach((l: Lead) => mergedMap.set(l.id, l));
+            prev.forEach((l: Lead) => {
+              if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
+            });
+            const merged = Array.from(mergedMap.values());
+            console.log("[LEADS_DEBUG] after state update", {
+              stateCount: merged.length
+            });
+            console.log('[TELEMETRY RELOAD] frontendStateCount:', merged.length);
+            return merged;
+          });
+        }
+      } else {
+        console.log("[LEADS_DEBUG] fetch response", {
+          status: res.status,
+          returnedCount: 0
+        });
+      }
+    } catch (err) {
+      console.warn('[LEADS_DEBUG] Failed to refresh persisted leads on mount:', err);
+    }
+  }, [authReady, workspaceId, leads.length, setLeads]);
+
+  // Polling mechanism for Asynchronous Lead Generation Worker Jobs
+  const pollJobStatus = useCallback((jobId: string) => {
+    stopPolling();
+
+    const checkStatus = async () => {
+      try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (workspaceId) headers['x-organization-id'] = workspaceId;
 
-        const url = workspaceId ? `/api/v1/leads?organizationId=${encodeURIComponent(workspaceId)}` : '/api/v1/leads';
-        const res = await fetch(url, { headers });
-        console.log('[TELEMETRY RELOAD] fetchHttpStatus:', res.status);
+        const res = await fetch(`/api/v1/leads/generate/jobs/${encodeURIComponent(jobId)}`, { headers });
+        if (!res.ok) {
+          console.error('[ASYNC_LEAD_GEN] Error polling job status:', res.status);
+          return;
+        }
 
-        if (res.ok) {
-          const data = await res.json();
-          const serverLeads = Array.isArray(data?.leads) ? data.leads : [];
-          console.log("[LEADS_DEBUG] fetch response", {
-            status: res.status,
-            returnedCount: serverLeads.length
+        const data = await res.json();
+        if (data?.job) {
+          const updatedJob: LeadGenJob = data.job;
+          setActiveJob(updatedJob);
+          setRecentJobs(prev => {
+            const idx = prev.findIndex(j => j.jobId === updatedJob.jobId);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = updatedJob;
+              return copy;
+            }
+            return [updatedJob, ...prev];
           });
-          console.log('[TELEMETRY RELOAD] databaseReturnedCount:', serverLeads.length);
-          if (serverLeads.length > 0) {
-            setLeads(prev => {
-              const mergedMap = new Map<string, Lead>();
-              serverLeads.forEach((l: Lead) => mergedMap.set(l.id, l));
-              prev.forEach((l: Lead) => {
-                if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
-              });
-              const merged = Array.from(mergedMap.values());
-              console.log("[LEADS_DEBUG] after state update", {
-                stateCount: merged.length
-              });
-              console.log('[TELEMETRY RELOAD] frontendStateCount:', merged.length);
-              return merged;
-            });
+
+          // Stop polling on terminal states
+          if (updatedJob.status === 'COMPLETED' || updatedJob.status === 'FAILED' || updatedJob.status === 'CANCELLED') {
+            stopPolling();
+            setIsScraperRunning(false);
+            if (updatedJob.status === 'COMPLETED') {
+              fetchPersistedLeads();
+            }
           }
-        } else {
-          console.log("[LEADS_DEBUG] fetch response", {
-            status: res.status,
-            returnedCount: 0
-          });
         }
       } catch (err) {
-        console.warn('[LEADS_DEBUG] Failed to refresh persisted leads on mount:', err);
+        console.error('[ASYNC_LEAD_GEN] Polling execution failed:', err);
       }
     };
 
+    // Immediate initial poll
+    checkStatus();
+
+    // Schedule regular polling every 2 seconds
+    pollingTimerRef.current = setInterval(checkStatus, 2000);
+  }, [stopPolling, workspaceId, fetchPersistedLeads]);
+
+  // Fetch recent jobs and recover any active running/queued job on mount or refresh
+  const fetchRecentJobs = useCallback(async () => {
+    setIsLoadingJobs(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+      const res = await fetch('/api/v1/leads/generate/jobs', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const jobsList: LeadGenJob[] = Array.isArray(data.jobs) ? data.jobs : [];
+        setRecentJobs(jobsList);
+
+        // Active job recovery after page refresh
+        const runningJob = jobsList.find(j => j.status === 'RUNNING' || j.status === 'QUEUED');
+        if (runningJob) {
+          setActiveJob(runningJob);
+          setIsScraperRunning(true);
+          pollJobStatus(runningJob.jobId);
+        } else if (jobsList.length > 0) {
+          setActiveJob(prev => prev || jobsList[0]);
+        }
+      }
+    } catch (err) {
+      console.error('[ASYNC_LEAD_GEN] Failed to fetch recent jobs:', err);
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  }, [workspaceId, pollJobStatus]);
+
+  // Rehydrate leads and jobs on mount
+  useEffect(() => {
+    console.log("[LEADS_DEBUG] mount");
     fetchPersistedLeads();
+    if (authReady !== false) {
+      fetchRecentJobs();
+    }
 
     // BFCache / pageshow handling (Browser Back navigation)
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -187,9 +290,10 @@ export function LeadsView({
 
     return () => {
       console.log("[LEADS_DEBUG] unmount");
+      stopPolling();
       window.removeEventListener('pageshow', handlePageShow);
     };
-  }, [authReady, workspaceId, setLeads]);
+  }, [fetchPersistedLeads, fetchRecentJobs, authReady, stopPolling]);
 
   useEffect(() => {
     fetch('/api/v1/workspace/permissions/matrix')
@@ -924,7 +1028,7 @@ export function LeadsView({
     }
   };
 
-  // Run AI Lead Scraper Agent (Real Lead Generation with dynamic console telemetry logging)
+  // Run AI Lead Scraper Agent (Supports both Async Job Worker and Synchronous execution)
   const handleRunAIScraper = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalCampaignName = newCampaignName.trim() || `${[campCity, campIndustry].filter(Boolean).join(' ') || 'Target'} Campaign`;
@@ -953,6 +1057,7 @@ export function LeadsView({
     };
 
     console.log('[TELEMETRY] UI_SUBMIT_CLICKED', {
+      mode: leadGenMode,
       campaignName: payload.campaignName,
       country: payload.country,
       city: payload.city,
@@ -961,6 +1066,43 @@ export function LeadsView({
       maxLeads: payload.maxLeads
     });
 
+    // 1. ASYNCHRONOUS WORKER FLOW (Phase 2 Step 2D)
+    if (leadGenMode === 'ASYNC') {
+      setIsScraperRunning(true);
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+        const response = await fetch('/api/v1/leads/generate/jobs', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            count: Number(campMaxLeads) || 5,
+            criteria: payload
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.job) {
+          const newJob: LeadGenJob = data.job;
+          setActiveJob(newJob);
+          setRecentJobs(prev => [newJob, ...prev.filter(j => j.jobId !== newJob.jobId)]);
+          // Begin polling job status
+          pollJobStatus(newJob.jobId);
+        } else {
+          throw new Error(data.message || data.error || 'Failed to dispatch asynchronous lead generation job.');
+        }
+      } catch (err: any) {
+        console.error('[ASYNC_LEAD_GEN] Submission error:', err);
+        setIsScraperRunning(false);
+        alert(`Failed to launch async lead gen job: ${err.message || 'Unknown error'}`);
+      }
+      return;
+    }
+
+    // 2. SYNCHRONOUS DIRECT FLOW (Preserved)
     setIsScraperRunning(true);
     setScraperProgress(15);
     setScraperLogs([
@@ -2869,10 +3011,65 @@ export function LeadsView({
               )}
             </div>
 
-            {/* Campaign Run Execution Parameters */}
+            {/* Campaign Run Execution Parameters & Mode Selection */}
             <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
-              <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">5. Campaign Execution Parameters</span>
+              <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">5. Campaign Execution Parameters & Mode</span>
               
+              {/* Mode Selection Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-1">
+                <div 
+                  onClick={() => setLeadGenMode('ASYNC')}
+                  className={`p-3 rounded-xl border cursor-pointer transition flex items-start gap-3 ${
+                    leadGenMode === 'ASYNC'
+                      ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-500 text-blue-900 dark:text-blue-100 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <input 
+                    type="radio" 
+                    name="leadGenMode" 
+                    checked={leadGenMode === 'ASYNC'} 
+                    onChange={() => setLeadGenMode('ASYNC')}
+                    className="mt-0.5 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold flex items-center gap-1.5 text-slate-900 dark:text-white">
+                      <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      Async Background Worker (Recommended)
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                      Resilient background execution with atomic database locking, live progress polling, and serverless recovery.
+                    </p>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setLeadGenMode('SYNC')}
+                  className={`p-3 rounded-xl border cursor-pointer transition flex items-start gap-3 ${
+                    leadGenMode === 'SYNC'
+                      ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-500 text-blue-900 dark:text-blue-100 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <input 
+                    type="radio" 
+                    name="leadGenMode" 
+                    checked={leadGenMode === 'SYNC'} 
+                    onChange={() => setLeadGenMode('SYNC')}
+                    className="mt-0.5 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-bold flex items-center gap-1.5 text-slate-900 dark:text-white">
+                      <Play className="w-3.5 h-3.5 text-blue-500 fill-blue-500" />
+                      Direct Synchronous Run
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                      Executes within the HTTP request stream with live terminal scraper logs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 mb-1.5">Target Language</label>
@@ -2909,15 +3106,18 @@ export function LeadsView({
                 <div className="flex items-end">
                   <button 
                     type="submit"
+                    id="submit_lead_gen_button"
                     disabled={isScraperRunning}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-55 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-55 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                   >
                     {isScraperRunning ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : leadGenMode === 'ASYNC' ? (
+                      <Zap className="w-3.5 h-3.5 fill-current" />
                     ) : (
                       <Play className="w-3.5 h-3.5 fill-current" />
                     )}
-                    Save & Find Leads
+                    {leadGenMode === 'ASYNC' ? 'Launch Async Job' : 'Save & Find Leads'}
                   </button>
                 </div>
               </div>
@@ -2925,8 +3125,8 @@ export function LeadsView({
 
           </form>
 
-          {/* AI Scraper dynamic telemetry loader logs */}
-          {isScraperRunning && (
+          {/* Synchronous Scraper Telemetry Console (when SYNC mode is active) */}
+          {leadGenMode === 'SYNC' && isScraperRunning && (
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-4 animate-pulse">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest font-mono text-emerald-400 flex items-center gap-1">
@@ -2944,6 +3144,42 @@ export function LeadsView({
               </div>
             </div>
           )}
+
+          {/* Asynchronous Lead Generation Worker Jobs Manager (Active Job + History) */}
+          <LeadGenJobsManager 
+            activeJob={activeJob}
+            setActiveJob={setActiveJob}
+            recentJobs={recentJobs}
+            isLoadingJobs={isLoadingJobs}
+            onRefreshJobs={fetchRecentJobs}
+            onViewDatabaseTab={() => setActiveTab('database')}
+            onRetryJob={async (job) => {
+              if (!job.criteria) return;
+              try {
+                const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+                const response = await fetch('/api/v1/leads/generate/jobs', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    count: job.total || 5,
+                    criteria: job.criteria
+                  })
+                });
+                const data = await response.json();
+                if (response.ok && data.job) {
+                  setActiveJob(data.job);
+                  setRecentJobs(prev => [data.job, ...prev.filter(j => j.jobId !== data.job.jobId)]);
+                  pollJobStatus(data.job.jobId);
+                }
+              } catch (err) {
+                console.error('Retry failed:', err);
+              }
+            }}
+          />
 
         </div>
       )}

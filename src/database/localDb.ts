@@ -2389,7 +2389,11 @@ export class LocalDB {
 
   public getLeadGenJobById(jobId: string, organizationId: string): LeadGenJob | null {
     if (!this.db.leadGenJobs) this.db.leadGenJobs = [];
-    const job = this.db.leadGenJobs.find(j => j.jobId === jobId);
+    let job = this.db.leadGenJobs.find(j => j.jobId === jobId);
+    if (!job) {
+      this.initialize();
+      job = (this.db.leadGenJobs || []).find(j => j.jobId === jobId);
+    }
     if (!job || job.organizationId !== organizationId) return null;
     return job;
   }

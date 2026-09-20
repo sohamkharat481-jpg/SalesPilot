@@ -43,7 +43,7 @@ export interface LeadProvider {
  * Helper: DNS Domain Resolution Validation
  */
 export function resolveDomain(domain: string): Promise<boolean> {
-  return new Promise(async (resolve) => {
+  return new Promise((resolve) => {
     // 1. Try standard Node DNS lookup
     dns.lookup(domain, (err) => {
       if (!err) {
@@ -59,6 +59,9 @@ export function resolveDomain(domain: string): Promise<boolean> {
       .then(data => {
         if (data && data.Answer && data.Answer.length > 0) {
           resolve(true);
+        } else if (data && (data.Status === 3 || (data.Answer && data.Answer.length === 0))) {
+          // Explicit NXDOMAIN response from Cloudflare DoH
+          resolve(false);
         } else {
           // Try Google DNS-over-HTTPS as a second fallback
           fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=A`)
@@ -67,28 +70,56 @@ export function resolveDomain(domain: string): Promise<boolean> {
             if (data2 && data2.Answer && data2.Answer.length > 0) {
               resolve(true);
             } else {
-              // Heuristic Regex fallback for syntactically valid domains in restricted environments
-              const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
-              if (domainRegex.test(domain)) {
-                resolve(true);
-              } else {
-                resolve(false);
-              }
+              // Both Cloudflare and Google confirmed no DNS records
+              resolve(false);
             }
           })
           .catch(() => {
-            // Heuristic fallback on any fetch failure
+            // Network failure fallback for isolated containers
             const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
             resolve(domainRegex.test(domain));
           });
         }
       })
       .catch(() => {
+        // Network failure fallback for isolated containers
         const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
         resolve(domainRegex.test(domain));
       });
     });
   });
+}
+
+/**
+ * Centralized list of known non-identifying generic placeholder company names.
+ */
+export const GENERIC_COMPANY_NAMES = new Set<string>([
+  'local business',
+  'enterprise partner',
+  'company',
+  'unknown',
+  'unspecified',
+  'n/a',
+  'na',
+  'null',
+  'undefined',
+  'prospect',
+  'general partner',
+  'local enterprise',
+  'business'
+]);
+
+export function isGenericCompanyName(companyName: string | null | undefined): boolean {
+  if (!companyName) return true;
+  const normalized = companyName.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+  if (!normalized) return true;
+  for (const generic of GENERIC_COMPANY_NAMES) {
+    const normGeneric = generic.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    if (normalized === normGeneric) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -121,7 +152,8 @@ export async function validateWebsite(websiteUrl: string): Promise<{ isValid: bo
   const explicitFakeDomains = [
     'localhost', '127.0.0.1', 'example.com', 'test.com', 'fakesite.com',
     'placeholder.com', 'mysite.com', 'fakedomain.com', 'fakenames.com',
-    'dummy.com', 'testdomain.com', 'companyname.com', 'businessname.com', 'foo.bar'
+    'dummy.com', 'testdomain.com', 'companyname.com', 'businessname.com',
+    'company.com', 'www.company.com', 'foo.bar'
   ];
   const lowerDomain = domain.toLowerCase();
   if (
@@ -475,12 +507,12 @@ export class GoogleMapsLeadProvider implements LeadProvider {
         const contactEmail = domainName ? `info@${domainName}` : '';
 
         const prospect: Partial<Lead> = {
-          firstName: 'Operations',
-          lastName: 'Manager',
+          firstName: '',
+          lastName: '',
           email: contactEmail,
           phone: details.nationalPhoneNumber || '',
-          company: details.displayName?.text || place.displayName?.text || 'Local Business',
-          title: 'Operations Director',
+          company: details.displayName?.text || place.displayName?.text || '',
+          title: '',
           leadScore: 'Warm',
           confidenceScore: 80,
           scoreReason: `Google Places API (New) geocoded location match. Rating: ${details.rating || 'N/A'}.`,
@@ -732,12 +764,12 @@ export class ClearbitLeadProvider implements LeadProvider {
         const hunterStatus = await verifyEmail(email);
 
         const prospect: Partial<Lead> = {
-          firstName: item.name?.givenName || 'Manager',
-          lastName: item.name?.familyName || 'Direct',
+          firstName: item.name?.givenName || '',
+          lastName: item.name?.familyName || '',
           email: email,
           phone: item.phone || '',
-          company: item.company?.name || 'Clearbit Sourced',
-          title: item.title,
+          company: item.company?.name || '',
+          title: item.title || '',
           leadScore: 'Very Hot',
           confidenceScore: 90,
           scoreReason: 'Clearbit Verified Record.',
@@ -1106,14 +1138,14 @@ export class GoogleSearchLeadProvider implements LeadProvider {
         }
 
         const nameParts = parts[0].trim().split(' ');
-        const firstName = nameParts[0] || 'LinkedIn';
-        const lastName = nameParts.slice(1).join(' ') || 'User';
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
 
-        const roleText = parts[1] || params.jobTitles.split(',')[0];
+        const roleText = parts[1] || '';
         const snippet = result.snippet || '';
 
         // Extract potential company name from snippet or title
-        let company = 'Enterprise Partner';
+        let company = '';
         if (parts[2]) {
           company = parts[2].replace('| LinkedIn', '').trim();
         } else {
@@ -1239,12 +1271,12 @@ export class WebsiteCrawlingLeadProvider implements LeadProvider {
     const hunterStatus = await verifyEmail(email);
 
     const prospect: Partial<Lead> = {
-      firstName: 'Operations',
-      lastName: 'Director',
+      firstName: '',
+      lastName: '',
       email: email,
       phone: '',
       company: domain.split('.')[0].toUpperCase(),
-      title: 'Operations & Procurement Lead',
+      title: '',
       leadScore: 'Warm',
       confidenceScore: 82,
       scoreReason: 'Successfully crawled target URL coordinates and verified DNS resolution.',

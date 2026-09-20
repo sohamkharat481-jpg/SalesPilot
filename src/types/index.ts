@@ -694,6 +694,7 @@ export interface LeadGenJob {
   created: number;
   skipped: number;
   errorMessage?: string | null;
+  criteria?: any;
   createdAt: string;
   updatedAt: string;
 }
