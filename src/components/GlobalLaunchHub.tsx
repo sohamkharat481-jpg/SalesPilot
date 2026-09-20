@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Globe, Shield, FileText, HelpCircle, AlertCircle, CheckCircle, Sparkles, Clock, DollarSign, Download, Trash2, ExternalLink, Activity, BookOpen, Layers } from 'lucide-react';
 import { i18n, SupportedLanguage, SupportedCurrency } from '../lib/i18n-localization';
+import { useAuth } from '../authentication/AuthContext';
 
 interface GlobalLaunchHubProps {
   onOpenStatusPage: () => void;
@@ -8,6 +9,7 @@ interface GlobalLaunchHubProps {
 }
 
 export function GlobalLaunchHub({ onOpenStatusPage, onOpenLegalPrivacy }: GlobalLaunchHubProps) {
+  const { user, organization } = useAuth();
   const [lang, setLang] = useState<SupportedLanguage>(i18n.getLanguage());
   const [curr, setCurr] = useState<SupportedCurrency>(i18n.getCurrency());
   const [dataExportStatus, setDataExportStatus] = useState<'IDLE' | 'PREPARING' | 'READY'>('IDLE');
@@ -31,8 +33,8 @@ export function GlobalLaunchHub({ onOpenStatusPage, onOpenLegalPrivacy }: Global
       setDataExportStatus('READY');
       const blob = new Blob([JSON.stringify({
         exportDate: new Date().toISOString(),
-        userEmail: 'sohamkharat481@gmail.com',
-        organization: 'Horizon Media',
+        userEmail: user?.email || 'user@workspace.com',
+        organization: organization?.name || user?.companyName || 'SalesPilot',
         status: 'GDPR_COMPLIANT_FULL_DUMP',
         gdprArticles: ['Article 15 - Right of Access', 'Article 20 - Data Portability']
       }, null, 2)], { type: 'application/json' });

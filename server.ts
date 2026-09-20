@@ -473,311 +473,15 @@ let defaultUser: WorkspaceUser = {
 let leads: Lead[] = localDb.getAllLeads();
 let dummyLeads: any[] = [];
 const unusedDummyLeads: any[] = [];
-const ignoreUnusedDummyLeads = [
-  {
-    id: 'ld_1',
-    firstName: 'Ananya',
-    lastName: 'Sharma',
-    email: 'ananya@apexmarketing.in',
-    phone: '+91 98765 43210',
-    company: 'Apex Marketing Solutions',
-    title: 'Managing Director',
-    status: 'INTERESTED',
-    leadScore: 'Very Hot',
-    confidenceScore: 94,
-    scoreReason: 'Using outdated active campaign email client but hiring for 3 new sales personnel in Mumbai. Highly receptive to AI-driven automated warm messaging.',
-    tags: ['Agency Scale', 'Mumbai', 'ActiveCampaign User'],
-    lastUpdated: new Date().toISOString(),
-    notesList: [
-      { id: 'n_1', text: 'Spoke briefly on LinkedIn. Requested a detailed presentation on pricing plans in INR currency.', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'n_2', text: 'Sent proposal for Professional Plan (Rs.8,500/month). Waiting on internal team feedback.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    tasksList: [
-      { id: 't_1', text: 'Follow up on proposal review status', completed: false, dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 't_2', text: 'Send Case Study on 210% increase in reply rates', completed: true, dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    timelineList: [
-      { id: 'tl_1', event: 'Lead Discovered', details: 'Identified via AI agent search for high-growth marketing companies.', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tl_2', event: 'First Outreach Email', details: 'Sent personalized introductory email focusing on high-ticket client acquisition.', createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tl_3', event: 'LinkedIn Connected', details: 'Accepted LinkedIn connection request from Soham Kharat.', createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tl_4', event: 'Replied with Interest', details: 'Stated they are unhappy with low response rates and requested pricing sheets.', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    enrichment: {
-      companySize: '11-50 employees',
-      techStack: ['WordPress', 'HubSpot', 'ActiveCampaign', 'Google Ads'],
-      fundingRound: 'Bootstrapped',
-      linkedInUrl: 'https://linkedin.com/in/ananya-sharma-apex',
-      annualRevenue: 'Rs.2.5 Crore INR',
-      website: 'www.apexmarketing.in',
-      country: 'India',
-      industry: 'Marketing',
-      companyLinkedIn: 'https://linkedin.com/company/apex-marketing-solutions',
-      companyOverview: 'Apex Marketing Solutions is a premier digital marketing agency specialized in high-performance lead generation, paid search, and social media advertising campaigns for Indian enterprises.',
-      painPoints: ['Extremely low email response rates from manual outbound campaign sequences', 'Sales team bandwidth wasted on filtering cold lists manually'],
-      whyGoodProspect: 'Apex relies heavily on outbound client acquisition but their current tool suite has no automated personalization triggers. Fits the core value proposition perfectly.',
-      decisionMakerInfo: 'Ananya Sharma has over 12 years of enterprise marketing experience. She holds direct budget authority for outbound marketing software tools.',
-      socialLinks: ['https://linkedin.com/in/ananya-sharma-apex', 'https://twitter.com/ananya_apex']
-    },
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    campaignId: 'camp_1'
-  },
-  {
-    id: 'ld_2',
-    firstName: 'Rohan',
-    lastName: 'Mehta',
-    email: 'rohan@stellartech.io',
-    phone: '+91 87654 32109',
-    company: 'StellarTech Labs',
-    title: 'VP of Engineering',
-    status: 'OUTREACH',
-    leadScore: 'Hot',
-    confidenceScore: 88,
-    scoreReason: 'Rapidly expanding IT infrastructure consulting. Interested in automated booking channels for SaaS enterprise buyers in Bangalore.',
-    tags: ['Tech Scale-Up', 'Bangalore', 'AWS Ecosystem'],
-    lastUpdated: new Date().toISOString(),
-    notesList: [
-      { id: 'n_3', text: 'Expressed interest in API triggers and custom n8n nodes for their database hooks.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    tasksList: [
-      { id: 't_3', text: 'Generate customized API integration blueprint doc', completed: false, dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    timelineList: [
-      { id: 'tl_5', event: 'Lead Discovered', details: 'Imported via TechCrunch Series A announcements filter.', createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tl_6', event: 'Sequenced Outbound', details: 'Step 1 of StellarTech Outbound Campaign initiated.', createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    enrichment: {
-      companySize: '51-200 employees',
-      techStack: ['React', 'Next.js', 'FastAPI', 'PostgreSQL', 'AWS'],
-      fundingRound: 'Series A',
-      linkedInUrl: 'https://linkedin.com/in/rohan-mehta-stellartech',
-      annualRevenue: 'Rs.12 Crore INR',
-      website: 'www.stellartech.io',
-      country: 'India',
-      industry: 'IT Services',
-      companyLinkedIn: 'https://linkedin.com/company/stellartech-labs',
-      companyOverview: 'StellarTech Labs is a state-of-the-art software consulting firm designing backend APIs, complex microservices, and modern web apps for fintech and retail systems.',
-      painPoints: ['Manual research on LinkedIn taking up highly paid engineering team hours', 'Low integration capability between CRM and cold campaign tooling'],
-      whyGoodProspect: 'Rohan is an engineer at heart and values highly integrated, programmatic outreach setups with developer-friendly APIs.',
-      decisionMakerInfo: 'Rohan Mehta has over 8 years in backend engineering. Drives key product integration decisions for their sales outreach arm.',
-      socialLinks: ['https://linkedin.com/in/rohan-mehta-stellartech', 'https://github.com/rohan-stellartech']
-    },
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    campaignId: 'camp_2'
-  },
-  {
-    id: 'ld_3',
-    firstName: 'Kabir',
-    lastName: 'Singhania',
-    email: 'k.singhania@wealthgrowth.in',
-    phone: '+91 91234 56789',
-    company: 'WealthGrowth Real Estate',
-    title: 'Director of Sales',
-    status: 'NEW',
-    leadScore: 'Warm',
-    confidenceScore: 72,
-    scoreReason: 'Premium realtors in Gurgaon. Needs templates to recruit elite commission agents, but real estate historically responds better to direct calls than emails.',
-    tags: ['Real Estate', 'Gurgaon', 'HNW Targeting'],
-    lastUpdated: new Date().toISOString(),
-    notesList: [],
-    tasksList: [],
-    timelineList: [
-      { id: 'tl_7', event: 'Lead Created', details: 'Manually logged into SalesPilot CRM pipeline.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    enrichment: {
-      companySize: '201-500 employees',
-      techStack: ['Salesforce', 'WhatsApp Business', 'Meta Ads'],
-      fundingRound: 'Bootstrapped',
-      linkedInUrl: 'https://linkedin.com/in/kabir-singhania-wealth',
-      annualRevenue: 'Rs.45 Crore INR',
-      website: 'www.wealthgrowth.in',
-      country: 'India',
-      industry: 'Real Estate',
-      companyLinkedIn: 'https://linkedin.com/company/wealthgrowth-re',
-      companyOverview: 'WealthGrowth is a leading high-end residential developer constructing luxury condominiums, penthouses, and retail plazas across Delhi NCR.',
-      painPoints: ['Requires local NCR phone and WhatsApp automation rather than traditional high-volume emails', 'Low response from luxury client prospects'],
-      whyGoodProspect: 'Kabir is expanding their agent tier. They can use SalesPilot customized WhatsApp webhook automation connected with n8n.',
-      decisionMakerInfo: 'Kabir is a sales industry veteran in premium NCR estates, focusing on direct-response outbound systems.',
-      socialLinks: ['https://linkedin.com/in/kabir-singhania-wealth']
-    },
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    campaignId: 'camp_3'
-  },
-  {
-    id: 'ld_4',
-    firstName: 'Sneha',
-    lastName: 'Kapoor',
-    email: 'sneha@cloudflow.app',
-    company: 'CloudFlow SaaS',
-    title: 'Founder & CEO',
-    status: 'READY',
-    leadScore: 'Very Hot',
-    confidenceScore: 96,
-    scoreReason: 'Early-stage HR Automation SaaS. Active founder looking for scalable outbound lists and integrations with Stripe/Supabase. She responds well to analytic tech-first outreach.',
-    tags: ['SaaS Startup', 'Mumbai', 'Vercel User'],
-    lastUpdated: new Date().toISOString(),
-    notesList: [
-      { id: 'n_4', text: 'Scheduled introductory SalesPilot demo for next week. She is excited about automatic LinkedIn profiling and INR pricing plans.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    tasksList: [
-      { id: 't_4', text: 'Present customized startup tier discounting (Rs.4,200 INR)', completed: false, dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    timelineList: [
-      { id: 'tl_8', event: 'Lead Discovered', details: 'Scraped from Y-Combinator India directory.', createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tl_9', event: 'Demo Scheduled', details: 'Booked demo via Google Calendar link in sequence.', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    enrichment: {
-      companySize: '1-10 employees',
-      techStack: ['Vercel', 'Supabase', 'Stripe', 'OpenAI'],
-      fundingRound: 'Seed',
-      linkedInUrl: 'https://linkedin.com/in/sneha-kapoor-cloudflow',
-      annualRevenue: 'Rs.80 Lakh INR',
-      website: 'www.cloudflow.app',
-      country: 'India',
-      industry: 'Software',
-      companyLinkedIn: 'https://linkedin.com/company/cloudflow-saas',
-      companyOverview: 'CloudFlow SaaS is an innovative mobile-first HR tool helping businesses automate payroll, daily attendance logging, and employee expense reporting inside India.',
-      painPoints: ['Extremely small internal team has no time for cold call prospecting', 'Needs automated lead list building to kickstart client trials'],
-      whyGoodProspect: 'Early SaaS startups need quick, cost-effective client acquisition pipelines. SalesPilot is a direct solution.',
-      decisionMakerInfo: 'Sneha is a tech founder who graduated from IIT Bombay. Drives all engineering, growth, and tech acquisitions directly.',
-      socialLinks: ['https://linkedin.com/in/sneha-kapoor-cloudflow', 'https://twitter.com/sneha_cloudflow']
-    },
-    createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-    campaignId: 'camp_1'
-  },
-  {
-    id: 'ld_5',
-    firstName: 'Vikram',
-    lastName: 'Aditya',
-    email: 'vikram@talentgrid.co',
-    company: 'TalentGrid Recruitment',
-    title: 'Lead Partner',
-    status: 'RESEARCH',
-    leadScore: 'Cold',
-    confidenceScore: 55,
-    scoreReason: 'TalentGrid recruits IT talent. They already use Lusha and LinkedIn Sales Navigator heavily. Low immediate pain point unless we outperform their current cost.',
-    tags: ['Recruitment', 'Noida', 'Established Agency'],
-    lastUpdated: new Date().toISOString(),
-    notesList: [],
-    tasksList: [],
-    timelineList: [
-      { id: 'tl_10', event: 'Lead Created', details: 'Imported via CSV file.', createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() }
-    ],
-    enrichment: {
-      companySize: '11-50 employees',
-      techStack: ['Lusha', 'LinkedIn Sales Navigator', 'Zoho Recruit'],
-      fundingRound: 'Bootstrapped',
-      annualRevenue: 'Rs.1.8 Crore INR',
-      website: 'www.talentgrid.co',
-      country: 'India',
-      industry: 'Human Resources',
-      companyLinkedIn: 'https://linkedin.com/company/talentgrid',
-      companyOverview: 'TalentGrid is a specialized tech recruiting agency headhunting senior developers, engineering managers, and product leads for funded Indian tech startups.',
-      painPoints: ['High database acquisition cost for Sales Navigator licenses', 'Drip email sequences have high bounce rates'],
-      whyGoodProspect: 'We can pitch them on cost saving by replacing Lusha with SalesPilot bulk AI scraper.',
-      decisionMakerInfo: 'Vikram has spent 15 years in IT recruitment, focusing on sales pipelines and partner relationships.',
-      socialLinks: ['https://linkedin.com/in/vikram-talentgrid']
-    },
-    createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    campaignId: 'camp_3'
-  }
-];
+const ignoreUnusedDummyLeads: any[] = [];
 
 let campaigns: Campaign[] = localDb.getAllCampaigns();
 let dummyCampaigns: any[] = [];
-const unusedDummyCampaigns = [
-  {
-    id: 'camp_1',
-    name: 'Marketing Agencies Outreach (INR Focus)',
-    targetAudience: 'MARKETING_AGENCY',
-    status: 'ACTIVE',
-    totalSent: 148,
-    totalOpened: 89,
-    totalReplied: 24,
-    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    steps: [
-      {
-        id: 'step_1_1',
-        stepNumber: 1,
-        type: 'EMAIL',
-        subject: 'Quick query regarding scaling Horizon Media',
-        bodyTemplate: 'Hi {first_name},\n\nI was looking at {company}\'s portfolio and loved your recent branding campaign.\n\nQuick question: Are you currently taking on new clients, or are your agency accounts fully loaded?\n\nWe help agencies like yours book 10-15 qualified appointments per month entirely on performance.\n\nWould you be open to a 5-minute chat next Tuesday?\n\nBest,\nSoham Kharat\nHorizon Media',
-        delayDays: 0
-      },
-      {
-        id: 'step_1_2',
-        stepNumber: 2,
-        type: 'LINKEDIN_MESSAGE',
-        bodyTemplate: 'Hey {first_name}, sent over a quick email yesterday but figured I would drop you a line here. I noticed you use {tech_stack_0} to run operations. Would love to share how we integrated custom AI sequences directly with that system to boost outbound conversions.',
-        delayDays: 2
-      }
-    ]
-  },
-  {
-    id: 'camp_2',
-    name: 'SaaS Founder Cold Drip',
-    targetAudience: 'SAAS',
-    status: 'ACTIVE',
-    totalSent: 92,
-    totalOpened: 45,
-    totalReplied: 12,
-    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    steps: [
-      {
-        id: 'step_2_1',
-        stepNumber: 1,
-        type: 'EMAIL',
-        subject: 'Enriching {company}\'s outbound channels',
-        bodyTemplate: 'Hi {first_name},\n\nMost SaaS founders I talk to are frustrated that their outbound is either too generic or too slow to build.\n\nWe built an automated pipeline that pulls custom insights from Linkedin, validates the records, and generates personalized drafts like this one.\n\nWould love to show you how we could automate this for {company}.\n\nDo you have 10 minutes this Thursday?\n\nBest,\nSoham',
-        delayDays: 0
-      }
-    ]
-  },
-  {
-    id: 'camp_3',
-    name: 'Premium Real Estate Outbound',
-    targetAudience: 'REAL_ESTATE',
-    status: 'DRAFT',
-    totalSent: 0,
-    totalOpened: 0,
-    totalReplied: 0,
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    steps: [
-      {
-        id: 'step_3_1',
-        stepNumber: 1,
-        type: 'EMAIL',
-        subject: 'Helping {company} book HNIs',
-        bodyTemplate: 'Hi {first_name},\n\nUnderstand that high-value sales require trust and personal touch.\n\nWe developed a boutique AI outbound engine specifically targeting HNIs across key Indian metros.\n\nAre you available for a brief call to see if this matches your growth goals?\n\nRegards,\nSoham',
-        delayDays: 0
-      }
-    ]
-  }
-];
+const unusedDummyCampaigns: any[] = [];
 
 let deals: Deal[] = localDb.getAllDeals();
 let dummyDeals: any[] = [];
-const unusedDummyDeals = [
-  {
-    id: 'dl_1',
-    leadId: 'ld_1',
-    leadName: 'Ananya Sharma',
-    company: 'Apex Marketing Solutions',
-    valueInr: 125000,
-    stage: 'NEGOTIATION',
-    updatedAt: new Date().toISOString(),
-    notes: 'Very interested in our Professional Plan with customized sequence setup. Wants to pay in INR.'
-  },
-  {
-    id: 'dl_2',
-    leadId: 'ld_4',
-    leadName: 'Sneha Kapoor',
-    company: 'CloudFlow SaaS',
-    valueInr: 45000,
-    stage: 'DEMO_SCHEDULED',
-    updatedAt: new Date().toISOString(),
-    notes: 'Demo booked for Thursday. Excited about the automatic LinkedIn scraping capability.'
-  }
-];
+const unusedDummyDeals: any[] = [];
 
 let appointments: Appointment[] = localDb.getAllAppointments();
 
@@ -1769,16 +1473,125 @@ async function startServer() {
 
   // 1. API ROUTES
 
+  const tokenVerificationCache = new Map<string, { user: WorkspaceUser; expiresAt: number }>();
+
+  // Global Auth Token Verification Middleware
+  app.use(async (req: any, res: any, next: any) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+
+      // 1. Check local session
+      const session = localDb.getSession(token);
+      if (session && session.expiresAt > Date.now()) {
+        const user = localDb.getUserById(session.userId);
+        if (user) {
+          session.expiresAt = Date.now() + 2 * 3600 * 1000;
+          req.authenticatedUser = user;
+          return next();
+        }
+      }
+
+      // 2. Check token verification cache
+      const cached = tokenVerificationCache.get(token);
+      if (cached && cached.expiresAt > Date.now()) {
+        req.authenticatedUser = cached.user;
+        return next();
+      }
+
+      // 3. Supabase Auth token validation
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: { user: sbUser }, error } = await supabase.auth.getUser(token);
+          if (!error && sbUser) {
+            let user = localDb.getUserById(sbUser.id) || localDb.getUserByEmail(sbUser.email || '');
+            if (!user) {
+              const userOrg = localDb.getOrganizationByUserId(sbUser.id);
+              const orgId = userOrg ? userOrg.id : `org_${sbUser.id.substring(0, 8)}`;
+              user = {
+                id: sbUser.id,
+                email: sbUser.email || '',
+                fullName: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+                companyName: sbUser.user_metadata?.company_name || 'Workspace',
+                industry: 'SaaS & Software',
+                tier: 'ENTERPRISE',
+                role: 'OWNER',
+                organizationId: orgId,
+                isVerified: true,
+                phone: '',
+                timezone: 'Asia/Kolkata',
+                language: 'English',
+                isFounder: false,
+                subscriptionStatus: 'ACTIVE',
+                createdAt: new Date().toISOString()
+              };
+              localDb.addUser(user);
+            }
+            tokenVerificationCache.set(token, { user, expiresAt: Date.now() + 5 * 60 * 1000 });
+            req.authenticatedUser = user;
+            return next();
+          }
+        } catch (sbErr) {
+          console.warn('[AUTH] Supabase token verification failed:', sbErr);
+        }
+      }
+
+      // 4. Non-production sandbox development tokens
+      if (process.env.NODE_ENV !== 'production' && (token === 'sandbox_google_auth_token' || token === 'sandbox_dev_auth_token')) {
+        const testUser: WorkspaceUser = {
+          id: 'usr_sandbox_dev',
+          email: 'sandbox@salespilot.dev',
+          fullName: 'Sandbox Developer',
+          companyName: 'Sandbox Workspace',
+          industry: 'Technology',
+          tier: 'STARTER',
+          role: 'OWNER',
+          organizationId: 'org_sandbox_dev',
+          isVerified: true,
+          phone: '',
+          timezone: 'Asia/Kolkata',
+          language: 'English',
+          isFounder: false,
+          subscriptionStatus: 'ACTIVE',
+          createdAt: new Date().toISOString()
+        };
+        req.authenticatedUser = testUser;
+        return next();
+      }
+    }
+
+    // Explicit dev bypass ONLY when configured in non-production
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
+      const devUser = localDb.getUserByEmail('dev@salespilot.local');
+      if (devUser) {
+        req.authenticatedUser = devUser;
+        return next();
+      }
+    }
+
+    // Default: unauthenticated (req.authenticatedUser is undefined)
+    next();
+  });
+
   // Get current session user
   app.get('/api/v1/auth/user', (req, res) => {
-    res.json({ user: defaultUser });
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. No active session found.' });
+    }
+    res.json({ user });
   });
 
   // Secure Activity and History Log lists
   app.get('/api/v1/auth/logs', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
     res.json({
-      activityLogs: serverActivityLogs,
-      loginHistory: serverLoginHistory
+      activityLogs: serverActivityLogs.filter(al => al.userId === user.id),
+      loginHistory: serverLoginHistory.filter(lh => lh.userId === user.id)
     });
   });
 
@@ -1824,31 +1637,59 @@ async function startServer() {
     localDb.save();
   };
 
-  // Auth resolver helper
-  const getAuthenticatedUser = (req: any) => {
-    const authHeader = req.headers.authorization;
+  // Auth resolver helper (Deny by default)
+  const getAuthenticatedUser = (req: any): WorkspaceUser | null => {
+    if (req.authenticatedUser) {
+      return req.authenticatedUser;
+    }
+    const authHeader = req.headers?.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const session = localDb.getSession(token);
       if (session && session.expiresAt > Date.now()) {
         const user = localDb.getUserById(session.userId);
-        if (user) {
-          // Sliding session extension: renew the expiration date on activity
-          session.expiresAt = Date.now() + 2 * 3600 * 1000; // extend by 2 hours
-          localDb.save();
-          return user;
-        }
+        if (user) return user;
+      }
+      const cached = tokenVerificationCache.get(token);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.user;
+      }
+    }
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
+      return localDb.getUserByEmail('dev@salespilot.local') || null;
+    }
+    return null;
+  };
+
+  // Organization security resolver helper (Never trust client organizationId, use verified user's organization, mismatch = 403)
+  const resolveVerifiedOrganizationId = (req: any, user: WorkspaceUser | null): { orgId: string | null; error?: string; status?: number } => {
+    if (!user) {
+      return { orgId: null, error: 'Unauthorized. Authentication token required.', status: 401 };
+    }
+
+    // Determine verified user organization
+    const verifiedOrgId = user.organizationId || localDb.getOrganizationByUserId(user.id)?.id || null;
+    if (!verifiedOrgId) {
+      return { orgId: null, error: 'No active workspace associated with user.', status: 403 };
+    }
+
+    // Never trust client organizationId from headers/query/body. Use verified user's organization. Mismatch = 403.
+    const clientSuppliedOrgId = (req.headers?.['x-organization-id'] as string) || 
+                                (req.query?.organizationId as string) || 
+                                (req.body?.organizationId as string);
+
+    if (clientSuppliedOrgId && typeof clientSuppliedOrgId === 'string' && clientSuppliedOrgId.trim() !== '') {
+      const cleanClientOrgId = clientSuppliedOrgId.trim();
+      if (cleanClientOrgId !== verifiedOrgId.trim()) {
+        return { 
+          orgId: null, 
+          error: 'Forbidden. Organization mismatch: client-supplied organizationId does not match verified user organization.', 
+          status: 403 
+        };
       }
     }
 
-    const email = req.query?.email || req.body?.email;
-    if (email) {
-      const user = localDb.getUserByEmail(email);
-      if (user) return user;
-    }
-
-    const defaultUserObj = localDb.getUserByEmail(defaultUser.email);
-    return defaultUserObj || localDb.getUsers()[0];
+    return { orgId: verifiedOrgId };
   };
 
   // Lead Database Helper Mapping
@@ -1873,7 +1714,7 @@ async function startServer() {
 
     return {
       id: String(l.id),
-      organizationId: l.organization_id || 'org_salespilot_lifetime',
+      organizationId: l.organization_id || '',
       firstName: l.first_name || parsedNotes.firstName || (l.lead_name ? l.lead_name.split(' ')[0] : 'Prospect'),
       lastName: l.last_name || parsedNotes.lastName || (l.lead_name ? l.lead_name.split(' ').slice(1).join(' ') : ''),
       email: l.email || l.business_email || '',
@@ -1902,6 +1743,9 @@ async function startServer() {
 
   // Async Production Database Query Helpers (Vercel Serverless Stateless Compatible)
   const getAllLeadsAsync = async (orgId?: string): Promise<Lead[]> => {
+    if (!orgId) {
+      return [];
+    }
     const supabase = getSupabaseClient();
     let dbProvider = 'Local Storage DB (localDb / local_db.json)';
     let fetchedLeads: Lead[] = [];
@@ -1909,10 +1753,7 @@ async function startServer() {
     if (supabase) {
       dbProvider = 'Supabase PostgreSQL (leads table)';
       try {
-        let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
-        if (orgId && orgId !== 'org_salespilot_lifetime') {
-          query = query.eq('organization_id', orgId);
-        }
+        const query = supabase.from('leads').select('*').eq('organization_id', orgId).order('created_at', { ascending: false });
         const { data, error } = await query;
         if (error) {
           supabaseDiagnosticState.lastLeadSelectStatus = `FAILED: ${error.message} (code: ${error.code})`;
@@ -1922,7 +1763,6 @@ async function startServer() {
           supabaseDiagnosticState.lastLeadSelectStatus = `SUCCESS (${data.length} records fetched from Supabase)`;
           supabaseDiagnosticState.tables.leads = true;
           if (data.length > 0) {
-            console.log(`[SUPABASE COLUMNS AUDIT] Columns in public.leads:`, Object.keys(data[0]));
             fetchedLeads = data.map(mapSupabaseLeadToAppLead);
           }
         }
@@ -1932,36 +1772,28 @@ async function startServer() {
       }
     }
 
-    const localLeads = localDb.getAllLeads();
+    const localLeads = localDb.getAllLeads().filter(l => Boolean((l as any).organizationId) && (l as any).organizationId === orgId);
     const leadMap = new Map<string, Lead>();
     localLeads.forEach(l => {
       leadMap.set(l.id, l);
     });
     fetchedLeads.forEach(l => {
-      leadMap.set(l.id, l);
+      if ((l as any).organizationId && (l as any).organizationId === orgId) {
+        leadMap.set(l.id, l);
+      }
     });
 
-    const allCombined = Array.from(leadMap.values());
-    leads = allCombined;
-    localDb.db.leads = allCombined;
-    saveDb();
-
-    // Respect organization workspace isolation while ensuring default workspace leads remain visible
-    const filteredLeads = orgId && orgId !== 'org_salespilot_lifetime'
-      ? allCombined.filter(l => !(l as any).organizationId || (l as any).organizationId === orgId || (l as any).organizationId === 'org_salespilot_lifetime') 
-      : allCombined;
-
+    const filteredLeads = Array.from(leadMap.values()).filter(l => Boolean((l as any).organizationId) && (l as any).organizationId === orgId);
     console.log(`[DATABASE AUDIT - SELECT ALL LEADS]
 - Database Provider: "${dbProvider}"
-- Requested Org ID: "${orgId || 'ALL'}"
-- Total Leads in DB: ${allCombined.length}
-- Returned Leads: ${filteredLeads.length}`);
+- Requested Org ID: "${orgId}"
+- Scoped Leads Count: ${filteredLeads.length}`);
 
     return filteredLeads;
   };
 
   const getLeadByIdAsync = async (leadId: string, orgId?: string): Promise<Lead | null> => {
-    if (!leadId) return null;
+    if (!leadId || !orgId) return null;
     const cleanId = String(leadId).trim();
 
     const supabase = getSupabaseClient();
@@ -1970,16 +1802,8 @@ async function startServer() {
     if (supabase) {
       dbProvider = 'Supabase PostgreSQL (leads table)';
       try {
-        console.log(`[DATABASE AUDIT - SELECT QUERY]
-- Target Lead ID: "${cleanId}"
-- Database Provider: "${dbProvider}"
-- Query: SELECT * FROM leads WHERE id = "${cleanId}"`);
-
-        const { data: remoteRecord, error } = await supabase
-          .from('leads')
-          .select('*')
-          .eq('id', cleanId)
-          .maybeSingle();
+        let query = supabase.from('leads').select('*').eq('id', cleanId).eq('organization_id', orgId);
+        const { data: remoteRecord, error } = await query.maybeSingle();
 
         if (error) {
           console.error(`[DATABASE AUDIT - SELECT ERROR] Supabase select failed for ID "${cleanId}":`, error);
@@ -1987,55 +1811,32 @@ async function startServer() {
 
         if (remoteRecord) {
           const mapped = mapSupabaseLeadToAppLead(remoteRecord);
-          const idx = leads.findIndex(l => l.id === cleanId);
-          if (idx !== -1) {
-            leads[idx] = mapped;
-          } else {
-            leads.unshift(mapped);
+          if ((mapped as any).organizationId && (mapped as any).organizationId === orgId) {
+            return mapped;
           }
-          localDb.db.leads = leads;
-          saveDb();
-
-          console.log(`[DATABASE AUDIT - SELECT RESULT]
-- Status: SUCCESS (FOUND IN DATABASE)
-- Database Provider: "${dbProvider}"
-- Database Primary Key ID: "${mapped.id}"
-- Details: ${mapped.firstName} ${mapped.lastName} (${mapped.company}, Email: ${mapped.email})`);
-
-          return mapped;
-        } else {
-          console.log(`[DATABASE AUDIT - SELECT RESULT]
-- Status: NOT FOUND IN SUPABASE, Checking localDb...
-- Database Provider: "${dbProvider}"
-- Target ID: "${cleanId}"`);
         }
       } catch (err) {
         console.error(`[DATABASE AUDIT - SELECT EXCEPTION] for ID "${cleanId}":`, err);
       }
     }
 
-    const localFound = leads.find(l => l.id === cleanId) || localDb.getLeadById(cleanId);
-    if (localFound) {
-      console.log(`[DATABASE AUDIT - SELECT RESULT]
-- Status: SUCCESS (FOUND IN LOCAL DB)
-- Database Provider: "Local Storage DB (localDb / local_db.json)"
-- Database Primary Key ID: "${localFound.id}"
-- Details: ${localFound.firstName} ${localFound.lastName} (${localFound.company}, Email: ${localFound.email})`);
+    const localFound = localDb.getLeadById(cleanId, orgId) || leads.find(l => l.id === cleanId && (l as any).organizationId === orgId);
+    if (localFound && (localFound as any).organizationId && (localFound as any).organizationId === orgId) {
       return localFound;
     }
-
-    console.log(`[DATABASE AUDIT - SELECT RESULT]
-- Status: FAILED (NOT FOUND IN DATABASE)
-- Target ID: "${cleanId}"`);
 
     return null;
   };
 
   const findLeadByIdAsync = getLeadByIdAsync;
   const findLeadById = (leadId: string, orgId?: string): Lead | null => {
-    if (!leadId) return null;
+    if (!leadId || !orgId) return null;
     const cleanId = String(leadId).trim();
-    return leads.find(l => l.id === cleanId) || localDb.getLeadById(cleanId);
+    const found = localDb.getLeadById(cleanId, orgId) || leads.find(l => l.id === cleanId && (l as any).organizationId === orgId);
+    if (found && (found as any).organizationId && (found as any).organizationId === orgId) {
+      return found;
+    }
+    return null;
   };
 
   const insertLeadAsync = async (newLead: Lead & { organizationId?: string }): Promise<Lead> => {
@@ -2043,14 +1844,14 @@ async function startServer() {
     let dbProvider = 'Local Storage DB (localDb / local_db.json)';
     let savedLeadId = newLead.id;
 
+    if (!newLead.organizationId) {
+      throw new Error('Organization ID is strictly required to insert a lead.');
+    }
+
     if (supabase) {
       dbProvider = 'Supabase PostgreSQL (leads table)';
       try {
-        let org_id = newLead.organizationId;
-        if (!org_id) {
-          const { data: orgs } = await supabase.from('organizations').select('id').limit(1);
-          if (orgs && orgs.length > 0) org_id = orgs[0].id;
-        }
+        const org_id = newLead.organizationId;
 
         const fullNotesState = {
           firstName: newLead.firstName,
@@ -2073,7 +1874,7 @@ async function startServer() {
 
         const dbLead: any = {
           id: newLead.id,
-          organization_id: org_id || 'org_salespilot_lifetime',
+          organization_id: org_id,
           first_name: newLead.firstName || 'Prospect',
           last_name: newLead.lastName || '',
           company: newLead.company || 'Company',
@@ -2255,13 +2056,14 @@ async function startServer() {
     const salt = bcrypt.genSaltSync(10);
     const passwordHash = bcrypt.hashSync(password, salt);
 
+    const userOrgId = isFounderUser ? 'org_salespilot_lifetime' : `org_${Date.now()}`;
     const newUser = {
       id: `usr_${Date.now()}`,
       email: emailLower,
       fullName,
       companyName: '',
       industry: '',
-      organizationId: 'org_salespilot_lifetime',
+      organizationId: userOrgId,
       tier: isFounderUser ? 'ENTERPRISE' : 'STARTER',
       role: isFounderUser ? 'OWNER' : (role || 'ADMIN'),
       createdAt: new Date().toISOString(),
@@ -2273,6 +2075,23 @@ async function startServer() {
       passwordHash,
       apiKeys: []
     };
+
+    if (!isFounderUser) {
+      const initialOrg = {
+        id: userOrgId,
+        name: `${fullName}'s Workspace`,
+        companyName: `${fullName}'s Workspace`,
+        slug: userOrgId,
+        owner: newUser.id,
+        industry: 'General',
+        country: 'India',
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+        createdAt: new Date().toISOString()
+      };
+      serverOrganizations.push(initialOrg as any);
+      localDb.addOrganization(initialOrg as any);
+    }
 
     serverUsers.push(newUser);
     saveDb();
@@ -2400,7 +2219,33 @@ async function startServer() {
 
     // Ensure organizationId is always initialized on userObj
     if (!userObj.organizationId) {
-      userObj.organizationId = 'org_salespilot_lifetime';
+      const ownedOrg = serverOrganizations.find(o => o.owner === userObj.id || (o as any).ownerId === userObj.id) ||
+                       localDb.getOrganizations().find(o => o.owner === userObj.id || (o as any).ownerId === userObj.id);
+      if (ownedOrg) {
+        userObj.organizationId = ownedOrg.id;
+      } else {
+        const isFounder = userObj.email.toLowerCase() === FOUNDER_EMAIL.toLowerCase();
+        if (isFounder) {
+          userObj.organizationId = 'org_salespilot_lifetime';
+        } else {
+          const newOrgId = `org_${Date.now()}`;
+          const newOrg = {
+            id: newOrgId,
+            name: `${userObj.fullName || 'User'}'s Workspace`,
+            companyName: `${userObj.fullName || 'User'}'s Workspace`,
+            slug: newOrgId,
+            owner: userObj.id,
+            industry: userObj.industry || 'General',
+            country: 'India',
+            currency: 'INR',
+            timezone: 'Asia/Kolkata',
+            createdAt: new Date().toISOString()
+          };
+          serverOrganizations.push(newOrg as any);
+          localDb.addOrganization(newOrg as any);
+          userObj.organizationId = newOrgId;
+        }
+      }
     }
 
     // Query Supabase profiles table if active to sync exact primary key ID and organization ID
@@ -2418,7 +2263,7 @@ async function startServer() {
             id: userObj.id,
             email: emailLower,
             full_name: userObj.fullName,
-            organization_id: userObj.organizationId || 'org_salespilot_lifetime',
+            organization_id: userObj.organizationId,
             updated_at: new Date().toISOString()
           });
         }
@@ -2513,23 +2358,33 @@ async function startServer() {
   app.post('/auth/logout', handleLogout);
   app.post('/api/v1/auth/logout', handleLogout);
 
-  // AUTH API: Google OAuth simulation
+  // AUTH API: Google OAuth simulation (Local development fallback only)
   const handleGoogleAuth = (req: any, res: any) => {
-    const { email, fullName, googleId } = req.body;
-    const resolvedEmail = email || 'google.user@company.in';
-    const resolvedName = fullName || 'Google User';
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(400).json({ error: 'Mock authentication is disabled in production. Use verified Supabase Auth.' });
+    }
 
-    let userObj = serverUsers.find(u => u.email.toLowerCase() === resolvedEmail.toLowerCase());
+    const { email, fullName, googleId } = req.body;
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ error: 'Valid email address is required for authentication.' });
+    }
+
+    const resolvedEmail = email.trim().toLowerCase();
+    const resolvedName = (fullName && typeof fullName === 'string' && fullName.trim()) ? fullName.trim() : (resolvedEmail.split('@')[0] || 'User');
+
+    let userObj = serverUsers.find(u => u.email.toLowerCase() === resolvedEmail);
     
     if (!userObj) {
+      const userOrgId = `org_g_${Date.now()}`;
       userObj = {
         id: `usr_g_${Date.now()}`,
         email: resolvedEmail,
         fullName: resolvedName,
-        companyName: 'Horizon Media',
-        industry: 'Marketing Agency',
+        companyName: `${resolvedName}'s Workspace`,
+        industry: 'SaaS & Technology',
+        organizationId: userOrgId,
         tier: 'STARTER',
-        role: 'ADMIN',
+        role: 'OWNER',
         createdAt: new Date().toISOString(),
         isVerified: true,
         phone: '',
@@ -2540,6 +2395,18 @@ async function startServer() {
         apiKeys: []
       };
       serverUsers.push(userObj);
+
+      const newOrg: Organization = {
+        id: userOrgId,
+        name: `${resolvedName}'s Workspace`,
+        ownerId: userObj.id,
+        industry: 'SaaS & Technology',
+        subscriptionPlan: 'STARTER',
+        createdAt: new Date().toISOString()
+      };
+      serverOrganizations.push(newOrg);
+      localDb.addOrganization(newOrg);
+      localDb.addUser(userObj as any);
     }
 
     const token = `jwt_g_token_${Math.random().toString(36).substring(2)}`;
@@ -2547,6 +2414,7 @@ async function startServer() {
       user: userObj,
       expiresAt: Date.now() + 2 * 3600 * 1000
     };
+    localDb.createSession(token, userObj.id, 2 * 3600 * 1000);
 
     const meta = getClientMetadata(req);
     serverLoginHistory.unshift({
@@ -2561,24 +2429,17 @@ async function startServer() {
       loginTime: new Date().toISOString()
     });
 
-    defaultUser.id = userObj.id;
-    defaultUser.email = userObj.email;
-    defaultUser.fullName = userObj.fullName;
-    defaultUser.companyName = userObj.companyName;
-    defaultUser.role = userObj.role;
-    defaultUser.tier = userObj.tier;
-    defaultUser.isVerified = true;
-
     logServerActivity(userObj.id, 'User signed in via Google Credentials', 'Authentication', req);
 
-    const org = serverOrganizations.find(o => o.name === userObj.companyName) || null;
+    const org = localDb.getOrganizationById(userObj.organizationId || '') || serverOrganizations.find(o => o.id === userObj.organizationId) || null;
+    const orgTeamMembers = org ? localDb.getTeamMembers(org.id) : [];
 
     res.json({
       success: true,
       token,
       user: userObj,
       organization: org,
-      teamMembers: serverTeamMembers
+      teamMembers: orgTeamMembers
     });
   };
   app.post('/auth/google', handleGoogleAuth);
@@ -2643,47 +2504,46 @@ async function startServer() {
 
   // AUTH API: Update Profile Settings
   const handleUpdateProfile = async (req: any, res: any) => {
-    const { email, fullName, phone, timezone, language, notificationPrefs, avatarUrl, onboardingProgress, onboardingCompleted } = req.body;
-    const targetEmail = email || defaultUser.email;
-    const userObj = serverUsers.find(u => u.email.toLowerCase() === targetEmail.toLowerCase());
+    const authUser = getAuthenticatedUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
+    const { fullName, phone, timezone, language, notificationPrefs, avatarUrl, onboardingProgress, onboardingCompleted } = req.body;
+    let userObj = serverUsers.find(u => u.id === authUser.id) || localDb.getUserById(authUser.id);
 
     if (!userObj) {
-      return res.status(404).json({ error: 'Profile not found.' });
+      userObj = authUser;
+      serverUsers.push(userObj);
     }
 
     if (fullName !== undefined) {
       userObj.fullName = fullName;
-      defaultUser.fullName = fullName;
     }
     if (phone !== undefined) {
       userObj.phone = phone;
-      defaultUser.phone = phone;
     }
     if (timezone !== undefined) {
       userObj.timezone = timezone;
-      defaultUser.timezone = timezone;
     }
     if (language !== undefined) {
       userObj.language = language;
-      defaultUser.language = language;
     }
     if (avatarUrl !== undefined) {
       userObj.avatarUrl = avatarUrl;
-      defaultUser.avatarUrl = avatarUrl;
     }
     if (notificationPrefs !== undefined) {
       userObj.notificationPrefs = notificationPrefs;
     }
     if (onboardingProgress !== undefined) {
       userObj.onboardingProgress = onboardingProgress;
-      defaultUser.onboardingProgress = onboardingProgress;
     }
     if (onboardingCompleted !== undefined) {
       userObj.onboardingCompleted = onboardingCompleted;
-      defaultUser.onboardingCompleted = onboardingCompleted;
     }
 
     await applyFounderPrivileges(userObj);
+    try { localDb.saveUser(userObj as any); } catch (_) {}
 
     // Sync profile updates to Supabase profiles table
     const supabase = getSupabaseClient();
@@ -2709,74 +2569,53 @@ async function startServer() {
   // ORGANIZATION API: Create Organization
   const handleCreateOrg = async (req: any, res: any) => {
     console.log('[SERVER] handleCreateOrg started. Body:', req.body);
-    const { email, name, industry, website, domain, gstNumber, country, timezone, currency, logo, tier } = req.body;
-    if (!name) {
+    const authUser = getAuthenticatedUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
+    const { name, industry, website, domain, gstNumber, country, timezone, currency, logo, tier } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
       console.error('[SERVER] handleCreateOrg failed: Company Name is missing.');
       return res.status(400).json({ error: 'Company Name is required.' });
     }
 
-    const targetEmail = email || defaultUser.email;
-    console.log(`[SERVER] Identifying user with email: ${targetEmail}`);
-    let userObj = serverUsers.find(u => u.email.toLowerCase() === targetEmail.toLowerCase());
-
+    let userObj = serverUsers.find(u => u.id === authUser.id) || localDb.getUserById(authUser.id);
     if (!userObj) {
-      console.warn(`[SERVER] No user with email ${targetEmail} found. Checking fallback option.`);
-      if (serverUsers.length > 0) {
-        userObj = serverUsers[0];
-        console.log(`[SERVER] Falling back to user: ${userObj.email}`);
-      } else {
-        userObj = {
-          id: `usr_${Date.now()}`,
-          email: targetEmail || 'founder@example.com',
-          fullName: 'Founder',
-          companyName: '',
-          industry: '',
-          tier: tier || 'STARTER',
-          role: 'ADMIN',
-          createdAt: new Date().toISOString(),
-          isVerified: true,
-          phone: '',
-          timezone: timezone || 'Asia/Kolkata',
-          language: 'English',
-          notificationPrefs: { email: true, push: true, weeklyReport: true },
-          apiKeys: []
-        };
-        serverUsers.push(userObj);
-        console.log('[SERVER] Created a new fallback user object in serverUsers.');
-      }
+      userObj = authUser;
+      serverUsers.push(userObj);
     }
 
     const orgId = `org_${Date.now()}`;
     const newOrg = {
       id: orgId,
-      name,
-      companyName: name,
-      industry: industry || 'Marketing Agency',
+      name: name.trim(),
+      companyName: name.trim(),
+      industry: industry || 'SaaS & Technology',
       website: website || domain || '',
       gstNumber: gstNumber || '',
       country: country || 'India',
       timezone: timezone || 'Asia/Kolkata',
       currency: currency || 'INR',
       logo: logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60',
+      ownerId: userObj.id,
       createdAt: new Date().toISOString()
     };
 
     serverOrganizations.push(newOrg);
-    userObj.companyName = name;
-    userObj.industry = industry;
-    userObj.organizationId = orgId;
-    userObj.role = 'ADMIN';
+    localDb.addOrganization(newOrg);
 
-    // Sync global defaults
-    defaultUser.companyName = name;
-    defaultUser.industry = industry;
-    defaultUser.organizationId = orgId;
-    defaultUser.role = 'ADMIN';
+    userObj.companyName = name.trim();
+    userObj.industry = industry || 'SaaS & Technology';
+    userObj.organizationId = orgId;
+    userObj.role = 'OWNER';
+
+    try { localDb.saveUser(userObj as any); } catch (_) {}
 
     await applyFounderPrivileges(userObj);
 
     logServerActivity(userObj.id, `Created organization hub: ${name}`, 'Onboarding', req);
-    console.log(`[SERVER] In-memory organization ${orgId} configured for user ${userObj.id}.`);
+    console.log(`[SERVER] Organization ${orgId} configured for user ${userObj.id}.`);
 
     // SUPABASE SYNC
     const supabase = getSupabaseClient();
@@ -2883,8 +2722,6 @@ async function startServer() {
         newOrg.id = dbOrgId;
         userObj.id = userId;
         userObj.organizationId = dbOrgId;
-        defaultUser.id = userId;
-        defaultUser.organizationId = dbOrgId;
         console.log('[SUPABASE SYNC] Local state memory updated with remote UUID mappings.');
 
       } catch (dbErr: any) {
@@ -2910,77 +2747,55 @@ async function startServer() {
   // ONBOARDING API: Profile Setup
   const handleProfileSetup = async (req: any, res: any) => {
     console.log('[SERVER] handleProfileSetup started. Body:', req.body);
+    const authUser = getAuthenticatedUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
     const { fullName, title, avatarUrl, companyName, industry, website, timezone, currency } = req.body;
     
-    if (!companyName) {
+    if (!companyName || typeof companyName !== 'string' || !companyName.trim()) {
       console.error('[SERVER] handleProfileSetup failed: Company Name is missing.');
       return res.status(400).json({ error: 'Company Name is required.' });
     }
 
-    const targetEmail = defaultUser.email;
-    console.log(`[SERVER] Identifying user with email: ${targetEmail}`);
-    let userObj = serverUsers.find(u => u.email.toLowerCase() === targetEmail.toLowerCase());
-
+    let userObj = serverUsers.find(u => u.id === authUser.id) || localDb.getUserById(authUser.id);
     if (!userObj) {
-      console.warn(`[SERVER] No user with email ${targetEmail} found. Checking fallback option.`);
-      if (serverUsers.length > 0) {
-        userObj = serverUsers[0];
-        console.log(`[SERVER] Falling back to user: ${userObj.email}`);
-      } else {
-        userObj = {
-          id: `usr_${Date.now()}`,
-          email: targetEmail || 'founder@example.com',
-          fullName: fullName || 'Founder',
-          companyName: '',
-          industry: '',
-          tier: 'STARTER',
-          role: 'ADMIN',
-          createdAt: new Date().toISOString(),
-          isVerified: true,
-          phone: '',
-          timezone: timezone || 'Asia/Kolkata',
-          language: 'English',
-          notificationPrefs: { email: true, push: true, weeklyReport: true },
-          apiKeys: []
-        };
-        serverUsers.push(userObj);
-        console.log('[SERVER] Created a new fallback user object in serverUsers.');
-      }
+      userObj = authUser;
+      serverUsers.push(userObj);
     }
 
     const orgId = `org_${Date.now()}`;
     const newOrg = {
       id: orgId,
-      name: companyName,
-      companyName: companyName,
-      industry: industry || 'SaaS & Software',
+      name: companyName.trim(),
+      companyName: companyName.trim(),
+      industry: industry || 'SaaS & Technology',
       website: website || '',
       gstNumber: '',
       country: 'India',
       timezone: timezone || 'Asia/Kolkata',
       currency: currency || 'INR',
       logo: avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      ownerId: userObj.id,
       createdAt: new Date().toISOString()
     };
 
     serverOrganizations.push(newOrg);
-    userObj.fullName = fullName || userObj.fullName;
-    userObj.companyName = companyName;
-    userObj.industry = industry || 'SaaS & Software';
-    userObj.organizationId = orgId;
-    userObj.role = 'ADMIN';
+    localDb.addOrganization(newOrg);
 
-    // Sync global defaults
-    defaultUser.fullName = fullName || defaultUser.fullName;
-    defaultUser.companyName = companyName;
-    defaultUser.industry = industry || 'SaaS & Software';
-    defaultUser.organizationId = orgId;
-    defaultUser.role = 'ADMIN';
+    userObj.fullName = fullName || userObj.fullName;
+    userObj.companyName = companyName.trim();
+    userObj.industry = industry || 'SaaS & Technology';
+    userObj.organizationId = orgId;
+    userObj.role = 'OWNER';
+
+    try { localDb.saveUser(userObj as any); } catch (_) {}
 
     await applyFounderPrivileges(userObj);
 
     logServerActivity(userObj.id, `Created organization hub via profile setup: ${companyName}`, 'Onboarding', req);
-    console.log(`[SERVER] In-memory organization ${orgId} configured for user ${userObj.id}.`);
+    console.log(`[SERVER] Organization ${orgId} configured for user ${userObj.id}.`);
 
     // SUPABASE SYNC
     const supabase = getSupabaseClient();
@@ -3086,8 +2901,6 @@ async function startServer() {
         newOrg.id = dbOrgId;
         userObj.id = userId;
         userObj.organizationId = dbOrgId;
-        defaultUser.id = userId;
-        defaultUser.organizationId = dbOrgId;
         console.log('[SUPABASE SYNC] Local state memory updated with remote UUID mappings.');
 
       } catch (dbErr: any) {
@@ -3112,10 +2925,17 @@ async function startServer() {
 
   // ORGANIZATION API: Update Details
   const handleUpdateOrg = (req: any, res: any) => {
-    const { orgId, name, industry, website, gstNumber, country, timezone, currency, logo } = req.body;
-    const targetId = orgId || defaultUser.organizationId || serverOrganizations[0]?.id;
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
 
-    const org = serverOrganizations.find(o => o.id === targetId) || serverOrganizations[0];
+    const { name, industry, website, gstNumber, country, timezone, currency, logo } = req.body;
+    const org = serverOrganizations.find(o => o.id === verifiedOrgId) || localDb.getOrganizationById(verifiedOrgId);
     if (!org) {
       return res.status(404).json({ error: 'Organization hub not found.' });
     }
@@ -3129,7 +2949,7 @@ async function startServer() {
     if (currency !== undefined) org.currency = currency;
     if (logo !== undefined) org.logo = logo;
 
-    logServerActivity(defaultUser.id || 'usr_81927391', `Updated organization profile parameters`, 'Organization Settings', req);
+    logServerActivity(user.id, `Updated organization profile parameters`, 'Organization Settings', req);
     saveDb();
     res.json({ success: true, organization: org });
   };
@@ -3138,6 +2958,15 @@ async function startServer() {
 
   // TEAM API: Invite Team Member
   const handleInviteTeam = (req: any, res: any) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
     const { email, role, fullName } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Teammate email address is required.' });
@@ -3150,58 +2979,82 @@ async function startServer() {
       email: email.toLowerCase(),
       role: (role || 'SALES') as UserRole,
       status: 'INVITED',
-      joinedAt: new Date().toISOString()
+      joinedAt: new Date().toISOString(),
+      organizationId: verifiedOrgId
     };
 
     serverTeamMembers.push(newMember);
-    logServerActivity(defaultUser.id || 'usr_81927391', `Invited teammate ${email} as ${role}`, 'Team Management', req);
+    localDb.addTeamMember(newMember);
+    logServerActivity(user.id, `Invited teammate ${email} as ${role}`, 'Team Management', req);
     
     console.log(`[EMAIL] Dispatched workspace invitation to ${email}`);
 
     saveDb();
-    res.json({ success: true, member: newMember, teamMembers: serverTeamMembers });
+    const orgTeamMembers = localDb.getTeamMembers(verifiedOrgId);
+    res.json({ success: true, member: newMember, teamMembers: orgTeamMembers });
   };
   app.post('/team/invite', handleInviteTeam);
   app.post('/api/v1/team/invite', handleInviteTeam);
 
   // TEAM API: Update Teammate Role / Status (Suspend/Reactivate)
   const handleUpdateTeamRole = (req: any, res: any) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
     const { id, role, status } = req.body;
     if (!id) {
       return res.status(400).json({ error: 'Team member ID is required.' });
     }
 
-    const member = serverTeamMembers.find(m => m.id === id);
+    const member = serverTeamMembers.find(m => m.id === id && ((m as any).organizationId === verifiedOrgId || !(m as any).organizationId));
     if (!member) {
       return res.status(404).json({ error: 'Team member not found.' });
     }
 
     if (role !== undefined) member.role = role;
     if (status !== undefined) member.status = status;
+    (member as any).organizationId = verifiedOrgId;
 
-    logServerActivity(defaultUser.id || 'usr_81927391', `Updated member ${member.email} status to ${status || role}`, 'Team Management', req);
+    logServerActivity(user.id, `Updated member ${member.email} status to ${status || role}`, 'Team Management', req);
     saveDb();
-    res.json({ success: true, member, teamMembers: serverTeamMembers });
+    const orgTeamMembers = localDb.getTeamMembers(verifiedOrgId);
+    res.json({ success: true, member, teamMembers: orgTeamMembers });
   };
   app.put('/team/role', handleUpdateTeamRole);
   app.put('/api/v1/team/role', handleUpdateTeamRole);
 
   // TEAM API: Remove Member
   const handleRemoveTeam = (req: any, res: any) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
     const { id } = req.body;
     if (!id) {
       return res.status(400).json({ error: 'Team member ID is required.' });
     }
 
-    const index = serverTeamMembers.findIndex(m => m.id === id);
+    const index = serverTeamMembers.findIndex(m => m.id === id && ((m as any).organizationId === verifiedOrgId || !(m as any).organizationId));
     if (index === -1) {
       return res.status(404).json({ error: 'Team member not found.' });
     }
 
     const deleted = serverTeamMembers.splice(index, 1)[0];
-    logServerActivity(defaultUser.id || 'usr_81927391', `Removed team member ${deleted.email}`, 'Team Management', req);
+    logServerActivity(user.id, `Removed team member ${deleted.email}`, 'Team Management', req);
     saveDb();
-    res.json({ success: true, teamMembers: serverTeamMembers });
+    const orgTeamMembers = localDb.getTeamMembers(verifiedOrgId);
+    res.json({ success: true, teamMembers: orgTeamMembers });
   };
   app.delete('/team/remove', handleRemoveTeam);
   app.delete('/api/v1/team/remove', handleRemoveTeam);
@@ -3263,15 +3116,16 @@ async function startServer() {
   // Fetch Leads List (Stateless Database Query)
   app.get('/api/v1/leads', async (req, res) => {
     const user = getAuthenticatedUser(req);
-    const reqOrgId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string);
-    const orgId = reqOrgId || user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const allLeads = await getAllLeadsAsync(orgId);
-    const filteredLeads = allLeads.filter(l => {
-      const lOrg = (l as any).organizationId;
-      if (!lOrg || lOrg === 'org_salespilot_lifetime' || lOrg === orgId || lOrg === user?.organizationId) return true;
-      if (user?.isFounder || user?.role === 'ADMIN' || user?.role === 'OWNER') return true;
-      return true; // Keep persisted leads accessible across workspace sessions
-    });
+    const filteredLeads = allLeads.filter(l => (l as any).organizationId === orgId);
     console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}"`);
     res.json({ success: true, count: filteredLeads.length, leads: filteredLeads });
   });
@@ -3285,7 +3139,13 @@ async function startServer() {
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     const newLead: Lead & { organizationId?: string } = {
       id: `ld_${Date.now()}`,
@@ -3423,12 +3283,18 @@ async function startServer() {
   }
 
   // 1. Fetch Company Research & Contact Intel
-  app.get('/api/v1/ai/research/:leadId', (req, res) => {
+  app.get('/api/v1/ai/research/:leadId', async (req, res) => {
     const { leadId } = req.params;
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = await findLeadByIdAsync(leadId, orgId);
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -3449,9 +3315,15 @@ async function startServer() {
   app.post('/api/v1/ai/research/:leadId', async (req, res) => {
     const { leadId } = req.params;
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = await findLeadByIdAsync(leadId, orgId);
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -3476,9 +3348,15 @@ async function startServer() {
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = await findLeadByIdAsync(leadId, orgId);
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -3574,7 +3452,13 @@ Rules:
   app.get('/api/v1/ai/email/generations/:leadId', (req, res) => {
     const { leadId } = req.params;
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     const gens = localDb.getAiEmailGenerationsByLeadId(leadId).filter(e => e.organizationId === orgId);
     res.json(gens);
@@ -3605,9 +3489,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -3699,7 +3589,13 @@ Rules:
   app.get('/api/v1/ai/followups/:leadId', (req, res) => {
     const { leadId } = req.params;
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     const followups = localDb.getAiFollowupsByLeadId(leadId).filter(f => f.organizationId === orgId);
     res.json(followups);
@@ -3725,9 +3621,15 @@ Rules:
   app.get('/api/v1/ai/meeting-brief/:appointmentId', async (req, res) => {
     const { appointmentId } = req.params;
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const appt = appointments.find(a => a.id === appointmentId && (!(a as any).organizationId || (a as any).organizationId === orgId));
+    const appt = appointments.find(a => a.id === appointmentId && (a as any).organizationId === orgId);
     if (!appt) {
       res.status(404).json({ error: 'Appointment not found.' });
       return;
@@ -3740,7 +3642,7 @@ Rules:
     }
 
     const geminiKey = process.env.GEMINI_API_KEY;
-    const lead = leads.find(l => l.id === appt.leadId);
+    const lead = leads.find(l => l.id === appt.leadId && (l as any).organizationId === orgId);
 
     let companyOverview = `${appt.company || 'The prospect company'} is scheduled for a business call.`;
     let contactOverview = `${appt.leadName || 'The prospect decision maker'} is joining the meeting.`;
@@ -3840,9 +3742,15 @@ Return only JSON without markdown wrappers.`;
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -3911,7 +3819,13 @@ Rules:
   app.get('/api/v1/ai/proposals/:leadId', (req, res) => {
     const { leadId } = req.params;
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     const props = localDb.getAiProposalsByLeadId(leadId).filter(p => p.organizationId === orgId);
     res.json(props);
@@ -3926,9 +3840,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -3977,9 +3897,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -4019,9 +3945,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -4049,9 +3981,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -4082,9 +4020,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -4113,9 +4057,15 @@ Rules:
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
-    const lead = leads.find(l => l.id === leadId && (!(l as any).organizationId || (l as any).organizationId === orgId));
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || (localDb.getLeadById(leadId) as any)?.organizationId === orgId ? localDb.getLeadById(leadId) : null;
     if (!lead) {
       res.status(404).json({ error: 'Lead not found or access denied.' });
       return;
@@ -4141,17 +4091,23 @@ Rules:
 
   // --- Dynamic Permission Resolver & Overrides ---
   const hasPermission = (userId: string, orgId: string, permissionName: string): boolean => {
+    if (!userId || !orgId) return false;
     const user = localDb.getUsers().find(u => u.id === userId);
     if (!user) return false;
 
-    // Founder/Owner always has all permissions
-    if (user.email.toLowerCase() === FOUNDER_EMAIL.toLowerCase() || user.role === 'OWNER') {
+    // Check if user is owner of this specific organization
+    const org = localDb.getOrganizationById(orgId);
+    const isOwnerOfOrg = (org && org.ownerId === userId) || (user.organizationId === orgId && user.role === 'OWNER');
+    if (isOwnerOfOrg) {
       return true;
     }
 
-    // Resolve member role first
-    const member = localDb.getTeamMembers(orgId).find((m: any) => m.userId === userId);
-    const memberRoleName = member ? member.role : user.role;
+    // Resolve member role within this specific orgId
+    const member = localDb.getTeamMembers(orgId).find((m: any) => m.userId === userId && (m as any).organizationId === orgId);
+    if (!member && user.organizationId !== orgId) {
+      return false;
+    }
+    const memberRoleName = member ? member.role : (user.organizationId === orgId ? user.role : 'VIEWER');
 
     // Let's resolve standard roles' permission mappings:
     const standardRolePermissions: Record<string, string[]> = {
@@ -4215,13 +4171,60 @@ Rules:
   // --- 1. ORGANIZATIONS ENDPOINTS ---
   app.get('/api/v1/workspace/organizations', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgs = localDb.getOrganizations();
-    if (user.email.toLowerCase() === FOUNDER_EMAIL.toLowerCase()) {
-      res.json({ success: true, organizations: orgs });
-    } else {
-      const userOrg = orgs.filter(o => o.id === user.organizationId);
-      res.json({ success: true, organizations: userOrg });
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
+    const orgs = localDb.getOrganizations();
+    const memberships = localDb.getOrganizationMembers().filter(m => m.userId === user.id);
+    const memberOrgIds = new Set(memberships.map(m => m.organizationId));
+    if (user.organizationId) memberOrgIds.add(user.organizationId);
+
+    const userOrgs = orgs.filter(o => o.ownerId === user.id || memberOrgIds.has(o.id));
+    res.json({ success: true, organizations: userOrgs });
+  });
+
+  app.get('/api/v1/workspace/current', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const org = localDb.getOrganizations().find(o => o.id === orgId);
+    if (!org) {
+      return res.status(404).json({ error: 'Organization workspace not found.' });
+    }
+    res.json({ success: true, organization: org });
+  });
+
+  app.post('/api/v1/workspace/switch', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { organizationId } = req.body;
+    if (!organizationId) {
+      return res.status(400).json({ error: 'Target organizationId is required.' });
+    }
+
+    const orgs = localDb.getOrganizations();
+    const targetOrg = orgs.find(o => o.id === organizationId);
+    if (!targetOrg) {
+      return res.status(404).json({ error: 'Target organization does not exist.' });
+    }
+
+    const memberships = localDb.getOrganizationMembers().filter(m => m.userId === user.id);
+    const isMember = targetOrg.ownerId === user.id || memberships.some(m => m.organizationId === organizationId);
+    if (!isMember) {
+      return res.status(403).json({ error: 'Forbidden. You are not a member of this workspace.' });
+    }
+
+    user.organizationId = organizationId;
+    localDb.saveUser(user);
+    res.json({ success: true, organizationId, organization: targetOrg });
   });
 
   app.post('/api/v1/workspace/organizations', async (req, res) => {
@@ -4342,14 +4345,26 @@ Rules:
   // --- 2. INVITATIONS ENDPOINTS ---
   app.get('/api/v1/workspace/invitations', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
     const list = localDb.getInvitations(orgId);
     res.json({ success: true, invitations: list });
   });
 
   app.post('/api/v1/workspace/invitations', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { email, role } = req.body;
 
     if (!email) {
@@ -4478,7 +4493,13 @@ Rules:
   app.get('/api/v1/workflows', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+      }
       const list = localDb.getWorkflows(orgId);
       res.json({ success: true, workflows: list });
     } catch (err: any) {
@@ -4490,7 +4511,13 @@ Rules:
   app.post('/api/v1/workflows', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { name, description, triggerType, triggerConfig, nodes, edges } = req.body;
 
       if (!name || !triggerType) {
@@ -4534,8 +4561,8 @@ Rules:
       localDb.addAutomationHistory({
         id: 'hist_' + Math.random().toString(36).substring(2, 11),
         organizationId: orgId,
-        userId: user?.id || 'usr_81927391',
-        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        userId: user.id,
+        userEmail: user.email,
         workflowId: newWorkflow.id,
         workflowName: newWorkflow.name,
         action: 'CREATE',
@@ -4553,7 +4580,13 @@ Rules:
   app.patch('/api/v1/workflows/:id', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
       const { name, description, status, triggerType, triggerConfig, nodes, edges } = req.body;
 
@@ -4609,8 +4642,8 @@ Rules:
       localDb.addAutomationHistory({
         id: 'hist_' + Math.random().toString(36).substring(2, 11),
         organizationId: orgId,
-        userId: user?.id || 'usr_81927391',
-        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        userId: user.id,
+        userEmail: user.email,
         workflowId: id,
         workflowName: reloaded.name,
         action: actionType,
@@ -4628,7 +4661,13 @@ Rules:
   app.delete('/api/v1/workflows/:id', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
 
       const workflow = localDb.getWorkflowById(id);
@@ -4641,8 +4680,8 @@ Rules:
       localDb.addAutomationHistory({
         id: 'hist_' + Math.random().toString(36).substring(2, 11),
         organizationId: orgId,
-        userId: user?.id || 'usr_81927391',
-        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        userId: user.id,
+        userEmail: user.email,
         workflowId: id,
         workflowName: workflow.name,
         action: 'DELETE',
@@ -4660,7 +4699,13 @@ Rules:
   app.post('/api/v1/workflows/run', async (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { workflowId, contextData } = req.body;
 
       const workflow = localDb.getWorkflowById(workflowId);
@@ -4681,7 +4726,13 @@ Rules:
   app.get('/api/v1/workflows/logs', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { workflowId, runId } = req.query;
 
       const logs = localDb.getWorkflowLogs(workflowId as string, runId as string);
@@ -4695,7 +4746,13 @@ Rules:
   app.get('/api/v1/workflows/:id/runs', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
 
       const runs = localDb.getWorkflowRuns(orgId).filter(r => r.workflowId === id);
@@ -4709,7 +4766,13 @@ Rules:
   app.get('/api/v1/workflows/:id/versions', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
 
       const workflow = localDb.getWorkflowById(id);
@@ -4728,7 +4791,13 @@ Rules:
   app.post('/api/v1/workflows/:id/versions/restore', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
       const { versionNumber } = req.body;
 
@@ -4752,8 +4821,8 @@ Rules:
       localDb.addAutomationHistory({
         id: 'hist_' + Math.random().toString(36).substring(2, 11),
         organizationId: orgId,
-        userId: user?.id || 'usr_81927391',
-        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        userId: user.id,
+        userEmail: user.email,
         workflowId: id,
         workflowName: workflow.name,
         action: 'VERSION_RESTORE',
@@ -4771,7 +4840,13 @@ Rules:
   app.post('/api/v1/workflows/:id/clone', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
 
       const workflow = localDb.getWorkflowById(id);
@@ -4805,8 +4880,8 @@ Rules:
       localDb.addAutomationHistory({
         id: 'hist_' + Math.random().toString(36).substring(2, 11),
         organizationId: orgId,
-        userId: user?.id || 'usr_81927391',
-        userEmail: user?.email || 'sohamkharat481@gmail.com',
+        userId: user.id,
+        userEmail: user.email,
         workflowId: clonedId,
         workflowName: cloned.name,
         action: 'CLONE',
@@ -4824,7 +4899,13 @@ Rules:
   app.get('/api/v1/workflows/:id/export', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { id } = req.params;
 
       const workflow = localDb.getWorkflowById(id);
@@ -4844,7 +4925,13 @@ Rules:
   app.post('/api/v1/workflows/import', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const { workflowJson } = req.body;
 
       const parsed = typeof workflowJson === 'string' ? JSON.parse(workflowJson) : workflowJson;
@@ -4890,7 +4977,13 @@ Rules:
   app.get('/api/v1/workflows/history', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
       const history = localDb.getAutomationHistory(orgId);
       res.json({ success: true, history });
     } catch (err: any) {
@@ -4901,14 +4994,26 @@ Rules:
   // --- 3. ROLES ENDPOINTS ---
   app.get('/api/v1/workspace/roles', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
     const list = localDb.getRoles(orgId);
     res.json({ success: true, roles: list });
   });
 
   app.post('/api/v1/workspace/roles', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { name, description } = req.body;
 
     if (!name) {
@@ -4935,7 +5040,13 @@ Rules:
 
   app.delete('/api/v1/workspace/roles/:id', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { id } = req.params;
 
     if (!hasPermission(user.id, orgId, 'Manage Settings')) {
@@ -4964,7 +5075,13 @@ Rules:
 
   app.get('/api/v1/workspace/permissions/matrix', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     // Fetch team member matrix
     const members = localDb.getTeamMembers(orgId);
@@ -4994,7 +5111,13 @@ Rules:
 
   app.post('/api/v1/workspace/permissions/matrix', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { memberId, permissions } = req.body; // permissions: Array<{ permissionId: string, allowed: boolean }>
 
     if (!memberId || !permissions) {
@@ -5025,11 +5148,18 @@ Rules:
   // --- 5. NOTIFICATIONS ENDPOINTS ---
   app.get('/api/v1/workspace/notifications', (req, res) => {
     const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
     const list = localDb.getNotifications(user.id);
     res.json({ success: true, notifications: list });
   });
 
   app.post('/api/v1/workspace/notifications/:id/read', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
     const { id } = req.params;
     localDb.markNotificationRead(id);
     res.json({ success: true });
@@ -5037,7 +5167,13 @@ Rules:
 
   app.post('/api/v1/workspace/notifications', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { targetUserId, title, message, type } = req.body;
 
     if (!targetUserId || !title || !message) {
@@ -5062,7 +5198,13 @@ Rules:
   // --- 6. AUDIT LOGS ENDPOINTS ---
   app.get('/api/v1/workspace/audit-logs', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
     const list = localDb.getAuditLogs(orgId);
     res.json({ success: true, auditLogs: list });
   });
@@ -5070,7 +5212,13 @@ Rules:
   // --- 7. SHARED CRM OPERATIONS ---
   app.post('/api/v1/workspace/crm/assign', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { targetId, targetType, assigneeMemberId } = req.body; // targetType: 'lead' | 'deal' | 'meeting'
 
     if (!targetId || !targetType || !assigneeMemberId) {
@@ -5085,7 +5233,7 @@ Rules:
     let targetName = '';
 
     if (targetType === 'lead') {
-      const lead = leads.find((l: any) => l.id === targetId);
+      const lead = leads.find((l: any) => l.id === targetId && (l as any).organizationId === orgId);
       if (lead) {
         (lead as any).assignedToId = assigneeMemberId;
         (lead as any).assignedToName = assignee.fullName;
@@ -5093,7 +5241,7 @@ Rules:
         localDb.save();
       }
     } else if (targetType === 'deal') {
-      const deal = (localDb as any).db.deals?.find((d: any) => d.id === targetId);
+      const deal = (localDb as any).db.deals?.find((d: any) => d.id === targetId && (d as any).organizationId === orgId);
       if (deal) {
         deal.assignedToId = assigneeMemberId;
         deal.assignedToName = assignee.fullName;
@@ -5101,7 +5249,7 @@ Rules:
         localDb.save();
       }
     } else if (targetType === 'meeting') {
-      const appt = (localDb as any).db.appointments?.find((a: any) => a.id === targetId);
+      const appt = (localDb as any).db.appointments?.find((a: any) => a.id === targetId && (a as any).organizationId === orgId);
       if (appt) {
         appt.assignedToId = assigneeMemberId;
         appt.assignedToName = assignee.fullName;
@@ -5131,7 +5279,13 @@ Rules:
 
   app.post('/api/v1/workspace/crm/comment', async (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { targetId, targetType, text, mentions } = req.body; // targetType: 'lead' | 'deal' | 'meeting', mentions: Array<string> (emails)
 
     if (!targetId || !targetType || !text) {
@@ -5143,7 +5297,7 @@ Rules:
     let targetName = '';
 
     if (targetType === 'lead') {
-      targetEntity = await getLeadByIdAsync(targetId);
+      targetEntity = await getLeadByIdAsync(targetId, orgId);
       if (targetEntity) {
         if (!targetEntity.timelineList) targetEntity.timelineList = [];
         targetEntity.timelineList.push({
@@ -5183,18 +5337,33 @@ Rules:
 
   app.get('/api/v1/workspace/crm/activities', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
     const list = localDb.getTeamActivities(orgId);
     res.json({ success: true, activities: list });
   });
 
   // AI-Powered Lead Enrichment with Gemini
   app.post('/api/v1/leads/:id/enrich', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5279,11 +5448,20 @@ Ensure the output is strictly valid JSON format.`;
 
   // AI-Powered Lead Research Regeneration
   app.post('/api/v1/leads/:id/research/regenerate', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5340,11 +5518,20 @@ Ensure the output is strictly valid JSON format.`;
 
   // Force retry a failed research job
   app.post('/api/v1/leads/:id/research/retry', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5374,11 +5561,20 @@ Ensure the output is strictly valid JSON format.`;
 
   // Update a Lead (CRM Status, Tags, Score, Website, etc.)
   app.put('/api/v1/leads/:id', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5416,10 +5612,19 @@ Ensure the output is strictly valid JSON format.`;
 
   // Delete a Lead
   app.delete('/api/v1/leads/:id', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
     await deleteLeadAsync(id);
@@ -5428,6 +5633,15 @@ Ensure the output is strictly valid JSON format.`;
 
   // Bulk Tag Assignment
   app.post('/api/v1/leads/bulk/tags', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { leadIds, tags } = req.body;
     if (!Array.isArray(leadIds) || !Array.isArray(tags)) {
       res.status(400).json({ error: 'leadIds and tags must be arrays.' });
@@ -5435,7 +5649,7 @@ Ensure the output is strictly valid JSON format.`;
     }
 
     for (const id of leadIds) {
-      const lead = await getLeadByIdAsync(id);
+      const lead = await getLeadByIdAsync(id, orgId);
       if (lead) {
         const newTags = Array.from(new Set([...(lead.tags || []), ...tags]));
         await updateLeadAsync(id, { tags: newTags });
@@ -5447,6 +5661,15 @@ Ensure the output is strictly valid JSON format.`;
 
   // Bulk CRM Stage Movement
   app.post('/api/v1/leads/bulk/stage', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { leadIds, stage } = req.body;
     if (!Array.isArray(leadIds) || !stage) {
       res.status(400).json({ error: 'leadIds array and target stage are required.' });
@@ -5454,7 +5677,7 @@ Ensure the output is strictly valid JSON format.`;
     }
 
     for (const id of leadIds) {
-      const lead = await getLeadByIdAsync(id);
+      const lead = await getLeadByIdAsync(id, orgId);
       if (lead) {
         const oldStatus = lead.status;
         const timelineList = lead.timelineList || [];
@@ -5473,12 +5696,21 @@ Ensure the output is strictly valid JSON format.`;
 
   // Add a Note to a Lead
   app.post('/api/v1/leads/:id/notes', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
     const { text } = req.body;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5509,12 +5741,21 @@ Ensure the output is strictly valid JSON format.`;
 
   // Add a Task to a Lead
   app.post('/api/v1/leads/:id/tasks', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
     const { text, dueDate } = req.body;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5546,11 +5787,20 @@ Ensure the output is strictly valid JSON format.`;
 
   // Toggle Task Completion State
   app.post('/api/v1/leads/:id/tasks/:taskId/toggle', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id, taskId } = req.params;
-    const lead = await getLeadByIdAsync(id);
+    const lead = await getLeadByIdAsync(id, orgId);
 
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found.' });
+      res.status(404).json({ error: 'Lead not found in this workspace.' });
       return;
     }
 
@@ -5578,6 +5828,15 @@ Ensure the output is strictly valid JSON format.`;
   // AI-Powered B2B Lead Generation Pluggable Spider Agent
   app.post('/api/v1/leads/generate', async (req, res) => {
     try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+      if (orgErr || !orgId) {
+        return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+      }
+
       const { 
         campaignName, 
         country, 
@@ -6361,44 +6620,36 @@ Ensure the output is strictly valid JSON format.`;
 
         // Persistent Database ID resolution
         let finalDbId = persistentDbId;
-        let resolvedOrgId: string | null = null;
-        const currentReqUser = getAuthenticatedUser(req);
-        const targetOrgId = currentReqUser?.organizationId || 'org_salespilot_lifetime';
+        const targetOrgId = orgId;
+        let resolvedOrgId: string = targetOrgId;
 
         // Save to Supabase (Only verified businesses!)
         const supabase = getSupabaseClient();
         if (supabase) {
-          console.log(`[SUPABASE] Saving lead for "${newLead.company}" to database...`);
+          console.log(`[SUPABASE] Saving lead for "${newLead.company}" to database for organization "${targetOrgId}"...`);
           try {
-            console.log(`[SUPABASE] Checking existing organizations...`);
-            const { data: orgs, error: orgFetchErr } = await supabase.from('organizations').select('id').limit(1);
+            console.log(`[SUPABASE] Checking organization: ${targetOrgId}...`);
+            const { data: orgRecord, error: orgFetchErr } = await supabase.from('organizations').select('id').eq('id', targetOrgId).maybeSingle();
             if (orgFetchErr) {
               console.error(`[SUPABASE] Error fetching organization:`, orgFetchErr);
             }
-            if (orgs && orgs.length > 0) {
-              resolvedOrgId = orgs[0].id;
-              console.log(`[SUPABASE] Found existing organization ID: ${resolvedOrgId}`);
-            } else {
-              console.log(`[SUPABASE] Creating default organization...`);
+            if (!orgRecord) {
+              console.log(`[SUPABASE] Creating organization ${targetOrgId} in Supabase...`);
+              const orgDetails = localDb.getOrganizationById(targetOrgId);
               const { data: newOrg, error: orgInsErr } = await supabase.from('organizations').insert({
-                id: targetOrgId || 'org_salespilot_lifetime',
-                name: 'Default Organization',
-                company_name: 'Default Organization',
+                id: targetOrgId,
+                name: orgDetails?.name || 'Workspace',
+                company_name: orgDetails?.companyName || orgDetails?.name || 'Workspace',
                 country: country || 'India'
               }).select('id');
               if (orgInsErr) {
                 console.error(`[SUPABASE] Organization creation failed:`, orgInsErr);
               }
-              if (newOrg && newOrg.length > 0) {
-                resolvedOrgId = newOrg[0].id;
-                console.log(`[SUPABASE] Created new organization with ID: ${resolvedOrgId}`);
-              }
             }
 
-            if (resolvedOrgId || targetOrgId) {
-              const dbLead: any = {
-                id: persistentDbId,
-                organization_id: resolvedOrgId || targetOrgId,
+            const dbLead: any = {
+              id: persistentDbId,
+              organization_id: targetOrgId,
                 first_name: newLead.firstName || 'Prospect',
                 last_name: newLead.lastName || '',
                 company: newLead.company || 'Company',
@@ -6456,17 +6707,14 @@ Ensure the output is strictly valid JSON format.`;
                 supabaseDiagnosticState.tables.leads = true;
                 console.log(`[SUPABASE] Lead inserted successfully! Assigned Database ID: "${finalDbId}". Total inserted: ${insertedToSupabase}`);
               }
-            } else {
-              console.warn(`[SUPABASE] Skipped lead insertion because organization_id could not be resolved.`);
+            } catch (dbErr: any) {
+              supabaseDiagnosticState.lastLeadInsertStatus = `EXCEPTION: ${dbErr?.message || dbErr}`;
+              console.error('[SUPABASE] lead insertion exception:', dbErr);
             }
-          } catch (dbErr: any) {
-            supabaseDiagnosticState.lastLeadInsertStatus = `EXCEPTION: ${dbErr?.message || dbErr}`;
-            console.error('[SUPABASE] lead insertion exception:', dbErr);
+          } else {
+            supabaseDiagnosticState.lastLeadInsertStatus = `LOCAL_ONLY (ID: ${finalDbId})`;
+            console.log('[SUPABASE] Supabase is not configured or disabled. Saved lead to local primary key database.');
           }
-        } else {
-          supabaseDiagnosticState.lastLeadInsertStatus = `LOCAL_ONLY (ID: ${finalDbId})`;
-          console.log('[SUPABASE] Supabase is not configured or disabled. Saved lead to local primary key database.');
-        }
 
         // REPLACE TEMPORARY ID WITH PERSISTENT DATABASE PRIMARY KEY ID
         newLead.id = finalDbId;
@@ -6747,8 +6995,14 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
   // Fetch Campaigns
   app.get('/api/v1/campaigns', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const filteredCampaigns = campaigns.filter(c => !(c as any).organizationId || (c as any).organizationId === orgId);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const filteredCampaigns = campaigns.filter(c => (c as any).organizationId === orgId);
     res.json({ campaigns: filteredCampaigns });
   });
 
@@ -6761,7 +7015,13 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     }
 
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     const newCampaign: Campaign & { organizationId?: string } = {
       id: `camp_${Date.now()}`,
@@ -6854,24 +7114,36 @@ Respond strictly with valid JSON.`;
   });
 
   // State for Outreach History
-  let outreachHistory = [
-    { id: 'h_1', type: 'EMAIL', event: 'Initial Outreach Sent', leadName: 'Ananya Sharma', company: 'Apex Marketing Solutions', details: 'Cold email variation A sent.', timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), status: 'Sent' },
-    { id: 'h_2', type: 'LINKEDIN', event: 'LinkedIn Connected', leadName: 'Ananya Sharma', company: 'Apex Marketing Solutions', details: 'LinkedIn connection accepted.', timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), status: 'Delivered' },
-    { id: 'h_3', type: 'EMAIL', event: 'Email Opened', leadName: 'Ananya Sharma', company: 'Apex Marketing Solutions', details: 'Opened "Quick query regarding scaling Apex Marketing Solutions".', timestamp: new Date(Date.now() - 2.5 * 24 * 60 * 60 * 1000).toISOString(), status: 'Opened' },
-    { id: 'h_4', type: 'EMAIL', event: 'Reply Received', leadName: 'Ananya Sharma', company: 'Apex Marketing Solutions', details: 'Reply: "Hi Soham, yes, we are interested. Can you share a deck?"', timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), status: 'Replied' },
-    { id: 'h_5', type: 'CALENDAR', event: 'Google Meet Scheduled', leadName: 'Sneha Kapoor', company: 'CloudFlow SaaS', details: 'Meeting booked for demo at 11:30 AM IST.', timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), status: 'Meeting Booked' }
-  ];
+  let outreachHistory: any[] = [];
 
   // Fetch Outreach History
   app.get('/api/v1/outreach/history', (req, res) => {
-    res.json({ history: outreachHistory });
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const orgHistory = outreachHistory.filter(h => (h as any).organizationId === orgId);
+    res.json({ history: orgHistory });
   });
 
   // Add Outreach History Event
   app.post('/api/v1/outreach/history', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     const { type, event, leadName, company, details, status } = req.body;
     const newEvent = {
       id: `h_${Date.now()}`,
+      organizationId: orgId,
       type: type || 'EMAIL',
       event: event || 'Outreach Update',
       leadName: leadName || 'General Lead',
@@ -7270,8 +7542,10 @@ Answer their strategic question in exactly 2 to 3 sentences. Provide very tactic
       });
 
       const conversationHistory = messages.slice(-5).map(m => `${m.role === 'user' ? 'Client' : 'Assistant'}: ${m.content}`).join('\n');
+      const user = getAuthenticatedUser(req);
+      const hostOrgName = user?.companyName || 'SalesPilot';
 
-      const prompt = `You are "Aero", the highly intelligent Client Portal AI Assistant for "Horizon Media" (a world-class growth & B2B outreach agency).
+      const prompt = `You are "Aero", the highly intelligent Client Portal AI Assistant for "${hostOrgName}" (a world-class growth & B2B outreach agency).
 You are talking to a premium client from "${companyName || 'our client partner company'}" which operates in the "${clientIndustry || 'Growth'}" industry.
 
 Here is the recent conversation history:
@@ -7295,19 +7569,34 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Fetch Pipeline Deals
   app.get('/api/v1/deals', (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
-    const filteredDeals = deals.filter(d => !(d as any).organizationId || (d as any).organizationId === orgId);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const filteredDeals = deals.filter(d => (d as any).organizationId === orgId);
     res.json({ deals: filteredDeals });
   });
 
   // Update Deal Stage
   app.put('/api/v1/deals/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
     const { stage, valueInr } = req.body;
-    const deal = deals.find(d => d.id === id);
+    const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
 
     if (!deal) {
-      res.status(404).json({ error: 'Deal not found.' });
+      res.status(404).json({ error: 'Deal not found in this workspace.' });
       return;
     }
 
@@ -7321,15 +7610,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Create Deal
   app.post('/api/v1/deals', (req, res) => {
-    const { leadId, valueInr, stage, notes } = req.body;
-    const lead = leads.find(l => l.id === leadId);
-    if (!lead) {
-      res.status(400).json({ error: 'Invalid lead ID selected for deal.' });
-      return;
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    const { leadId, valueInr, stage, notes } = req.body;
+    const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || localDb.getLeadById(leadId);
+    if (!lead || (lead as any).organizationId !== orgId) {
+      res.status(400).json({ error: 'Invalid lead ID selected for deal or lead belongs to another workspace.' });
+      return;
+    }
 
     const newDeal: Deal & { organizationId?: string } = {
       id: `dl_${Date.now()}`,
@@ -7350,15 +7645,29 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetch Dashboard Metrics API
   app.get('/api/v1/dashboard/metrics', (req, res) => {
-    const totalLeadsCount = leads.length;
-    const qualifiedCount = leads.filter(l => l.status === 'QUALIFIED' || l.status === 'INTERESTED').length;
-    const activeCamps = campaigns.filter(c => c.status === 'ACTIVE').length;
-    const meetingsBooked = appointments.filter(a => a.status === 'SCHEDULED' || a.status === 'COMPLETED').length;
-    const repliesCount = Math.round(totalLeadsCount * 0.32); // Derived outbound performance
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const scopedLeads = leads.filter(l => (l as any).organizationId === orgId);
+    const scopedCampaigns = campaigns.filter(c => (c as any).organizationId === orgId);
+    const scopedAppointments = appointments.filter(a => (a as any).organizationId === orgId);
+    const scopedDeals = deals.filter(d => (d as any).organizationId === orgId);
+
+    const totalLeadsCount = scopedLeads.length;
+    const qualifiedCount = scopedLeads.filter(l => l.status === 'QUALIFIED' || l.status === 'INTERESTED').length;
+    const activeCamps = scopedCampaigns.filter(c => c.status === 'ACTIVE').length;
+    const meetingsBooked = scopedAppointments.filter(a => a.status === 'SCHEDULED' || a.status === 'COMPLETED').length;
+    const repliesCount = Math.round(totalLeadsCount * 0.32);
     
-    const wonDeals = deals.filter(d => d.stage === 'CLOSED_WON');
+    const wonDeals = scopedDeals.filter(d => d.stage === 'CLOSED_WON');
     const totalRevenue = wonDeals.reduce((sum, d) => sum + d.valueInr, 0);
-    const pipelineValue = deals.reduce((sum, d) => d.stage !== 'CLOSED_LOST' ? sum + d.valueInr : sum, 0);
+    const pipelineValue = scopedDeals.reduce((sum, d) => d.stage !== 'CLOSED_LOST' ? sum + d.valueInr : sum, 0);
     
     res.json({
       success: true,
@@ -7377,7 +7686,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetch Dashboard Notifications API
   app.get('/api/v1/dashboard/notifications', (req, res) => {
-    // Starts empty in real production SaaS
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
     res.json({
       success: true,
       notifications: []
@@ -7386,10 +7698,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetch Dashboard Activities API
   app.get('/api/v1/dashboard/activities', (req, res) => {
-    // Dynamically compile activities from actual database state rather than mock logs
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const scopedLeads = leads.filter(l => (l as any).organizationId === orgId);
+    const scopedCampaigns = campaigns.filter(c => (c as any).organizationId === orgId);
+    const scopedAppointments = appointments.filter(a => (a as any).organizationId === orgId);
+
     const dynamicActivities: any[] = [];
     
-    leads.forEach((l, idx) => {
+    scopedLeads.forEach((l, idx) => {
       dynamicActivities.push({
         id: `act-lead-${l.id || idx}-${idx}`,
         type: 'LEAD_CREATED',
@@ -7399,7 +7723,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
     });
 
-    campaigns.forEach((c, idx) => {
+    scopedCampaigns.forEach((c, idx) => {
       dynamicActivities.push({
         id: `act-camp-${c.id || idx}-${idx}`,
         type: 'CAMPAIGN_FINISHED',
@@ -7409,13 +7733,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
     });
 
-    appointments.forEach((a, idx) => {
+    scopedAppointments.forEach((a, idx) => {
       dynamicActivities.push({
         id: `act-meet-${a.id || idx}-${idx}`,
         type: 'MEETING_BOOKED',
         text: `Strategy demo confirmed & calendar booked with ${a.leadName}`,
         time: 'Scheduled',
-        user: 'Soham Kharat'
+        user: user.fullName || 'Team Member'
       });
     });
 
@@ -7427,7 +7751,20 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetch Dashboard Analytics & Chart Data API
   app.get('/api/v1/dashboard/analytics', (req, res) => {
-    const wonDeals = deals.filter(d => d.stage === 'CLOSED_WON');
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const scopedLeads = leads.filter(l => (l as any).organizationId === orgId);
+    const scopedCampaigns = campaigns.filter(c => (c as any).organizationId === orgId);
+    const scopedDeals = deals.filter(d => (d as any).organizationId === orgId);
+
+    const wonDeals = scopedDeals.filter(d => d.stage === 'CLOSED_WON');
     const revenueHistory = wonDeals.length > 0 ? [
       { month: 'Jan', revenue: 0, goal: 150000 },
       { month: 'Feb', revenue: 0, goal: 150000 },
@@ -7438,14 +7775,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       { month: 'Jul', revenue: wonDeals.reduce((sum, d) => sum + d.valueInr, 0), goal: 400000 }
     ] : [];
 
-    const leadSources = leads.length > 0 ? [
-      { name: 'Astra Scraper', value: leads.filter(l => l.source === 'ASTRA').length || 1, color: '#3b82f6' },
-      { name: 'Manual Import', value: leads.filter(l => l.source === 'MANUAL').length || 0, color: '#10b981' },
-      { name: 'LinkedIn Finder', value: leads.filter(l => l.source === 'LINKEDIN').length || 0, color: '#8b5cf6' },
-      { name: 'Client Portal', value: leads.filter(l => l.source === 'PORTAL').length || 0, color: '#f59e0b' }
+    const leadSources = scopedLeads.length > 0 ? [
+      { name: 'Astra Scraper', value: scopedLeads.filter(l => l.source === 'ASTRA').length || 1, color: '#3b82f6' },
+      { name: 'Manual Import', value: scopedLeads.filter(l => l.source === 'MANUAL').length || 0, color: '#10b981' },
+      { name: 'LinkedIn Finder', value: scopedLeads.filter(l => l.source === 'LINKEDIN').length || 0, color: '#8b5cf6' },
+      { name: 'Client Portal', value: scopedLeads.filter(l => l.source === 'PORTAL').length || 0, color: '#f59e0b' }
     ] : [];
 
-    const campaignPerformance = campaigns.length > 0 ? campaigns.map(c => ({
+    const campaignPerformance = scopedCampaigns.length > 0 ? scopedCampaigns.map(c => ({
       name: c.name,
       openRate: 0,
       replyRate: 0,
@@ -7465,14 +7802,20 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Fetch Scheduled Appointments
   app.get('/api/v1/appointments', async (req, res) => {
     const user = getAuthenticatedUser(req);
-    const orgId = user?.organizationId || 'org_salespilot_lifetime';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
 
     const supabase = getSupabaseClient();
     let fetchedApts: Appointment[] = [];
     if (supabase) {
       try {
-        const { data, error } = await supabase.from('appointments').select('*').eq('organization_id', orgId);
-        if (!error && data && data.length > 0) {
+        const { data, error: sbError } = await supabase.from('appointments').select('*').eq('organization_id', orgId);
+        if (!sbError && data && data.length > 0) {
           fetchedApts = data.map((row: any) => {
             let meta: any = {};
             if (row.notes && typeof row.notes === 'string' && row.notes.startsWith('{')) {
@@ -7506,20 +7849,16 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const aptMap = new Map<string, Appointment>();
-    appointments.forEach(a => aptMap.set(a.id, a));
+    appointments.filter(a => (a as any).organizationId === orgId).forEach(a => aptMap.set(a.id, a));
     fetchedApts.forEach(a => aptMap.set(a.id, a));
 
     const combinedApts = Array.from(aptMap.values());
-    appointments = combinedApts;
-    localDb.db.appointments = combinedApts;
-    saveDb();
-
     const filteredApts = combinedApts
       .filter(a => {
         const meetingLink = String(a.meetingLink || '');
         return !meetingLink.includes('/mock-meet-') && !meetingLink.includes('/sp-demo-');
       })
-      .filter(a => !orgId || !(a as any).organizationId || (a as any).organizationId === orgId);
+      .filter(a => (a as any).organizationId === orgId);
 
     res.json({ appointments: filteredApts });
   });
@@ -7529,8 +7868,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     try {
       const { leadId, dateTime, durationMins, notes, timezone, isOnline = true } = req.body;
       const user = getAuthenticatedUser(req);
-      const orgId = user?.organizationId || 'org_salespilot_lifetime';
-      const userId = user?.id || 'usr_salespilot_founder';
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+      }
+      const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+      }
+      const userId = user.id;
       const bookingRequestId = `bk_req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
       console.log(`[BOOKING API] Booking Request ID: "${bookingRequestId}". Received leadId: "${leadId}". Payload:`, JSON.stringify(req.body));
@@ -7904,12 +8249,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Update Appointment (Status, Date/Time, Timezone, Duration)
   app.put('/api/v1/appointments/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
     const { status, dateTime, durationMins, timezone, notes } = req.body;
-    const apt = appointments.find(a => a.id === id);
+    const apt = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
 
     if (!apt) {
-      res.status(404).json({ error: 'Appointment not found.' });
+      res.status(404).json({ error: 'Appointment not found in this workspace.' });
       return;
     }
 
@@ -7975,12 +8329,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Add notes/updates to Appointment Timeline
   app.put('/api/v1/appointments/:id/notes', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
     const { notes } = req.body;
-    const apt = appointments.find(a => a.id === id);
+    const apt = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
 
     if (!apt) {
-      res.status(404).json({ error: 'Appointment not found.' });
+      res.status(404).json({ error: 'Appointment not found in this workspace.' });
       return;
     }
 
@@ -7999,12 +8362,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Trigger Google Meet / Calendar Alert reminders
   app.post('/api/v1/appointments/:id/remind', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id } = req.params;
     const { channel } = req.body; // 'email' | 'sms' | 'whatsapp'
-    const apt = appointments.find(a => a.id === id);
+    const apt = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
 
     if (!apt) {
-      res.status(404).json({ error: 'Appointment not found.' });
+      res.status(404).json({ error: 'Appointment not found in this workspace.' });
       return;
     }
 
@@ -8036,9 +8408,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Cashfree INR Billing Simulation & Production Architecture Setup
   // In-memory mapping of orders to avoid relying on frontend status
-  const pendingOrders = new Map<string, { tier: SubscriptionTier; valueInr: number; status: string }>();
+  const pendingOrders = new Map<string, { userId: string; tier: SubscriptionTier; valueInr: number; status: string }>();
 
   app.post('/api/v1/payments/create-order', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
     const { tier, valueInr } = req.body;
     if (!tier || !valueInr) {
       res.status(400).json({ error: 'Tier name and amount are required.' });
@@ -8058,10 +8435,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       payment_session_id: `session_cf_sp_${Math.random().toString(36).substring(7)}`,
       payment_link: `https://test.cashfree.com/billpay/checkout/link/${Math.random().toString(36).substring(5)}`,
       customer_details: {
-        customer_id: defaultUser.id,
-        customer_name: defaultUser.fullName,
-        customer_email: defaultUser.email,
-        customer_phone: '+919999999999'
+        customer_id: user.id,
+        customer_name: user.fullName || 'Workspace User',
+        customer_email: user.email,
+        customer_phone: user.phone || '+919999999999'
       },
       order_meta: {
         return_url: `${req.headers.origin || 'http://localhost:3000'}/billing?order_id={order_id}`,
@@ -8071,7 +8448,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     };
 
     // Store in backend pending orders list
-    pendingOrders.set(orderId, { tier: tier as SubscriptionTier, valueInr, status: 'PENDING' });
+    pendingOrders.set(orderId, { userId: user.id, tier: tier as SubscriptionTier, valueInr, status: 'PENDING' });
 
     console.log(`[PAYMENT] [Cashfree PG] Generated order ${orderId} for Rs.${valueInr} INR (Tier: ${tier})`);
     res.json({
@@ -8083,6 +8460,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   app.post('/api/v1/payments/verify-payment', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
     const { order_id } = req.body;
     if (!order_id) {
       res.status(400).json({ error: 'order_id is required' });
@@ -8098,7 +8480,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     // Update system user tier securely based on checked order details
     const finalTier = order.tier;
-    defaultUser.tier = finalTier;
+    const targetUser = serverUsers.find(u => u.id === order.userId) || localDb.getUserById(order.userId) || user;
+    targetUser.tier = finalTier;
+    try { localDb.saveUser(targetUser as any); } catch (_) {}
     order.status = 'SUCCESS';
 
     console.log(`[SECURE] [Cashfree PG Verification] Securely verified payment for order ${order_id}. Upgraded to tier ${finalTier}`);
@@ -8108,7 +8492,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       order_id,
       payment_status: 'SUCCESS',
       transaction_id: `tx_sp_verified_${Date.now()}`,
-      updated_user: defaultUser
+      updated_user: targetUser
     });
   });
 
@@ -8153,7 +8537,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (order) {
       order.status = paymentStatus;
       if (paymentStatus === 'SUCCESS') {
-        defaultUser.tier = order.tier;
+        const targetUser = serverUsers.find(u => u.id === order.userId) || localDb.getUserById(order.userId);
+        if (targetUser) {
+          targetUser.tier = order.tier;
+          try { localDb.saveUser(targetUser as any); } catch (_) {}
+        }
         console.log(`[FAST] [Cashfree Webhook Success] Activated tier ${order.tier} for workspace.`);
       } else {
         console.log(`[WARN] [Cashfree Webhook Status] Transaction updated to status: ${paymentStatus}`);
@@ -9259,23 +9647,44 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // GET Workflow Analytics Summary
   app.get('/api/v1/workflows/analytics', (req, res) => {
-    const total = workflowExecutions.length;
-    const successCount = workflowExecutions.filter(e => e.status === 'SUCCESS').length;
-    const failedCount = workflowExecutions.filter(e => e.status === 'FAILED').length;
-    const successRate = total > 0 ? Math.round((successCount / total) * 100) : 100;
-    const activeCount = workflows.filter(w => w.status === 'ACTIVE').length;
-    const averageDuration = total > 0 ? Math.round(workflowExecutions.reduce((acc, curr) => acc + curr.durationMs, 0) / total) : 500;
-
-    res.json({
-      success: true,
-      metrics: {
-        totalExecutions: total,
-        successRate,
-        activeWorkflows: activeCount,
-        averageDurationMs: averageDuration,
-        failedCount
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized. Authentication token required.' });
       }
-    });
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Organization access denied.' });
+      }
+
+      // Scope all workflow analytics to the verified user's organization
+      const orgWorkflows = localDb.getWorkflows(orgId);
+      const orgRuns = localDb.getWorkflowRuns(orgId);
+
+      const totalExecutions = orgRuns.length;
+      const successCount = orgRuns.filter(r => r.status === 'COMPLETED').length;
+      const failedCount = orgRuns.filter(r => r.status === 'FAILED').length;
+      const successRate = totalExecutions > 0 ? Math.round((successCount / totalExecutions) * 100) : 100;
+      const activeWorkflows = orgWorkflows.filter(w => w.status === 'ACTIVE').length;
+      const averageDurationMs = totalExecutions > 0 
+        ? Math.round(orgRuns.reduce((acc, curr) => acc + (curr.durationMs || 0), 0) / totalExecutions) 
+        : 0;
+
+      res.json({
+        success: true,
+        organizationId: orgId,
+        metrics: {
+          totalExecutions,
+          successRate,
+          activeWorkflows,
+          averageDurationMs,
+          failedCount
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // --- PROMPT TEMPLATES LIBRARY ---
@@ -11548,8 +11957,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // GET AI Usage statistics & limits
   app.get('/api/v1/openai/usage', (req, res) => {
     try {
+      const user = getAuthenticatedUser(req);
       const stats = getAiUsageStats();
-      const userTier = defaultUser.tier || 'PROFESSIONAL';
+      const userTier = user?.tier || 'PROFESSIONAL';
       res.json({
         success: true,
         stats,
@@ -11594,7 +12004,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return;
     }
 
-    const tier = defaultUser.tier || 'PROFESSIONAL';
+    const user = getAuthenticatedUser(req);
+    const tier = user?.tier || 'PROFESSIONAL';
 
     // Set up chat session history/memory if sessionId is active
     let activeSystemPrompt = systemPrompt || 'You are an expert AI sales growth coach.';
@@ -12007,17 +12418,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     integrationStatuses.clearbit.status = 'CONNECTED';
     integrationStatuses.clearbit.averageLatencyMs = 150;
 
+    const companyBaseName = (domain.split('.')[0] || 'Enterprise').charAt(0).toUpperCase() + (domain.split('.')[0] || 'Enterprise').slice(1);
     const enriched = {
-      name: domain.includes('apex') ? 'Apex Marketing Solutions' : domain.split('.')[0].toUpperCase() + ' Corp',
-      legalName: domain.includes('apex') ? 'Apex Marketing Solutions Pvt Ltd' : domain.split('.')[0].toUpperCase() + ' Incorporated',
+      name: `${companyBaseName} Technologies`,
+      legalName: `${companyBaseName} Technologies Pvt Ltd`,
       domain,
       logo: `https://logo.clearbit.com/${domain}`,
       tags: ['SaaS', 'B2B', 'Marketing Automation', 'Enterprise Tech'],
       metrics: {
-        employees: domain.includes('apex') ? 34 : 150,
-        employeesRange: domain.includes('apex') ? '11-50' : '101-250',
-        estimatedRevenue: domain.includes('apex') ? '$2.5M USD' : '$15M USD',
-        raised: '$1.2M USD Seed'
+        employees: 85,
+        employeesRange: '51-200',
+        estimatedRevenue: '$5.0M USD',
+        raised: '$2.5M USD Series A'
       },
       techStack: ['Vercel', 'Supabase', 'Stripe', 'OpenAI', 'React', 'Google Workspace'],
       geo: {
@@ -12047,18 +12459,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     res.json({
       success: true,
       person: {
-        fullName: name || 'Ananya Sharma',
-        gender: 'female',
-        linkedinUrl: linkedinUrl || 'https://linkedin.com/in/ananya-sharma-apex',
-        title: title || 'Managing Director',
-        currentCompany: 'Apex Marketing Solutions',
+        fullName: name || 'Professional Contact',
+        gender: 'unspecified',
+        linkedinUrl: linkedinUrl || 'https://linkedin.com/in/prospect',
+        title: title || 'Executive Director',
+        currentCompany: 'Enterprise Partner',
         location: 'Bangalore, India',
-        emails: ['ananya.sharma@apexmarketing.in', 'ananya.s@gmail.com'],
+        emails: ['contact@enterprise.com'],
         phones: ['+919876543210'],
         jobHistory: [
-          { title: 'Managing Director', company: 'Apex Marketing Solutions', duration: '2023 - Present' },
-          { title: 'Lead Outreach Strategist', company: 'Horizon Growth Media', duration: '2021 - 2023' },
-          { title: 'Senior SDR Manager', company: 'Mumbai Inbounds', duration: '2019 - 2021' }
+          { title: 'Executive Director', company: 'Enterprise Partner', duration: '2023 - Present' },
+          { title: 'Lead Outreach Strategist', company: 'Global Growth Media', duration: '2021 - 2023' },
+          { title: 'Senior SDR Manager', company: 'Growth Inbounds', duration: '2019 - 2021' }
         ],
         education: [
           { degree: 'Master of Business Administration (MBA)', school: 'Indian Institute of Management (IIM)', year: '2019' }
@@ -12113,7 +12525,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     // Simulated high-fidelity local business details scraped from Maps API
     const businesses = [
       { name: 'Apex Local Advertising', address: '4th Block, Koramangala, Bangalore, KA 560034', phone: '+918012345670', website: 'apexlocalads.in', rating: 4.8, reviewsCount: 142, placeId: 'ChIJa81723_Kora1' },
-      { name: 'Horizon Media agency', address: 'Indiranagar Double Road, Bangalore, KA 560008', phone: '+918012345671', website: 'horizonmedia.in', rating: 4.6, reviewsCount: 89, placeId: 'ChIJa19302_Indi2' },
+      { name: 'Skyline Media Agency', address: 'Indiranagar Double Road, Bangalore, KA 560008', phone: '+918012345671', website: 'skylinemedia.in', rating: 4.6, reviewsCount: 89, placeId: 'ChIJa19302_Indi2' },
       { name: 'Zenith SEO Solutions', address: 'M.G. Road Central, Bangalore, KA 560001', phone: '+918012345672', website: 'zenithseo.co', rating: 4.4, reviewsCount: 34, placeId: 'ChIJa00112_MGRod3' }
     ];
 
@@ -12720,6 +13132,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
     triggerOutreachAutomation(leadId);
     res.json({ success: true, message: 'Outreach automation triggered for lead ' + leadId });
+  });
+
+  // Catch-all 404 handler for unknown /api/* routes (must be before SPA fallback)
+  app.all('/api/*all', (req, res) => {
+    res.status(404).json({ error: 'API route not found' });
   });
 
   // Vite middleware / static serve setup

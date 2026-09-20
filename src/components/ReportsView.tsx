@@ -3,6 +3,7 @@ import {
   FileText, Calendar, ShieldCheck, Download, Trash2, CheckCircle2, 
   Loader2, Filter, Settings, FileSpreadsheet, RefreshCw, Layers
 } from 'lucide-react';
+import { useAuth } from '../authentication/AuthContext';
 
 interface HistoricReport {
   id: string;
@@ -14,6 +15,8 @@ interface HistoricReport {
 }
 
 export function ReportsView() {
+  const { organization, user } = useAuth();
+  const workspaceName = organization?.name || user?.companyName || 'Workspace';
   const [includeLeads, setIncludeLeads] = useState(true);
   const [includeCampaigns, setIncludeCampaigns] = useState(true);
   const [includeDeals, setIncludeDeals] = useState(true);
@@ -103,7 +106,7 @@ export function ReportsView() {
 
   const handleDownloadTrigger = (report: HistoricReport) => {
     // Generate simple mock text content
-    const content = `SalesPilot Enterprise Workspace Report\nDate: ${report.date}\nFormat: ${report.format}\nModules: ${report.modulesIncluded.join(', ')}\nOrganization: Horizon Media\nStatus: Verified Secured`;
+    const content = `SalesPilot Enterprise Workspace Report\nDate: ${report.date}\nFormat: ${report.format}\nModules: ${report.modulesIncluded.join(', ')}\nOrganization: ${workspaceName}\nStatus: Verified Secured`;
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

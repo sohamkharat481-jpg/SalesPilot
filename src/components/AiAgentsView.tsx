@@ -147,10 +147,10 @@ export function AiAgentsView() {
       speed: '1.1s', 
       tasksDone: 1940, 
       tokensUsed: '1.9M', 
-      currentTask: 'Parsing active inbox thread for Apex Marketing to formulate followup sequence...',
+      currentTask: 'Parsing active inbox thread for client inquiry to formulate followup sequence...',
       icon: MessageSquare,
       history: [
-        '[10m ago] Classified positive intent email from Priya Sen.',
+        '[10m ago] Classified positive intent email from prospective client.',
         '[2h ago] Tagged spam bounce for non-existent target address.',
         '[Yesterday] Auto-responded to 5 out-of-office vacation notices.'
       ],
@@ -175,14 +175,14 @@ export function AiAgentsView() {
       currentTask: 'Listening on sales inbox sockets for scheduled demo confirmation hooks...',
       icon: Calendar,
       history: [
-        '[Yesterday] Scheduled demo alignment with Rajesh Kumar (Apex Marketing).',
-        '[2 days ago] Confirmed Google Meet session with Preeti Sen (Sen Finance).',
-        '[3 days ago] Re-aligned available slot constraints with Vikram Rao.'
+        '[Yesterday] Scheduled demo alignment with qualified prospect.',
+        '[2 days ago] Confirmed Google Meet session with enterprise client.',
+        '[3 days ago] Re-aligned available slot constraints with client lead.'
       ],
       logs: [
-        '[07:45:12] [INFO] Reviewing incoming reply mail from ananya@apexmarketing.in',
+        '[07:45:12] [INFO] Reviewing incoming reply mail from client inquiry.',
         '[07:45:15] [INFO] Sourced positive intent: BOOKING_REQUEST (Preferred slots: Thursday 3 PM)',
-        '[07:45:17] [SUCCESS] Booked Google Meet slot. Invites transmitted to ananya@apexmarketing.in'
+        '[07:45:17] [SUCCESS] Booked Google Meet slot. Invites transmitted to prospect calendar.'
       ]
     },
     { 
@@ -326,12 +326,12 @@ export function AiAgentsView() {
   
   // Custom Playground Inputs
   const [leadFinderInput, setLeadFinderInput] = useState({ domain: 'senfinance.in', geo: 'Bangalore', industry: 'FinTech', count: 10 });
-  const [researchInput, setResearchInput] = useState({ company: 'Apex Solutions', url: 'apexmarketing.in' });
-  const [emailWriterInput, setEmailWriterInput] = useState({ leadName: 'Rajesh Kumar', company: 'Apex Marketing', painPoint: 'slow manual outreach', tone: 'Professional and Bold', abTesting: true });
+  const [researchInput, setResearchInput] = useState({ company: 'TechSolutions Corp', url: 'techsolutions.co' });
+  const [emailWriterInput, setEmailWriterInput] = useState({ leadName: 'Lead Contact', company: 'Acme Technologies', painPoint: 'slow manual outreach', tone: 'Professional and Bold', abTesting: true });
   const [outreachInput, setOutreachInput] = useState({ sendInterval: 120, dailyLimit: 150, ipWarmup: true });
   const [replyInput, setReplyInput] = useState({ emailBody: 'Hi Vinci team, thanks for reaching out. We actually use a legacy Outbound CRM but are facing high bounce rates and bad timezone coordination in IST. Can you show me how your automated booking coordinates and integrates?' });
   const [appointmentInput, setAppointmentInput] = useState({ timeSlot: 'Thursday 3:00 PM IST', prospectEmail: 'priya@senfinance.in', syncCal: true });
-  const [proposalInput, setProposalInput] = useState({ clientName: 'Apex Marketing LLC', value: '₹1,50,000/mo', duration: '6 Months', contractType: 'SOW + Software Licenses' });
+  const [proposalInput, setProposalInput] = useState({ clientName: 'Enterprise Client Corp', value: '₹1,50,000/mo', duration: '6 Months', contractType: 'SOW + Software Licenses' });
   const [crmInput, setCrmInput] = useState({ leadId: 'lead_maps_129', nextStage: 'QUALIFIED', winProbability: 85, assignOwner: 'Rohan (Senior Outbound)' });
   const [analyticsInput, setAnalyticsInput] = useState({ reportType: 'Weekly Campaign Regression Digest', dateRange: 'Last 7 Days' });
 

@@ -28,37 +28,39 @@ export function RevenueIntelligenceView() {
     { month: 'Dec', actual: null, aiPredicted: 165000, pipeline: 280000 }
   ];
 
-  // AI Deal Win Probability List
-  const dealProbabilities = [
-    { id: 'deal-1', name: 'Apex Tech Enterprise Deal', value: 85000, aiWinProbability: 92, salesperson: 'Ananya Sharma', healthScore: 95 },
-    { id: 'deal-2', name: 'Stellar Labs Outbound Pilot', value: 15000, aiWinProbability: 78, salesperson: 'Rohan Mehta', healthScore: 82 },
-    { id: 'deal-3', name: 'Horizon Media Expansion Suite', value: 24000, aiWinProbability: 65, salesperson: 'Soham Kharat', healthScore: 70 },
-    { id: 'deal-4', name: 'CyberSec India Global Contract', value: 120000, aiWinProbability: 38, salesperson: 'Sneha Kapoor', healthScore: 45 },
-    { id: 'deal-5', name: 'CloudFlow SaaS Renewal', value: 35000, aiWinProbability: 88, salesperson: 'Vikram Joshi', healthScore: 90 }
-  ];
+  const isDev = Boolean(import.meta.env.DEV);
 
-  // Account Churn Risks computed from conversational latency
-  const churnRisks = [
-    { client: 'CyberSec India', mrrInr: 50000, risk: 'HIGH', factor: 'Zero response to 3 sequencers, low usage logins', clvPredict: 1500000 },
-    { client: 'CloudFlow SaaS', mrrInr: 6500, risk: 'MEDIUM', factor: 'Negative feedback on email integration speed', clvPredict: 450000 },
-    { client: 'StellarTech Labs', mrrInr: 15000, risk: 'LOW', factor: 'Highly responsive, expansion logs active', clvPredict: 1800000 },
-    { client: 'Apex Marketing', mrrInr: 25000, risk: 'LOW', factor: 'Daily logins, successful SDR scheduling', clvPredict: 3200000 }
-  ];
+  // AI Deal Win Probability List (strictly DEV only, never shown in production)
+  const dealProbabilities = isDev ? [
+    { id: 'deal-1', name: 'Tech Enterprise Deal', value: 85000, aiWinProbability: 92, salesperson: 'Sales Rep', healthScore: 95 },
+    { id: 'deal-2', name: 'Labs Outbound Pilot', value: 15000, aiWinProbability: 78, salesperson: 'Sales Rep', healthScore: 82 },
+    { id: 'deal-3', name: 'Media Expansion Suite', value: 24000, aiWinProbability: 65, salesperson: 'Account Exec', healthScore: 70 },
+    { id: 'deal-4', name: 'Global Contract', value: 120000, aiWinProbability: 38, salesperson: 'Account Exec', healthScore: 45 },
+    { id: 'deal-5', name: 'Software Renewal', value: 35000, aiWinProbability: 88, salesperson: 'Customer Success', healthScore: 90 }
+  ] : [];
 
-  // Sales Agent Performance Metrics
-  const agentPerformance = [
-    { name: 'Ananya Sharma', dealsClosed: 14, pipelineGenerated: 450000, winRate: 82, roiFactor: 11.2 },
-    { name: 'Rohan Mehta', dealsClosed: 9, pipelineGenerated: 180000, winRate: 64, roiFactor: 6.8 },
-    { name: 'Soham Kharat', dealsClosed: 8, pipelineGenerated: 150000, winRate: 70, roiFactor: 5.5 },
-    { name: 'Sneha Kapoor', dealsClosed: 3, pipelineGenerated: 210000, winRate: 40, roiFactor: 3.2 }
-  ];
+  // Account Churn Risks computed from conversational latency (DEV only)
+  const churnRisks = isDev ? [
+    { client: 'Global Enterprise Corp', mrrInr: 50000, risk: 'HIGH', factor: 'Zero response to 3 sequencers, low usage logins', clvPredict: 1500000 },
+    { client: 'Tech Renewal Client', mrrInr: 6500, risk: 'MEDIUM', factor: 'Negative feedback on email integration speed', clvPredict: 450000 },
+    { client: 'Active Enterprise Account', mrrInr: 15000, risk: 'LOW', factor: 'Highly responsive, expansion logs active', clvPredict: 1800000 },
+    { client: 'Core Client Account', mrrInr: 25000, risk: 'LOW', factor: 'Daily logins, successful SDR scheduling', clvPredict: 3200000 }
+  ] : [];
 
-  // AI-Driven recommendations heuristically computed
-  const aiRecommendations = [
-    { title: 'Trigger Churn Recovery Sequence', text: 'Detecting zero email thread responses from CyberSec India over 14 days. AI recommends queueing the "Founders Executive Outreach" drip immediately to restore customer health.', priority: 'CRITICAL', impact: '+₹50,000 MRR preserved' },
-    { title: 'Unlock Apex Tech Contract Value', text: 'Deal win probability is currently 92%. Customer Health Score shows high positive response velocity. AI recommends bypassing standard validation and pitching the Annual Unlimited Tier now.', priority: 'HIGH', impact: '+₹2,50,000 Pipeline Expansion' },
-    { title: 'Reallocate Outreach Credit Budgets', text: 'Campaign "Q3 Tech Agency Outbound" is generating a 11.2x ROI, while "Retail Cold Email" is tracking at 1.8x. Shift 40% of credit allocations to the Agency campaign.', priority: 'MEDIUM', impact: '+₹80,000 MRR pipeline boost' }
-  ];
+  // Sales Agent Performance Metrics (DEV only)
+  const agentPerformance = isDev ? [
+    { name: 'Lead Specialist A', dealsClosed: 14, pipelineGenerated: 450000, winRate: 82, roiFactor: 11.2 },
+    { name: 'Account Exec B', dealsClosed: 9, pipelineGenerated: 180000, winRate: 64, roiFactor: 6.8 },
+    { name: 'Founder / Lead', dealsClosed: 8, pipelineGenerated: 150000, winRate: 70, roiFactor: 5.5 },
+    { name: 'Growth Associate', dealsClosed: 3, pipelineGenerated: 210000, winRate: 40, roiFactor: 3.2 }
+  ] : [];
+
+  // AI-Driven recommendations heuristically computed (DEV only)
+  const aiRecommendations = isDev ? [
+    { title: 'Trigger Churn Recovery Sequence', text: 'Detecting zero email thread responses over 14 days. AI recommends queueing the "Founders Executive Outreach" drip immediately to restore customer health.', priority: 'CRITICAL', impact: '+₹50,000 MRR preserved' },
+    { title: 'Unlock High Probability Contract Value', text: 'Deal win probability is currently 92%. Customer Health Score shows high positive response velocity. AI recommends bypassing standard validation and pitching the Annual Unlimited Tier now.', priority: 'HIGH', impact: '+₹2,50,000 Pipeline Expansion' },
+    { title: 'Reallocate Outreach Credit Budgets', text: 'Top performing campaign is generating high ROI. Shift 40% of credit allocations to the primary campaign.', priority: 'MEDIUM', impact: '+₹80,000 MRR pipeline boost' }
+  ] : [];
 
   const handleRefreshPredictions = () => {
     setLoading(true);

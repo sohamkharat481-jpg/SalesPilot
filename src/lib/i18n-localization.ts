@@ -166,7 +166,7 @@ class I18nLocalizationService {
       },
       creator: {
         '@type': 'Organization',
-        name: 'Horizon Media & SalesPilot Inc.',
+        name: 'SalesPilot Inc.',
         url: 'https://salespilot.ai'
       }
     };

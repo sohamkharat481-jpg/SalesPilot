@@ -19,10 +19,13 @@
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$SjgqSRaEfoh5rtOT998cWuGXpv/E6mZB60hqaJx4VHK7RsMgtLHZC",
-      "isFounder": false,
-      "subscriptionStatus": "ACTIVE",
+      "isFounder": true,
+      "subscriptionStatus": "LIFETIME",
       "createdAt": "2026-09-15T08:06:56.508+00:00",
+      "onboardingCompleted": true,
       "unlimitedFeatures": true,
+      "unlimitedOrganizations": true,
+      "unlimitedUsers": true,
       "unlimitedAiUsage": true,
       "unlimitedLeadSearches": true,
       "unlimitedCampaigns": true,
@@ -50,7 +53,10 @@
       "isFounder": true,
       "subscriptionStatus": "LIFETIME",
       "createdAt": "2026-07-23T06:56:37.176+00:00",
+      "onboardingCompleted": true,
       "unlimitedFeatures": true,
+      "unlimitedOrganizations": true,
+      "unlimitedUsers": true,
       "unlimitedAiUsage": true,
       "unlimitedLeadSearches": true,
       "unlimitedCampaigns": true,
@@ -151,24 +157,6 @@
   ],
   "organizations": [
     {
-      "id": "org_horizon_starter",
-      "name": "Horizon Media",
-      "domain": "horizon.media",
-      "industry": "Marketing Agency",
-      "companyName": "Horizon Media",
-      "slug": "",
-      "website": "",
-      "gstNumber": "",
-      "country": "India",
-      "timezone": "Asia/Kolkata",
-      "currency": "INR",
-      "logo": "",
-      "ownerId": null,
-      "subscriptionPlan": "STARTER",
-      "status": "ACTIVE",
-      "createdAt": "2026-07-23T06:56:37.176+00:00"
-    },
-    {
       "id": "org_pordigy_enterprise",
       "name": "Pordigy Enterprise",
       "domain": "pordigy.ai",
@@ -217,26 +205,6 @@
       "userId": "usr_pordigy_auth_01"
     },
     {
-      "id": "tm_1",
-      "email": "ankit@horizon.media",
-      "fullName": "Ankit Patel",
-      "role": "SALES",
-      "status": "ACTIVE",
-      "joinedAt": "2026-07-23T06:56:37.176+00:00",
-      "organizationId": "org_horizon_starter",
-      "userId": null
-    },
-    {
-      "id": "tm_2",
-      "email": "sarah@horizon.media",
-      "fullName": "Sarah Jenkins",
-      "role": "MANAGER",
-      "status": "ACTIVE",
-      "joinedAt": "2026-07-23T06:56:37.176+00:00",
-      "organizationId": "org_horizon_starter",
-      "userId": null
-    },
-    {
       "id": "tm_soham_salespilot",
       "email": "sohamkharat481@gmail.com",
       "fullName": "Soham Kharat",
@@ -276,7 +244,6 @@
       "email": "client@pordigycorp.com",
       "phone": "",
       "company": "Pordigy Corp",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-17T13:45:00.918512+00:00",
       "campaignId": null,
@@ -284,20 +251,10 @@
       "source": "Manual",
       "lastUpdated": "2026-09-17T13:45:00.918512+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "companySize": "Unknown",
-        "aiBrief": "Freshly imported lead. AI Research scheduled in background queue.",
-        "techStack": [],
         "website": ""
-      },
-      "researchStatus": "PENDING",
-      "researchProgress": 0,
-      "researchStatusText": "Queued in AI Research Engine",
-      "researchHistory": []
+      }
     },
     {
       "id": "ld_db_1789125884929_93417_zden",
@@ -307,7 +264,6 @@
       "email": "contact@www.namastesolar.com",
       "phone": "(303) 558-6159",
       "company": "Namaste Solar",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:24:44.929+00:00",
       "campaignId": "camp_gen_1789125884929",
@@ -319,20 +275,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:24:44.929+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.namastesolar.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.namastesolar.com/"
+      }
     },
     {
       "id": "ld_db_1789125883098_55050_yvqz",
@@ -342,7 +288,6 @@
       "email": "contact@aresolar.com",
       "phone": "(720) 706-2773",
       "company": "ARE Solar",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:24:43.098+00:00",
       "campaignId": "camp_gen_1789125883098",
@@ -354,20 +299,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:24:43.098+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://aresolar.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://aresolar.com/"
+      }
     },
     {
       "id": "ld_db_1789125873258_89907_zyzb",
@@ -377,7 +312,6 @@
       "email": "contact@quartinoristorante.com",
       "phone": "(312) 698-5000",
       "company": "Quartino Ristorante",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:24:33.258+00:00",
       "campaignId": "camp_gen_1789125873258",
@@ -389,20 +323,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:24:33.258+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://quartinoristorante.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://quartinoristorante.com/"
+      }
     },
     {
       "id": "ld_db_1789125871817_57837_ubss",
@@ -412,7 +336,6 @@
       "email": "contact@www.allavitachicago.com",
       "phone": "(312) 667-0104",
       "company": "Alla Vita",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:24:31.817+00:00",
       "campaignId": "camp_gen_1789125871817",
@@ -424,20 +347,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:24:31.817+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.allavitachicago.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.allavitachicago.com/"
+      }
     },
     {
       "id": "ld_db_1789125862564_63364_7c28",
@@ -447,7 +360,6 @@
       "email": "contact@eliteconstructionusa.com",
       "phone": "(469) 669-3902",
       "company": "ELITE Construction",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:24:22.564+00:00",
       "campaignId": "camp_gen_1789125862564",
@@ -459,20 +371,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:24:22.564+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://eliteconstructionusa.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://eliteconstructionusa.com/"
+      }
     },
     {
       "id": "ld_db_1789125857306_8594_4n4a",
@@ -482,7 +384,6 @@
       "email": "contact@amourremodelingdfw.com",
       "phone": "(214) 980-4999",
       "company": "Amour Remodeling And Construction",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:24:17.306+00:00",
       "campaignId": "camp_gen_1789125857306",
@@ -494,20 +395,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:24:44.631+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://amourremodelingdfw.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://amourremodelingdfw.com/"
+      }
     },
     {
       "id": "ld_db_1789125324418_42841_cz86",
@@ -517,7 +408,6 @@
       "email": "contact@www.strongbuilt.in",
       "phone": "022 6123 2500",
       "company": "Strongbuilt Constructions Pvt. Ltd.",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:32.654272+00:00",
       "campaignId": null,
@@ -529,20 +419,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:32.654272+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.strongbuilt.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.strongbuilt.in/"
+      }
     },
     {
       "id": "ld_db_1789125287898_87264_wex5",
@@ -552,7 +432,6 @@
       "email": "contact@www.nicc.in",
       "phone": "022 4960 9238",
       "company": "New India Construction Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:22.757909+00:00",
       "campaignId": null,
@@ -564,20 +443,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:22.757909+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.nicc.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.nicc.in/"
+      }
     },
     {
       "id": "ld_1788979349342",
@@ -587,7 +456,6 @@
       "email": "soham@salespilot.cloud",
       "phone": "+919876543210",
       "company": "SalesPilot Cloud",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-09T18:42:29.342+00:00",
       "campaignId": null,
@@ -595,20 +463,10 @@
       "source": "Production Validation",
       "lastUpdated": "2026-09-09T18:42:30.723+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_1788979056624",
@@ -618,7 +476,6 @@
       "email": "test.verification@supabase.test",
       "phone": "+919876543210",
       "company": "Supabase Test Inc",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-09T18:37:36.624+00:00",
       "campaignId": null,
@@ -626,20 +483,10 @@
       "source": "AI Studio Verification",
       "lastUpdated": "2026-09-09T18:37:36.624+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_db_1788695413580_69958_5cp9",
@@ -649,7 +496,6 @@
       "email": "contact@www.digimag.co.in",
       "phone": "",
       "company": "DigiMAG - Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-06T11:50:13.58+00:00",
       "campaignId": "camp_gen_1788695413580",
@@ -661,20 +507,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-06T11:50:58.684+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.digimag.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.digimag.co.in/"
+      }
     },
     {
       "id": "ld_db_1788695411962_59424_iml5",
@@ -684,7 +520,6 @@
       "email": "contact@digitalcorsel.com",
       "phone": "080885 50055",
       "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-06T11:50:11.962+00:00",
       "campaignId": "camp_gen_1788695411962",
@@ -696,20 +531,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-06T11:50:51.184+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digitalcorsel.com/mumbai/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digitalcorsel.com/mumbai/"
+      }
     },
     {
       "id": "ld_db_1788695392828_40509_5wa5",
@@ -719,7 +544,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-06T11:49:52.828+00:00",
       "campaignId": "camp_gen_1788695392828",
@@ -731,20 +555,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-06T11:50:43.679+00:00",
       "confidenceScore": 86,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788695379115_23850_bp38",
@@ -754,7 +568,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-06T11:49:39.115+00:00",
       "campaignId": "camp_gen_1788695379115",
@@ -766,20 +579,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-06T11:50:24.175+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788695362072_95716_qong",
@@ -789,7 +592,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-06T11:49:22.072+00:00",
       "campaignId": "camp_gen_1788695362072",
@@ -801,20 +603,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-06T11:50:09.289+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788637746720_36199_jizq",
@@ -824,7 +616,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:49:06.72+00:00",
       "campaignId": "camp_gen_1788637746720",
@@ -836,20 +627,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:49:06.72+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788637745193_1728_36hp",
@@ -859,7 +640,6 @@
       "email": "contact@www.ankitadv.com",
       "phone": "022 4033 3333",
       "company": "Ankit Advertising Pvt Ltd",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:49:05.193+00:00",
       "campaignId": "camp_gen_1788637745193",
@@ -871,20 +651,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:49:05.193+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.ankitadv.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.ankitadv.com/"
+      }
     },
     {
       "id": "ld_db_1788637743492_85665_y1x7",
@@ -894,7 +664,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:49:03.492+00:00",
       "campaignId": "camp_gen_1788637743492",
@@ -906,20 +675,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:49:03.492+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788637742215_15475_m8uy",
@@ -929,7 +688,6 @@
       "email": "contact@ritesh-portfolio-2026.vercel.app",
       "phone": "083694 49058",
       "company": "Vlookup Media Solutions | Best Advertising Agencies in Mumbai | Media Companies in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:49:02.215+00:00",
       "campaignId": "camp_gen_1788637742215",
@@ -941,20 +699,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:49:02.215+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://ritesh-portfolio-2026.vercel.app/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://ritesh-portfolio-2026.vercel.app/"
+      }
     },
     {
       "id": "ld_db_1788637740826_97892_lkq1",
@@ -964,7 +712,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:49:00.826+00:00",
       "campaignId": "camp_gen_1788637740826",
@@ -976,20 +723,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:49:00.826+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788637736845_61945_d5m6",
@@ -999,7 +736,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:48:56.845+00:00",
       "campaignId": "camp_gen_1788637736845",
@@ -1011,20 +747,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:48:56.845+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788637735280_37528_xnf8",
@@ -1034,7 +760,6 @@
       "email": "contact@www.ankitadv.com",
       "phone": "022 4033 3333",
       "company": "Ankit Advertising Pvt Ltd",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:48:55.28+00:00",
       "campaignId": "camp_gen_1788637735280",
@@ -1046,20 +771,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:48:55.28+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.ankitadv.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.ankitadv.com/"
+      }
     },
     {
       "id": "ld_db_1788637733922_46192_4761",
@@ -1069,7 +784,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:48:53.922+00:00",
       "campaignId": "camp_gen_1788637733922",
@@ -1081,20 +795,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:48:53.922+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788637732650_25362_rzin",
@@ -1104,7 +808,6 @@
       "email": "contact@ritesh-portfolio-2026.vercel.app",
       "phone": "083694 49058",
       "company": "Vlookup Media Solutions | Best Advertising Agencies in Mumbai | Media Companies in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:48:52.65+00:00",
       "campaignId": "camp_gen_1788637732650",
@@ -1116,20 +819,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:48:52.65+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://ritesh-portfolio-2026.vercel.app/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://ritesh-portfolio-2026.vercel.app/"
+      }
     },
     {
       "id": "ld_db_1788637719210_59033_243q",
@@ -1139,7 +832,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:48:39.21+00:00",
       "campaignId": "camp_gen_1788637719210",
@@ -1151,20 +843,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:48:39.21+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788637192165_57447_ty7d",
@@ -1174,7 +856,6 @@
       "email": "contact@ritesh-portfolio-2026.vercel.app",
       "phone": "083694 49058",
       "company": "Vlookup Media Solutions | Best Advertising Agencies in Mumbai | Media Companies in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:39:52.165+00:00",
       "campaignId": "camp_gen_1788637192165",
@@ -1186,20 +867,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:39:52.165+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://ritesh-portfolio-2026.vercel.app/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://ritesh-portfolio-2026.vercel.app/"
+      }
     },
     {
       "id": "ld_db_1788637190782_63677_4qcv",
@@ -1209,7 +880,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:39:50.782+00:00",
       "campaignId": "camp_gen_1788637190782",
@@ -1221,20 +891,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:39:50.782+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788637131767_12477_trg7",
@@ -1244,7 +904,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:38:51.767+00:00",
       "campaignId": "camp_gen_1788637131767",
@@ -1256,20 +915,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:38:51.767+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788637128436_45938_af94",
@@ -1279,7 +928,6 @@
       "email": "contact@www.ankitadv.com",
       "phone": "022 4033 3333",
       "company": "Ankit Advertising Pvt Ltd",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:38:48.436+00:00",
       "campaignId": "camp_gen_1788637128436",
@@ -1291,20 +939,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:38:48.436+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.ankitadv.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.ankitadv.com/"
+      }
     },
     {
       "id": "ld_db_1788637114656_64832_tz2l",
@@ -1314,7 +952,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:38:34.656+00:00",
       "campaignId": "camp_gen_1788637114656",
@@ -1326,20 +963,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:38:34.656+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788637106574_51847_rzz3",
@@ -1349,7 +976,6 @@
       "email": "contact@ritesh-portfolio-2026.vercel.app",
       "phone": "083694 49058",
       "company": "Vlookup Media Solutions | Best Advertising Agencies in Mumbai | Media Companies in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:38:26.574+00:00",
       "campaignId": "camp_gen_1788637106574",
@@ -1361,20 +987,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:39:06.038+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://ritesh-portfolio-2026.vercel.app/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://ritesh-portfolio-2026.vercel.app/"
+      }
     },
     {
       "id": "ld_db_1788637095216_83249_hh4c",
@@ -1384,7 +1000,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:38:15.216+00:00",
       "campaignId": "camp_gen_1788637095216",
@@ -1396,20 +1011,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:38:55.534+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788637054069_32456_lhqd",
@@ -1419,7 +1024,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:37:34.069+00:00",
       "campaignId": "camp_gen_1788637054069",
@@ -1431,20 +1035,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:37:34.069+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788636743820_26689_hqbt",
@@ -1454,7 +1048,6 @@
       "email": "contact@onewrapdigitalsolutions.com",
       "phone": "088409 36665",
       "company": "One Wrap Digital Solutions | Best Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:32:23.82+00:00",
       "campaignId": "camp_gen_1788636743821",
@@ -1466,20 +1059,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:32:23.82+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://onewrapdigitalsolutions.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://onewrapdigitalsolutions.com/"
+      }
     },
     {
       "id": "ld_db_1788636727218_83886_ymz8",
@@ -1489,7 +1072,6 @@
       "email": "contact@www.mindframeindia.com",
       "phone": "091678 30733",
       "company": "Mind Frame India Advertising & Creative Communication Pvt Ltd",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:32:07.218+00:00",
       "campaignId": "camp_gen_1788636727218",
@@ -1501,20 +1083,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:32:07.218+00:00",
       "confidenceScore": 85,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.mindframeindia.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.mindframeindia.com/"
+      }
     },
     {
       "id": "ld_db_1788636721938_40311_zed0",
@@ -1524,7 +1096,6 @@
       "email": "contact@ritesh-portfolio-2026.vercel.app",
       "phone": "083694 49058",
       "company": "Vlookup Media Solutions | Best Advertising Agencies in Mumbai | Media Companies in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:32:01.938+00:00",
       "campaignId": "camp_gen_1788636721938",
@@ -1536,20 +1107,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:32:01.938+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://ritesh-portfolio-2026.vercel.app/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://ritesh-portfolio-2026.vercel.app/"
+      }
     },
     {
       "id": "ld_db_1788636701456_47147_4plm",
@@ -1559,7 +1120,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:31:41.456+00:00",
       "campaignId": "camp_gen_1788636701456",
@@ -1571,20 +1131,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:31:41.456+00:00",
       "confidenceScore": 85,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788636697989_12881_76u1",
@@ -1594,7 +1144,6 @@
       "email": "contact@www.mindframeindia.com",
       "phone": "091678 30733",
       "company": "Mind Frame India Advertising & Creative Communication Pvt Ltd",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:31:37.989+00:00",
       "campaignId": "camp_gen_1788636697989",
@@ -1606,20 +1155,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:31:37.989+00:00",
       "confidenceScore": 85,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.mindframeindia.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.mindframeindia.com/"
+      }
     },
     {
       "id": "ld_db_1788636681205_60500_prpp",
@@ -1629,7 +1168,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:31:21.205+00:00",
       "campaignId": "camp_gen_1788636681205",
@@ -1641,20 +1179,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:32:40.195+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788636674736_51217_rhrk",
@@ -1664,7 +1192,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:31:14.736+00:00",
       "campaignId": "camp_gen_1788636674736",
@@ -1676,20 +1203,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:32:32.965+00:00",
       "confidenceScore": 90,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788636649417_28255_kq7t",
@@ -1699,7 +1216,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-05T19:30:49.418+00:00",
       "campaignId": "camp_gen_1788636649418",
@@ -1711,20 +1227,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-05T19:32:06.748+00:00",
       "confidenceScore": 87,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788341726540_18168_23ck",
@@ -1734,7 +1240,6 @@
       "email": "contact@admatazz.co.in",
       "phone": "098926 95617",
       "company": "Admatazz - Digital Marketing Agency in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:35:26.54+00:00",
       "campaignId": "camp_gen_1788341726540",
@@ -1746,20 +1251,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:35:26.54+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://admatazz.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://admatazz.co.in/"
+      }
     },
     {
       "id": "ld_db_1788341717532_9563_jo2p",
@@ -1769,7 +1264,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:35:17.532+00:00",
       "campaignId": "camp_gen_1788341717532",
@@ -1781,20 +1275,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:35:17.532+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788341708759_49835_zgx3",
@@ -1804,7 +1288,6 @@
       "email": "contact@digitalcorsel.com",
       "phone": "080885 50055",
       "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:35:08.759+00:00",
       "campaignId": "camp_gen_1788341708759",
@@ -1816,20 +1299,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:35:08.759+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digitalcorsel.com/mumbai/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digitalcorsel.com/mumbai/"
+      }
     },
     {
       "id": "ld_db_1788341694326_23125_oa3i",
@@ -1839,7 +1312,6 @@
       "email": "contact@www.owlprime.com",
       "phone": "070213 40717",
       "company": "Owl Prime",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:34:54.326+00:00",
       "campaignId": "camp_gen_1788341694326",
@@ -1851,20 +1323,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:35:33.231+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.owlprime.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.owlprime.com/"
+      }
     },
     {
       "id": "ld_db_1788341683380_43020_1xy0",
@@ -1874,7 +1336,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:34:43.38+00:00",
       "campaignId": "camp_gen_1788341683380",
@@ -1886,20 +1347,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:35:31.85+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788341249382_44321_ivti",
@@ -1909,7 +1360,6 @@
       "email": "contact@rjgca.in",
       "phone": "090225 73304",
       "company": "R J Gala & Associates, Chartered Accountants | CA Firm in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:27:29.382+00:00",
       "campaignId": "camp_gen_1788341249382",
@@ -1921,20 +1371,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:27:29.382+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://rjgca.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://rjgca.in/"
+      }
     },
     {
       "id": "ld_db_1788341240496_31189_o2z3",
@@ -1944,7 +1384,6 @@
       "email": "contact@lmsfintax.com",
       "phone": "",
       "company": "LMS FinTax",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:27:20.496+00:00",
       "campaignId": "camp_gen_1788341240496",
@@ -1956,20 +1395,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:27:20.496+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://lmsfintax.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://lmsfintax.com/"
+      }
     },
     {
       "id": "ld_db_1788341237323_36940_zua9",
@@ -1979,7 +1408,6 @@
       "email": "contact@www.tajhotels.com",
       "phone": "022 6665 3271",
       "company": "Shamiana",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:27:17.323+00:00",
       "campaignId": "camp_gen_1788341237323",
@@ -1991,20 +1419,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:27:17.323+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.tajhotels.com/en-in/hotels/taj-mahal-palace-mumbai/restaurants/shamiana-mumbai-colaba?utm_source=Google&utm_medium=Local&utm_campaign=taj-mahal-palace-mumbai-shamiana",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.tajhotels.com/en-in/hotels/taj-mahal-palace-mumbai/restaurants/shamiana-mumbai-colaba?utm_source=Google&utm_medium=Local&utm_campaign=taj-mahal-palace-mumbai-shamiana"
+      }
     },
     {
       "id": "ld_db_1788341227543_36_81o1",
@@ -2014,7 +1432,6 @@
       "email": "contact@thebombaycanteen.com",
       "phone": "",
       "company": "The Bombay Canteen",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:27:07.543+00:00",
       "campaignId": "camp_gen_1788341227543",
@@ -2026,20 +1443,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:27:07.543+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://thebombaycanteen.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://thebombaycanteen.com/"
+      }
     },
     {
       "id": "ld_db_1788341210012_36443_pcqj",
@@ -2049,7 +1456,6 @@
       "email": "contact@www.mansaeasymart.com",
       "phone": "080 2235 6613",
       "company": "Mansa Easy Mart - Indian Ecommerce Company in Bangalore",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:26:50.012+00:00",
       "campaignId": "camp_gen_1788341210012",
@@ -2061,20 +1467,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:26:50.012+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.mansaeasymart.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.mansaeasymart.com/"
+      }
     },
     {
       "id": "ld_db_1788341200097_58973_ntf3",
@@ -2084,7 +1480,6 @@
       "email": "contact@blueskart.com",
       "phone": "095915 55300",
       "company": "Blueskart E-commerce Private Limited Iactive",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:26:40.097+00:00",
       "campaignId": "camp_gen_1788341200097",
@@ -2096,20 +1491,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:26:40.097+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://blueskart.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://blueskart.com/"
+      }
     },
     {
       "id": "ld_db_1788341128287_50791_dzqe",
@@ -2119,7 +1504,6 @@
       "email": "contact@nstihyderabad2.dgt.gov.in",
       "phone": "098852 96954",
       "company": "National Skill Training Institute - Vidyanagar",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:25:28.287+00:00",
       "campaignId": "camp_gen_1788341128287",
@@ -2131,20 +1515,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:28.287+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://nstihyderabad2.dgt.gov.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://nstihyderabad2.dgt.gov.in/"
+      }
     },
     {
       "id": "ld_db_1788341118635_87202_foql",
@@ -2154,7 +1528,6 @@
       "email": "contact@imechinstitute.com",
       "phone": "097000 08685",
       "company": "IMECH INSTITUTE PVT. LTD",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:25:18.635+00:00",
       "campaignId": "camp_gen_1788341118635",
@@ -2166,20 +1539,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:18.635+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://imechinstitute.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://imechinstitute.com/"
+      }
     },
     {
       "id": "ld_db_1788341108357_71197_87b4",
@@ -2189,7 +1552,6 @@
       "email": "contact@www.blkmaxhospital.com",
       "phone": "011 3040 3040",
       "company": "BLK-Max Super Speciality Hospital Delhi",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:25:08.357+00:00",
       "campaignId": "camp_gen_1788341108357",
@@ -2201,20 +1563,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:08.357+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.blkmaxhospital.com/?utm_source=D-Organic&utm_medium=gmb",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.blkmaxhospital.com/?utm_source=D-Organic&utm_medium=gmb"
+      }
     },
     {
       "id": "ld_db_1788341098188_95684_q528",
@@ -2224,7 +1576,6 @@
       "email": "contact@www.healinghandsmultispecialityclinic.com",
       "phone": "084489 60011",
       "company": "Healing Hands Multispeciality Clinic",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:58.188+00:00",
       "campaignId": "camp_gen_1788341098188",
@@ -2236,20 +1587,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:58.188+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.healinghandsmultispecialityclinic.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.healinghandsmultispecialityclinic.com/"
+      }
     },
     {
       "id": "ld_db_1788341088017_51027_mh2f",
@@ -2259,7 +1600,6 @@
       "email": "contact@www.ferozes.com",
       "phone": "098450 18800",
       "company": "Feroze's Real Estate Consultants",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:48.017+00:00",
       "campaignId": "camp_gen_1788341088017",
@@ -2271,20 +1611,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:48.017+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.ferozes.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.ferozes.com/"
+      }
     },
     {
       "id": "ld_db_1788341086392_54273_md4r",
@@ -2294,7 +1624,6 @@
       "email": "contact@www.fouriseindia.com",
       "phone": "095276 05805",
       "company": "Fourise Software Solutions Pvt. Ltd Pune",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:46.392+00:00",
       "campaignId": "camp_gen_1788341086392",
@@ -2306,20 +1635,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:46.392+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.fouriseindia.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.fouriseindia.com/"
+      }
     },
     {
       "id": "ld_db_1788341078104_84616_ui6c",
@@ -2329,7 +1648,6 @@
       "email": "contact@www.roof360.in",
       "phone": "098450 22178",
       "company": "Roof 360 Real Estate and Properties",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:38.104+00:00",
       "campaignId": "camp_gen_1788341078104",
@@ -2341,20 +1659,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:38.104+00:00",
       "confidenceScore": 90,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.roof360.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.roof360.in/"
+      }
     },
     {
       "id": "ld_db_1788341077289_87068_ce32",
@@ -2364,7 +1672,6 @@
       "email": "contact@www.ascentindia.dev",
       "phone": "090750 56050",
       "company": "Ascent Software Solutions | Since 2010",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:37.289+00:00",
       "campaignId": "camp_gen_1788341077289",
@@ -2376,20 +1683,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:37.289+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.ascentindia.dev/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.ascentindia.dev/"
+      }
     },
     {
       "id": "ld_db_1788341067675_6432_jtni",
@@ -2399,7 +1696,6 @@
       "email": "contact@www.tajhotels.com",
       "phone": "022 6665 3271",
       "company": "Shamiana",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:27.675+00:00",
       "campaignId": "camp_gen_1788341067675",
@@ -2411,20 +1707,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:41.367+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.tajhotels.com/en-in/hotels/taj-mahal-palace-mumbai/restaurants/shamiana-mumbai-colaba?utm_source=Google&utm_medium=Local&utm_campaign=taj-mahal-palace-mumbai-shamiana",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.tajhotels.com/en-in/hotels/taj-mahal-palace-mumbai/restaurants/shamiana-mumbai-colaba?utm_source=Google&utm_medium=Local&utm_campaign=taj-mahal-palace-mumbai-shamiana"
+      }
     },
     {
       "id": "ld_db_1788341058693_41435_q44u",
@@ -2434,7 +1720,6 @@
       "email": "contact@thebombaycanteen.com",
       "phone": "",
       "company": "The Bombay Canteen",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:18.693+00:00",
       "campaignId": "camp_gen_1788341058693",
@@ -2446,20 +1731,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:33.907+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://thebombaycanteen.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://thebombaycanteen.com/"
+      }
     },
     {
       "id": "ld_db_1788341049696_78991_y2zc",
@@ -2469,7 +1744,6 @@
       "email": "contact@www.fouriseindia.com",
       "phone": "095276 05805",
       "company": "Fourise Software Solutions Pvt. Ltd Pune",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:09.696+00:00",
       "campaignId": "camp_gen_1788341049696",
@@ -2481,20 +1755,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:17.671+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.fouriseindia.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.fouriseindia.com/"
+      }
     },
     {
       "id": "ld_db_1788341040462_79754_gbva",
@@ -2504,7 +1768,6 @@
       "email": "contact@www.ascentindia.dev",
       "phone": "090750 56050",
       "company": "Ascent Software Solutions | Since 2010",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:24:00.462+00:00",
       "campaignId": "camp_gen_1788341040462",
@@ -2516,20 +1779,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:25:01.737+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.ascentindia.dev/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.ascentindia.dev/"
+      }
     },
     {
       "id": "ld_db_1788341030132_38071_81q0",
@@ -2539,7 +1792,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:23:50.132+00:00",
       "campaignId": "camp_gen_1788341030132",
@@ -2551,20 +1803,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:42.194+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788341005537_1738_poc9",
@@ -2574,7 +1816,6 @@
       "email": "contact@jmbrand.in",
       "phone": "081086 54894",
       "company": "J Madhu Advertising & Marketing Pvt. Ltd.",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:23:25.537+00:00",
       "campaignId": "camp_gen_1788341005537",
@@ -2586,20 +1827,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:24:25.544+00:00",
       "confidenceScore": 82,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://jmbrand.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://jmbrand.in/"
+      }
     },
     {
       "id": "ld_db_1788339696903_44838_m1sy",
@@ -2609,7 +1840,6 @@
       "email": "contact@www.mediashades.in",
       "phone": "084248 22575",
       "company": "MEDIA SHADES DIGITAL MARKETING AGENCY LLP",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:01:36.903+00:00",
       "campaignId": "camp_gen_1788339696903",
@@ -2621,20 +1851,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:01:36.903+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.mediashades.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.mediashades.in/"
+      }
     },
     {
       "id": "ld_db_1788339691355_22207_1qxs",
@@ -2644,7 +1864,6 @@
       "email": "contact@ritesh-portfolio-2026.vercel.app",
       "phone": "083694 49058",
       "company": "Vlookup Media Solutions | Best Advertising Agencies in Mumbai | Media Companies in Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:01:31.355+00:00",
       "campaignId": "camp_gen_1788339691355",
@@ -2656,20 +1875,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:01:31.355+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://ritesh-portfolio-2026.vercel.app/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://ritesh-portfolio-2026.vercel.app/"
+      }
     },
     {
       "id": "ld_db_1788339688359_76712_wh8z",
@@ -2679,7 +1888,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:01:28.359+00:00",
       "campaignId": "camp_gen_1788339688359",
@@ -2691,20 +1899,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:01:28.359+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788339685293_83440_fyfa",
@@ -2714,7 +1912,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:01:25.293+00:00",
       "campaignId": "camp_gen_1788339685293",
@@ -2726,20 +1923,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:01:25.293+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788339682021_63874_4fe8",
@@ -2749,7 +1936,6 @@
       "email": "contact@digitalcorsel.com",
       "phone": "080885 50055",
       "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T09:01:22.022+00:00",
       "campaignId": "camp_gen_1788339682022",
@@ -2761,20 +1947,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T09:01:22.022+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digitalcorsel.com/mumbai/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digitalcorsel.com/mumbai/"
+      }
     },
     {
       "id": "ld_db_1788337056280_57168_i6ey",
@@ -2784,7 +1960,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:17:36.28+00:00",
       "campaignId": "camp_gen_1788337056280",
@@ -2796,20 +1971,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:17:36.28+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788337030108_98150_h0wz",
@@ -2819,7 +1984,6 @@
       "email": "contact@digitalcorsel.com",
       "phone": "080885 50055",
       "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:17:10.108+00:00",
       "campaignId": "camp_gen_1788337030108",
@@ -2831,20 +1995,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:18:00.526+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digitalcorsel.com/mumbai/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digitalcorsel.com/mumbai/"
+      }
     },
     {
       "id": "ld_db_1788336980962_72374_c9c2",
@@ -2854,7 +2008,6 @@
       "email": "contact@www.howtodigital.in",
       "phone": "",
       "company": "How To Digital Agency",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:16:20.962+00:00",
       "campaignId": "camp_gen_1788336980962",
@@ -2866,20 +2019,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:16:20.962+00:00",
       "confidenceScore": 85,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.howtodigital.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.howtodigital.in/"
+      }
     },
     {
       "id": "ld_db_1788336976587_23703_vrnd",
@@ -2889,7 +2032,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:16:16.587+00:00",
       "campaignId": "camp_gen_1788336976587",
@@ -2901,20 +2043,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:16:16.587+00:00",
       "confidenceScore": 86,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788336959681_51899_orj4",
@@ -2924,7 +2056,6 @@
       "email": "contact@www.vervemedia.co.in",
       "phone": "097736 36203",
       "company": "Verve Media",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:15:59.681+00:00",
       "campaignId": "camp_gen_1788336959681",
@@ -2936,20 +2067,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:15:59.681+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.vervemedia.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.vervemedia.co.in/"
+      }
     },
     {
       "id": "ld_db_1788336949927_88095_wlif",
@@ -2959,7 +2080,6 @@
       "email": "contact@digitalcorsel.com",
       "phone": "080885 50055",
       "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:15:49.927+00:00",
       "campaignId": "camp_gen_1788336949927",
@@ -2971,20 +2091,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:15:49.927+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digitalcorsel.com/mumbai/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digitalcorsel.com/mumbai/"
+      }
     },
     {
       "id": "ld_db_1788336934215_47512_vxed",
@@ -2994,7 +2104,6 @@
       "email": "contact@digichefs.com",
       "phone": "089286 33185",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:15:34.215+00:00",
       "campaignId": "camp_gen_1788336934215",
@@ -3006,20 +2115,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:16:41.891+00:00",
       "confidenceScore": 92,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1788336910531_13622_ya6i",
@@ -3029,7 +2128,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:15:10.531+00:00",
       "campaignId": "camp_gen_1788336910531",
@@ -3041,20 +2139,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:16:34.72+00:00",
       "confidenceScore": 86,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1788336883229_34599_gth7",
@@ -3064,7 +2152,6 @@
       "email": "contact@digitalcorsel.com",
       "phone": "080885 50055",
       "company": "Digital Corsel - Best Digital Marketing Agency in Mumbai | PPC | SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-02T08:14:43.229+00:00",
       "campaignId": "camp_gen_1788336883229",
@@ -3076,20 +2163,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-02T08:16:00.411+00:00",
       "confidenceScore": 85,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digitalcorsel.com/mumbai/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digitalcorsel.com/mumbai/"
+      }
     },
     {
       "id": "ld_1784907044970",
@@ -3099,7 +2176,6 @@
       "email": "persistence777@enterprise.io",
       "phone": "+1-800-555-7777",
       "company": "Enterprise Analytics Corp",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-24T15:30:44.97+00:00",
       "campaignId": null,
@@ -3107,26 +2183,16 @@
       "source": "Manual",
       "lastUpdated": "2026-07-24T15:31:01.744+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1789652702056",
+          "id": "n_1789715584380",
           "text": "Audit Note 777: Security evaluation and Supabase persistence verified.",
           "createdAt": "2026-07-24T15:30:44.97+00:00"
         }
       ],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://enterprise.io",
-        "companySize": "Unknown",
-        "aiBrief": "Audit Note 777: Security evaluation and Supabase persistence verified.",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://enterprise.io"
+      }
     },
     {
       "id": "ld_1784906784010",
@@ -3136,7 +2202,6 @@
       "email": "debuglead101@test.com",
       "phone": "+1-555-0101",
       "company": "DebugCorp 101",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-24T15:26:24.01+00:00",
       "campaignId": null,
@@ -3144,26 +2209,16 @@
       "source": "Manual",
       "lastUpdated": "2026-07-24T15:26:30.904+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1789652702056",
+          "id": "n_1789715584380",
           "text": "Note for DebugLead 101: Key evaluation criteria confirmed.",
           "createdAt": "2026-07-24T15:26:24.01+00:00"
         }
       ],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://debug101.com",
-        "companySize": "Unknown",
-        "aiBrief": "Note for DebugLead 101: Key evaluation criteria confirmed.",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://debug101.com"
+      }
     },
     {
       "id": "ld_1784906076650",
@@ -3173,7 +2228,6 @@
       "email": "newcust99@acme.com",
       "phone": "+1-555-0199",
       "company": "Acme 99 Corp",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-24T15:14:36.65+00:00",
       "campaignId": null,
@@ -3181,26 +2235,16 @@
       "source": "Manual",
       "lastUpdated": "2026-07-24T15:14:43.532+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1789652702056",
+          "id": "n_1789715584380",
           "text": "Customer note 99: Interested in automated pipeline integration.",
           "createdAt": "2026-07-24T15:14:36.65+00:00"
         }
       ],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://acme99.com",
-        "companySize": "Unknown",
-        "aiBrief": "Customer note 99: Interested in automated pipeline integration.",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://acme99.com"
+      }
     },
     {
       "id": "ld_1784905883044",
@@ -3210,7 +2254,6 @@
       "email": "persistence.test@salespilot.io",
       "phone": "+1-555-9988",
       "company": "DataPersistence Inc",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-24T15:11:23.044+00:00",
       "campaignId": null,
@@ -3218,26 +2261,16 @@
       "source": "Manual",
       "lastUpdated": "2026-07-24T15:11:38.794+00:00",
       "confidenceScore": 95,
-      "scoreReason": "",
       "notesList": [
         {
-          "id": "n_1789652702056",
+          "id": "n_1789715584380",
           "text": "Customer requested custom enterprise SLA on Supabase integration.",
           "createdAt": "2026-07-24T15:11:23.044+00:00"
         }
       ],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://datapersistence.io",
-        "companySize": "Unknown",
-        "aiBrief": "Customer requested custom enterprise SLA on Supabase integration.",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://datapersistence.io"
+      }
     },
     {
       "id": "ld_1784801955949",
@@ -3247,7 +2280,6 @@
       "email": "audit.verification@salespilot.io",
       "phone": "+1-555-0188",
       "company": "SalesPilot Audit Corp",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-23T10:19:15.949+00:00",
       "campaignId": null,
@@ -3255,20 +2287,10 @@
       "source": "Manual",
       "lastUpdated": "2026-07-23T10:19:22.87+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://salespilot.io",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://salespilot.io"
+      }
     },
     {
       "id": "ld_1784799719456",
@@ -3278,7 +2300,6 @@
       "email": "audit.test@example.com",
       "phone": "",
       "company": "Acme Audit Corp",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-23T09:41:59.457+00:00",
       "campaignId": null,
@@ -3286,20 +2307,10 @@
       "source": "Manual",
       "lastUpdated": "2026-07-23T09:42:06.62+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_db_1784796155363_37022_cstb",
@@ -3309,7 +2320,6 @@
       "email": "contact@www.cloudsoftwaresolution.in",
       "phone": "099723 26812",
       "company": "Cloud Software Solution - Website & Mobile App Development Company In Bangalore",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-23T08:42:35.363+00:00",
       "campaignId": "camp_gen_1784796155363",
@@ -3321,20 +2331,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-07-23T08:42:35.363+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.cloudsoftwaresolution.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.cloudsoftwaresolution.in/"
+      }
     },
     {
       "id": "ld_1784796184439",
@@ -3344,7 +2344,6 @@
       "email": "s.connor@cyberdyne.com",
       "phone": "+1-555-0199",
       "company": "Cyberdyne Systems",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-07-23T08:43:04.439+00:00",
       "campaignId": null,
@@ -3352,20 +2351,10 @@
       "source": "Manual",
       "lastUpdated": "2026-07-23T08:43:10.564+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_1789025797464",
@@ -3375,7 +2364,6 @@
       "email": "epsilon_1789025792949@testvercelsupabase.com",
       "phone": "+15551000005",
       "company": "Epsilon Analytics",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-10T07:36:37.589174+00:00",
       "campaignId": null,
@@ -3383,20 +2371,10 @@
       "source": "Vercel Prod Test",
       "lastUpdated": "2026-09-10T07:36:37.589174+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_1789025796412",
@@ -3406,7 +2384,6 @@
       "email": "delta_1789025792949@testvercelsupabase.com",
       "phone": "+15551000004",
       "company": "Delta Robotics",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-10T07:36:37.066862+00:00",
       "campaignId": null,
@@ -3414,20 +2391,10 @@
       "source": "Vercel Prod Test",
       "lastUpdated": "2026-09-10T07:36:37.066862+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_1789025795182",
@@ -3437,7 +2404,6 @@
       "email": "gamma_1789025792949@testvercelsupabase.com",
       "phone": "+15551000003",
       "company": "Gamma Healthcare",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-10T07:36:35.182+00:00",
       "campaignId": null,
@@ -3445,20 +2411,10 @@
       "source": "Vercel Prod Test",
       "lastUpdated": "2026-09-10T07:36:35.182+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_1789025794240",
@@ -3468,7 +2424,6 @@
       "email": "beta_1789025792949@testvercelsupabase.com",
       "phone": "+15551000002",
       "company": "Beta Logistics",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-10T07:36:34.24+00:00",
       "campaignId": null,
@@ -3476,20 +2431,10 @@
       "source": "Vercel Prod Test",
       "lastUpdated": "2026-09-10T07:36:34.24+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_1789025793257",
@@ -3499,7 +2444,6 @@
       "email": "alpha_1789025792949@testvercelsupabase.com",
       "phone": "+15551000001",
       "company": "Alpha Dynamics",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-10T07:36:33.257+00:00",
       "campaignId": null,
@@ -3507,20 +2451,10 @@
       "source": "Vercel Prod Test",
       "lastUpdated": "2026-09-10T07:36:37.981+00:00",
       "confidenceScore": 80,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_db_1789125340813_56256_9l7j",
@@ -3530,7 +2464,6 @@
       "email": "contact@www.ibeoninfotech.com",
       "phone": "080 4853 5499",
       "company": "IBeON INFOTECH PVT LTD - BEST IT SUPPORT COMPANY IN BANGALORE",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:16:06.271096+00:00",
       "campaignId": null,
@@ -3542,20 +2475,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:16:06.271096+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.ibeoninfotech.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.ibeoninfotech.com/"
+      }
     },
     {
       "id": "ld_db_1789125335833_82282_lb80",
@@ -3565,7 +2488,6 @@
       "email": "contact@www.google.com",
       "phone": "084325 79999",
       "company": "360 Degree Revolving Restaurant",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:36.875841+00:00",
       "campaignId": null,
@@ -3577,20 +2499,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:36.875841+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJXyQriHfAwjsRh6E7_B59Rsk",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJXyQriHfAwjsRh6E7_B59Rsk"
+      }
     },
     {
       "id": "ld_db_1789125331723_55841_m2f1",
@@ -3600,7 +2512,6 @@
       "email": "contact@www.thesassyspoon.co.in",
       "phone": "076662 22111",
       "company": "The Sassy Spoon",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:33.159388+00:00",
       "campaignId": null,
@@ -3612,20 +2523,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:33.159388+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.thesassyspoon.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.thesassyspoon.co.in/"
+      }
     },
     {
       "id": "ld_db_1789125304779_37569_u8gp",
@@ -3635,7 +2536,6 @@
       "email": "contact@www.themillspune.com",
       "phone": "",
       "company": "The Mills",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:30.383511+00:00",
       "campaignId": null,
@@ -3647,20 +2547,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:30.383511+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.themillspune.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.themillspune.com/"
+      }
     },
     {
       "id": "ld_db_1789125294249_45882_jpyg",
@@ -3670,7 +2560,6 @@
       "email": "contact@shah-constructions.in",
       "phone": "098200 65842",
       "company": "SHAH CONSTRUCTIONS",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:21.622718+00:00",
       "campaignId": null,
@@ -3682,20 +2571,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:21.622718+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://shah-constructions.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://shah-constructions.in/"
+      }
     },
     {
       "id": "ld_db_1789125318952_74037_wenr",
@@ -3705,7 +2584,6 @@
       "email": "contact@www.strongbuilt.in",
       "phone": "022 6123 2500",
       "company": "Strongbuilt Constructions Pvt. Ltd.",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:20.731331+00:00",
       "campaignId": null,
@@ -3717,20 +2595,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:20.731331+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.strongbuilt.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.strongbuilt.in/"
+      }
     },
     {
       "id": "ld_db_1789125268200_75766_m5y2",
@@ -3740,7 +2608,6 @@
       "email": "contact@www.nicc.in",
       "phone": "022 4960 9238",
       "company": "New India Construction Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:15:17.689924+00:00",
       "campaignId": null,
@@ -3752,20 +2619,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:15:17.689924+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.nicc.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.nicc.in/"
+      }
     },
     {
       "id": "ld_db_1789125267484_35556_3h58",
@@ -3775,7 +2632,6 @@
       "email": "contact@www.strongbuilt.in",
       "phone": "022 6123 2500",
       "company": "Strongbuilt Constructions Pvt. Ltd.",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:14:52.662782+00:00",
       "campaignId": null,
@@ -3787,20 +2643,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:14:52.662782+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.strongbuilt.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.strongbuilt.in/"
+      }
     },
     {
       "id": "ld_db_1789125242890_22416_3q3u",
@@ -3810,7 +2656,6 @@
       "email": "contact@www.nicc.in",
       "phone": "022 4960 9238",
       "company": "New India Construction Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:14:26.507221+00:00",
       "campaignId": null,
@@ -3822,20 +2667,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:14:26.507221+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.nicc.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.nicc.in/"
+      }
     },
     {
       "id": "ld_db_1789125025551_95583_qwma",
@@ -3845,7 +2680,6 @@
       "email": "contact@myyshopp.com",
       "phone": "089760 03624",
       "company": "MyyShopp eCommerce Technologies",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:10:36.742897+00:00",
       "campaignId": null,
@@ -3857,20 +2691,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:10:36.742897+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://myyshopp.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://myyshopp.com/"
+      }
     },
     {
       "id": "ld_db_1789124988077_23155_0ead",
@@ -3880,7 +2704,6 @@
       "email": "contact@d4commerce.com",
       "phone": "080776 05774",
       "company": "D4 Commerce",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:10:24.257847+00:00",
       "campaignId": null,
@@ -3892,20 +2715,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:10:24.257847+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://d4commerce.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://d4commerce.com/"
+      }
     },
     {
       "id": "ld_db_1789125383174_5678_03j8",
@@ -3915,7 +2728,6 @@
       "email": "contact@www.techasoft.com",
       "phone": "088847 39988",
       "company": "Techasoft Private Limited",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:16:23.597125+00:00",
       "campaignId": null,
@@ -3927,20 +2739,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:16:23.597125+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.techasoft.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.techasoft.com/"
+      }
     },
     {
       "id": "ld_db_1789125368299_14226_l0la",
@@ -3950,7 +2752,6 @@
       "email": "contact@www.loresoftwaresolutions.com",
       "phone": "080 4264 5673",
       "company": "Lore Software Solutions Pvt. Ltd.",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:16:21.43078+00:00",
       "campaignId": null,
@@ -3962,20 +2763,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:16:21.43078+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.loresoftwaresolutions.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.loresoftwaresolutions.com/"
+      }
     },
     {
       "id": "ld_db_1789127018386_91583_cekk",
@@ -3985,7 +2776,6 @@
       "email": "contact@www.google.com",
       "phone": "",
       "company": "Manish Market",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:43:39.373797+00:00",
       "campaignId": null,
@@ -3997,20 +2787,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:43:39.373797+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJ__-jRTvO5zsR6iycCnFj2_Y",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJ__-jRTvO5zsR6iycCnFj2_Y"
+      }
     },
     {
       "id": "ld_db_1789127016179_62407_e5y3",
@@ -4020,7 +2800,6 @@
       "email": "contact@starbangles.catalog.to",
       "phone": "099675 45196",
       "company": "Star Bangles - Best Manufacturer, Exporter & Wholesaler of Bangles & Cosmetics",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:43:36.933175+00:00",
       "campaignId": null,
@@ -4032,20 +2811,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:43:36.933175+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://starbangles.catalog.to/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://starbangles.catalog.to/"
+      }
     },
     {
       "id": "ld_db_1789127011059_44810_e3ze",
@@ -4055,7 +2824,6 @@
       "email": "contact@www.google.com",
       "phone": "085919 99286",
       "company": "Bombay wholesale bazaar",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:43:31.400009+00:00",
       "campaignId": null,
@@ -4067,20 +2835,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:43:31.400009+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJxXDtr1bH5zsRzwXBVDzSTfE",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJxXDtr1bH5zsRzwXBVDzSTfE"
+      }
     },
     {
       "id": "ld_db_1789127004890_77112_yjjp",
@@ -4090,7 +2848,6 @@
       "email": "contact@www.google.com",
       "phone": "",
       "company": "Wholesale Market",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:43:29.828075+00:00",
       "campaignId": null,
@@ -4102,20 +2859,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:43:29.828075+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJ33a25JHI5zsRa7ioBYtJEBk",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJ33a25JHI5zsRa7ioBYtJEBk"
+      }
     },
     {
       "id": "ld_db_1789126997701_61525_icfu",
@@ -4125,7 +2872,6 @@
       "email": "contact@www.crawford-market.com",
       "phone": "",
       "company": "Mahatma Phule Mandai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:43:22.095575+00:00",
       "campaignId": null,
@@ -4137,20 +2883,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:43:22.095575+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.crawford-market.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.crawford-market.com/"
+      }
     },
     {
       "id": "ld_db_1789126052344_12857_4d33",
@@ -4160,7 +2896,6 @@
       "email": "contact@www.cloudsoftwaresolution.in",
       "phone": "099723 26812",
       "company": "Cloud Software Solution - Website & Mobile App Development Company In Bangalore",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:33.130826+00:00",
       "campaignId": null,
@@ -4172,20 +2907,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:33.130826+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.cloudsoftwaresolution.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.cloudsoftwaresolution.in/"
+      }
     },
     {
       "id": "ld_db_1789126048110_48393_eyds",
@@ -4195,7 +2920,6 @@
       "email": "contact@www.ibeoninfotech.com",
       "phone": "080 4853 5499",
       "company": "IBeON INFOTECH PVT LTD - BEST IT SUPPORT COMPANY IN BANGALORE",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:29.033709+00:00",
       "campaignId": null,
@@ -4207,20 +2931,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:29.033709+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.ibeoninfotech.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.ibeoninfotech.com/"
+      }
     },
     {
       "id": "ld_db_1789126038978_95432_0gcq",
@@ -4230,7 +2944,6 @@
       "email": "contact@www.malakaspice.com",
       "phone": "075070 11226",
       "company": "Malaka Spice",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:19.359434+00:00",
       "campaignId": null,
@@ -4242,20 +2955,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:19.359434+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.malakaspice.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.malakaspice.com/"
+      }
     },
     {
       "id": "ld_db_1789126035486_61478_75me",
@@ -4265,7 +2968,6 @@
       "email": "contact@www.thesassyspoon.co.in",
       "phone": "076662 22111",
       "company": "The Sassy Spoon",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:17.019844+00:00",
       "campaignId": null,
@@ -4277,20 +2979,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:17.019844+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.thesassyspoon.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.thesassyspoon.co.in/"
+      }
     },
     {
       "id": "ld_db_1789126030550_56014_xtml",
@@ -4300,7 +2992,6 @@
       "email": "contact@www.nicc.in",
       "phone": "022 4960 9238",
       "company": "New India Construction Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:11.389811+00:00",
       "campaignId": null,
@@ -4312,20 +3003,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:11.389811+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.nicc.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.nicc.in/"
+      }
     },
     {
       "id": "ld_db_1789126026987_47702_xuc0",
@@ -4335,7 +3016,6 @@
       "email": "contact@dynamiccrest.in",
       "phone": "022 2515 1620",
       "company": "Patel Construction Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:07.868128+00:00",
       "campaignId": null,
@@ -4347,20 +3027,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:07.868128+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://dynamiccrest.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://dynamiccrest.in/"
+      }
     },
     {
       "id": "ld_db_1789126020161_7142_xagf",
@@ -4370,7 +3040,6 @@
       "email": "contact@techinfinity.io",
       "phone": "098333 88717",
       "company": "Techinfinity - Best Digital Creative Marketing Agency In Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:27:00.913146+00:00",
       "campaignId": null,
@@ -4382,20 +3051,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:27:00.913146+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://techinfinity.io/?utm_source=google&utm_medium=GMB&utm_campaign=Techinfinity&utm_content=SEO-traffic"
+      }
     },
     {
       "id": "ld_db_1789126017545_10894_yz54",
@@ -4405,7 +3064,6 @@
       "email": "contact@digichefs.com",
       "phone": "",
       "company": "DigiChefs",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-11T11:26:58.733379+00:00",
       "campaignId": null,
@@ -4417,20 +3075,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-11T11:26:58.733379+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://digichefs.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://digichefs.com/"
+      }
     },
     {
       "id": "ld_db_1789386229760_23895_wdg4",
@@ -4440,7 +3088,6 @@
       "email": "contact@chandigarh.gov.in",
       "phone": "",
       "company": "Chandigarh",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-14T11:43:50.115726+00:00",
       "campaignId": null,
@@ -4452,20 +3099,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T12:31:52.571+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": ""
+      }
     },
     {
       "id": "ld_db_1789386222432_51791_gzo6",
@@ -4475,7 +3112,6 @@
       "email": "contact@www.ndmc.gov.in",
       "phone": "",
       "company": "New Delhi",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-14T11:43:42.805066+00:00",
       "campaignId": null,
@@ -4487,20 +3123,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T11:43:42.805066+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.ndmc.gov.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.ndmc.gov.in/"
+      }
     },
     {
       "id": "ld_db_1789386214767_91471_r4vb",
@@ -4510,7 +3136,6 @@
       "email": "contact@www.google.com",
       "phone": "",
       "company": "Delhi",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-14T11:43:35.137178+00:00",
       "campaignId": null,
@@ -4522,20 +3147,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T11:43:35.137178+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJLbZ-NFv9DDkRQJY4FbcFcgM",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJLbZ-NFv9DDkRQJY4FbcFcgM"
+      }
     },
     {
       "id": "ld_db_1789386211168_26669_qn64",
@@ -4545,7 +3160,6 @@
       "email": "contact@www.mcgm.gov.in",
       "phone": "",
       "company": "Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-14T11:43:31.531861+00:00",
       "campaignId": null,
@@ -4557,20 +3171,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T11:43:31.531861+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.mcgm.gov.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.mcgm.gov.in/"
+      }
     },
     {
       "id": "ld_db_1789386206528_38587_md10",
@@ -4580,7 +3184,6 @@
       "email": "contact@www.google.com",
       "phone": "",
       "company": "Assam",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-14T11:43:27.054187+00:00",
       "campaignId": null,
@@ -4592,20 +3195,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T11:43:27.054187+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJYy0xTMkWRTcR-xlnc7tzGtE",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJYy0xTMkWRTcR-xlnc7tzGtE"
+      }
     },
     {
       "id": "ld_db_1789385272868_13121_9qbd",
@@ -4615,7 +3208,6 @@
       "email": "contact@kanishkasoftware.com",
       "phone": "+91 99672 26700",
       "company": "Kanishka Software Private Limited",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-09-14T11:27:53.23917+00:00",
       "campaignId": null,
@@ -4627,20 +3219,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T12:31:50.04+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://kanishkasoftware.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://kanishkasoftware.com/"
+      }
     },
     {
       "id": "ld_db_1789385266723_49647_w6aw",
@@ -4650,7 +3232,6 @@
       "email": "contact@www.beyondsure.in",
       "phone": "",
       "company": "BeyondSure Private Limited",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-09-14T11:27:50.587613+00:00",
       "campaignId": null,
@@ -4662,20 +3243,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T11:36:13.805+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.beyondsure.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.beyondsure.in/"
+      }
     },
     {
       "id": "ld_db_1789385259330_54280_it9i",
@@ -4685,7 +3256,6 @@
       "email": "contact@www.saba.com",
       "phone": "",
       "company": "Saba Software India Pvt. Ltd",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-14T11:27:44.793372+00:00",
       "campaignId": null,
@@ -4697,20 +3267,10 @@
       "source": "Serper Maps API",
       "lastUpdated": "2026-09-14T11:27:44.793372+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.saba.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.saba.com/"
+      }
     },
     {
       "id": "ld_db_1789385253860_63318_3xnc",
@@ -4720,7 +3280,6 @@
       "email": "contact@www.sas.com",
       "phone": "022 6749 2222",
       "company": "SAS Institute India Pvt. Ltd.",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-09-14T11:27:38.308616+00:00",
       "campaignId": null,
@@ -4732,20 +3291,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-14T11:42:06.251+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.sas.com/india",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.sas.com/india"
+      }
     },
     {
       "id": "ld_db_1789385247847_86382_f0sq",
@@ -4755,7 +3304,6 @@
       "email": "contact@www.antraweb.com",
       "phone": "084484 49099",
       "company": "Antraweb Technologies Pvt. Ltd. - Tally on Cloud, Support, Customization, Integration & Solutions",
-      "title": "Director",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-09-14T11:27:32.857287+00:00",
       "campaignId": null,
@@ -4767,139 +3315,9 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-14T11:45:06.885+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
-      "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
-      "enrichment": {
-        "website": "https://www.antraweb.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
-    },
-    {
-      "id": "ld_db_1789384322614_67553_76i9",
-      "organizationId": "org_horizon_starter",
-      "firstName": "Operations",
-      "lastName": "Manager",
-      "email": "contact@azrealtors.in",
-      "phone": "099876 20584",
-      "company": "A and Z Realtors® Mindspace ,Malad west - best real estate property consultancy in Mumbai",
-      "status": "MEETING_BOOKED",
-      "createdAt": "2026-09-14T11:12:03.010291+00:00",
-      "campaignId": null,
-      "tags": [
-        "Google Places API (New) Sourced",
-        "Real Estate",
-        "mumbai"
-      ],
-      "source": "Google Places API (New)",
-      "lastUpdated": "2026-09-14T11:16:49.749+00:00",
-      "confidenceScore": 88,
       "notesList": [],
       "enrichment": {
-        "website": "https://azrealtors.in/"
-      }
-    },
-    {
-      "id": "ld_db_1789384317759_40806_kge2",
-      "organizationId": "org_horizon_starter",
-      "firstName": "Operations",
-      "lastName": "Manager",
-      "email": "contact@www.google.com",
-      "phone": "098926 02882",
-      "company": "Fortune Real Estate Agency",
-      "status": "NEW",
-      "createdAt": "2026-09-14T11:11:59.801531+00:00",
-      "campaignId": null,
-      "tags": [
-        "Google Places API (New) Sourced",
-        "Real Estate",
-        "mumbai"
-      ],
-      "source": "Google Places API (New)",
-      "lastUpdated": "2026-09-14T11:11:59.801531+00:00",
-      "confidenceScore": 88,
-      "notesList": [],
-      "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJm0vfosfP5zsRlkfgd4b6710"
-      }
-    },
-    {
-      "id": "ld_db_1789384312028_87720_tcbm",
-      "organizationId": "org_horizon_starter",
-      "firstName": "Operations",
-      "lastName": "Manager",
-      "email": "contact@aditipropertiesmumbai.in",
-      "phone": "098198 66142",
-      "company": "Aditi Properties",
-      "status": "NEW",
-      "createdAt": "2026-09-14T11:11:56.423645+00:00",
-      "campaignId": null,
-      "tags": [
-        "Google Places API (New) Sourced",
-        "Real Estate",
-        "mumbai"
-      ],
-      "source": "Google Places API (New)",
-      "lastUpdated": "2026-09-14T11:11:56.423645+00:00",
-      "confidenceScore": 88,
-      "notesList": [],
-      "enrichment": {
-        "website": "http://aditipropertiesmumbai.in/?utm_source=gmb&utm_medium=referral"
-      }
-    },
-    {
-      "id": "ld_db_1789384306808_17422_u8pd",
-      "organizationId": "org_horizon_starter",
-      "firstName": "Operations",
-      "lastName": "Manager",
-      "email": "contact@bio.link",
-      "phone": "090223 28752",
-      "company": "Real Estate Consultant - Abbas Ali Arif",
-      "status": "NEW",
-      "createdAt": "2026-09-14T11:11:50.291098+00:00",
-      "campaignId": null,
-      "tags": [
-        "Google Places API (New) Sourced",
-        "Real Estate",
-        "mumbai"
-      ],
-      "source": "Google Places API (New)",
-      "lastUpdated": "2026-09-14T11:11:50.291098+00:00",
-      "confidenceScore": 88,
-      "notesList": [],
-      "enrichment": {
-        "website": "https://bio.link/abbasaliarif"
-      }
-    },
-    {
-      "id": "ld_db_1789384302275_63289_3hve",
-      "organizationId": "org_horizon_starter",
-      "firstName": "Operations",
-      "lastName": "Manager",
-      "email": "contact@dreamhouseproperties.in",
-      "phone": "095944 95942",
-      "company": "Dream Properties",
-      "status": "NEW",
-      "createdAt": "2026-09-14T11:11:45.259209+00:00",
-      "campaignId": null,
-      "tags": [
-        "Google Places API (New) Sourced",
-        "Real Estate",
-        "mumbai"
-      ],
-      "source": "Google Places API (New)",
-      "lastUpdated": "2026-09-14T11:11:45.259209+00:00",
-      "confidenceScore": 88,
-      "notesList": [],
-      "enrichment": {
-        "website": "http://dreamhouseproperties.in/"
+        "website": "https://www.antraweb.com/"
       }
     },
     {
@@ -4910,7 +3328,6 @@
       "email": "contact@indiabbazaar.co.in",
       "phone": "090284 66820",
       "company": "IndiaBbazaar Webtech | SEO SERVICES | WEBSITE DESIGN",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-13T08:05:24.96264+00:00",
       "campaignId": null,
@@ -4922,20 +3339,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-13T08:05:24.96264+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://indiabbazaar.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://indiabbazaar.co.in/"
+      }
     },
     {
       "id": "ld_db_1789286719897_71234_aurj",
@@ -4945,7 +3352,6 @@
       "email": "contact@linkdoor.in",
       "phone": "093722 81493",
       "company": "Linkdoor Web Development & SEO Company",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-13T08:05:21.984246+00:00",
       "campaignId": null,
@@ -4957,20 +3363,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-13T08:05:21.984246+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://linkdoor.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://linkdoor.in/"
+      }
     },
     {
       "id": "ld_db_1789286712634_95204_mnzu",
@@ -4980,7 +3376,6 @@
       "email": "contact@www.iamtiksha.com",
       "phone": "074983 75012",
       "company": "I am Tiksha",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-13T08:05:17.039479+00:00",
       "campaignId": null,
@@ -4992,20 +3387,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-13T08:05:17.039479+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.iamtiksha.com/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.iamtiksha.com/"
+      }
     },
     {
       "id": "ld_db_1789286706449_23098_4ybx",
@@ -5015,7 +3400,6 @@
       "email": "contact@www.digitalchetan.co.in",
       "phone": "",
       "company": "Softech Media Enterprises | Software Solutions | Web Development | Digital Marketing Services",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-13T08:05:10.839469+00:00",
       "campaignId": null,
@@ -5027,20 +3411,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-13T08:05:10.839469+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://www.digitalchetan.co.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://www.digitalchetan.co.in/"
+      }
     },
     {
       "id": "ld_db_1789286695673_49054_op1b",
@@ -5050,7 +3424,6 @@
       "email": "contact@vidhyainfotech.in",
       "phone": "062877 11215",
       "company": "Vidhya Infotech Website Designing & Android App Development Company Badlapur Mumbai",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-13T08:05:01.737017+00:00",
       "campaignId": null,
@@ -5062,20 +3435,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-13T08:05:01.737017+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://vidhyainfotech.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://vidhyainfotech.in/"
+      }
     },
     {
       "id": "ld_db_1789236688240_85617_vf1e",
@@ -5085,7 +3448,6 @@
       "email": "contact@shivomrealestate.bio.link",
       "phone": "099678 08199",
       "company": "SHIVOM REAL ESTATE AGENCY",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-12T18:11:28.595369+00:00",
       "campaignId": null,
@@ -5097,20 +3459,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-12T18:11:28.595369+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://shivomrealestate.bio.link/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://shivomrealestate.bio.link/"
+      }
     },
     {
       "id": "ld_db_1789236686130_2730_2bt3",
@@ -5120,7 +3472,6 @@
       "email": "contact@www.google.com",
       "phone": "098926 02882",
       "company": "Fortune Real Estate Agency",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-12T18:11:26.59516+00:00",
       "campaignId": null,
@@ -5132,20 +3483,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-12T18:11:26.59516+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://www.google.com/maps/place/?q=place_id:ChIJm0vfosfP5zsRlkfgd4b6710",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://www.google.com/maps/place/?q=place_id:ChIJm0vfosfP5zsRlkfgd4b6710"
+      }
     },
     {
       "id": "ld_db_1789236679409_47351_0z5z",
@@ -5155,7 +3496,6 @@
       "email": "contact@aditipropertiesmumbai.in",
       "phone": "098198 66142",
       "company": "Aditi Properties",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-12T18:11:23.77543+00:00",
       "campaignId": null,
@@ -5167,20 +3507,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-12T18:11:23.77543+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://aditipropertiesmumbai.in/?utm_source=gmb&utm_medium=referral",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://aditipropertiesmumbai.in/?utm_source=gmb&utm_medium=referral"
+      }
     },
     {
       "id": "ld_db_1789236672880_41179_sxql",
@@ -5190,7 +3520,6 @@
       "email": "contact@dreamhouseproperties.in",
       "phone": "095944 95942",
       "company": "Dream Properties",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-12T18:11:16.451867+00:00",
       "campaignId": null,
@@ -5202,20 +3531,10 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-12T18:11:16.451867+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "http://dreamhouseproperties.in/",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "http://dreamhouseproperties.in/"
+      }
     },
     {
       "id": "ld_db_1789236663753_20587_nfkt",
@@ -5225,7 +3544,6 @@
       "email": "contact@bio.link",
       "phone": "090223 28752",
       "company": "Real Estate Consultant - Abbas Ali Arif",
-      "title": "Director",
       "status": "NEW",
       "createdAt": "2026-09-12T18:11:09.938649+00:00",
       "campaignId": null,
@@ -5237,79 +3555,15 @@
       "source": "Google Places API (New)",
       "lastUpdated": "2026-09-12T18:11:09.938649+00:00",
       "confidenceScore": 88,
-      "scoreReason": "",
       "notesList": [],
-      "timelineList": [],
-      "tasksList": [],
       "enrichment": {
-        "website": "https://bio.link/abbasaliarif",
-        "companySize": "Unknown",
-        "aiBrief": "",
-        "techStack": []
-      },
-      "researchStatus": "COMPLETED",
-      "researchProgress": 100,
-      "researchStatusText": "AI Research Complete",
-      "researchHistory": []
+        "website": "https://bio.link/abbasaliarif"
+      }
     }
   ],
   "campaigns": [],
   "deals": [],
   "appointments": [
-    {
-      "id": "apt_1784905894803_q4twq",
-      "leadId": "ld_1784905883044",
-      "leadName": "Lead Contact",
-      "company": "Company",
-      "email": "",
-      "dateTime": "2026-09-17T13:28:59.138+00:00",
-      "durationMins": 30,
-      "status": "SCHEDULED",
-      "meetingLink": "https://meet.google.com/mock-meet-8l5-zddk-s72",
-      "notes": "Product demo & pricing review",
-      "timezone": "Asia/Kolkata",
-      "googleSynced": false,
-      "googleEventId": "",
-      "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
-    },
-    {
-      "id": "apt_1784907060520_ih9bh",
-      "leadId": "ld_1784907044970",
-      "leadName": "Lead Contact",
-      "company": "Company",
-      "email": "",
-      "dateTime": "2026-09-17T13:28:59.167+00:00",
-      "durationMins": 30,
-      "status": "SCHEDULED",
-      "meetingLink": "https://meet.google.com/mock-meet-ewm-hb9n-ocw",
-      "notes": "Executive Strategy Briefing",
-      "timezone": "Asia/Kolkata",
-      "googleSynced": false,
-      "googleEventId": "",
-      "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
-    },
-    {
-      "id": "apt_1784799733971_1oqcb",
-      "leadId": "ld_1784799719456",
-      "leadName": "Lead Contact",
-      "company": "Company",
-      "email": "",
-      "dateTime": "2026-09-17T13:28:59.193+00:00",
-      "durationMins": 30,
-      "status": "SCHEDULED",
-      "meetingLink": "https://meet.google.com/mock-meet-chg-7m7a-lah",
-      "notes": "Schedule Demo test with persistent database primary key",
-      "timezone": "Asia/Kolkata",
-      "googleSynced": false,
-      "googleEventId": "",
-      "gmailMessageId": "",
-      "reminderSent": false,
-      "timelineList": []
-    },
     {
       "id": "apt_1784906790830_4ejj9",
       "leadId": "ld_1784906784010",
@@ -5365,6 +3619,42 @@
       "timelineList": []
     },
     {
+      "id": "apt_1784905894803_q4twq",
+      "leadId": "ld_1784905883044",
+      "leadName": "Lead Contact",
+      "company": "Company",
+      "email": "",
+      "dateTime": "2026-09-17T13:28:59.138+00:00",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-8l5-zddk-s72",
+      "notes": "Product demo & pricing review",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "",
+      "gmailMessageId": "",
+      "reminderSent": false,
+      "timelineList": []
+    },
+    {
+      "id": "apt_1784907060520_ih9bh",
+      "leadId": "ld_1784907044970",
+      "leadName": "Lead Contact",
+      "company": "Company",
+      "email": "",
+      "dateTime": "2026-09-17T13:28:59.167+00:00",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-ewm-hb9n-ocw",
+      "notes": "Executive Strategy Briefing",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "",
+      "gmailMessageId": "",
+      "reminderSent": false,
+      "timelineList": []
+    },
+    {
       "id": "apt_1784796192240_znkz6",
       "leadId": "ld_1784796184439",
       "leadName": "Lead Contact",
@@ -5393,6 +3683,24 @@
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/mock-meet-ki8-m0nv-k53",
       "notes": "Demo for Cloud Software Solution",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "googleEventId": "",
+      "gmailMessageId": "",
+      "reminderSent": false,
+      "timelineList": []
+    },
+    {
+      "id": "apt_1784799733971_1oqcb",
+      "leadId": "ld_1784799719456",
+      "leadName": "Lead Contact",
+      "company": "Company",
+      "email": "",
+      "dateTime": "2026-09-17T13:28:59.193+00:00",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/mock-meet-chg-7m7a-lah",
+      "notes": "Schedule Demo test with persistent database primary key",
       "timezone": "Asia/Kolkata",
       "googleSynced": false,
       "googleEventId": "",
@@ -5521,9 +3829,251 @@
     "jwt_token_izqrb5qhzpitd6mqezo65m": {
       "userId": "usr_81927391",
       "expiresAt": 1789659901433
+    },
+    "jwt_token_65a5mgnwm8r92fcf9nc6bu": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916778805
+    },
+    "jwt_token_4j89p8i67iw0dc2g468lp5q": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916798884
+    },
+    "jwt_token_bmkzuy87ht77sp0jfyxxn6": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916819621
+    },
+    "jwt_token_blx8utzzp35vuy3xdfszv": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916819834
+    },
+    "jwt_token_ss606vt36bksjgkflazkt": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916826353
+    },
+    "jwt_token_9np3yrcfdlvqkp0somhqo9": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916826543
+    },
+    "jwt_token_auvnt3ayz368chmz9ra40s": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916845285
+    },
+    "jwt_token_g7v1diuw4fshx5okd2reb": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916845279
+    },
+    "jwt_token_inm7slo74sbzoicoqrx4d": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916878063
+    },
+    "jwt_token_k09yqzfkak902lr4i0bzj": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916878077
+    },
+    "jwt_token_mpigedxua08u53hf17lcen": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916883551
+    },
+    "jwt_token_o09olng5byjla08bfj1jb": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916883556
+    },
+    "jwt_token_b35mrr5tvlm7otp2xwvz7j": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916889106
+    },
+    "jwt_token_75f9kfvmia8eutqm071x25": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916889112
+    },
+    "jwt_token_70pp28jg0j3lnjm7i6b1rq": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916893995
+    },
+    "jwt_token_gtxp9mr681jramj98z9xb": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916893998
+    },
+    "jwt_token_03w1uxrqr5t6ovsoqyrtn0l": {
+      "userId": "usr_81927391",
+      "expiresAt": 1789916912388
+    },
+    "jwt_token_pe3xsp892oshsye2ki41ku": {
+      "userId": "usr_pordigy_auth_01",
+      "expiresAt": 1789916912559
     }
   },
   "activityLogs": [
+    {
+      "id": "al_1789909712390_70",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:32.390Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909693970_124",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:13.970Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909693805_164",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:13.805Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909689089_34",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:09.089Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909688902_434",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:08.902Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909683541_288",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:03.541Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909683378_136",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:08:03.378Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909677416_961",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:07:57.416Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909677225_950",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:07:57.225Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909644511_74",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:07:24.511Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909644320_920",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:07:24.320Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909626545_811",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:07:06.545Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909626354_186",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:07:06.354Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909619836_835",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:06:59.836Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909619623_694",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:06:59.623Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909598886_336",
+      "userId": "usr_pordigy_auth_01",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:06:38.886Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
+    {
+      "id": "al_1789909578808_891",
+      "userId": "usr_81927391",
+      "action": "User signed in successfully",
+      "module": "Authentication",
+      "timestamp": "2026-09-20T13:06:18.808Z",
+      "browser": "Chrome",
+      "ipAddress": "127.0.0.1",
+      "device": "Desktop"
+    },
     {
       "id": "al_1789652700267_229",
       "userId": "usr_81927391",
@@ -5776,6 +4326,204 @@
     }
   ],
   "loginHistory": [
+    {
+      "id": "lh_1789909712560",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:32.560Z"
+    },
+    {
+      "id": "lh_1789909712389",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:32.389Z"
+    },
+    {
+      "id": "lh_1789909693970",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:13.970Z"
+    },
+    {
+      "id": "lh_1789909693805",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:13.805Z"
+    },
+    {
+      "id": "lh_1789909689088",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:09.088Z"
+    },
+    {
+      "id": "lh_1789909688901",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:08.901Z"
+    },
+    {
+      "id": "lh_1789909683540",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:03.540Z"
+    },
+    {
+      "id": "lh_1789909683378",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:08:03.378Z"
+    },
+    {
+      "id": "lh_1789909677415",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:07:57.415Z"
+    },
+    {
+      "id": "lh_1789909677224",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:07:57.224Z"
+    },
+    {
+      "id": "lh_1789909644510",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:07:24.510Z"
+    },
+    {
+      "id": "lh_1789909644319",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:07:24.319Z"
+    },
+    {
+      "id": "lh_1789909626544",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:07:06.544Z"
+    },
+    {
+      "id": "lh_1789909626354",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:07:06.354Z"
+    },
+    {
+      "id": "lh_1789909619835",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:06:59.835Z"
+    },
+    {
+      "id": "lh_1789909619622",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:06:59.622Z"
+    },
+    {
+      "id": "lh_1789909598885",
+      "userId": "usr_pordigy_auth_01",
+      "email": "pordigyai@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:06:38.885Z"
+    },
+    {
+      "id": "lh_1789909578807",
+      "userId": "usr_81927391",
+      "email": "sohamkharat481@gmail.com",
+      "ipAddress": "127.0.0.1",
+      "browser": "Chrome (Linux Container)",
+      "os": "Linux Container",
+      "country": "India",
+      "device": "Desktop",
+      "loginTime": "2026-09-20T13:06:18.807Z"
+    },
     {
       "id": "lh_1789652700266",
       "userId": "usr_81927391",

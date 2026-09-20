@@ -51,7 +51,7 @@ export function InvoicesSection({
     csv += `"Grand Total Paid","₹${inv.totalInr.toLocaleString('en-IN')}"\n\n`;
 
     csv += `--- BUYER IDENTIFICATION ---\n`;
-    csv += `"Company","${user?.companyName || 'Horizon Media Group Ltd.'}"\n`;
+    csv += `"Company","${user?.companyName || 'Workspace'}"\n`;
     csv += `"Buyer State","${inv.state}"\n`;
     csv += `"Buyer GSTIN","${inv.gstin || 'NOT SPECIFIED (Claim ITC via GST settings)'}"\n`;
 
@@ -196,7 +196,7 @@ export function InvoicesSection({
               <div className="grid grid-cols-2 gap-8 text-[11px] leading-relaxed border-b pb-6 border-slate-200">
                 <div className="space-y-1.5">
                   <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">BILL TO:</span>
-                  <h4 className="font-bold text-slate-900">{user?.companyName || 'Horizon Media Group Ltd.'}</h4>
+                  <h4 className="font-bold text-slate-900">{user?.companyName || 'Workspace'}</h4>
                   <p className="text-slate-500">
                     Recipient Domicile: {selectedInvoice.state}<br />
                     GSTIN Recipient: <span className="font-mono text-slate-800 font-semibold">{selectedInvoice.gstin || 'NOT SPECIFIED'}</span>

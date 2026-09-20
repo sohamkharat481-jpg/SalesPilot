@@ -205,7 +205,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const [geminiAnalysis, setGeminiAnalysis] = useState<any>(null);
   const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
 
-  const [geminiDocText, setGeminiDocText] = useState('CONTRACT AGREEMENT\n\nThis Service Level Agreement (the "SLA") is entered into by and between SalesPilot and Horizon Media.\n\nCommitment: Outbound campaigns must target 50,000 corporate prospects monthly. SalesPilot guarantees under 2 hours response time for system escalations.\nAny invoice billing will be handled exclusively in Indian Rupees (INR) under local regulatory compliance.');
+  const [geminiDocText, setGeminiDocText] = useState('CONTRACT AGREEMENT\n\nThis Service Level Agreement (the "SLA") is entered into by and between SalesPilot and Enterprise Partner.\n\nCommitment: Outbound campaigns must target 50,000 corporate prospects monthly. SalesPilot guarantees under 2 hours response time for system escalations.\nAny invoice billing will be handled exclusively in Indian Rupees (INR) under local regulatory compliance.');
   const [geminiObjective, setGeminiObjective] = useState('Audit contract and outline gaps');
   const [geminiDocResult, setGeminiDocResult] = useState<any>(null);
   const [isAuditingDoc, setIsAuditingDoc] = useState(false);
@@ -220,19 +220,19 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const [complianceResult, setComplianceResult] = useState<any>(null);
   const [isSearchingCompliance, setIsSearchingCompliance] = useState(false);
 
-  const [hunterEmail, setHunterEmail] = useState('ananya@apexmarketing.in');
+  const [hunterEmail, setHunterEmail] = useState('contact@prospect.co');
   const [hunterVerifyResult, setHunterVerifyResult] = useState<any>(null);
   const [isVerifyingHunter, setIsVerifyingHunter] = useState(false);
 
-  const [clearbitDomain, setClearbitDomain] = useState('apexmarketing.in');
+  const [clearbitDomain, setClearbitDomain] = useState('prospect.co');
   const [clearbitResult, setClearbitResult] = useState<any>(null);
   const [isEnrichingClearbit, setIsEnrichingClearbit] = useState(false);
 
-  const [pdlName, setPdlName] = useState('Ananya Sharma');
+  const [pdlName, setPdlName] = useState('Lead Prospect');
   const [pdlResult, setPdlResult] = useState<any>(null);
   const [isSearchingPdl, setIsSearchingPdl] = useState(false);
 
-  const [crunchbaseCompany, setCrunchbaseCompany] = useState('Apex Marketing');
+  const [crunchbaseCompany, setCrunchbaseCompany] = useState('Enterprise Solutions');
   const [crunchbaseResult, setCrunchbaseResult] = useState<any>(null);
   const [isSearchingCrunchbase, setIsSearchingCrunchbase] = useState(false);
 
@@ -246,12 +246,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   // WhatsApp & Slack states
   const [waPhone, setWaPhone] = useState('+919876543210');
   const [waTemplate, setWaTemplate] = useState('wa_tpl_1');
-  const [waVariables, setWaVariables] = useState('Soham Kharat, Next Tuesday, Asia/Kolkata, https://g.co/meet/salespilot');
+  const [waVariables, setWaVariables] = useState('Sales Representative, Next Tuesday, Asia/Kolkata, https://g.co/meet/salespilot');
   const [waSuccess, setWaSuccess] = useState<string | null>(null);
   const [isSendingWa, setIsSendingWa] = useState(false);
 
   const [slackChannel, setSlackChannel] = useState('#sales-alerts');
-  const [slackMessage, setSlackMessage] = useState('🚀 DEAL CLOSED: Apex Marketing Solutions Pvt Ltd has upgraded to SalesPilot Advanced tier. ₹50,000 INR prepaid received successfully!');
+  const [slackMessage, setSlackMessage] = useState('🚀 DEAL CLOSED: Enterprise Client Pvt Ltd has upgraded to SalesPilot Advanced tier. ₹50,000 INR prepaid received successfully!');
   const [slackSuccess, setSlackSuccess] = useState<string | null>(null);
   const [isSendingSlack, setIsSendingSlack] = useState(false);
 
@@ -3974,7 +3974,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     </label>
                     <textarea
                       rows={8}
-                      placeholder="Dear Ananya,\n\nI was reviewing Apex Marketing Solutions and loved your projects..."
+                      placeholder="Dear Prospect,\n\nI was reviewing your organization and loved your projects..."
                       value={composeBody}
                       onChange={(e) => setComposeBody(e.target.value)}
                       className="w-full bg-white border border-slate-200 text-xs p-3 rounded-lg outline-none text-slate-800 font-sans leading-relaxed"

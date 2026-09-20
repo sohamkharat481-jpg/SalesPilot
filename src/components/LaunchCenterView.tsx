@@ -15,10 +15,10 @@ export function LaunchCenterView() {
 
   // Multi-Tenant RBAC isolation States
   const [rbacUsers, setRbacUsers] = useState([
-    { id: 'usr-1', name: 'Soham Kharat', email: 'sohamkharat481@gmail.com', orgId: 'org-horizon', orgName: 'Horizon Media', role: 'OWNER', verified: true },
-    { id: 'usr-2', name: 'Ananya Sharma', email: 'ananya@apexmarketing.in', orgId: 'org-apex', orgName: 'Apex Marketing', role: 'ADMIN', verified: true },
-    { id: 'usr-3', name: 'Rohan Mehta', email: 'rohan@stellartech.io', orgId: 'org-stellar', orgName: 'StellarTech Labs', role: 'MANAGER', verified: true },
-    { id: 'usr-4', name: 'Sneha Kapoor', email: 'sneha@cloudflow.com', orgId: 'org-cloudflow', orgName: 'CloudFlow SaaS', role: 'SALES', verified: false }
+    { id: 'usr-1', name: 'Admin User', email: 'admin@salespilot.io', orgId: 'org_primary_workspace', orgName: 'Primary Workspace', role: 'OWNER', verified: true },
+    { id: 'usr-2', name: 'Partner Lead', email: 'partner@client.co', orgId: 'org-client-1', orgName: 'Enterprise Client', role: 'ADMIN', verified: true },
+    { id: 'usr-3', name: 'Account Manager', email: 'manager@techops.io', orgId: 'org-techops', orgName: 'TechOps Systems', role: 'MANAGER', verified: true },
+    { id: 'usr-4', name: 'Growth Associate', email: 'associate@growth.co', orgId: 'org-growth', orgName: 'Growth Partner', role: 'SALES', verified: false }
   ]);
   const [selectedTenantUser, setSelectedTenantUser] = useState<string>('usr-1');
   const [crossTenantAuditLogs, setCrossTenantAuditLogs] = useState<string[]>([]);
@@ -27,14 +27,14 @@ export function LaunchCenterView() {
   // Mobile App states
   const [mobileScreen, setMobileScreen] = useState<'chat' | 'pipeline' | 'smtp' | 'enrich'>('chat');
   const [pushTitle, setPushTitle] = useState('New High-Value Lead Found!');
-  const [pushBody, setPushBody] = useState('Sneha Kapoor is ready to review Horizon Media Professional plan.');
+  const [pushBody, setPushBody] = useState('Prospect is ready to review the Enterprise plan.');
   const [phoneToasts, setPhoneToasts] = useState<Array<{ id: string; title: string; body: string }>>([]);
   const [mobileCodeTab, setMobileCodeTab] = useState<'app-json' | 'chat-screen' | 'push-service'>('chat-screen');
 
   // Public API states
   const [apiEndpoint, setApiEndpoint] = useState<'leads' | 'enrich' | 'telemetry'>('leads');
   const [apiMethod, setApiMethod] = useState<'GET' | 'POST'>('GET');
-  const [apiPayload, setApiPayload] = useState('{\n  "company": "Horizon Enterprises",\n  "firstName": "Deepak",\n  "email": "deepak@horizon.co"\n}');
+  const [apiPayload, setApiPayload] = useState('{\n  "company": "Acme Corp",\n  "firstName": "Alex",\n  "email": "alex@acme.co"\n}');
   const [apiResponse, setApiResponse] = useState<any>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiTokenBucket, setApiTokenBucket] = useState(100);
@@ -145,7 +145,7 @@ export function LaunchCenterView() {
     setCrossTenantAuditLogs([
       `[${new Date().toLocaleTimeString()}] [AUDIT] Launching automated Cross-Tenant Vulnerability scanner...`,
       `[${new Date().toLocaleTimeString()}] [AUDIT] Target: Attempting query parameter injection bypass...`,
-      `[${new Date().toLocaleTimeString()}] [AUDIT] Query payload: "SELECT * FROM leads WHERE organization_id = 'org-apex'" executed under user context "usr-1" (Horizon Media)`,
+      `[${new Date().toLocaleTimeString()}] [AUDIT] Query payload: "SELECT * FROM leads WHERE organization_id = 'org-foreign-tenant'" executed under user context "usr-1" (Current Workspace)`,
       `[${new Date().toLocaleTimeString()}] [BYPASS FAILURE] Supabase Row-Level Security policy triggered: RLS_RESTRICTION_MATCHED.`,
       `[${new Date().toLocaleTimeString()}] [BYPASS FAILURE] Data Access denied. Return empty array (0 records fetched).`,
       `[${new Date().toLocaleTimeString()}] [AUDIT] Testing SQL mapping vectors on raw db hooks...`,
@@ -589,15 +589,15 @@ export function LaunchCenterView() {
                         <div className="space-y-2">
                           <div className="bg-slate-850 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center cursor-pointer min-h-[46px]">
                             <div>
-                              <div className="font-bold text-white text-[10px]">Ananya Sharma</div>
-                              <div className="text-[9px] text-slate-400 font-mono">Apex Marketing &bull; ₹125,000</div>
+                              <div className="font-bold text-white text-[10px]">Lead Prospect</div>
+                              <div className="text-[9px] text-slate-400 font-mono">Enterprise Account &bull; ₹125,000</div>
                             </div>
                             <span className="text-[8px] font-mono bg-blue-950 text-blue-400 font-bold px-1.5 py-0.5 rounded">NEGOTIATE</span>
                           </div>
                           <div className="bg-slate-850 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center cursor-pointer min-h-[46px]">
                             <div>
-                              <div className="font-bold text-white text-[10px]">Sneha Kapoor</div>
-                              <div className="text-[9px] text-slate-400 font-mono">CloudFlow SaaS &bull; ₹45,000</div>
+                              <div className="font-bold text-white text-[10px]">Client Prospect</div>
+                              <div className="text-[9px] text-slate-400 font-mono">Growth Client &bull; ₹45,000</div>
                             </div>
                             <span className="text-[8px] font-mono bg-indigo-950 text-indigo-400 font-bold px-1.5 py-0.5 rounded">DEMO SCHEDULED</span>
                           </div>
@@ -613,7 +613,7 @@ export function LaunchCenterView() {
                         </div>
                         <div className="bg-slate-850 p-3 rounded-lg border border-slate-800 space-y-2">
                           <div className="flex justify-between items-center text-[10px]">
-                            <span className="text-slate-400 font-mono">outreach@horizonmedia.co</span>
+                            <span className="text-slate-400 font-mono">outreach@salespilot.io</span>
                             <span className="text-emerald-400 font-bold font-mono">98.4% score</span>
                           </div>
                           <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
@@ -633,8 +633,8 @@ export function LaunchCenterView() {
                           <span className="text-[8px] text-slate-400 font-mono">Gemini live scraping</span>
                         </div>
                         <div className="p-2.5 bg-slate-850 border border-slate-800 rounded-lg text-slate-300 font-mono text-[9px] leading-relaxed">
-                          <div className="text-emerald-400 font-bold mb-0.5">[SUCCESS] SNEHA KAPOOR</div>
-                          <div>CEO at CloudFlow SaaS</div>
+                          <div className="text-emerald-400 font-bold mb-0.5">[SUCCESS] VERIFIED CONTACT</div>
+                          <div>CEO at Growth Client</div>
                           <div>Size: 1-10 Employees</div>
                           <div>Tech: React, Supabase, Stripe</div>
                         </div>

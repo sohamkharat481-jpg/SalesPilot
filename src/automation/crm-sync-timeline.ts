@@ -34,43 +34,47 @@ export interface EmailTrackingMetadata {
  * Enterprise Activity Timeline & CRM History Ledger Sync Manager
  */
 export class CrmSyncTimelineManager {
-  private static timelineStore: ActivityTimelineItem[] = [
-    {
-      id: 'act_init_1',
-      leadId: 'lead_1',
-      leadName: 'Rajesh Kumar',
-      company: 'Horizon Media',
-      activityType: 'STATUS_CHANGED',
-      title: 'Lead Status Updated to QUALIFIED',
-      description: 'System automatically updated status based on high ICP match and positive reply.',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      actor: 'SalesPilot AI Engine'
-    },
-    {
-      id: 'act_init_2',
-      leadId: 'lead_1',
-      leadName: 'Rajesh Kumar',
-      company: 'Horizon Media',
-      activityType: 'EMAIL_SENT',
-      title: 'Initial Outbound Pitch Email Dispatched',
-      description: 'Subject: "Quick question regarding outbound sales at Horizon Media"',
-      timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-      actor: 'Soham Kharat'
-    }
-  ];
+  private static timelineStore: ActivityTimelineItem[] = Boolean(import.meta.env.DEV)
+    ? [
+        {
+          id: 'act_init_1',
+          leadId: 'lead_1',
+          leadName: 'Lead Prospect',
+          company: 'Acme Enterprise',
+          activityType: 'STATUS_CHANGED',
+          title: 'Lead Status Updated to QUALIFIED',
+          description: 'System automatically updated status based on high ICP match and positive reply.',
+          timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+          actor: 'SalesPilot AI Engine'
+        },
+        {
+          id: 'act_init_2',
+          leadId: 'lead_1',
+          leadName: 'Lead Prospect',
+          company: 'Acme Enterprise',
+          activityType: 'EMAIL_SENT',
+          title: 'Initial Outbound Pitch Email Dispatched',
+          description: 'Subject: "Quick question regarding outbound sales"',
+          timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
+          actor: 'Sales Representative'
+        }
+      ]
+    : [];
 
-  private static historyLedger: CrmHistoryRecord[] = [
-    {
-      id: 'hist_1',
-      leadId: 'lead_1',
-      leadName: 'Rajesh Kumar',
-      fieldChanged: 'status',
-      oldValue: 'NEW',
-      newValue: 'QUALIFIED',
-      changedBy: 'AI SDR Engine',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString()
-    }
-  ];
+  private static historyLedger: CrmHistoryRecord[] = Boolean(import.meta.env.DEV)
+    ? [
+        {
+          id: 'hist_1',
+          leadId: 'lead_1',
+          leadName: 'Lead Prospect',
+          fieldChanged: 'status',
+          oldValue: 'NEW',
+          newValue: 'QUALIFIED',
+          changedBy: 'AI SDR Engine',
+          timestamp: new Date(Date.now() - 3600000 * 2).toISOString()
+        }
+      ]
+    : [];
 
   /**
    * Prevents duplicate records by checking email & company uniqueness

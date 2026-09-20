@@ -23,38 +23,7 @@ export function OutreachView() {
   const [loading, setLoading] = useState(true);
 
   // Manual Outbox Approvals Queue State
-  const [queuedMessages, setQueuedMessages] = useState<any[]>([
-    { 
-      id: 'q_1', 
-      leadName: 'Ananya Sharma', 
-      company: 'Apex Marketing Solutions', 
-      channel: 'EMAIL', 
-      subject: 'Scaling Client Acquisition for Apex Marketing Solutions', 
-      body: 'Hi Ananya,\n\nI was reviewing Apex Marketing Solutions\'s footprint and loved your branding portfolio.\n\nQuick question: Are you open for a brief 5-minute chat next Tuesday at 11:30 AM IST regarding automated outbound client pipelines?\n\nBest,\nSoham', 
-      status: 'PENDING', 
-      timestamp: new Date(Date.now() - 40 * 60 * 1000).toISOString() 
-    },
-    { 
-      id: 'q_2', 
-      leadName: 'Sneha Kapoor', 
-      company: 'CloudFlow SaaS', 
-      channel: 'LINKEDIN', 
-      subject: '', 
-      body: 'Hi Sneha! Sent you a brief email. Wanted to connect here and check if CloudFlow SaaS is still looking to automate your outbound sequences. Let\'s handshake!', 
-      status: 'PENDING', 
-      timestamp: new Date(Date.now() - 140 * 60 * 1000).toISOString() 
-    },
-    { 
-      id: 'q_3', 
-      leadName: 'Rohan Mehta', 
-      company: 'Growth Partners', 
-      channel: 'WHATSAPP', 
-      subject: '', 
-      body: 'Hello Rohan! Just sent you an email. I know busy founders get flooded, but are you open to a brief call this week regarding outbound scaling?', 
-      status: 'PENDING', 
-      timestamp: new Date(Date.now() - 250 * 60 * 1000).toISOString() 
-    }
-  ]);
+  const [queuedMessages, setQueuedMessages] = useState<any[]>([]);
 
   // Custom Templates state
   const [customTemplates, setCustomTemplates] = useState<any[]>([]);
@@ -63,22 +32,28 @@ export function OutreachView() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // Fetch Campaigns
-      const campRes = await fetch('/api/v1/campaigns');
+      const campRes = await fetch('/api/v1/campaigns', { headers });
       const campData = await campRes.json();
       if (campData && campData.campaigns) {
         setCampaigns(campData.campaigns);
       }
 
       // Fetch History
-      const histRes = await fetch('/api/v1/outreach/history');
+      const histRes = await fetch('/api/v1/outreach/history', { headers });
       const histData = await histRes.json();
       if (histData && histData.history) {
         setHistory(histData.history);
       }
 
       // Fetch Queued Outbox Messages
-      const qRes = await fetch('/api/v1/outreach/queue');
+      const qRes = await fetch('/api/v1/outreach/queue', { headers });
       const qData = await qRes.json();
       if (qData && qData.queue) {
         setQueuedMessages(qData.queue);

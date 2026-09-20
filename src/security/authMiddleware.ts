@@ -8,32 +8,34 @@ export interface AuthenticatedRequest extends Request {
 
 export function authenticateUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.replace('Bearer ', '') || (req.query.token as string);
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
 
-  // Default Founder / Admin Fallback User for Development/Sandbox
-  const defaultFounderUser: WorkspaceUser = {
-    id: 'user_founder_001',
-    fullName: 'Soham Kharat',
-    email: 'sohamkharat481@gmail.com',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-    role: 'ADMIN',
-    companyName: 'SalesPilot',
-    industry: 'SaaS',
-    tier: 'ENTERPRISE',
-    subscriptionStatus: 'ACTIVE',
-    isFounder: true,
-    isVerified: true,
-    onboardingCompleted: true,
-    createdAt: new Date().toISOString()
-  };
-
-  if (token) {
-    req.user = defaultFounderUser;
-    return next();
+  if (!token) {
+    // Explicit development bypass ONLY if configured in non-production
+    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
+      req.user = {
+        id: 'usr_dev_bypass',
+        fullName: 'Dev User',
+        email: 'dev@salespilot.local',
+        role: 'OWNER',
+        companyName: 'Dev Workspace',
+        industry: 'SaaS',
+        tier: 'ENTERPRISE',
+        subscriptionStatus: 'ACTIVE',
+        isFounder: false,
+        isVerified: true,
+        onboardingCompleted: true,
+        createdAt: new Date().toISOString()
+      };
+      return next();
+    }
+    return res.status(401).json({
+      error: 'Unauthorized: Authentication token required.',
+      requestId: (req as any).id
+    });
   }
 
-  // Allow unauthenticated fallback in dev/sandbox or attach founder
-  req.user = defaultFounderUser;
+  // Token provided - attached in request pipeline
   next();
 }
 

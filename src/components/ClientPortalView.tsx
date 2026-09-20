@@ -110,9 +110,9 @@ export function ClientPortalView({ leads, campaigns, appointments, user }: Clien
 
   // Invoices State
   const [invoices, setInvoices] = useState<ClientInvoice[]>([
-    { id: 'inv-1004', date: '2026-07-01', amountInr: 12500, status: 'PAID', service: 'Horizon Outreach Drip Program - July' },
-    { id: 'inv-1003', date: '2026-06-01', amountInr: 12500, status: 'PAID', service: 'Horizon Outreach Drip Program - June' },
-    { id: 'inv-1002', date: '2026-05-01', amountInr: 12500, status: 'PAID', service: 'Horizon Outreach Drip Program - May' }
+    { id: 'inv-1004', date: '2026-07-01', amountInr: 12500, status: 'PAID', service: 'Enterprise Outreach Drip Program - July' },
+    { id: 'inv-1003', date: '2026-06-01', amountInr: 12500, status: 'PAID', service: 'Enterprise Outreach Drip Program - June' },
+    { id: 'inv-1002', date: '2026-05-01', amountInr: 12500, status: 'PAID', service: 'Enterprise Outreach Drip Program - May' }
   ]);
 
   // AI Chat Assistant State
@@ -134,7 +134,7 @@ export function ClientPortalView({ leads, campaigns, appointments, user }: Clien
   // Report Compiler State
   const [reports, setReports] = useState([
     { id: 'cr-1', name: 'Weekly_Growth_Outbound_Digest', format: 'CSV', date: '2026-07-05 18:00', size: '150 KB' },
-    { id: 'cr-2', name: 'Horizon_Media_Monthly_ROI_Analysis', format: 'PDF', date: '2026-07-01 10:00', size: '3.1 MB' },
+    { id: 'cr-2', name: 'Outbound_Growth_Monthly_ROI_Analysis', format: 'PDF', date: '2026-07-01 10:00', size: '3.1 MB' },
     { id: 'cr-3', name: 'SaaS_Decision_Makers_Qualified_June', format: 'CSV', date: '2026-06-25 16:30', size: '420 KB' }
   ]);
   const [isCompiling, setIsCompiling] = useState(false);
@@ -487,7 +487,7 @@ export function ClientPortalView({ leads, campaigns, appointments, user }: Clien
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-6 rounded-2xl shadow-sm space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 font-mono">Horizon Growth Outbound Statistics</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 font-mono">Workspace Outbound Statistics</h3>
                     <p className="text-base font-bold text-slate-900 dark:text-slate-50">Campaign Outreach & Replies Over Time</p>
                   </div>
                   <div className="flex items-center gap-4 text-xs font-mono">
@@ -543,7 +543,7 @@ export function ClientPortalView({ leads, campaigns, appointments, user }: Clien
                     {clientAppointments.slice(0, 3).map((apt, index) => (
                       <div key={apt.id || index} className="p-3 bg-slate-50 dark:bg-slate-850/60 rounded-xl border border-slate-200/50 dark:border-slate-800 space-y-1.5 flex justify-between items-center gap-4">
                         <div className="space-y-1">
-                          <p className="text-xs font-bold text-slate-850 dark:text-slate-100">Horizon Alignment Demo</p>
+                          <p className="text-xs font-bold text-slate-850 dark:text-slate-100">Growth Alignment Demo</p>
                           <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                             <Clock className="w-3 h-3 text-slate-400" /> {apt.dateTime ? new Date(apt.dateTime).toLocaleDateString() + ' ' + new Date(apt.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'TBD'}
                           </p>
@@ -860,7 +860,7 @@ export function ClientPortalView({ leads, campaigns, appointments, user }: Clien
                         <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded">
                           {apt.status || 'CONFIRMED'}
                         </span>
-                        <h4 className="font-bold text-sm text-slate-950 dark:text-white mt-1">Horizon Outreach Strategy Session</h4>
+                        <h4 className="font-bold text-sm text-slate-950 dark:text-white mt-1">Outreach Strategy Session</h4>
                       </div>
                       <Calendar className="w-5 h-5 text-emerald-500" />
                     </div>
@@ -1016,7 +1016,7 @@ export function ClientPortalView({ leads, campaigns, appointments, user }: Clien
                   </div>
                   <button 
                     onClick={() => {
-                      alert('Upgrade inquiry dispatched to Horizon Media. Our coordinator will contact you shortly!');
+                      alert('Upgrade inquiry dispatched to your workspace coordinator. We will contact you shortly!');
                     }}
                     className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition cursor-pointer text-center block"
                   >

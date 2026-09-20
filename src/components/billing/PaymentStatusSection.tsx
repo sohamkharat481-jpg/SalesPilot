@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CreditCard, Check, ShieldCheck, Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
+import { WorkspaceUser } from '../../types';
 
 export interface AuditLog {
   id: string;
@@ -10,6 +11,7 @@ export interface AuditLog {
 }
 
 interface PaymentStatusSectionProps {
+  user?: WorkspaceUser | null;
   cardDigits: string;
   setCardDigits: (digits: string) => void;
   cardExpiry: string;
@@ -21,6 +23,7 @@ interface PaymentStatusSectionProps {
 }
 
 export function PaymentStatusSection({
+  user,
   cardDigits,
   setCardDigits,
   cardExpiry,
@@ -81,7 +84,7 @@ export function PaymentStatusSection({
             <div className="mt-6 flex justify-between items-center">
               <div>
                 <span className="block text-[8px] text-zinc-455 font-mono uppercase tracking-widest">Card Holder</span>
-                <span className="text-[10px] font-mono font-bold">Horizon Media Group</span>
+                <span className="text-[10px] font-mono font-bold">{user?.companyName || user?.fullName || 'Workspace'}</span>
               </div>
               <div className="text-right">
                 <span className="block text-[8px] text-zinc-455 font-mono uppercase tracking-widest">Expires</span>

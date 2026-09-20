@@ -13,6 +13,7 @@ import {
   Tooltip, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
 import { Lead, Campaign, Deal, Appointment, WorkspaceUser } from '../types';
+import { useAuth } from '../authentication/AuthContext';
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -34,6 +35,9 @@ interface WidgetConfig {
 }
 
 export function DashboardView({ leads, campaigns, deals, appointments, setActiveTab, user, onReopenOnboarding }: DashboardViewProps) {
+  const { organization } = useAuth();
+  const activeWorkspaceName = organization?.name || user?.companyName || (user as any)?.organizationName || 'Active Workspace';
+
   // 1. Dashboard Layout Widgets Config State
   const [widgets, setWidgets] = useState<WidgetConfig[]>(() => {
     const saved = localStorage.getItem('salespilot_dashboard_layout_v1');
@@ -312,7 +316,7 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
               Workspace Operations Dashboard
             </h2>
             <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 rounded-md border border-blue-200/50 dark:border-blue-900/30">
-              Horizon Media Enterprise
+              {activeWorkspaceName}
             </span>
             <span className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

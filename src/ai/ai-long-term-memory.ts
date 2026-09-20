@@ -57,13 +57,13 @@ class AILongTermMemoryStore {
   }
 
   private ensureSeedMemories() {
-    if (this.memories.size > 0) return;
+    if (this.memories.size > 0 || !import.meta.env.DEV) return;
 
     const initialMemories: AIMemoryItem[] = [
       {
         id: 'mem-1',
         scope: 'ORGANIZATION',
-        scopeId: 'org-horizon',
+        scopeId: 'org-default',
         category: 'PREFERENCE',
         content: 'Organization prefers concise B2B outbound emails with a warm tone and direct call booking links.',
         importanceScore: 9,
@@ -76,9 +76,9 @@ class AILongTermMemoryStore {
       {
         id: 'mem-2',
         scope: 'LEAD',
-        scopeId: 'lead-rajesh',
+        scopeId: 'lead-prospect',
         category: 'BUYING_SIGNAL',
-        content: 'Rajesh Kumar expressed high interest in automated CRM lead distribution and webhook triggers.',
+        content: 'Key decision maker expressed high interest in automated CRM lead distribution and webhook triggers.',
         importanceScore: 8,
         confidence: 0.9,
         sourceAgent: 'AI_SDR',
@@ -89,9 +89,9 @@ class AILongTermMemoryStore {
       {
         id: 'mem-3',
         scope: 'CRM',
-        scopeId: 'deal-apex-closing',
+        scopeId: 'deal-enterprise-closing',
         category: 'DEAL_FACT',
-        content: 'Apex Marketing decision maker requires security audit documentation prior to annual contract signoff.',
+        content: 'Enterprise prospect decision maker requires security audit documentation prior to annual contract signoff.',
         importanceScore: 10,
         confidence: 0.98,
         sourceAgent: 'COPILOT',

@@ -66,53 +66,53 @@ export function OpenAiSuiteView() {
   // 2. Outbound Copilot
   const [outboundSubTool, setOutboundSubTool] = useState<'email' | 'followup' | 'reply'>('email');
   // Cold Email Writer inputs
-  const [emailLeadName, setEmailLeadName] = useState('Ananya Sharma');
+  const [emailLeadName, setEmailLeadName] = useState('Enterprise Lead');
   const [emailLeadTitle, setEmailLeadTitle] = useState('Managing Director');
-  const [emailCompany, setEmailCompany] = useState('Apex Marketing Solutions');
-  const [emailIndustry, setEmailIndustry] = useState('Marketing Agency');
+  const [emailCompany, setEmailCompany] = useState('Acme Solutions');
+  const [emailIndustry, setEmailIndustry] = useState('Enterprise Services');
   const [emailPainPoints, setEmailPainPoints] = useState('Sales reps waste 2 hours a day manually typing pitches and outbound email delivery is dropping');
   const [emailStyle, setEmailStyle] = useState('Warm, punchy, consultative & short (3 sentences)');
   // Follow-up Generator inputs
   const [followupThread, setFollowupThread] = useState(`Prospect: thanks for reaching out. We are quite busy right now. Maybe next quarter.\nRep: Understood. Let me know if anything changes.\nProspect: Sure thing.`);
   const [followupTone, setFollowupTone] = useState('Value-focused, dynamic, low-friction');
   // Reply Analysis inputs
-  const [replyText, setReplyText] = useState(`Hey Soham, thanks for the ping. Yes, we are currently hiring 3 sales reps and manual personalization is a huge pain point. What are your pricing plans in INR? Do you have an automated scheduler?`);
+  const [replyText, setReplyText] = useState(`Hey there, thanks for the ping. Yes, we are currently hiring 3 sales reps and manual personalization is a huge pain point. What are your pricing plans in INR? Do you have an automated scheduler?`);
   const [replyContext, setReplyContext] = useState(`Initial cold email sent on Monday introducing SalesPilot's automatic SMTP scheduling and lead enrichment.`);
 
   // 3. Intelligence Suite
   const [intelSubTool, setIntelSubTool] = useState<'research' | 'qualify'>('research');
   // AI Research inputs
-  const [researchCompany, setResearchCompany] = useState('Apex Marketing Solutions');
-  const [researchIndustry, setResearchIndustry] = useState('Outbound Marketing & Advertising');
-  const [researchWebsite, setResearchWebsite] = useState('https://apexmarketing.in');
+  const [researchCompany, setResearchCompany] = useState('Acme Growth Corp');
+  const [researchIndustry, setResearchIndustry] = useState('Enterprise SaaS & Services');
+  const [researchWebsite, setResearchWebsite] = useState('https://acmegrowth.com');
   // Lead Qualification inputs
-  const [qualifyLeadName, setQualifyLeadName] = useState('Ananya Sharma');
-  const [qualifyCompany, setQualifyCompany] = useState('Apex Marketing Solutions');
-  const [qualifyIndustry, setQualifyIndustry] = useState('Outbound Marketing');
+  const [qualifyLeadName, setQualifyLeadName] = useState('Enterprise Decision Maker');
+  const [qualifyCompany, setQualifyCompany] = useState('Acme Solutions');
+  const [qualifyIndustry, setQualifyIndustry] = useState('Enterprise Services');
   const [qualifyHistory, setQualifyHistory] = useState('Opened email copy 3 times, clicked scheduling calendar slot, responded asking for INR billing terms and pricing plans.');
   const [qualifyNotes, setQualifyNotes] = useState('Wants to equip 3 incoming sales reps by next Tuesday. Seems highly motivated.');
 
   // 4. Document Studio
   const [docSubTool, setDocSubTool] = useState<'proposal' | 'meeting'>('proposal');
   // Proposal Generator inputs
-  const [proposalCompany, setProposalCompany] = useState('Apex Marketing Solutions');
-  const [proposalContact, setProposalContact] = useState('Ananya Sharma');
+  const [proposalCompany, setProposalCompany] = useState('Acme Solutions');
+  const [proposalContact, setProposalContact] = useState('Enterprise Decision Maker');
   const [proposalValue, setProposalValue] = useState('50000');
   const [proposalDemands, setProposalDemands] = useState('Must support localized INR Cashfree checkout links, 3 enterprise seats, and warm auxiliary SMTP setup.');
   
   // Enterprise Proposal Generator advanced states
   const [proposalType, setProposalType] = useState<'PROPOSAL' | 'QUOTATION' | 'INVOICE' | 'CONTRACT' | 'SOW'>('PROPOSAL');
-  const [proposalEditorContent, setProposalEditorContent] = useState<string>(`# Enterprise Outbound Proposal: Apex Marketing Solutions
+  const [proposalEditorContent, setProposalEditorContent] = useState<string>(`# Enterprise Outbound Proposal: Acme Solutions
 
-**Prepared for:** Apex Marketing Solutions
-**Lead contact:** Ananya Sharma
+**Prepared for:** Acme Solutions
+**Lead contact:** Enterprise Decision Maker
 **Value:** ₹50,000 INR (6-Month License)
 **Date:** July 08, 2026
 
 ---
 
 ### 1. Executive Summary
-Apex Marketing Solutions is scaling its customer outreach and sales pipeline. Horizon Media will deliver SalesPilot enterprise licenses, automating outbound deliverability and equipping 3 new representatives with server-side AI-personalization sequencers.
+Acme Solutions is scaling its customer outreach and sales pipeline. SalesPilot will deliver enterprise licenses, automating outbound deliverability and equipping 3 new representatives with server-side AI-personalization sequencers.
 
 ### 2. Solution Specifications & Deliverables
 - **3x Enterprise Seats:** Full CRM integration, Google Calendar synchronization, and automated sequence triggers.
@@ -131,22 +131,22 @@ Apex Marketing Solutions is scaling its customer outreach and sales pipeline. Ho
       id: 'prop_hist_1',
       version: '1.0.0',
       type: 'PROPOSAL',
-      companyName: 'Apex Marketing Solutions',
-      leadName: 'Ananya Sharma',
+      companyName: 'Enterprise Solutions',
+      leadName: 'Client Lead',
       valueInr: '50000',
       demands: 'Initial setup for 3 enterprise representatives and dedicated SLA support.',
-      content: `# Enterprise Outbound Proposal: Apex Marketing Solutions\n\n**Client:** Apex Marketing Solutions\n**Contact:** Ananya Sharma\n**Value:** ₹50,000 INR (6 Months)\n\n### 1. Executive Summary\nApex Marketing requires enterprise-grade cold email outbounds and verified lead research profiling to scale lead flow.\n\n### 2. Solution Specifications\n- **3 Seats** - Full CRM, Kanban pipelines, & Calendar sync.\n- **Support** - Premium support SLA (under 2 hours response time).\n- **Cashfree Setup** - Native INR payments setup.\n\n### 3. Financial Agreement\n- Total: ₹50,000 INR prepaid.`,
+      content: `# Enterprise Outbound Proposal: Enterprise Solutions\n\n**Client:** Enterprise Solutions\n**Contact:** Client Lead\n**Value:** ₹50,000 INR (6 Months)\n\n### 1. Executive Summary\nEnterprise Solutions requires enterprise-grade cold email outbounds and verified lead research profiling to scale lead flow.\n\n### 2. Solution Specifications\n- **3 Seats** - Full CRM, Kanban pipelines, & Calendar sync.\n- **Support** - Premium support SLA (under 2 hours response time).\n- **Cashfree Setup** - Native INR payments setup.\n\n### 3. Financial Agreement\n- Total: ₹50,000 INR prepaid.`,
       createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     }
   ]);
 
   // Meeting Summary inputs
-  const [meetingTranscript, setMeetingTranscript] = useState(`Soham (Horizon Media): Thanks for joining Rajesh.
-Rajesh (Apex Sales Admin): Absolutely. We want to scale our outreach next week.
-Soham: Perfect. We can set up 3 enterprise seats. The cost is ₹50,000 INR for a 6-month contract.
-Rajesh: That sounds perfect. Can we do a pilot of the campaign tool?
-Soham: Yes, we can initiate next Tuesday. I will send over the proposal and invoice link today.
-Rajesh: Perfect. I will import the leads by Thursday.`);
+  const [meetingTranscript, setMeetingTranscript] = useState(`Account Executive (SalesPilot): Thanks for joining the discovery call.
+Prospect Lead (Client Admin): Absolutely. We want to scale our outreach next week.
+Account Executive: Perfect. We can set up 3 enterprise seats. The cost is ₹50,000 INR for a 6-month contract.
+Prospect Lead: That sounds perfect. Can we do a pilot of the campaign tool?
+Account Executive: Yes, we can initiate next Tuesday. I will send over the proposal and invoice link today.
+Prospect Lead: Perfect. I will import the leads by Thursday.`);
 
   // 5. Sales Sparring Coach
   const [objectionText, setObjectionText] = useState('Your software is too expensive. We can just hire cheap interns to copy-paste outreach messages.');
@@ -161,11 +161,11 @@ Rajesh: Perfect. I will import the leads by Thursday.`);
   const [geminiProvider, setGeminiProvider] = useState<'router' | 'gemini' | 'openai'>('router');
   
   // Website inputs
-  const [webUrl, setWebUrl] = useState('https://apexmarketing.in');
+  const [webUrl, setWebUrl] = useState('https://example.com');
   const [webFocus, setWebFocus] = useState('Identify conversion bottlenecks and extract custom pain points for personalized outbound sequence pitches.');
   
   // Document inputs
-  const [docTextState, setDocTextState] = useState(`ENTERPRISE SLA & OUTBOUND CAMPAIGN CHARTER v4.2\n- Target Client: Apex Marketing Solutions\n- Volume Commitment: 50,000 monthly outbounds\n- Local Checkout Integration: Cashfree payment API configured with 100% compliant INR pricing.\n- Support: Tier-1 priority support SLA (under 2 hours response time).`);
+  const [docTextState, setDocTextState] = useState(`ENTERPRISE SLA & OUTBOUND CAMPAIGN CHARTER v4.2\n- Target Client: Enterprise Client Solutions\n- Volume Commitment: 50,000 monthly outbounds\n- Local Checkout Integration: Cashfree payment API configured with 100% compliant INR pricing.\n- Support: Tier-1 priority support SLA (under 2 hours response time).`);
   const [docObjective, setDocObjective] = useState('Audit this contract draft for gaps, compliance bottlenecks, and list the core business commitments.');
   
   // Competitor inputs
@@ -173,7 +173,7 @@ Rajesh: Perfect. I will import the leads by Thursday.`);
   const [compAdvantage, setCompAdvantage] = useState('We provide 100% compliant local INR pricing with built-in Cashfree checkout, custom n8n webhook pipelines, and automatic AI router failovers.');
   
   // Proposal inputs
-  const [propText, setPropText] = useState(`PROPOSAL: SalesPilot Outreach Infrastructure Setup\n- Prepared for: Ananya Sharma, Apex Marketing Solutions\n- Seat Licenses: 3 Enterprise Seats\n- Payment: ₹50,000 INR prepaid for 6-months\n- Integrations: Google Gmail and n8n webhook triggers\n- Key SLA: 2 hours support response time`);
+  const [propText, setPropText] = useState(`PROPOSAL: SalesPilot Outreach Infrastructure Setup\n- Prepared for: Enterprise Client Lead\n- Seat Licenses: 3 Enterprise Seats\n- Payment: ₹50,000 INR prepaid for 6-months\n- Integrations: Google Gmail and n8n webhook triggers\n- Key SLA: 2 hours support response time`);
   const [propConstraints, setPropConstraints] = useState('Verify proposal matches enterprise package limitations, check local INR billing parameters, and confirm SLA compliance.');
   
   // Knowledge inputs
@@ -1044,7 +1044,7 @@ Rajesh: Perfect. I will import the leads by Thursday.`);
                             } else if (type === 'INVOICE') {
                               setProposalEditorContent(`# Proforma Invoice Draft: ${proposalCompany}\n\n**Invoice ID:** SP-INV-2026-${Math.floor(Math.random()*10000)}\n**Date:** July 08, 2026\n\n**Bill To:**\n- ${proposalCompany}\n- Attn: ${proposalContact}\n\n**Services Provided:**\n- 6-Month SalesPilot Outbound Pilot (3 Seats): ₹45,000 INR\n- SLA Support Access: ₹5,000 INR\n\n**Subtotal:** ₹50,000 INR\n**GST (18%):** ₹9,000 INR\n**Grand Total due:** ₹59,000 INR`);
                             } else if (type === 'CONTRACT') {
-                              setProposalEditorContent(`# Master Services Agreement: SalesPilot CRM\n\n**Provider:** Horizon Media (SalesPilot Operator)\n**Client:** ${proposalCompany}\n**Effective Date:** July 08, 2026\n\n### 1. Scope of Licensing\nHorizon Media grants Client ${seatCount} enterprise licenses to the SalesPilot application. All users are bound to compliance with anti-spam legislation.\n\n### 2. Payment Terms\nClient agrees to complete payments through secure Cashfree PG nodes in INR currency. Access is granted instantly upon order capturing.`);
+                              setProposalEditorContent(`# Master Services Agreement: SalesPilot CRM\n\n**Provider:** SalesPilot Platform Operator\n**Client:** ${proposalCompany}\n**Effective Date:** July 08, 2026\n\n### 1. Scope of Licensing\nSalesPilot Platform Operator grants Client ${seatCount} enterprise licenses to the SalesPilot application. All users are bound to compliance with anti-spam legislation.\n\n### 2. Payment Terms\nClient agrees to complete payments through secure Cashfree PG nodes in INR currency. Access is granted instantly upon order capturing.`);
                             } else if (type === 'SOW') {
                               setProposalEditorContent(`# Statement of Work (SOW): Outbound Implementation\n\n**Client:** ${proposalCompany}\n\n### 1. Phased Deliverables\n- **Phase 1 (Week 1):** Domain and auxiliary SMTP warmup routines configured.\n- **Phase 2 (Week 2):** Campaign sequence copy finalized using OpenAI and Gemini models.\n- **Phase 3 (Week 3):** CRM live integration setup.`);
                             }
@@ -1393,7 +1393,7 @@ Rajesh: Perfect. I will import the leads by Thursday.`);
                               user = `Draft a formal invoice for "${proposalCompany}" (Contact: ${proposalContact}). Invoice amount: ₹${proposalValue} INR. Support tier: ${supportTier.toUpperCase()}. Include terms like standard Cashfree PG checkout links and bank wire directions.`;
                             } else if (proposalType === 'CONTRACT') {
                               sys = "You are an enterprise corporate legal counsel. Draft a detailed Master Services Agreement (MSA) contract draft containing clauses for Intellectual Property, Confidentiality, Limitation of Liability, Payment Default, and Termination SLAs.";
-                              user = `Draft a legal contract agreement between Horizon Media (SalesPilot platform operator) and "${proposalCompany}" (Representative: ${proposalContact}) for a transaction value of ₹${proposalValue} INR. Include clauses for 3 user licenses and 2-hour Priority support response times.`;
+                              user = `Draft a legal contract agreement between SalesPilot platform operator and "${proposalCompany}" (Representative: ${proposalContact}) for a transaction value of ₹${proposalValue} INR. Include clauses for 3 user licenses and 2-hour Priority support response times.`;
                             } else if (proposalType === 'SOW') {
                               sys = "You are a technical delivery program manager. Formulate a detailed Statement of Work (SOW) outlining Phase-wise Milestones, Delivery timelines, Acceptance criteria, and SLA compliance procedures.";
                               user = `Generate a Statement of Work (SOW) for "${proposalCompany}" (Contact: ${proposalContact}) detailing the implementation of SalesPilot CRM and outreach nodes. Total scope fee: ₹${proposalValue} INR.\nSpecific deliverables: ${proposalDemands}.`;

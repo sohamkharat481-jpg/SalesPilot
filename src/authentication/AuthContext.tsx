@@ -53,7 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<WorkspaceUser | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [isSandbox, setIsSandbox] = useState(() => !isSupabaseConfigured());
+  const isLocalDev = Boolean(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')));
+  const [isSandbox, setIsSandbox] = useState(() => isLocalDev && !isSupabaseConfigured());
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') !== 'false');
@@ -168,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sync Supabase settings state
   useEffect(() => {
     const configured = isSupabaseConfigured();
-    setIsSandbox(!configured);
+    setIsSandbox(isLocalDev && !configured);
 
     // Initial session checking and OAuth state recovery
     async function initAuth() {
@@ -233,8 +234,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedTeam = localStorage.getItem('salespilot_team');
 
       if (token && storedUser) {
+        // Enforce DEV-only sandbox check:
+        if (!isLocalDev && (token === 'sandbox_dev_auth_token' || token === 'sandbox_google_auth_token' || token.startsWith('sandbox_'))) {
+          localStorage.removeItem('salespilot_token');
+          localStorage.removeItem('salespilot_user');
+          localStorage.removeItem('salespilot_org');
+          localStorage.removeItem('salespilot_team');
+          setUser(null);
+          setOrganization(null);
+          setTeamMembers([]);
+          setAuthView('login');
+          setIsLoading(false);
+          return;
+        }
+
         try {
           const parsedUser = JSON.parse(storedUser);
+          if (!isLocalDev && (parsedUser.email?.includes('salespilot.local') || parsedUser.email === 'google.user@salespilot.io' || parsedUser.fullName === 'Google User')) {
+            localStorage.removeItem('salespilot_token');
+            localStorage.removeItem('salespilot_user');
+            localStorage.removeItem('salespilot_org');
+            localStorage.removeItem('salespilot_team');
+            setUser(null);
+            setOrganization(null);
+            setTeamMembers([]);
+            setAuthView('login');
+            setIsLoading(false);
+            return;
+          }
           setUser(parsedUser);
           setAuthView('authenticated');
           if (storedOrg) setOrganization(JSON.parse(storedOrg));
@@ -934,11 +961,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (isSandbox) {
-        // Sandbox / offline development mode Google sign-in simulation
+        if (!isLocalDev) {
+          throw new Error('Sandbox authentication mode is strictly prohibited in production environments.');
+        }
+        // Local offline development mode simulation only (never production)
         const sandboxUser: WorkspaceUser = {
-          id: 'google_user_sandbox_' + Date.now(),
-          fullName: 'Google User',
-          email: 'google.user@salespilot.io',
+          id: 'dev_user_sandbox_' + Date.now(),
+          fullName: 'Local Developer',
+          email: 'dev@salespilot.local',
           avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
           role: 'ADMIN',
           companyName: 'SalesPilot Workspace',
@@ -952,39 +982,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         setUser(sandboxUser);
         setAuthView('authenticated');
-        localStorage.setItem('salespilot_token', 'sandbox_google_auth_token');
+        localStorage.setItem('salespilot_token', 'sandbox_dev_auth_token');
         localStorage.setItem('salespilot_user', JSON.stringify(sandboxUser));
         setIsLoading(false);
-        logActivity('Google Sign-In completed (Sandbox Mode)', 'Authentication');
+        logActivity('Local Dev Sign-In completed (Sandbox Mode)', 'Authentication');
         return;
       }
 
       const supabase = getSupabaseClient();
       if (!supabase) {
         const diag = getSupabaseDiagnostics();
-        console.warn(`[OAUTH DIAGNOSTIC] ${diag.details}. Falling back to Sandbox Founder Sign-In.`);
-        const sandboxUser: WorkspaceUser = {
-          id: 'google_user_sandbox_' + Date.now(),
-          fullName: 'Google Founder',
-          email: 'sohamkharat481@gmail.com',
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-          role: 'ADMIN',
-          companyName: 'SalesPilot Workspace',
-          industry: 'SaaS',
-          tier: 'ENTERPRISE',
-          subscriptionStatus: 'ACTIVE',
-          isFounder: true,
-          isVerified: true,
-          onboardingCompleted: true,
-          createdAt: new Date().toISOString()
-        };
-        setUser(sandboxUser);
-        setAuthView('authenticated');
-        localStorage.setItem('salespilot_token', 'sandbox_google_auth_token');
-        localStorage.setItem('salespilot_user', JSON.stringify(sandboxUser));
-        setIsLoading(false);
-        logActivity('Google Sign-In completed (Sandbox Mode - Env Fallback)', 'Authentication');
-        return;
+        const errDetail = diag.details || 'Supabase authentication service credentials are missing or unconfigured';
+        console.error(`[OAUTH CONFIG ERROR] ${errDetail}`);
+        throw new Error(`Authentication Service Unavailable: ${errDetail}. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are configured in production.`);
       }
 
       const configuredAppUrl = (import.meta.env.VITE_APP_URL || '').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');

@@ -15,10 +15,10 @@ export function MessagePersonalizer({ onQueueApprovedMessage, onSaveAsTemplate }
   const [selectedLeadId, setSelectedLeadId] = useState('');
   
   // Input contexts for personalization
-  const [name, setName] = useState('Ananya Sharma');
-  const [jobTitle, setJobTitle] = useState('Managing Director');
-  const [company, setCompany] = useState('Apex Marketing Solutions');
-  const [website, setWebsite] = useState('www.apexmarketing.in');
+  const [name, setName] = useState('Client Prospect');
+  const [jobTitle, setJobTitle] = useState('Marketing Director');
+  const [company, setCompany] = useState('Acme Growth Labs');
+  const [website, setWebsite] = useState('www.acmegrowth.com');
   const [industry, setIndustry] = useState('Marketing');
   const [companySize, setCompanySize] = useState('11-50 employees');
   const [businessType, setBusinessType] = useState('B2B Enterprise');

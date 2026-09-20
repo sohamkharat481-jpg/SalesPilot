@@ -11,7 +11,7 @@ interface ReplyAnalyzerProps {
 const sampleReplies = [
   {
     label: "Interested Reply",
-    text: "Hi Soham, yes, this sounds very interesting. We are actually facing low responses from our current campaigns. Can we schedule a 10-minute demo on Tuesday morning? Share your calendar link."
+    text: "Hi there, yes, this sounds very interesting. We are actually facing low responses from our current campaigns. Can we schedule a 10-minute demo on Tuesday morning? Share your calendar link."
   },
   {
     label: "Out of Office Reply",
@@ -33,8 +33,8 @@ export function ReplyAnalyzer({ onLogCRMMeeting }: ReplyAnalyzerProps) {
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [isMeetingBooked, setIsMeetingBooked] = useState(false);
-  const [leadName, setLeadName] = useState('Ananya Sharma');
-  const [company, setCompany] = useState('Apex Marketing Solutions');
+  const [leadName, setLeadName] = useState('Lead Prospect');
+  const [company, setCompany] = useState('Client Enterprise');
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);

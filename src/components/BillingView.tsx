@@ -492,6 +492,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
 
               {/* Linked card, webhooks list */}
               <PaymentStatusSection
+                user={user}
                 cardDigits={cardDigits}
                 setCardDigits={setCardDigits}
                 cardExpiry={cardExpiry}

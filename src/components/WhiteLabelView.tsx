@@ -579,7 +579,7 @@ export function WhiteLabelView() {
                   <div className="my-2 space-y-1">
                     <p className="font-bold text-[10px] text-slate-950">Daily AI Enrichment Insights Delivered</p>
                     <p className="text-[8px] text-slate-500 leading-relaxed">
-                      Hello Team, your autonomous campaign SDRs have scheduled 3 high-probability appointments with Apex Marketing. Review prospects below:
+                      Hello Team, your autonomous campaign SDRs have scheduled 3 high-probability appointments with qualified accounts. Review prospects below:
                     </p>
                     <div className="w-full h-4 bg-slate-50 rounded border border-slate-100" />
                   </div>

@@ -195,10 +195,70 @@ export class LocalDB {
 
   private buildDefaultSchema(): void {
     console.log('[LocalDB] Generating fresh local multi-tenant schema.');
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    const roles: OrgRole[] = [
+      { id: 'role_owner', organizationId: 'system', name: 'Owner', description: 'Full access to all settings and financial billing controls', isCustom: false, createdAt: new Date().toISOString() },
+      { id: 'role_admin', organizationId: 'system', name: 'Admin', description: 'Administrative controls excluding primary ownership changes', isCustom: false, createdAt: new Date().toISOString() },
+      { id: 'role_sales_manager', organizationId: 'system', name: 'Sales Manager', description: 'Directs lead distribution, deal pipelines, and CRM performance', isCustom: false, createdAt: new Date().toISOString() },
+      { id: 'role_sales_rep', organizationId: 'system', name: 'Sales Representative', description: 'Handles assigned outbound campaigns, lead enrichment, and booked introductions', isCustom: false, createdAt: new Date().toISOString() },
+      { id: 'role_marketing', organizationId: 'system', name: 'Marketing', description: 'Designs sequences and builds incoming lead campaign structures', isCustom: false, createdAt: new Date().toISOString() },
+      { id: 'role_support', organizationId: 'system', name: 'Support', description: 'Handles customer-facing tickets and helps debug configurations', isCustom: false, createdAt: new Date().toISOString() },
+      { id: 'role_viewer', organizationId: 'system', name: 'Viewer', description: 'Read-only access to dashboards, reports, and timeline streams', isCustom: false, createdAt: new Date().toISOString() }
+    ];
+
+    const permissions: OrgPermission[] = [
+      { id: 'perm_view_crm', name: 'View CRM', description: 'Can view leads, deals, and appointments' },
+      { id: 'perm_edit_crm', name: 'Edit CRM', description: 'Can create and update leads, deals, and appointments' },
+      { id: 'perm_delete_crm', name: 'Delete CRM', description: 'Can delete leads, deals, and appointments' },
+      { id: 'perm_manage_campaigns', name: 'Manage Campaigns', description: 'Can manage outbox sequence campaigns' },
+      { id: 'perm_manage_billing', name: 'Manage Billing', description: 'Can manage billing, invoices, and subscriptions' },
+      { id: 'perm_manage_ai', name: 'Manage AI', description: 'Can trigger research profiles and email generators' },
+      { id: 'perm_manage_integrations', name: 'Manage Integrations', description: 'Can connect Google and third-party keys' },
+      { id: 'perm_view_reports', name: 'View Reports', description: 'Can view organization dashboards and statistics' },
+      { id: 'perm_manage_team', name: 'Manage Team', description: 'Can invite, update, or remove workspace members' },
+      { id: 'perm_manage_settings', name: 'Manage Settings', description: 'Can change company domain, logo, and metadata' }
+    ];
+
+    if (isProduction) {
+      console.log('[LocalDB] Production environment detected. Initializing strictly empty multi-tenant store.');
+      this.db = {
+        users: [],
+        organizations: [],
+        organizationMembers: [],
+        teamMembers: [],
+        leads: [],
+        campaigns: [],
+        deals: [],
+        appointments: [],
+        sessions: {},
+        activityLogs: [],
+        loginHistory: [],
+        calendarAccounts: [],
+        gmailAccounts: [],
+        aiCompanyResearch: [],
+        aiContactProfiles: [],
+        aiEmailGenerations: [],
+        aiFollowups: [],
+        aiMeetingBriefs: [],
+        aiProposals: [],
+        aiScores: [],
+        roles,
+        permissions,
+        memberPermissions: [],
+        notifications: [],
+        auditLogs: [],
+        teamActivities: [],
+        invitations: []
+      };
+      this.save();
+      return;
+    }
+
     const salt = bcrypt.genSaltSync(10);
     const defaultPasswordHash = bcrypt.hashSync('password123', salt);
 
-    // Initial users
+    // Initial users (development only)
     const users = [
       {
         id: 'usr_81927391',
@@ -240,7 +300,7 @@ export class LocalDB {
       }
     ];
 
-    // Initial Organizations
+    // Initial Organizations (development only)
     const organizations: Organization[] = [
       {
         id: 'org_salespilot_lifetime',
@@ -258,35 +318,38 @@ export class LocalDB {
         subscriptionPlan: 'ENTERPRISE',
         status: 'ACTIVE',
         createdAt: new Date().toISOString()
-      },
-      {
-        id: 'org_horizon_starter',
-        name: 'Horizon Media',
-        domain: 'horizon.media',
-        industry: 'Marketing Agency',
-        createdAt: new Date().toISOString()
       }
     ];
 
-    // Initial Team Members
-    const teamMembers: TeamMember[] = [
-      {
-        id: 'tm_1',
-        email: 'ankit@horizon.media',
-        fullName: 'Ankit Patel',
-        role: 'SALES',
-        status: 'ACTIVE',
-        joinedAt: new Date().toISOString()
-      },
-      {
-        id: 'tm_2',
-        email: 'sarah@horizon.media',
-        fullName: 'Sarah Jenkins',
-        role: 'MANAGER',
-        status: 'ACTIVE',
-        joinedAt: new Date().toISOString()
-      }
-    ];
+    // Initial Team Members (never seeded in production)
+    const teamMembers: TeamMember[] = [];
+    if (process.env.SALESPILOT_ENABLE_LOCAL_DEMO === 'true' && !isProduction && process.env.NODE_ENV !== 'production') {
+      organizations.push({
+        id: 'org_demo_starter',
+        name: 'Demo Workspace',
+        domain: 'demo.workspace',
+        industry: 'Marketing Agency',
+        createdAt: new Date().toISOString()
+      });
+      teamMembers.push(
+        {
+          id: 'tm_1',
+          email: 'ankit@horizon.media',
+          fullName: 'Ankit Patel',
+          role: 'SALES',
+          status: 'ACTIVE',
+          joinedAt: new Date().toISOString()
+        },
+        {
+          id: 'tm_2',
+          email: 'sarah@horizon.media',
+          fullName: 'Sarah Jenkins',
+          role: 'MANAGER',
+          status: 'ACTIVE',
+          joinedAt: new Date().toISOString()
+        }
+      );
+    }
 
     this.db = {
       users,
@@ -331,27 +394,8 @@ export class LocalDB {
       aiMeetingBriefs: [],
       aiProposals: [],
       aiScores: [],
-      roles: [
-        { id: 'role_owner', organizationId: 'system', name: 'Owner', description: 'Full access to all settings and financial billing controls', isCustom: false, createdAt: new Date().toISOString() },
-        { id: 'role_admin', organizationId: 'system', name: 'Admin', description: 'Administrative controls excluding primary ownership changes', isCustom: false, createdAt: new Date().toISOString() },
-        { id: 'role_sales_manager', organizationId: 'system', name: 'Sales Manager', description: 'Directs lead distribution, deal pipelines, and CRM performance', isCustom: false, createdAt: new Date().toISOString() },
-        { id: 'role_sales_rep', organizationId: 'system', name: 'Sales Representative', description: 'Handles assigned outbound campaigns, lead enrichment, and booked introductions', isCustom: false, createdAt: new Date().toISOString() },
-        { id: 'role_marketing', organizationId: 'system', name: 'Marketing', description: 'Designs sequences and builds incoming lead campaign structures', isCustom: false, createdAt: new Date().toISOString() },
-        { id: 'role_support', organizationId: 'system', name: 'Support', description: 'Handles customer-facing tickets and helps debug configurations', isCustom: false, createdAt: new Date().toISOString() },
-        { id: 'role_viewer', organizationId: 'system', name: 'Viewer', description: 'Read-only access to dashboards, reports, and timeline streams', isCustom: false, createdAt: new Date().toISOString() }
-      ],
-      permissions: [
-        { id: 'perm_view_crm', name: 'View CRM', description: 'Can view leads, deals, and appointments' },
-        { id: 'perm_edit_crm', name: 'Edit CRM', description: 'Can create and update leads, deals, and appointments' },
-        { id: 'perm_delete_crm', name: 'Delete CRM', description: 'Can delete leads, deals, and appointments' },
-        { id: 'perm_manage_campaigns', name: 'Manage Campaigns', description: 'Can manage outbox sequence campaigns' },
-        { id: 'perm_manage_billing', name: 'Manage Billing', description: 'Can manage billing, invoices, and subscriptions' },
-        { id: 'perm_manage_ai', name: 'Manage AI', description: 'Can trigger research profiles and email generators' },
-        { id: 'perm_manage_integrations', name: 'Manage Integrations', description: 'Can connect Google and third-party keys' },
-        { id: 'perm_view_reports', name: 'View Reports', description: 'Can view organization dashboards and statistics' },
-        { id: 'perm_manage_team', name: 'Manage Team', description: 'Can invite, update, or remove workspace members' },
-        { id: 'perm_manage_settings', name: 'Manage Settings', description: 'Can change company domain, logo, and metadata' }
-      ],
+      roles,
+      permissions,
       memberPermissions: [],
       notifications: [],
       auditLogs: [],
@@ -487,12 +531,13 @@ export class LocalDB {
 
       // 3. Migrate Team Members
       for (const tm of this.db.teamMembers) {
+        if (!(tm as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('team_members')
             .upsert({
               id: tm.id,
-              organization_id: (tm as any).organizationId || 'org_horizon_starter',
+              organization_id: (tm as any).organizationId,
               user_id: (tm as any).userId || null,
               email: tm.email,
               full_name: tm.fullName || '',
@@ -1001,12 +1046,13 @@ export class LocalDB {
 
       // Team members
       for (const tm of this.db.teamMembers) {
+        if (!(tm as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('team_members')
             .upsert({
               id: tm.id,
-              organization_id: (tm as any).organizationId || 'org_horizon_starter',
+              organization_id: (tm as any).organizationId,
               user_id: (tm as any).userId || null,
               email: tm.email,
               full_name: tm.fullName || '',
@@ -1105,8 +1151,14 @@ export class LocalDB {
   // --- Organization Members Operations ---
   public getOrganizationMembers(organizationId?: string): OrganizationMember[] {
     if (!this.db.organizationMembers) this.db.organizationMembers = [];
-    if (!organizationId) return this.db.organizationMembers;
-    return this.db.organizationMembers.filter(m => m.organizationId === organizationId);
+    if (!organizationId) return [];
+    return this.db.organizationMembers.filter(m => Boolean(m.organizationId) && m.organizationId === organizationId);
+  }
+
+  public getOrganizationMembersByUserId(userId: string): OrganizationMember[] {
+    if (!this.db.organizationMembers) this.db.organizationMembers = [];
+    if (!userId) return [];
+    return this.db.organizationMembers.filter(m => m.userId === userId);
   }
 
   public getMemberByUserId(userId: string): OrganizationMember | null {
@@ -1139,6 +1191,10 @@ export class LocalDB {
   }
 
   public ensureDefaultWorkspacesAndMemberships(): void {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
     if (!this.db.organizationMembers) this.db.organizationMembers = [];
     if (!this.db.organizations) this.db.organizations = [];
     if (!this.db.users) this.db.users = [];
@@ -1283,7 +1339,7 @@ export class LocalDB {
   // --- Leads Operations with Tenants isolation ---
   public getLeads(organizationId: string | undefined): Lead[] {
     if (!organizationId) return [];
-    return this.db.leads.filter(l => (l as any).organizationId === organizationId);
+    return this.db.leads.filter(l => Boolean((l as any).organizationId) && (l as any).organizationId === organizationId);
   }
 
   public getAllLeads(): Lead[] {
@@ -1334,7 +1390,7 @@ export class LocalDB {
   // --- Campaigns Operations with Tenant isolation ---
   public getCampaigns(organizationId: string | undefined): Campaign[] {
     if (!organizationId) return [];
-    return this.db.campaigns.filter(c => (c as any).organizationId === organizationId);
+    return this.db.campaigns.filter(c => Boolean((c as any).organizationId) && (c as any).organizationId === organizationId);
   }
 
   public getAllCampaigns(): Campaign[] {
@@ -1385,7 +1441,7 @@ export class LocalDB {
   // --- Deals Operations ---
   public getDeals(organizationId: string | undefined): Deal[] {
     if (!organizationId) return [];
-    return this.db.deals.filter(d => (d as any).organizationId === organizationId);
+    return this.db.deals.filter(d => Boolean((d as any).organizationId) && (d as any).organizationId === organizationId);
   }
 
   public getAllDeals(): Deal[] {
@@ -1420,7 +1476,7 @@ export class LocalDB {
   // --- Appointments Operations ---
   public getAppointments(organizationId: string | undefined): Appointment[] {
     if (!organizationId) return [];
-    return this.db.appointments.filter(a => (a as any).organizationId === organizationId);
+    return this.db.appointments.filter(a => Boolean((a as any).organizationId) && (a as any).organizationId === organizationId);
   }
 
   public getAllAppointments(): Appointment[] {
@@ -1831,9 +1887,9 @@ export class LocalDB {
   public getTeamMembers(organizationId?: string): TeamMember[] {
     const list = this.db.teamMembers || [];
     if (organizationId) {
-      return list.filter((m: any) => m.organizationId === organizationId);
+      return list.filter((m: any) => Boolean((m as any).organizationId) && (m as any).organizationId === organizationId);
     }
-    return list;
+    return [];
   }
 
   public saveTeamMember(member: TeamMember): void {
