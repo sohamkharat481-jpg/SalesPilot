@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/v1/outreach/cron-process-queue",
+      "schedule": "* * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/v1/:path*",

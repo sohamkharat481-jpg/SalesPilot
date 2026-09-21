@@ -8,7 +8,8 @@ import {
   AiCompanyResearch, AiContactProfile, AiEmailGeneration, AiFollowup, AiMeetingBrief, AiProposal, AiScore,
   OrgRole, OrgPermission, OrgMemberPermission, OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
   AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory,
-  ApiKey, OAuthClient, OAuthToken, WebhookEndpoint, WebhookDelivery, IntegrationConfig, MarketplaceApp, DeveloperLog
+  ApiKey, OAuthClient, OAuthToken, WebhookEndpoint, WebhookDelivery, IntegrationConfig, MarketplaceApp, DeveloperLog,
+  OutreachCampaign, OutreachStep, OutreachQueueItem, OutreachMessage, OutreachEvent, OutreachReply
 } from '../types';
 import { AIAgent, AgentTask, AgentMemory, AgentLog, AgentWorkflow, AgentPermission } from '../types/brain';
 import { LeadGenJob } from '../types';
@@ -65,6 +66,12 @@ export interface DBStructure {
   agentWorkflows?: AgentWorkflow[];
   agentPermissions?: AgentPermission[];
   leadGenJobs?: LeadGenJob[];
+  outreachCampaigns?: OutreachCampaign[];
+  outreachSteps?: OutreachStep[];
+  outreachQueue?: OutreachQueueItem[];
+  outreachMessages?: OutreachMessage[];
+  outreachEvents?: OutreachEvent[];
+  outreachReplies?: OutreachReply[];
 }
 
 export class LocalDB {
@@ -116,7 +123,13 @@ export class LocalDB {
     agentMemories: [],
     agentLogs: [],
     agentWorkflows: [],
-    agentPermissions: []
+    agentPermissions: [],
+    outreachCampaigns: [],
+    outreachSteps: [],
+    outreachQueue: [],
+    outreachMessages: [],
+    outreachEvents: [],
+    outreachReplies: []
   };
 
   private supabase: SupabaseClient | null = null;
@@ -2417,5 +2430,119 @@ export class LocalDB {
       return true;
     }
     return false;
+  }
+
+  // OUTREACH ENGINE HELPER METHODS
+  public getOutreachCampaigns(organizationId: string): OutreachCampaign[] {
+    if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+    return this.db.outreachCampaigns.filter(c => c.organizationId === organizationId);
+  }
+
+  public getOutreachCampaignById(campaignId: string, organizationId: string): OutreachCampaign | null {
+    if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+    const c = this.db.outreachCampaigns.find(camp => camp.id === campaignId && camp.organizationId === organizationId);
+    return c || null;
+  }
+
+  public saveOutreachCampaign(campaign: OutreachCampaign, steps: OutreachStep[]): void {
+    if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+    if (!this.db.outreachSteps) this.db.outreachSteps = [];
+
+    const existingIdx = this.db.outreachCampaigns.findIndex(c => c.id === campaign.id && c.organizationId === campaign.organizationId);
+    if (existingIdx !== -1) {
+      this.db.outreachCampaigns[existingIdx] = campaign;
+    } else {
+      this.db.outreachCampaigns.push(campaign);
+    }
+
+    // Replace steps for this campaign
+    this.db.outreachSteps = this.db.outreachSteps.filter(s => s.campaignId !== campaign.id);
+    this.db.outreachSteps.push(...steps);
+    this.save();
+  }
+
+  public updateOutreachCampaignStatus(campaignId: string, status: any, organizationId: string): boolean {
+    if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+    const idx = this.db.outreachCampaigns.findIndex(c => c.id === campaignId && c.organizationId === organizationId);
+    if (idx !== -1) {
+      this.db.outreachCampaigns[idx].status = status;
+      this.db.outreachCampaigns[idx].updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getOutreachSteps(campaignId: string, organizationId: string): OutreachStep[] {
+    if (!this.db.outreachSteps) this.db.outreachSteps = [];
+    return this.db.outreachSteps.filter(s => s.campaignId === campaignId && s.organizationId === organizationId)
+      .sort((a, b) => a.stepNumber - b.stepNumber);
+  }
+
+  public getOutreachQueue(organizationId: string, status?: string): OutreachQueueItem[] {
+    if (!this.db.outreachQueue) this.db.outreachQueue = [];
+    return this.db.outreachQueue.filter(item => {
+      if (item.organizationId !== organizationId) return false;
+      if (status && item.status !== status) return false;
+      return true;
+    });
+  }
+
+  public enqueueOutreachItems(items: OutreachQueueItem[]): void {
+    if (!this.db.outreachQueue) this.db.outreachQueue = [];
+    this.db.outreachQueue.push(...items);
+    this.save();
+  }
+
+  public updateOutreachQueueItem(id: string, updates: Partial<OutreachQueueItem>, organizationId: string): boolean {
+    if (!this.db.outreachQueue) this.db.outreachQueue = [];
+    const idx = this.db.outreachQueue.findIndex(item => item.id === id && item.organizationId === organizationId);
+    if (idx !== -1) {
+      this.db.outreachQueue[idx] = {
+        ...this.db.outreachQueue[idx],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getOutreachMessages(organizationId: string, leadId?: string): OutreachMessage[] {
+    if (!this.db.outreachMessages) this.db.outreachMessages = [];
+    return this.db.outreachMessages.filter(m => {
+      if (m.organizationId !== organizationId) return false;
+      if (leadId && m.leadId !== leadId) return false;
+      return true;
+    });
+  }
+
+  public saveOutreachMessage(msg: OutreachMessage): void {
+    if (!this.db.outreachMessages) this.db.outreachMessages = [];
+    this.db.outreachMessages.push(msg);
+    this.save();
+  }
+
+  public saveOutreachReply(reply: OutreachReply): void {
+    if (!this.db.outreachReplies) this.db.outreachReplies = [];
+    this.db.outreachReplies.push(reply);
+    this.save();
+  }
+
+  public getOutreachReplies(organizationId: string): OutreachReply[] {
+    if (!this.db.outreachReplies) this.db.outreachReplies = [];
+    return this.db.outreachReplies.filter(r => r.organizationId === organizationId);
+  }
+
+  public logOutreachEvent(event: OutreachEvent): void {
+    if (!this.db.outreachEvents) this.db.outreachEvents = [];
+    this.db.outreachEvents.push(event);
+    this.save();
+  }
+
+  public getOutreachEvents(organizationId: string): OutreachEvent[] {
+    if (!this.db.outreachEvents) this.db.outreachEvents = [];
+    return this.db.outreachEvents.filter(e => e.organizationId === organizationId);
   }
 }

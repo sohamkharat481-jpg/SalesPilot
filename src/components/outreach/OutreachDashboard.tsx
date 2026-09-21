@@ -36,20 +36,18 @@ const channelPerformanceData = [
 
 export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign, onCreateNewClick }: OutreachDashboardProps) {
   
-  // Dynamic stats
-  const totalSent = campaigns.reduce((sum, c) => sum + (c.totalSent || 0), 0) + 2860;
-  const totalOpened = campaigns.reduce((sum, c) => sum + (c.totalOpened || 0), 0) + 2172;
-  const totalReplied = campaigns.reduce((sum, c) => sum + (c.totalReplied || 0), 0) + 642;
-  const activeCount = campaigns.filter(c => c.status === 'ACTIVE').length + 2;
-  const scheduledCount = campaigns.filter(c => c.status === 'DRAFT').length + 1;
-  const pendingApproval = 15;
-  const meetingsBooked = 48;
-  const positiveReplies = 189;
-  const negativeReplies = 153;
+  // Dynamic stats calculated from real tenant campaigns
+  const totalSent = campaigns.reduce((sum, c) => sum + (c.totalSent || c.total_sent || 0), 0);
+  const totalOpened = campaigns.reduce((sum, c) => sum + (c.totalOpened || c.total_opened || 0), 0);
+  const totalReplied = campaigns.reduce((sum, c) => sum + (c.totalReplied || c.total_replied || 0), 0);
+  const activeCount = campaigns.filter(c => c.status === 'ACTIVE').length;
+  const scheduledCount = campaigns.filter(c => c.status === 'DRAFT' || c.status === 'PAUSED').length;
+  const positiveReplies = campaigns.reduce((sum, c) => sum + (c.interestedCount || c.interested_count || 0), 0);
+  const meetingsBooked = campaigns.reduce((sum, c) => sum + (c.meetingsBooked || c.meetings_booked || 0), 0);
 
-  const openRate = ((totalOpened / totalSent) * 100).toFixed(1);
-  const replyRate = ((totalReplied / totalOpened) * 100).toFixed(1);
-  const bounceRate = "1.2";
+  const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : '0.0';
+  const replyRate = totalSent > 0 ? ((totalReplied / totalSent) * 100).toFixed(1) : '0.0';
+  const bounceRate = '0.0';
 
   return (
     <div className="space-y-6">
@@ -83,7 +81,7 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
           <div className="mt-2.5">
             <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-slate-50">{totalSent.toLocaleString()}</h3>
             <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1.5">
-              <span className="text-emerald-500 font-bold flex items-center gap-0.5">+{pendingApproval} Pending</span> Approval Queue
+              <span className="text-emerald-500 font-bold flex items-center gap-0.5">Automated Queue Active</span>
             </p>
           </div>
         </div>
@@ -99,9 +97,7 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
           <div className="mt-2.5">
             <h3 className="text-xl font-bold font-mono text-slate-900 dark:text-slate-50">{totalReplied.toLocaleString()}</h3>
             <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-              <span className="text-emerald-500 font-bold font-mono">+{positiveReplies} Positive</span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <span className="text-rose-500 font-mono">-{negativeReplies} Neg</span>
+              <span className="text-emerald-500 font-bold font-mono">+{positiveReplies} Interested Leads</span>
             </p>
           </div>
         </div>
@@ -119,7 +115,7 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
             <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1.5">
               <span className="text-emerald-500 font-bold flex items-center gap-0.5">
                 <CheckCircle className="w-3 h-3" />
-                {(meetingsBooked / totalReplied * 100).toFixed(0)}%
+                {totalReplied > 0 ? ((meetingsBooked / totalReplied) * 100).toFixed(0) : '0'}%
               </span> Booking Conversion
             </p>
           </div>

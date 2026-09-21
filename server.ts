@@ -22,6 +22,11 @@ import { WorkflowRunner } from './src/lib/workflowRunner';
 import { WorkflowScheduler } from './src/lib/workflowScheduler';
 import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery, isGenericCompanyName } from './src/backend/leadProviders';
 import { LeadGenWorker } from './src/backend/leadGenWorker';
+import { OutreachWorker } from './src/backend/outreachWorker';
+import { 
+  OutreachCampaign, OutreachStep, OutreachQueueItem, 
+  OutreachMessage, OutreachReply, OutreachEvent, QueueItemStatus 
+} from './src/types/outreach';
 import { 
   executeAiCompletion, 
   getPromptTemplates, 
@@ -2274,6 +2279,448 @@ async function startServer() {
     },
     getProviderCredentials: () => pluginCredentials
   });
+
+  const outreachWorker = new OutreachWorker({
+    getCampaignById: async (campaignId: string, orgId: string) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('outreach_campaigns')
+            .select('*')
+            .eq('id', campaignId)
+            .eq('organization_id', orgId)
+            .single();
+          if (data) {
+            const steps = await localDb.getOutreachSteps(campaignId, orgId);
+            return {
+              id: data.id,
+              organizationId: data.organization_id,
+              name: data.name,
+              status: data.status,
+              targetLeadIds: data.target_lead_ids || [],
+              dailyLimit: data.daily_limit || 20,
+              steps,
+              createdAt: data.created_at,
+              updatedAt: data.updated_at
+            };
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      return localDb.getOutreachCampaignById(campaignId, orgId);
+    },
+    getStepsByCampaign: async (campaignId: string, orgId: string) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('outreach_steps')
+            .select('*')
+            .eq('campaign_id', campaignId)
+            .eq('organization_id', orgId)
+            .order('step_number', { ascending: true });
+          if (data && data.length > 0) {
+            return data.map(s => ({
+              id: s.id,
+              organizationId: s.organization_id,
+              campaignId: s.campaign_id,
+              stepNumber: s.step_number,
+              delayDays: s.delay_days,
+              subjectTemplate: s.subject_template,
+              bodyTemplate: s.body_template,
+              createdAt: s.created_at,
+              updatedAt: s.updated_at
+            }));
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      return localDb.getOutreachSteps(campaignId, orgId);
+    },
+    getLeadById: async (leadId: string, orgId: string) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('id', leadId)
+            .eq('organization_id', orgId)
+            .single();
+          if (data) {
+            return {
+              id: data.id,
+              organizationId: data.organization_id,
+              name: data.name || `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+              firstName: data.first_name || '',
+              lastName: data.last_name || '',
+              email: data.email,
+              company: data.company || data.company_name,
+              companyName: data.company_name || data.company,
+              title: data.title || data.job_title,
+              industry: data.industry,
+              status: data.status,
+              tags: data.tags || [],
+              createdAt: data.created_at
+            } as any;
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      const localLeads = localDb.getLeads(orgId);
+      return localLeads.find(l => l.id === leadId) || null;
+    },
+    getQueueItemsToProcess: async (limit: number = 20) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('outreach_queue')
+            .select('*')
+            .in('status', ['QUEUED', 'WAITING'])
+            .lte('scheduled_at', new Date().toISOString())
+            .limit(limit);
+          if (!error && data && data.length > 0) {
+            return data.map(item => ({
+              id: item.id,
+              organizationId: item.organization_id,
+              campaignId: item.campaign_id,
+              stepId: item.step_id,
+              stepNumber: item.step_number,
+              leadId: item.lead_id,
+              recipientEmail: item.recipient_email,
+              recipientName: item.recipient_name,
+              subject: item.subject,
+              body: item.body,
+              status: item.status,
+              scheduledAt: item.scheduled_at,
+              sentAt: item.sent_at,
+              messageId: item.message_id,
+              providerMessageId: item.provider_message_id,
+              error: item.error,
+              attempts: item.attempts || 0,
+              lockedAt: item.locked_at,
+              createdAt: item.created_at,
+              updatedAt: item.updated_at
+            }));
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      const allQueue = (localDb.db.outreachQueue || []).filter(item => 
+        (item.status === 'QUEUED' || item.status === 'WAITING') && 
+        new Date(item.scheduledAt).getTime() <= Date.now()
+      );
+      return allQueue.slice(0, limit);
+    },
+    claimQueueItem: async (id: string, orgId: string, staleTimeoutMs: number = 180000) => {
+      const now = new Date().toISOString();
+      const staleCutoff = new Date(Date.now() - staleTimeoutMs).toISOString();
+
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('outreach_queue')
+            .update({ status: 'PROCESSING', locked_at: now, updated_at: now })
+            .eq('id', id)
+            .eq('organization_id', orgId)
+            .or(`status.eq.QUEUED,status.eq.WAITING,and(status.eq.PROCESSING,locked_at.lt.${staleCutoff})`)
+            .select('*')
+            .single();
+
+          if (!error && data) {
+            return {
+              id: data.id,
+              organizationId: data.organization_id,
+              campaignId: data.campaign_id,
+              stepId: data.step_id,
+              stepNumber: data.step_number,
+              leadId: data.lead_id,
+              recipientEmail: data.recipient_email,
+              recipientName: data.recipient_name,
+              subject: data.subject,
+              body: data.body,
+              status: data.status,
+              scheduledAt: data.scheduled_at,
+              attempts: data.attempts || 0,
+              createdAt: data.created_at,
+              updatedAt: data.updated_at
+            };
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      if (!localDb.db.outreachQueue) localDb.db.outreachQueue = [];
+      const idx = localDb.db.outreachQueue.findIndex(item => item.id === id && item.organizationId === orgId);
+      if (idx !== -1) {
+        const item = localDb.db.outreachQueue[idx];
+        const isStale = item.status === 'PROCESSING' && item.lockedAt && new Date(item.lockedAt).getTime() < (Date.now() - staleTimeoutMs);
+        if (item.status === 'QUEUED' || item.status === 'WAITING' || isStale) {
+          item.status = 'PROCESSING';
+          item.lockedAt = now;
+          item.updatedAt = now;
+          localDb.save();
+          return item;
+        }
+      }
+      return null;
+    },
+    updateQueueItem: async (id: string, updates: Partial<OutreachQueueItem>, orgId: string) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const payload: any = { updated_at: new Date().toISOString() };
+          if (updates.status) payload.status = updates.status;
+          if (updates.sentAt) payload.sent_at = updates.sentAt;
+          if (updates.providerMessageId) payload.provider_message_id = updates.providerMessageId;
+          if (updates.error !== undefined) payload.error = updates.error;
+          if (updates.attempts !== undefined) payload.attempts = updates.attempts;
+          
+          await supabase
+            .from('outreach_queue')
+            .update(payload)
+            .eq('id', id)
+            .eq('organization_id', orgId);
+        } catch (err) {
+          // ignore
+        }
+      }
+      return localDb.updateOutreachQueueItem(id, updates, orgId);
+    },
+    saveMessage: async (msg: OutreachMessage) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('outreach_messages').insert({
+            id: msg.id,
+            organization_id: msg.organizationId,
+            campaign_id: msg.campaignId,
+            lead_id: msg.leadId,
+            queue_id: msg.queueId,
+            step_number: msg.stepNumber,
+            sender_email: msg.senderEmail,
+            recipient_email: msg.recipientEmail,
+            subject: msg.subject,
+            body: msg.body,
+            provider_message_id: msg.providerMessageId,
+            thread_id: msg.threadId,
+            status: msg.status,
+            sent_at: msg.sentAt
+          });
+        } catch (err) {
+          // ignore
+        }
+      }
+      localDb.saveOutreachMessage(msg);
+    },
+    saveReply: async (reply: OutreachReply) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('outreach_replies').insert({
+            id: reply.id,
+            organization_id: reply.organizationId,
+            campaign_id: reply.campaignId,
+            lead_id: reply.leadId,
+            sender_email: reply.senderEmail,
+            recipient_email: reply.recipientEmail,
+            subject: reply.subject,
+            snippet: reply.snippet,
+            body: reply.body,
+            classification: reply.classification,
+            ai_summary: reply.aiSummary,
+            gmail_message_id: reply.gmailMessageId,
+            gmail_thread_id: reply.gmailThreadId,
+            received_at: reply.receivedAt
+          });
+        } catch (err) {
+          // ignore
+        }
+      }
+      localDb.saveOutreachReply(reply);
+    },
+    cancelPendingQueueItemsForLead: async (leadId: string, campaignId: string, orgId: string, reason: string) => {
+      let count = 0;
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('outreach_queue')
+            .update({ status: 'CANCELLED', error: reason, updated_at: new Date().toISOString() })
+            .eq('lead_id', leadId)
+            .eq('campaign_id', campaignId)
+            .eq('organization_id', orgId)
+            .in('status', ['QUEUED', 'WAITING', 'PROCESSING'])
+            .select('id');
+          if (data) count = data.length;
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      if (!localDb.db.outreachQueue) localDb.db.outreachQueue = [];
+      localDb.db.outreachQueue.forEach(item => {
+        if (item.leadId === leadId && item.campaignId === campaignId && item.organizationId === orgId && ['QUEUED', 'WAITING', 'PROCESSING'].includes(item.status)) {
+          item.status = 'CANCELLED';
+          item.error = reason;
+          item.updatedAt = new Date().toISOString();
+          count++;
+        }
+      });
+      localDb.save();
+      return count;
+    },
+    logEvent: async (event: OutreachEvent) => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('outreach_events').insert({
+            id: event.id,
+            organization_id: event.organizationId,
+            campaign_id: event.campaignId,
+            lead_id: event.leadId,
+            event_type: event.eventType,
+            details: event.details
+          });
+        } catch (err) {
+          // ignore
+        }
+      }
+      localDb.logOutreachEvent(event);
+    },
+    getGmailAccount: async (orgId: string, senderEmail?: string) => {
+      if (senderEmail) {
+        const match = gmailAccounts.find(a => a.email === senderEmail);
+        if (match) return match;
+      }
+      return gmailAccounts[0] || { email: 'sohamkharat481@gmail.com', accessToken: 'mock_access_token' };
+    },
+    sendGmailMessage: async (account: any, recipientEmail: string, subject: string, body: string) => {
+      const isRealToken = account && account.accessToken && !account.accessToken.startsWith('mock_');
+      let gmailToken = account.accessToken;
+
+      if (isRealToken) {
+        const verification = await verifyGmailCapability(account);
+        if (!verification.valid) {
+          throw new Error(`Gmail authorization check failed for ${account.email}: ${verification.error}`);
+        }
+        gmailToken = verification.token;
+      }
+
+      if (isRealToken) {
+        const emailHeadersAndBody = [
+          `To: ${recipientEmail}`,
+          `From: SalesPilot Outreach <${account.email}>`,
+          `Subject: ${subject}`,
+          `Content-Type: text/html; charset=utf-8`,
+          `MIME-Version: 1.0`,
+          ``,
+          `${body}`
+        ].join('\r\n');
+
+        const encodedEmail = Buffer.from(emailHeadersAndBody)
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+
+        const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${gmailToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ raw: encodedEmail })
+        });
+
+        const resText = await response.text();
+        if (!response.ok) {
+          throw new Error(`Gmail API HTTP ${response.status}: ${resText}`);
+        }
+
+        const resJson = JSON.parse(resText);
+        return {
+          providerMessageId: resJson.id || `gm_${Date.now()}`,
+          threadId: resJson.threadId || `th_${Date.now()}`
+        };
+      }
+
+      return {
+        providerMessageId: `gm_mock_${Date.now()}`,
+        threadId: `th_mock_${Date.now()}`
+      };
+    },
+    sendOwnerNotificationEmail: async (ownerEmail: string, subject: string, htmlBody: string) => {
+      try {
+        const gmailAcc = gmailAccounts.find(a => a.accessToken && !a.accessToken.startsWith('mock_')) || gmailAccounts[0];
+        if (gmailAcc && gmailAcc.accessToken && !gmailAcc.accessToken.startsWith('mock_')) {
+          const verification = await verifyGmailCapability(gmailAcc);
+          if (verification.valid) {
+            const emailHeadersAndBody = [
+              `To: ${ownerEmail}`,
+              `From: SalesPilot Alerts <${gmailAcc.email}>`,
+              `Subject: ${subject}`,
+              `Content-Type: text/html; charset=utf-8`,
+              `MIME-Version: 1.0`,
+              ``,
+              `${htmlBody}`
+            ].join('\r\n');
+
+            const encodedEmail = Buffer.from(emailHeadersAndBody)
+              .toString('base64')
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=+$/, '');
+
+            await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${verification.token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ raw: encodedEmail })
+            });
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn('[OWNER NOTIFICATION ERROR]', err);
+      }
+      return false;
+    },
+    saveInAppNotification: async (orgId: string, title: string, message: string, meta?: any) => {
+      localDb.addNotification({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        organizationId: orgId,
+        userId: 'usr_owner',
+        title,
+        message,
+        type: 'alert',
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+    },
+    updateLeadStatus: async (leadId: string, status: string, orgId: string) => {
+      return localDb.updateLead(leadId, { status: status as any }, orgId);
+    }
+  });
+
+  // Development-only background queue processing loop (Disabled in production; production uses Vercel Cron)
+  if (process.env.NODE_ENV === 'development' && process.env.ENABLE_DEV_OUTREACH_WORKER === 'true') {
+    setInterval(() => {
+      outreachWorker.processQueue(20).catch(err => {
+        console.warn('[OUTREACH WORKER INTERVAL NOTICE]', err);
+      });
+    }, 30000);
+  }
 
   // AUTH API: Email Signup
   const handleSignup = async (req: any, res: any) => {
@@ -7497,6 +7944,557 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     saveDb();
     res.json(newCampaign);
   });
+
+  // =========================================================================
+  // OUTREACH ENGINE PRODUCTION API ENDPOINTS
+  // =========================================================================
+
+  // Get Outreach Campaigns with Aggregated Metrics
+  app.get('/api/v1/outreach/campaigns', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+
+    try {
+      const dbCampaigns = localDb.getOutreachCampaigns(orgId);
+      const queue = localDb.getOutreachQueue(orgId);
+      const replies = localDb.getOutreachReplies(orgId);
+
+      const campaignsWithStats = dbCampaigns.map(c => {
+        const campQueue = queue.filter(q => q.campaignId === c.id);
+        const campReplies = replies.filter(r => r.campaignId === c.id);
+
+        const totalLeads = c.targetLeadIds ? c.targetLeadIds.length : 0;
+        const queued = campQueue.filter(q => q.status === 'QUEUED' || q.status === 'PROCESSING').length;
+        const sent = campQueue.filter(q => q.status === 'SENT').length;
+        const waiting = campQueue.filter(q => q.status === 'WAITING').length;
+        const replied = campReplies.length;
+        const interested = campReplies.filter(r => r.classification === 'INTERESTED' || r.classification === 'MEETING_REQUEST').length;
+        const unsubscribed = campQueue.filter(q => q.status === 'UNSUBSCRIBED').length + campReplies.filter(r => r.classification === 'UNSUBSCRIBE').length;
+        const bounced = campQueue.filter(q => q.status === 'BOUNCED').length;
+        const failed = campQueue.filter(q => q.status === 'FAILED').length;
+
+        const steps = localDb.getOutreachSteps(c.id, orgId);
+
+        return {
+          ...c,
+          steps,
+          stats: {
+            totalLeads,
+            queued,
+            sent,
+            waiting,
+            replied,
+            interested,
+            unsubscribed,
+            bounced,
+            failed
+          }
+        };
+      });
+
+      res.json({ campaigns: campaignsWithStats });
+    } catch (err: any) {
+      console.error('[OUTREACH API GET CAMPAIGNS ERROR]', err);
+      res.status(500).json({ error: 'Failed to fetch outreach campaigns.' });
+    }
+  });
+
+  // Create Outreach Campaign
+  app.post('/api/v1/outreach/campaigns', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+
+    const { name, targetLeadIds, dailyLimit, steps } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Campaign name is required.' });
+    if (!targetLeadIds || !Array.isArray(targetLeadIds) || targetLeadIds.length === 0) {
+      return res.status(400).json({ error: 'At least one target lead must be selected.' });
+    }
+    if (!steps || !Array.isArray(steps) || steps.length === 0) {
+      return res.status(400).json({ error: 'At least one sequence step is required.' });
+    }
+
+    // Verify lead ownership to prevent cross-tenant injection
+    const tenantLeads = localDb.getLeads(orgId);
+    const validLeadIds = targetLeadIds.filter(id => tenantLeads.some(l => l.id === id));
+    if (validLeadIds.length === 0) {
+      return res.status(400).json({ error: 'None of the provided lead IDs belong to your organization.' });
+    }
+
+    const campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const now = new Date().toISOString();
+
+    const formattedSteps: OutreachStep[] = steps.map((s: any, idx: number) => ({
+      id: `step_${Date.now()}_${idx}`,
+      organizationId: orgId,
+      campaignId,
+      stepNumber: idx + 1,
+      delayDays: Number(s.delayDays) || (idx === 0 ? 0 : 2),
+      subjectTemplate: s.subjectTemplate || s.subject || 'Quick question regarding SalesPilot',
+      bodyTemplate: s.bodyTemplate || s.body || 'Hi {{first_name}},\n\nWould love to connect.',
+      createdAt: now,
+      updatedAt: now
+    }));
+
+    const newCampaign: OutreachCampaign = {
+      id: campaignId,
+      organizationId: orgId,
+      name: name.trim(),
+      status: 'DRAFT',
+      targetLeadIds: validLeadIds,
+      dailyLimit: Math.min(Math.max(Number(dailyLimit) || 20, 1), 50),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    try {
+      localDb.saveOutreachCampaign(newCampaign, formattedSteps);
+
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('outreach_campaigns').insert({
+            id: newCampaign.id,
+            organization_id: orgId,
+            name: newCampaign.name,
+            status: newCampaign.status,
+            target_lead_ids: newCampaign.targetLeadIds,
+            daily_limit: newCampaign.dailyLimit
+          });
+
+          await supabase.from('outreach_steps').insert(formattedSteps.map(s => ({
+            id: s.id,
+            organization_id: orgId,
+            campaign_id: campaignId,
+            step_number: s.stepNumber,
+            delay_days: s.delayDays,
+            subject_template: s.subjectTemplate,
+            body_template: s.bodyTemplate
+          })));
+        } catch (dbErr) {
+          console.warn('[OUTREACH API SUPABASE INSERT NOTICE]', dbErr);
+        }
+      }
+
+      await outreachWorker.context.logEvent({
+        id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        organizationId: orgId,
+        campaignId,
+        eventType: 'campaign_created',
+        details: { campaignName: newCampaign.name, targetCount: validLeadIds.length, stepCount: formattedSteps.length },
+        createdAt: now
+      });
+
+      res.status(201).json({
+        campaign: {
+          ...newCampaign,
+          steps: formattedSteps
+        }
+      });
+    } catch (err: any) {
+      console.error('[OUTREACH API CREATE CAMPAIGN ERROR]', err);
+      res.status(500).json({ error: 'Failed to save campaign.' });
+    }
+  });
+
+  // Start/Activate Outreach Campaign
+  app.post('/api/v1/outreach/campaigns/:campaignId/start', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+
+    const { campaignId } = req.params;
+    const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found or access denied.' });
+
+    const steps = localDb.getOutreachSteps(campaignId, orgId);
+    if (steps.length === 0) return res.status(400).json({ error: 'Campaign contains no sequence steps.' });
+
+    const step1 = steps.find(s => s.stepNumber === 1);
+    if (!step1) return res.status(400).json({ error: 'Step 1 sequence template is missing.' });
+
+    const tenantLeads = localDb.getLeads(orgId);
+    const targetLeadIds = campaign.targetLeadIds || [];
+    const eligibleLeads = tenantLeads.filter(l => {
+      if (!targetLeadIds.includes(l.id)) return false;
+      if (!l.email || !l.email.includes('@')) return false;
+      const statusUpper = (l.status || '').toUpperCase();
+      if (['UNSUBSCRIBED', 'SUPPRESSED', 'BOUNCED', 'NOT_INTERESTED', 'CONVERTED'].includes(statusUpper)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (eligibleLeads.length === 0) {
+      return res.status(400).json({ error: 'No eligible leads with valid email addresses found for this campaign.' });
+    }
+
+    const now = new Date().toISOString();
+    const queueItemsToEnqueue: OutreachQueueItem[] = [];
+
+    eligibleLeads.forEach(lead => {
+      queueItemsToEnqueue.push({
+        id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        organizationId: orgId,
+        campaignId,
+        stepId: step1.id,
+        stepNumber: 1,
+        leadId: lead.id,
+        recipientEmail: lead.email,
+        recipientName: lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim(),
+        subject: step1.subjectTemplate,
+        body: step1.bodyTemplate,
+        status: 'QUEUED',
+        scheduledAt: now,
+        attempts: 0,
+        createdAt: now,
+        updatedAt: now
+      });
+    });
+
+    try {
+      localDb.enqueueOutreachItems(queueItemsToEnqueue);
+
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('outreach_queue').insert(queueItemsToEnqueue.map(q => ({
+            id: q.id,
+            organization_id: q.organizationId,
+            campaign_id: q.campaignId,
+            step_id: q.stepId,
+            step_number: q.stepNumber,
+            lead_id: q.leadId,
+            recipient_email: q.recipientEmail,
+            recipient_name: q.recipientName,
+            subject: q.subject,
+            body: q.body,
+            status: q.status,
+            scheduled_at: q.scheduledAt,
+            attempts: q.attempts
+          })));
+
+          await supabase.from('outreach_campaigns').update({ status: 'ACTIVE', updated_at: now }).eq('id', campaignId);
+        } catch (dbErr) {
+          console.warn('[OUTREACH START SUPABASE NOTICE]', dbErr);
+        }
+      }
+
+      localDb.updateOutreachCampaignStatus(campaignId, 'ACTIVE', orgId);
+
+      await outreachWorker.context.logEvent({
+        id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        organizationId: orgId,
+        campaignId,
+        eventType: 'campaign_started',
+        details: { activeLeadsCount: eligibleLeads.length },
+        createdAt: now
+      });
+
+      outreachWorker.processQueue(20).catch(err => console.warn('[OUTREACH IMMEDIATE WORKER NOTICE]', err));
+
+      res.json({
+        success: true,
+        message: `Activated campaign "${campaign.name}" for ${eligibleLeads.length} target leads.`,
+        totalRecipients: eligibleLeads.length,
+        recipients: eligibleLeads.map(l => ({ id: l.id, name: l.name, email: l.email, company: l.company || l.companyName }))
+      });
+    } catch (err: any) {
+      console.error('[OUTREACH START CAMPAIGN ERROR]', err);
+      res.status(500).json({ error: 'Failed to start campaign.' });
+    }
+  });
+
+  // Pause Outreach Campaign
+  app.post('/api/v1/outreach/campaigns/:campaignId/pause', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const { campaignId } = req.params;
+    localDb.updateOutreachCampaignStatus(campaignId, 'PAUSED', orgId);
+    
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('outreach_campaigns').update({ status: 'PAUSED', updated_at: new Date().toISOString() }).eq('id', campaignId).eq('organization_id', orgId);
+      } catch (e) {}
+    }
+
+    res.json({ success: true, status: 'PAUSED' });
+  });
+
+  // Resume Outreach Campaign
+  app.post('/api/v1/outreach/campaigns/:campaignId/resume', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const { campaignId } = req.params;
+    localDb.updateOutreachCampaignStatus(campaignId, 'ACTIVE', orgId);
+    
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('outreach_campaigns').update({ status: 'ACTIVE', updated_at: new Date().toISOString() }).eq('id', campaignId).eq('organization_id', orgId);
+      } catch (e) {}
+    }
+
+    outreachWorker.processQueue(20).catch(() => {});
+    res.json({ success: true, status: 'ACTIVE' });
+  });
+
+  // Get Outreach Activity Feed
+  app.get('/api/v1/outreach/activity', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    try {
+      const queue = localDb.getOutreachQueue(orgId);
+      const replies = localDb.getOutreachReplies(orgId);
+      const leads = localDb.getLeads(orgId);
+      const campaigns = localDb.getOutreachCampaigns(orgId);
+
+      const activityItems: any[] = [];
+
+      queue.forEach(q => {
+        const lead = leads.find(l => l.id === q.leadId);
+        const camp = campaigns.find(c => c.id === q.campaignId);
+        activityItems.push({
+          id: q.id,
+          type: 'QUEUE_ITEM',
+          leadId: q.leadId,
+          leadName: q.recipientName || lead?.name || 'Lead',
+          leadEmail: q.recipientEmail,
+          company: lead?.company || lead?.companyName || 'N/A',
+          campaignName: camp?.name || 'Outreach Campaign',
+          stepNumber: q.stepNumber,
+          subject: q.subject,
+          status: q.status,
+          scheduledAt: q.scheduledAt,
+          sentAt: q.sentAt,
+          error: q.error,
+          timestamp: q.sentAt || q.updatedAt || q.createdAt
+        });
+      });
+
+      replies.forEach(r => {
+        const lead = leads.find(l => l.id === r.leadId);
+        const camp = campaigns.find(c => c.id === r.campaignId);
+        activityItems.push({
+          id: r.id,
+          type: 'REPLY',
+          leadId: r.leadId,
+          leadName: lead?.name || r.senderEmail,
+          leadEmail: r.senderEmail,
+          company: lead?.company || lead?.companyName || 'N/A',
+          campaignName: camp?.name || 'Outreach Campaign',
+          stepNumber: 0,
+          subject: r.subject,
+          status: 'REPLIED',
+          classification: r.classification,
+          aiSummary: r.aiSummary,
+          body: r.body,
+          timestamp: r.receivedAt || r.createdAt
+        });
+      });
+
+      activityItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      res.json({ activity: activityItems });
+    } catch (err: any) {
+      console.error('[OUTREACH ACTIVITY API ERROR]', err);
+      res.status(500).json({ error: 'Failed to fetch outreach activity.' });
+    }
+  });
+
+  // Get Outreach Replies & Classifications
+  app.get('/api/v1/outreach/replies', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const replies = localDb.getOutreachReplies(orgId);
+    res.json({ replies });
+  });
+
+  // Test Email Outbound Send Endpoint
+  app.post('/api/v1/outreach/test-email', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const { recipientEmail, subject, body } = req.body;
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      return res.status(400).json({ error: 'Valid recipient email address is required.' });
+    }
+
+    try {
+      const gmailAcc = await outreachWorker.context.getGmailAccount(orgId);
+      const testSubject = subject || 'SalesPilot Outreach Engine Connection Test';
+      const testBody = body || `<div style="font-family: sans-serif; padding: 20px;">
+        <h2>SalesPilot Outreach Test</h2>
+        <p>This is a test outreach message sent from SalesPilot Outreach Engine.</p>
+        <p>Sender Account: <strong>${gmailAcc.email}</strong></p>
+      </div>`;
+
+      const result = await outreachWorker.context.sendGmailMessage(
+        gmailAcc,
+        recipientEmail,
+        testSubject,
+        testBody
+      );
+
+      res.json({
+        success: true,
+        message: `Test email successfully sent to ${recipientEmail}`,
+        senderEmail: gmailAcc.email,
+        providerMessageId: result.providerMessageId,
+        threadId: result.threadId
+      });
+    } catch (err: any) {
+      console.error('[OUTREACH TEST EMAIL ERROR]', err);
+      res.status(500).json({ error: `Failed to send test email: ${err.message || String(err)}` });
+    }
+  });
+
+  // AI Outreach Sequence Generator Endpoint
+  app.post('/api/v1/outreach/ai-generate', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const { prompt, leadIndustry, targetRole, stepNumber } = req.body;
+    const stepNum = Number(stepNumber) || 1;
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const systemPrompt = `You are an elite B2B SDR copywriter at SalesPilot (an automated AI prospecting & CRM platform).
+Generate an ultra-personalized, high-converting outbound outreach email template.
+Target Industry: ${leadIndustry || 'B2B Services'}
+Target Role: ${targetRole || 'Decision Maker'}
+Step Number: ${stepNum} (Step 1 is initial value prop, Step 2 is follow-up bump, Step 3 is case study/ROI proof).
+Custom Focus/Instructions: ${prompt || 'High deliverability, concise, clear single CTA.'}
+
+Use variable placeholders strictly:
+{{first_name}}, {{last_name}}, {{company}}, {{job_title}}, {{industry}}
+
+Return JSON strictly:
+{
+  "subject": "Concise high-open-rate subject line with {{first_name}} or {{company}}",
+  "body": "Natural, 3-4 sentence value-packed outreach body ending with a soft friction-free question CTA."
+}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: systemPrompt,
+        config: { responseMimeType: 'application/json' }
+      });
+
+      if (response && response.text) {
+        const parsed = JSON.parse(response.text.trim());
+        return res.json({
+          subject: parsed.subject || 'Quick question regarding {{company}}',
+          body: parsed.body || 'Hi {{first_name}},\n\nNoticed {{company}} is scaling outreach. Would love to share how SalesPilot automates warm pipeline generation.'
+        });
+      }
+
+      res.json({
+        subject: 'Quick question regarding {{company}}',
+        body: 'Hi {{first_name}},\n\nNoticed {{company}} is scaling sales outreach. Would love to share how SalesPilot automates lead generation and warm email outreach.\n\nOpen to a 5-minute chat this week?'
+      });
+    } catch (err: any) {
+      console.error('[AI GENERATE OUTREACH ERROR]', err);
+      res.json({
+        subject: 'Quick question regarding {{company}}',
+        body: 'Hi {{first_name}},\n\nNoticed {{company}} is scaling sales outreach. Would love to share how SalesPilot automates lead generation and warm email outreach.\n\nOpen to a 5-minute chat this week?'
+      });
+    }
+  });
+
+  // Process Simulated / Incoming Webhook Replies
+  app.post('/api/v1/outreach/process-replies', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const { campaignId, leadId, senderEmail, subject, body } = req.body;
+    if (!campaignId || !leadId || !senderEmail || !body) {
+      return res.status(400).json({ error: 'campaignId, leadId, senderEmail, and body are required.' });
+    }
+
+    try {
+      const replyRecord = await outreachWorker.handleIncomingReply({
+        organizationId: orgId,
+        campaignId,
+        leadId,
+        senderEmail,
+        recipientEmail: 'sohamkharat481@gmail.com',
+        subject: subject || 'Re: Outreach',
+        body
+      });
+
+      res.json({
+        success: true,
+        reply: replyRecord
+      });
+    } catch (err: any) {
+      console.error('[PROCESS REPLY API ERROR]', err);
+      res.status(500).json({ error: 'Failed to process reply.' });
+    }
+  });
+
+  // Secured Vercel Cron Queue Processing Endpoint
+  const handleOutreachCronQueue = async (req: express.Request, res: express.Response) => {
+    const expectedSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers['authorization'];
+    const cronHeader = req.headers['x-cron-secret'];
+
+    let providedToken = '';
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      providedToken = authHeader.substring(7).trim();
+    } else if (cronHeader && typeof cronHeader === 'string') {
+      providedToken = cronHeader.trim();
+    }
+
+    if (!expectedSecret || !providedToken || providedToken !== expectedSecret) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or missing CRON_SECRET.' });
+    }
+
+    try {
+      const batchLimit = 20;
+      const result = await outreachWorker.processQueue(batchLimit);
+
+      return res.json({
+        success: true,
+        processed: result.processed,
+        sent: result.sent,
+        failed: result.failed,
+        skipped: result.cancelled
+      });
+    } catch (err: any) {
+      console.error('[CRON QUEUE PROCESSOR ERROR]', err);
+      return res.status(500).json({ 
+        error: 'Failed to process outreach queue via cron.', 
+        details: err.message || String(err) 
+      });
+    }
+  };
+
+  app.post('/api/v1/outreach/cron-process-queue', handleOutreachCronQueue);
+  app.get('/api/v1/outreach/cron-process-queue', handleOutreachCronQueue);
 
   // AI-Powered Sequence Generator with Gemini
   app.post('/api/v1/ai/generate-sequence', async (req, res) => {

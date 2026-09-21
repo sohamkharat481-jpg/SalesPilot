@@ -217,12 +217,16 @@ export interface Lead {
   firstName: string;
   lastName: string;
   fullName?: string;
+  name?: string;
   companyName?: string;
   value?: number;
   email: string;
   phone?: string;
   company: string;
   title?: string;
+  industry?: string;
+  organizationId?: string;
+  organization_id?: string;
   status: LeadStatus;
   enrichment?: LeadEnrichment;
   researchProfile?: LeadResearchProfile;
@@ -714,6 +718,7 @@ export interface DeveloperLog {
 }
 
 export * from './team-collaboration';
+export * from './outreach';
 
 
 

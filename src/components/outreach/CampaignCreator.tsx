@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, Mail, Linkedin, MessageSquare, Phone, Plus, Trash2, 
-  ChevronRight, Calendar, Clock, Globe, Shield, RefreshCw, AlertCircle
+  ChevronRight, Calendar, Clock, Globe, Shield, RefreshCw, AlertCircle, CheckSquare, Square, Users
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -19,15 +19,63 @@ export function CampaignCreator({ onSaveCampaign, onCancel }: CampaignCreatorPro
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [scheduleTime, setScheduleTime] = useState('10:00');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
-  const [maxMessagesPerDay, setMaxMessagesPerDay] = useState(150);
+  const [maxMessagesPerDay, setMaxMessagesPerDay] = useState(20);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Configurable follow-up sequence steps
-  const [steps, setSteps] = useState([
-    { id: '1', stepNumber: 1, type: 'EMAIL', delayDays: 0, subject: 'Scaling Client Acquisition', bodyTemplate: 'Hi {first_name},\n\nI was looking at {company} and loved your branding work.\n\nQuick question: Are you open for a brief 5-minute chat regarding custom automated client pipelines?\n\nBest,\nSalesPilot AI' },
-    { id: '2', stepNumber: 2, type: 'LINKEDIN_MESSAGE', delayDays: 3, subject: '', bodyTemplate: 'Hey {first_name} - sent you a brief email. Would love to connect and share our automated outbound blueprint!' }
-  ]);
+  // Real Database Leads state
+  const [availableLeads, setAvailableLeads] = useState<any[]>([]);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(true);
+  const [autoStart, setAutoStart] = useState(true);
+
+  // Fetch tenant qualified leads
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        setLoadingLeads(true);
+        const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch('/api/v1/leads', { headers });
+        const data = await res.json();
+        if (data && data.leads) {
+          // Filter leads with valid email and not unsubscribed/suppressed
+          const valid = data.leads.filter((l: any) => {
+            if (!l.email || !l.email.includes('@')) return false;
+            const st = (l.status || '').toUpperCase();
+            return !['UNSUBSCRIBED', 'SUPPRESSED', 'BOUNCED', 'NOT_INTERESTED', 'CONVERTED'].includes(st);
+          });
+          setAvailableLeads(valid);
+          // Select all valid leads by default
+          setSelectedLeadIds(valid.map((l: any) => l.id));
+        }
+      } catch (err) {
+        console.error('Failed to fetch leads for campaign selection:', err);
+      } finally {
+        setLoadingLeads(false);
+      }
+    };
+    fetchLeads();
+  }, []);
+
+  const toggleSelectAllLeads = () => {
+    if (selectedLeadIds.length === availableLeads.length) {
+      setSelectedLeadIds([]);
+    } else {
+      setSelectedLeadIds(availableLeads.map(l => l.id));
+    }
+  };
+
+  const toggleSelectLead = (id: string) => {
+    if (selectedLeadIds.includes(id)) {
+      setSelectedLeadIds(selectedLeadIds.filter(item => item !== id));
+    } else {
+      setSelectedLeadIds([...selectedLeadIds, id]);
+    }
+  };
 
   const toggleChannel = (ch: string) => {
     if (channels.includes(ch)) {
@@ -39,16 +87,26 @@ export function CampaignCreator({ onSaveCampaign, onCancel }: CampaignCreatorPro
     }
   };
 
+  const handleUpdateStepType = (id: string, type: string) => {
+    setSteps(steps.map(s => s.id === id ? { ...s, type, subject: type === 'EMAIL' ? 'Quick question' : '' } : s));
+  };
+
+  // Configurable follow-up sequence steps
+  const [steps, setSteps] = useState([
+    { id: '1', stepNumber: 1, type: 'EMAIL', delayDays: 0, subject: 'Scaling Outbound Pipelines for {{company}}', bodyTemplate: 'Hi {{first_name}},\n\nI was reviewing {{company}} and loved your market focus.\n\nQuick question: Are you open for a 5-minute chat regarding automated client acquisition pipelines for {{industry}}?\n\nBest,\nSoham | SalesPilot AI' },
+    { id: '2', stepNumber: 2, type: 'EMAIL', delayDays: 2, subject: 'Re: Scaling Outbound Pipelines for {{company}}', bodyTemplate: 'Hi {{first_name}},\n\nJust bumping this brief note. We helped similar {{industry}} companies scale warm booked calls by 3x.\n\nWould love to share a 2-minute video overview if interested.\n\nBest,\nSoham' },
+    { id: '3', stepNumber: 3, type: 'EMAIL', delayDays: 5, subject: 'Case study: 14 Warm Meetings in 7 Days', bodyTemplate: 'Hi {{first_name}},\n\nThought you might find this relevant—our latest SDR automation generated 14 warm decision-maker meetings in 7 days.\n\nOpen to reviewing the blueprint for {{company}}?\n\nBest,\nSoham' }
+  ]);
+
   const handleAddStep = () => {
     const nextNum = steps.length + 1;
-    const isEmail = channels.includes('email');
     setSteps([...steps, {
       id: `${Date.now()}`,
       stepNumber: nextNum,
-      type: isEmail ? 'EMAIL' : 'LINKEDIN_MESSAGE',
-      delayDays: nextNum === 3 ? 7 : 14,
-      subject: isEmail ? 'Just bumping this' : '',
-      bodyTemplate: `Hi {first_name},\n\nJust bumping this regarding our automation blueprint.\n\nBest,\nSalesPilot`
+      type: 'EMAIL',
+      delayDays: nextNum === 2 ? 2 : nextNum === 3 ? 5 : 7,
+      subject: `Follow-up #${nextNum} regarding {{company}}`,
+      bodyTemplate: `Hi {{first_name}},\n\nFollowing up regarding our outbound automation blueprint for {{company}}.\n\nBest,\nSoham`
     }]);
   };
 
@@ -56,10 +114,6 @@ export function CampaignCreator({ onSaveCampaign, onCancel }: CampaignCreatorPro
     if (steps.length > 1) {
       setSteps(steps.filter(s => s.id !== id).map((s, idx) => ({ ...s, stepNumber: idx + 1 })));
     }
-  };
-
-  const handleUpdateStepType = (id: string, type: 'EMAIL' | 'LINKEDIN_MESSAGE' | 'LINKEDIN_CONNECT') => {
-    setSteps(steps.map(s => s.id === id ? { ...s, type, subject: type === 'EMAIL' ? 'Quick question' : '' } : s));
   };
 
   const handleUpdateStepValue = (id: string, key: string, value: any) => {
@@ -74,54 +128,85 @@ export function CampaignCreator({ onSaveCampaign, onCancel }: CampaignCreatorPro
     setError('');
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/v1/ai/generate-sequence', {
+      const res = await fetch('/api/v1/outreach/ai-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignName: name, targetAudience })
+        body: JSON.stringify({ prompt: name, leadIndustry: targetAudience, stepNumber: 1 })
       });
       const data = await res.json();
-      if (data && data.steps && data.steps.length > 0) {
-        setSteps(data.steps.map((s: any, idx: number) => ({
-          id: s.id || `${Date.now()}_${idx}`,
-          stepNumber: idx + 1,
-          type: s.type || 'EMAIL',
-          delayDays: s.delayDays || (idx === 0 ? 0 : idx === 1 ? 3 : 7),
-          subject: s.subject || '',
-          bodyTemplate: s.bodyTemplate || ''
-        })));
+      if (data && data.subject && data.body) {
+        setSteps(prev => prev.map((s, idx) => idx === 0 ? { ...s, subject: data.subject, bodyTemplate: data.body } : s));
       }
     } catch (err) {
       console.error(err);
-      setError('Failed to trigger Gemini API. Loaded default premium copywriting sequence instead.');
+      setError('Failed to trigger Gemini API. Keeping existing templates.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) {
+    if (!name || !name.trim()) {
       setError('Campaign Name is required');
       return;
     }
+    if (selectedLeadIds.length === 0) {
+      setError('Please select at least 1 lead from your database to launch this campaign.');
+      return;
+    }
 
-    onSaveCampaign({
-      name,
-      targetAudience,
-      goal,
-      channels,
-      priority,
-      startDate,
-      scheduleTime,
-      timezone,
-      maxMessagesPerDay,
-      steps,
-      status: 'ACTIVE',
-      totalSent: 0,
-      totalOpened: 0,
-      totalReplied: 0,
-      createdAt: new Date().toISOString()
-    });
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      // 1. Create Campaign
+      const createRes = await fetch('/api/v1/outreach/campaigns', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: name.trim(),
+          targetLeadIds: selectedLeadIds,
+          dailyLimit: maxMessagesPerDay,
+          steps: steps.map(s => ({
+            stepNumber: s.stepNumber,
+            delayDays: s.delayDays,
+            subjectTemplate: s.subject,
+            bodyTemplate: s.bodyTemplate
+          }))
+        })
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok || !createData.campaign) {
+        throw new Error(createData.error || 'Failed to create campaign.');
+      }
+
+      const campaign = createData.campaign;
+
+      // 2. Start Campaign if requested
+      if (autoStart) {
+        const startRes = await fetch(`/api/v1/outreach/campaigns/${campaign.id}/start`, {
+          method: 'POST',
+          headers
+        });
+        const startData = await startRes.json();
+        if (!startRes.ok) {
+          console.warn('Notice starting campaign:', startData.error);
+        }
+      }
+
+      onSaveCampaign(campaign);
+    } catch (err: any) {
+      console.error('[CAMPAIGN CREATOR ERROR]', err);
+      setError(err.message || 'Failed to save campaign sequence.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -179,20 +264,84 @@ export function CampaignCreator({ onSaveCampaign, onCancel }: CampaignCreatorPro
             </div>
 
             <div className="space-y-1">
-              <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-500">Campaign Goal</label>
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-500">Daily Window Limit</label>
               <select 
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
+                value={maxMessagesPerDay}
+                onChange={(e) => setMaxMessagesPerDay(Number(e.target.value))}
                 className="w-full bg-slate-50 dark:bg-slate-850/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
               >
-                <option value="Lead Generation">Lead Gen</option>
-                <option value="Talent Acquisition">Talent Hiring</option>
-                <option value="Deal Closing">Deal Closing</option>
-                <option value="Brand Awareness">Brand Awareness</option>
-                <option value="Consultation Booking">Book Demos</option>
+                <option value={10}>10 emails/day (Warmup)</option>
+                <option value={20}>20 emails/day (Recommended)</option>
+                <option value={35}>35 emails/day (Growth)</option>
+                <option value={50}>50 emails/day (Max Safe)</option>
               </select>
             </div>
           </div>
+        </div>
+
+        {/* Lead Picker Section */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-500" />
+              <label className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                Target Recipient Leads ({selectedLeadIds.length} / {availableLeads.length} Selected)
+              </label>
+            </div>
+            {availableLeads.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleSelectAllLeads}
+                className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+              >
+                {selectedLeadIds.length === availableLeads.length ? <Square className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
+                {selectedLeadIds.length === availableLeads.length ? 'Deselect All' : 'Select All Leads'}
+              </button>
+            )}
+          </div>
+
+          {loadingLeads ? (
+            <div className="py-4 text-center text-xs text-slate-500 font-mono flex items-center justify-center gap-2">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-500" /> Loading database leads...
+            </div>
+          ) : availableLeads.length === 0 ? (
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-amber-800 dark:text-amber-300 text-xs">
+              No eligible leads found in database. Run the Lead Generator or add leads first before launching outreach.
+            </div>
+          ) : (
+            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+              {availableLeads.map((lead: any) => {
+                const isSelected = selectedLeadIds.includes(lead.id);
+                return (
+                  <div 
+                    key={lead.id}
+                    onClick={() => toggleSelectLead(lead.id)}
+                    className={`pt-1.5 flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition text-xs ${
+                      isSelected 
+                        ? 'bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50' 
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isSelected ? (
+                        <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                      )}
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100">{lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`}</span>
+                        <span className="text-slate-500 ml-1.5">({lead.company || lead.companyName || 'N/A'})</span>
+                        <p className="text-[10px] text-slate-400 font-mono">{lead.email}</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                      {lead.status || 'QUALIFIED'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Channels Selector */}
