@@ -97,8 +97,27 @@ export async function resolveAuthoritativeGmailAccount(
   }
 
   if (!data || !data.access_token) {
+    console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
+      organizationId: cleanOrgId,
+      requestedSenderEmail: senderEmail || null,
+      matchingRecordCount: 0,
+      matchedAccountEmail: null,
+      matchedAccountType: null,
+      credentialsPresent: false,
+      resolverPath: 'public.google_accounts (service-role) - not found'
+    });
     return null;
   }
+
+  console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
+    organizationId: cleanOrgId,
+    requestedSenderEmail: senderEmail || null,
+    matchingRecordCount: 1,
+    matchedAccountEmail: data.email || null,
+    matchedAccountType: data.account_type || null,
+    credentialsPresent: Boolean(data.access_token),
+    resolverPath: 'public.google_accounts (service-role)'
+  });
 
   // Strictly reject any mock accounts or synthetic tokens
   if (data.access_token.startsWith('mock_') || data.email?.includes('mock')) {

@@ -8391,6 +8391,12 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     }
 
     try {
+      console.log('[TEST EMAIL RUNTIME DIAGNOSTICS]', {
+        authenticatedUserId: user.id,
+        verifiedOrgId: orgId,
+        requestedSenderEmail: req.body.senderEmail || null,
+        resolverPath: 'outreachWorker.context.getGmailAccount'
+      });
       const gmailAcc = await outreachWorker.context.getGmailAccount(orgId);
       if (!gmailAcc || !gmailAcc.accessToken) {
         return res.status(400).json({ 
