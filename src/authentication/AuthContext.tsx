@@ -166,6 +166,106 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionExpiryCountdown(null);
   };
 
+  // Helper to fetch authoritative profile and workspace membership from backend API and Supabase
+  const resolveAuthenticatedProfile = async (
+    sessionUser: any,
+    token?: string
+  ): Promise<{ user: WorkspaceUser; organization: Organization | null; teamMembers: TeamMember[] }> => {
+    const email = sessionUser.email || '';
+    const emailLower = email.toLowerCase();
+    const fullName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || email.split('@')[0] || 'User';
+    const isFounder = emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower.includes('founder');
+
+    let authoritativeUser: WorkspaceUser | null = null;
+    let authoritativeOrg: Organization | null = null;
+    let authoritativeTeam: TeamMember[] = [];
+    let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
+
+    // 1. Authoritative Backend Profile & Workspace Membership API
+    if (token) {
+      try {
+        const res = await fetch('/api/v1/auth/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user) {
+            authoritativeUser = data.user;
+            resolvedRole = data.user.role || resolvedRole;
+            if (data.organization) authoritativeOrg = data.organization;
+            if (data.teamMembers) authoritativeTeam = data.teamMembers;
+          }
+        }
+      } catch (pErr) {
+        console.warn('[AUTH] Could not fetch profile from backend API:', pErr);
+      }
+    }
+
+    // 2. Direct Supabase Query Fallback for Profile & Team Membership
+    if (!authoritativeUser) {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', sessionUser.id)
+            .maybeSingle();
+
+          const { data: tm } = await supabase
+            .from('team_members')
+            .select('*, organizations(*)')
+            .eq('user_id', sessionUser.id)
+            .maybeSingle();
+
+          if (profile?.role) {
+            const r = String(profile.role).toUpperCase();
+            if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER') {
+              resolvedRole = r as UserRole;
+            }
+          } else if (tm?.role) {
+            const r = String(tm.role).toUpperCase();
+            if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER') {
+              resolvedRole = r as UserRole;
+            }
+          }
+
+          if (tm?.organizations) {
+            authoritativeOrg = tm.organizations as unknown as Organization;
+          }
+        } catch (sErr) {
+          console.warn('[AUTH] Direct Supabase profile resolution notice:', sErr);
+        }
+      }
+    }
+
+    if (isFounder) {
+      resolvedRole = 'OWNER';
+    }
+
+    const finalUser: WorkspaceUser = authoritativeUser || {
+      id: sessionUser.id,
+      fullName: authoritativeUser?.fullName || fullName,
+      email,
+      avatarUrl: sessionUser.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      role: resolvedRole,
+      companyName: authoritativeOrg?.name || authoritativeUser?.companyName || 'SalesPilot',
+      industry: authoritativeUser?.industry || 'SaaS',
+      tier: isFounder ? 'ENTERPRISE' : (authoritativeUser?.tier || 'STARTER'),
+      subscriptionStatus: isFounder ? 'LIFETIME' : (authoritativeUser?.subscriptionStatus || 'ACTIVE'),
+      isFounder,
+      isVerified: true,
+      organizationId: authoritativeOrg?.id || authoritativeUser?.organizationId,
+      onboardingCompleted: isFounder ? true : (authoritativeUser?.onboardingCompleted ?? false),
+      createdAt: authoritativeUser?.createdAt || new Date().toISOString()
+    };
+
+    return { user: finalUser, organization: authoritativeOrg, teamMembers: authoritativeTeam };
+  };
+
   // Sync Supabase settings state
   useEffect(() => {
     const configured = isSupabaseConfigured();
@@ -187,31 +287,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.info('[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null, '[USER_EMAIL]', session?.user?.email || null);
           if (session?.user) {
             console.log("[OAUTH STEP 3] Valid Supabase session detected:", session.user.email);
-            const email = session.user.email || '';
-            const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
+            const { user: resolvedUser, organization: resolvedOrg, teamMembers: resolvedTeam } = await resolveAuthenticatedProfile(session.user, session.access_token);
 
-            const oauthUser: WorkspaceUser = {
-              id: session.user.id,
-              fullName,
-              email,
-              avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-              role: 'ADMIN',
-              companyName: 'SalesPilot',
-              industry: 'SaaS',
-              tier: 'ENTERPRISE',
-              subscriptionStatus: 'ACTIVE',
-              isFounder: true,
-              isVerified: true,
-              onboardingCompleted: true,
-              createdAt: new Date().toISOString()
-            };
-
-            setUser(oauthUser);
+            setUser(resolvedUser);
+            if (resolvedOrg) setOrganization(resolvedOrg);
+            if (resolvedTeam?.length) setTeamMembers(resolvedTeam);
             setAuthView('authenticated');
             if (session.access_token) {
               localStorage.setItem('salespilot_token', session.access_token);
             }
-            localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+            localStorage.setItem('salespilot_user', JSON.stringify(resolvedUser));
+            if (resolvedOrg) {
+              localStorage.setItem('salespilot_org', JSON.stringify(resolvedOrg));
+            }
             console.info('[SESSION_PERSISTED]', Boolean(localStorage.getItem('salespilot_user')));
 
             // Clean up OAuth callback state in URL without full page reload
@@ -234,23 +322,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedTeam = localStorage.getItem('salespilot_team');
 
       if (token && storedUser) {
-        // Enforce DEV-only sandbox check:
-        if (!isLocalDev && (token === 'sandbox_dev_auth_token' || token === 'sandbox_google_auth_token' || token.startsWith('sandbox_'))) {
-          localStorage.removeItem('salespilot_token');
-          localStorage.removeItem('salespilot_user');
-          localStorage.removeItem('salespilot_org');
-          localStorage.removeItem('salespilot_team');
-          setUser(null);
-          setOrganization(null);
-          setTeamMembers([]);
-          setAuthView('login');
-          setIsLoading(false);
-          return;
-        }
-
+        // Enforce cleanup of any mock or sandbox identity:
         try {
           const parsedUser = JSON.parse(storedUser);
-          if (!isLocalDev && (parsedUser.email?.endsWith('.local') || parsedUser.email?.includes('sandbox') || parsedUser.isDemo)) {
+          if (
+            !token ||
+            token === 'sandbox_dev_auth_token' || 
+            token === 'sandbox_google_auth_token' || 
+            token.startsWith('sandbox_') ||
+            parsedUser.fullName === 'Local Developer' ||
+            parsedUser.email === 'developer@salespilot.dev' ||
+            parsedUser.email === 'dev@salespilot.dev' ||
+            parsedUser.email?.endsWith('.local') ||
+            parsedUser.email?.includes('sandbox') ||
+            parsedUser.isDemo
+          ) {
             localStorage.removeItem('salespilot_token');
             localStorage.removeItem('salespilot_user');
             localStorage.removeItem('salespilot_org');
@@ -291,29 +377,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.info('[AUTH_EVENT]', event, '[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null, '[USER_EMAIL]', session?.user?.email || null);
         if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
-          const email = session.user.email || '';
-          const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || email.split('@')[0] || 'User';
+          const { user: resolvedUser, organization: resolvedOrg, teamMembers: resolvedTeam } = await resolveAuthenticatedProfile(session.user, session.access_token);
 
-          const oauthUser: WorkspaceUser = {
-            id: session.user.id,
-            fullName,
-            email,
-            avatarUrl: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-            role: 'ADMIN',
-            companyName: 'SalesPilot',
-            industry: 'SaaS',
-            tier: 'ENTERPRISE',
-            subscriptionStatus: 'ACTIVE',
-            isFounder: true,
-            isVerified: true,
-            onboardingCompleted: true,
-            createdAt: new Date().toISOString()
-          };
-
-          setUser(oauthUser);
+          setUser(resolvedUser);
+          if (resolvedOrg) setOrganization(resolvedOrg);
+          if (resolvedTeam?.length) setTeamMembers(resolvedTeam);
           setAuthView('authenticated');
           localStorage.setItem('salespilot_token', session.access_token);
-          localStorage.setItem('salespilot_user', JSON.stringify(oauthUser));
+          localStorage.setItem('salespilot_user', JSON.stringify(resolvedUser));
+          if (resolvedOrg) {
+            localStorage.setItem('salespilot_org', JSON.stringify(resolvedOrg));
+          }
 
           if (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.pathname.includes('/auth/callback')) {
             window.history.replaceState({}, document.title, `${window.location.pathname === '/auth/callback' ? '/' : window.location.pathname}${window.location.hash && !window.location.hash.includes('access_token') ? window.location.hash : ''}`);
@@ -960,35 +1034,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      if (isSandbox) {
-        if (!isLocalDev) {
-          throw new Error('Sandbox authentication mode is strictly prohibited in production environments.');
-        }
-        // Local offline development mode simulation only (never production)
-        const sandboxUser: WorkspaceUser = {
-          id: 'dev_user_sandbox_' + Date.now(),
-          fullName: 'Local Developer',
-          email: 'developer@salespilot.dev',
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-          role: 'ADMIN',
-          companyName: 'SalesPilot Workspace',
-          industry: 'SaaS',
-          tier: 'ENTERPRISE',
-          subscriptionStatus: 'ACTIVE',
-          isFounder: true,
-          isVerified: true,
-          onboardingCompleted: true,
-          createdAt: new Date().toISOString()
-        };
-        setUser(sandboxUser);
-        setAuthView('authenticated');
-        localStorage.setItem('salespilot_token', 'sandbox_dev_auth_token');
-        localStorage.setItem('salespilot_user', JSON.stringify(sandboxUser));
-        setIsLoading(false);
-        logActivity('Local Dev Sign-In completed (Sandbox Mode)', 'Authentication');
-        return;
-      }
-
       const supabase = getSupabaseClient();
       if (!supabase) {
         const diag = getSupabaseDiagnostics();

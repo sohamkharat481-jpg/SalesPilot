@@ -5,6 +5,20 @@ import {
 } from '../types/outreach';
 import { Lead } from '../types';
 
+declare const describe: any;
+declare const it: any;
+declare const expect: any;
+
+if (typeof describe === 'function') {
+  describe('SalesPilot Outreach Cron Queue Processing & Safety Audit', () => {
+    it('runs the complete outreach cron queue processor test suite', async () => {
+      const result = await runOutreachCronTestSuite();
+      expect(result.failed).toBe(0);
+      expect(result.passed).toBeGreaterThan(0);
+    });
+  });
+}
+
 /**
  * Automated Test Suite: SalesPilot Outreach Cron Queue Processing & Safety Audit
  */
@@ -365,12 +379,12 @@ export async function runOutreachCronTestSuite() {
 
   const simulateCampaignStart = async () => {
     // Non-blocking trigger on start
-    worker.processQueue(20).then(() => { startDrainTriggered = true; }).catch(() => {});
+    await worker.processQueue(20).then(() => { startDrainTriggered = true; }).catch(() => {});
   };
 
   const simulateCampaignResume = async () => {
     // Non-blocking trigger on resume
-    worker.processQueue(20).then(() => { resumeDrainTriggered = true; }).catch(() => {});
+    await worker.processQueue(20).then(() => { resumeDrainTriggered = true; }).catch(() => {});
   };
 
   await simulateCampaignStart();

@@ -15,6 +15,7 @@ import { ReplyAnalyzer } from './outreach/ReplyAnalyzer';
 import { TemplateLibrary } from './outreach/TemplateLibrary';
 import { OutreachHistory } from './outreach/OutreachHistory';
 import { ProviderHub } from './outreach/ProviderHub';
+import { TestEmailModal } from './outreach/TestEmailModal';
 
 export function OutreachView() {
   const [activeSubTab, setActiveSubTab] = useState<string>('dashboard'); // dashboard, creator, personalizer, approver, analyzer, templates, history
@@ -28,38 +29,53 @@ export function OutreachView() {
   // Custom Templates state
   const [customTemplates, setCustomTemplates] = useState<any[]>([]);
 
+  // Controlled Test Outreach Modal state
+  const [isTestEmailModalOpen, setIsTestEmailModalOpen] = useState(false);
+
   // Fetch campaigns and outreach history from API
   const fetchData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = {
+        'Accept': 'application/json'
+      };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // Safe JSON fetch helper
+      const safeFetchJson = async (url: string) => {
+        try {
+          const res = await fetch(url, { headers });
+          if (!res.ok) return null;
+          const contentType = res.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) return null;
+          return await res.json();
+        } catch {
+          return null;
+        }
+      };
+
       // Fetch Campaigns
-      const campRes = await fetch('/api/v1/campaigns', { headers });
-      const campData = await campRes.json();
+      const campData = await safeFetchJson('/api/v1/campaigns');
       if (campData && campData.campaigns) {
         setCampaigns(campData.campaigns);
       }
 
       // Fetch History
-      const histRes = await fetch('/api/v1/outreach/history', { headers });
-      const histData = await histRes.json();
+      const histData = await safeFetchJson('/api/v1/outreach/history');
       if (histData && histData.history) {
         setHistory(histData.history);
       }
 
       // Fetch Queued Outbox Messages
-      const qRes = await fetch('/api/v1/outreach/queue', { headers });
-      const qData = await qRes.json();
+      const qData = await safeFetchJson('/api/v1/outreach/queue');
       if (qData && qData.queue) {
         setQueuedMessages(qData.queue);
       }
     } catch (err) {
-      console.error('Failed to load outreach engine details:', err);
+      console.warn('Failed to load outreach engine details:', err);
     } finally {
       setLoading(false);
     }
@@ -197,6 +213,12 @@ export function OutreachView() {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            onClick={() => setIsTestEmailModalOpen(true)}
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow transition-all cursor-pointer"
+          >
+            <Send className="w-4 h-4" /> Send Test Email
+          </button>
+          <button 
             onClick={() => setActiveSubTab('creator')}
             className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow transition-all cursor-pointer"
           >
@@ -314,6 +336,15 @@ export function OutreachView() {
           </>
         )}
       </div>
+
+      {/* Controlled Test Outreach Modal */}
+      <TestEmailModal 
+        isOpen={isTestEmailModalOpen}
+        onClose={() => setIsTestEmailModalOpen(false)}
+        onSuccess={() => {
+          fetchData(); // Refresh history timeline
+        }}
+      />
     </div>
   );
 }

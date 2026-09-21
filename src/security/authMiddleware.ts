@@ -10,19 +10,23 @@ export function authenticateUser(req: AuthenticatedRequest, res: Response, next:
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : null;
 
+  const isProduction = process.env.NODE_ENV === 'production' || 
+                       Boolean(process.env.VERCEL) || 
+                       process.env.ENVIRONMENT === 'production';
+
   if (!token) {
-    // Explicit development bypass ONLY if configured in non-production
-    if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
+    // Explicit development bypass ONLY if configured in non-production local environments
+    if (!isProduction && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
       req.user = {
-        id: 'usr_81927391',
-        fullName: 'Soham Kharat',
-        email: 'sohamkharat481@gmail.com',
-        role: 'OWNER',
-        companyName: 'SalesPilot Workspace',
+        id: 'usr_explicit_dev',
+        fullName: 'Local Developer',
+        email: 'dev@salespilot.dev',
+        role: 'VIEWER',
+        companyName: 'SalesPilot Dev Workspace',
         industry: 'SaaS',
-        tier: 'ENTERPRISE',
-        subscriptionStatus: 'LIFETIME',
-        isFounder: true,
+        tier: 'STARTER',
+        subscriptionStatus: 'ACTIVE',
+        isFounder: false,
         isVerified: true,
         onboardingCompleted: true,
         createdAt: new Date().toISOString()

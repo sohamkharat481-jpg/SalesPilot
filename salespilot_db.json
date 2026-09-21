@@ -21220,5 +21220,22 @@
       "createdAt": "2026-09-20T16:18:17.114Z",
       "updatedAt": "2026-09-20T16:18:17.237Z"
     }
+  ],
+  "outreachEvents": [
+    {
+      "id": "evt_test_1789991926111",
+      "organizationId": "org_sandbox_dev",
+      "campaignId": "TEST_EMAIL",
+      "leadId": "NONE",
+      "eventType": "test_email_sent",
+      "details": {
+        "summary": "TEST EMAIL — does not belong to a CRM lead",
+        "authenticatedUser": "sandbox@salespilot.dev",
+        "recipientEmail": "sohamkharat78@gmail.com",
+        "senderEmail": "sohamkharat481@gmail.com",
+        "timestamp": "2026-09-21T11:58:46.111Z"
+      },
+      "createdAt": "2026-09-21T11:58:46.111Z"
+    }
   ]
 }

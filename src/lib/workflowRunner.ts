@@ -429,10 +429,12 @@ export class WorkflowRunner {
       }
 
       case 'CREATE_TASK': {
+        const org = db.getOrganizationById(run.organizationId);
+        const targetUserId = org?.ownerId || db.getUsers().find(u => u.organizationId === run.organizationId)?.id || 'system_owner';
         db.addNotification({
           id: 'not_' + Math.random().toString(36).substring(2, 11),
           organizationId: run.organizationId,
-          userId: 'usr_81927391', // owner
+          userId: targetUserId,
           title: 'Workflow Automation Task',
           message: `New Task: ${config.title || 'Follow up'} - Due: ${config.dueDate || 'ASAP'}`,
           type: 'assignment',
@@ -566,10 +568,12 @@ export class WorkflowRunner {
       }
 
       case 'SEND_NOTIFICATION': {
+        const org = db.getOrganizationById(run.organizationId);
+        const targetUserId = org?.ownerId || db.getUsers().find(u => u.organizationId === run.organizationId)?.id || 'system_owner';
         db.addNotification({
           id: 'not_' + Math.random().toString(36).substring(2, 11),
           organizationId: run.organizationId,
-          userId: 'usr_81927391',
+          userId: targetUserId,
           title: config.title || 'Workflow Alert',
           message: config.message || 'Automated flow alert.',
           type: 'alert',
