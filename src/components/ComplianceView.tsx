@@ -38,10 +38,10 @@ export function ComplianceView() {
 
   const [logs, setLogs] = useState<ActivityLog[]>([
     { id: 'log-1', actor: 'Soham Kharat', role: 'Owner', action: 'Modified custom SMTP relayer details', category: 'WHITE_LABEL', ipAddress: '184.22.90.10', timestamp: '2026-07-21 03:22:10', status: 'SUCCESS' },
-    { id: 'log-2', actor: 'Ananya Sharma', role: 'Sales Admin', action: 'Bulk exported 4,812 prospects via CSV', category: 'CRM', ipAddress: '184.22.90.12', timestamp: '2026-07-21 02:44:05', status: 'WARN' },
-    { id: 'log-3', actor: 'API Token Horizon', role: 'Integration API', action: 'Triggered Gemini Lead Enrichment endpoint', category: 'AI', ipAddress: '34.85.122.90', timestamp: '2026-07-21 02:15:18', status: 'SUCCESS' },
-    { id: 'log-4', actor: 'Rohan Mehta', role: 'Support Agent', action: 'Modified organization billing subscription', category: 'BILLING', ipAddress: '203.44.150.18', timestamp: '2026-07-20 18:04:12', status: 'SUCCESS' },
-    { id: 'log-5', actor: 'Sneha Kapoor', role: 'Sales rep', action: 'Failed login attempt (Invalid MFA token)', category: 'AUTH', ipAddress: '109.84.2.110', timestamp: '2026-07-20 14:10:02', status: 'FAILED' }
+    { id: 'log-2', actor: 'Workspace Member', role: 'Sales Admin', action: 'Bulk exported prospects via CSV', category: 'CRM', ipAddress: '184.22.90.12', timestamp: '2026-07-21 02:44:05', status: 'WARN' },
+    { id: 'log-3', actor: 'API Token System', role: 'Integration API', action: 'Triggered Gemini Lead Enrichment endpoint', category: 'AI', ipAddress: '34.85.122.90', timestamp: '2026-07-21 02:15:18', status: 'SUCCESS' },
+    { id: 'log-4', actor: 'Support Administrator', role: 'Support Agent', action: 'Modified organization billing subscription', category: 'BILLING', ipAddress: '203.44.150.18', timestamp: '2026-07-20 18:04:12', status: 'SUCCESS' },
+    { id: 'log-5', actor: 'Sales Representative', role: 'Sales rep', action: 'Failed login attempt (Invalid MFA token)', category: 'AUTH', ipAddress: '109.84.2.110', timestamp: '2026-07-20 14:10:02', status: 'FAILED' }
   ]);
 
   const handleSaveLegal = () => {

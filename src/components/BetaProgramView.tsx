@@ -57,11 +57,7 @@ export function BetaProgramView({
   ]);
 
   // Referral system tracking
-  const [referrals, setReferrals] = useState([
-    { id: 'ref-1', referrer: 'Ananya Sharma', email: 'ananya@apexmarketing.in', rewardTier: 'Professional Free Seat', signups: 7, status: 'CLAIMED' },
-    { id: 'ref-2', referrer: 'Rohan Mehta', email: 'rohan.mehta@apexlabs.io', rewardTier: '₹5,000 Cashfree Credit', signups: 3, status: 'PENDING' },
-    { id: 'ref-3', referrer: 'Vikram Goel', email: 'vikram@goelconsulting.com', rewardTier: 'Double API Quotas', signups: 1, status: 'NOT_ELIGIBLE' }
-  ]);
+  const [referrals, setReferrals] = useState<any[]>([]);
 
   // Onboarding Checklist
   const [onboardingChecklist, setOnboardingChecklist] = useState([

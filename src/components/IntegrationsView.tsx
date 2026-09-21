@@ -200,7 +200,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const [localIntegrationsTab, setLocalIntegrationsTab] = useState<'connectors' | 'ai_playground' | 'b2b_directory' | 'google_maps' | 'webhooks' | 'workers' | 'diagnostics'>('connectors');
 
   // AI Playground states
-  const [geminiUrl, setGeminiUrl] = useState('https://apexmarketing.in');
+  const [geminiUrl, setGeminiUrl] = useState('https://salespilot.co');
   const [geminiFocus, setGeminiFocus] = useState('Identify B2B pain points');
   const [geminiAnalysis, setGeminiAnalysis] = useState<any>(null);
   const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
@@ -3947,7 +3947,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     <label className="block text-[10px] font-mono text-slate-500 uppercase mb-1">RECIPIENT EMAIL ADDRESS</label>
                     <input
                       type="email"
-                      placeholder="e.g. lead-name@apexmarketing.in (or bounce@test.com to trigger bounce simulation)"
+                      placeholder="e.g. prospect@targetcompany.com (or bounce@test.com to trigger bounce simulation)"
                       value={composeRecipient}
                       onChange={(e) => setComposeRecipient(e.target.value)}
                       className="w-full bg-white border border-slate-200 text-xs p-2.5 rounded-lg outline-none text-slate-800"
@@ -4426,7 +4426,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                             <label className="block text-[9px] font-mono text-slate-400 uppercase mb-1">PROSPECTIVE EMAIL ADDRESS</label>
                             <input
                               type="email"
-                              placeholder="e.g. sales@horizonmedia.io"
+                              placeholder="e.g. contact@targetcompany.com"
                               value={customEmail}
                               onChange={(e) => setCustomEmail(e.target.value)}
                               className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg outline-none text-slate-800"

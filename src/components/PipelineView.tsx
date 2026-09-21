@@ -103,17 +103,10 @@ export function PipelineView({ deals: externalDeals, onUpdateDealStage }: Pipeli
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (!isDev && Array.isArray(parsed)) {
-          return parsed.filter((c: any) => !c.name?.includes('Apex Marketing') && !c.name?.includes('Horizon Media') && !c.name?.includes('CloudFlow'));
-        }
-        return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (_) {}
     }
-    return isDev ? [
-      { id: 'co_1', name: 'Acme Growth Solutions', domain: 'acmegrowth.in', industry: 'Marketing', size: '11-50 employees', revenue: '₹2.5 Crore INR', tags: ['Enterprise', 'Hot Prospect'], createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'co_2', name: 'StellarTech Labs', domain: 'stellartech.io', industry: 'Technology', size: '51-200 employees', revenue: '₹12 Crore INR', tags: ['SaaS scale', 'AWS Ecosystem'], createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'co_3', name: 'Zylker Systems', domain: 'zylker.co', industry: 'Web Development', size: '1-10 employees', revenue: '₹50 Lakh INR', tags: ['Inbound', 'Mid-market'], createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() }
-    ] : [];
+    return [];
   });
 
   const [contacts, setContacts] = useState<CRMContact[]>(() => {
@@ -121,17 +114,10 @@ export function PipelineView({ deals: externalDeals, onUpdateDealStage }: Pipeli
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (!isDev && Array.isArray(parsed)) {
-          return parsed.filter((c: any) => !c.email?.includes('apexmarketing') && !c.company?.includes('Apex Marketing'));
-        }
-        return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (_) {}
     }
-    return isDev ? [
-      { id: 'ct_1', fullName: 'Ananya Sharma', email: 'ananya@acmegrowth.in', phone: '+91 98765 43210', company: 'Acme Growth Solutions', title: 'Managing Director', leadScore: 'Very Hot', tags: ['Decision Maker'], createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'ct_2', fullName: 'Rohan Mehta', email: 'rohan@stellartech.io', phone: '+91 87654 32109', company: 'StellarTech Labs', title: 'VP of Engineering', leadScore: 'Hot', tags: ['Technical Buyer'], createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'ct_3', fullName: 'Vikram Rao', email: 'vikram@zylker.co', phone: '+91 76543 21098', company: 'Zylker Systems', title: 'Founder', leadScore: 'Warm', tags: ['Inbound Lead'], createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString() }
-    ] : [];
+    return [];
   });
 
   const [tasks, setTasks] = useState<CRMTask[]>(() => {
@@ -139,17 +125,10 @@ export function PipelineView({ deals: externalDeals, onUpdateDealStage }: Pipeli
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (!isDev && Array.isArray(parsed)) {
-          return parsed.filter((t: any) => !t.associatedTo?.includes('Apex Marketing'));
-        }
-        return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (_) {}
     }
-    return isDev ? [
-      { id: 'tk_1', title: 'Follow up on proposal review status', description: 'Call Ananya directly to resolve budget concerns', priority: 'HIGH', status: 'TODO', dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], associatedTo: 'Acme Growth Solutions', createdAt: new Date().toISOString() },
-      { id: 'tk_2', title: 'Generate custom API integration docs', description: 'Review AWS Cognito hooks and schema requirements', priority: 'MEDIUM', status: 'TODO', dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], associatedTo: 'StellarTech Labs', createdAt: new Date().toISOString() },
-      { id: 'tk_3', title: 'Onboard team on pilot campaign builder', description: 'Walk through AI personalized sequences demo', priority: 'LOW', status: 'COMPLETED', dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], associatedTo: 'Zylker Systems', createdAt: new Date().toISOString() }
-    ] : [];
+    return [];
   });
 
   const [notes, setNotes] = useState<CRMNote[]>(() => {
@@ -157,16 +136,10 @@ export function PipelineView({ deals: externalDeals, onUpdateDealStage }: Pipeli
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (!isDev && Array.isArray(parsed)) {
-          return parsed.filter((n: any) => !n.associatedTo?.includes('Apex Marketing'));
-        }
-        return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (_) {}
     }
-    return isDev ? [
-      { id: 'nt_1', title: 'Pricing negotiation feedback', text: 'Ananya requested a detailed pricing layout in INR currency. She prefers quarterly billing structure to align with corporate audit pipeline requirements.', associatedTo: 'Acme Growth Solutions', createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'nt_2', title: 'AWS Stack Architecture notes', text: 'StellarTech runs fully containerized Kubernetes infrastructure on AWS. They require a dedicated web hook node to capture webhook triggers in real-time.', associatedTo: 'StellarTech Labs', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }
-    ] : [];
+    return [];
   });
 
   const [files, setFiles] = useState<CRMFile[]>(() => {
@@ -174,16 +147,10 @@ export function PipelineView({ deals: externalDeals, onUpdateDealStage }: Pipeli
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (!isDev && Array.isArray(parsed)) {
-          return parsed.filter((f: any) => !f.associatedTo?.includes('Apex Marketing'));
-        }
-        return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (_) {}
     }
-    return isDev ? [
-      { id: 'fl_1', name: 'Enterprise_SaaS_Outbound_Proposal.pdf', size: '2.4 MB', type: 'application/pdf', associatedTo: 'Acme Growth Solutions', uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'fl_2', name: 'Enterprise_Pilot_Security_Architecture.pdf', size: '1.8 MB', type: 'application/pdf', associatedTo: 'StellarTech Labs', uploadedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() }
-    ] : [];
+    return [];
   });
 
   const [activities, setActivities] = useState<{ id: string; text: string; details: string; time: string; type: string }[]>(() => {
@@ -191,17 +158,10 @@ export function PipelineView({ deals: externalDeals, onUpdateDealStage }: Pipeli
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (!isDev && Array.isArray(parsed)) {
-          return parsed.filter((a: any) => !a.details?.includes('Apex Marketing'));
-        }
-        return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (_) {}
     }
-    return isDev ? [
-      { id: 'act_1', text: 'Deal Stage Advanced', details: 'Acme Growth Solutions deal moved to PROPOSAL_SENT', time: '2 hours ago', type: 'pipeline' },
-      { id: 'act_2', text: 'New File Uploaded', details: 'Enterprise_SaaS_Outbound_Proposal.pdf added to Acme Growth Solutions record', time: '1 day ago', type: 'file' },
-      { id: 'act_3', title: 'Task Completed', text: 'Onboard team on pilot campaign builder', details: 'Marked completed for Zylker Systems', time: '2 days ago', type: 'task' }
-    ] : [];
+    return [];
   });
 
   // Global Sync / Sync Fallback states

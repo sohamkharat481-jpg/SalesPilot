@@ -250,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
           const parsedUser = JSON.parse(storedUser);
-          if (!isLocalDev && (parsedUser.email?.includes('salespilot.local') || parsedUser.email === 'google.user@salespilot.io' || parsedUser.fullName === 'Google User')) {
+          if (!isLocalDev && (parsedUser.email?.endsWith('.local') || parsedUser.email?.includes('sandbox') || parsedUser.isDemo)) {
             localStorage.removeItem('salespilot_token');
             localStorage.removeItem('salespilot_user');
             localStorage.removeItem('salespilot_org');
@@ -968,7 +968,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sandboxUser: WorkspaceUser = {
           id: 'dev_user_sandbox_' + Date.now(),
           fullName: 'Local Developer',
-          email: 'dev@salespilot.local',
+          email: 'developer@salespilot.dev',
           avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
           role: 'ADMIN',
           companyName: 'SalesPilot Workspace',

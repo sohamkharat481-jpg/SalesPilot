@@ -41,14 +41,14 @@ export function LaunchCenterView() {
   const [apiSpikeActive, setApiSpikeActive] = useState(false);
 
   // Webhook states
-  const [webhookUrl, setWebhookUrl] = useState('https://n8n.horizonmedia.in/webhook/salespilot-receive');
+  const [webhookUrl, setWebhookUrl] = useState('https://app.salespilot.co/api/v1/webhook/receiver');
   const [webhookEvent, setWebhookEvent] = useState<'lead.qualified' | 'meeting.scheduled' | 'deal.won'>('lead.qualified');
   const [webhookLogs, setWebhookLogs] = useState<Array<{ id: string; timestamp: string; event: string; url: string; status: number; attempt: number; backoffMs: number; response: string }>>([]);
   const [isSendingWebhook, setIsSendingWebhook] = useState(false);
 
   // White label states
-  const [customDomain, setCustomDomain] = useState('outreach.horizonmedia.co');
-  const [brandLogoText, setLogoText] = useState('Horizon Pilot');
+  const [customDomain, setCustomDomain] = useState('app.salespilot.co');
+  const [brandLogoText, setLogoText] = useState('SalesPilot');
   const [brandColor, setBrandColor] = useState('#2563eb');
   const [dnsStatus, setDnsStatus] = useState<'IDLE' | 'RESOLVING' | 'VALIDATED'>('IDLE');
   const [dnsChecks, setDnsChecks] = useState({
@@ -61,15 +61,12 @@ export function LaunchCenterView() {
   // Omnichannel notifications states
   const [notificationType, setNotificationType] = useState<'email' | 'push' | 'slack' | 'whatsapp'>('email');
   const [notifyTarget, setNotifyTarget] = useState('sohamkharat481@gmail.com');
-  const [notifyMessage, setNotifyMessage] = useState('Hi Soham, your active outreach campaign generated 5 new high-ticket Bangalore agency replies.');
-  const [notificationQueue, setNotificationQueue] = useState<Array<{ id: string; type: string; recipient: string; message: string; status: string; time: string }>>([
-    { id: 'notq-1', type: 'Email', recipient: 'ananya@apexmarketing.in', message: 'Campaign summary report ready.', status: 'SENT', time: '5 mins ago' },
-    { id: 'notq-2', type: 'Slack', recipient: '#sales-alerts', message: 'Deal Advanced: Ananya Sharma to NEGOTIATION', status: 'SENT', time: '12 mins ago' }
-  ]);
+  const [notifyMessage, setNotifyMessage] = useState('Hi Soham, your active outreach campaign generated new high-ticket replies.');
+  const [notificationQueue, setNotificationQueue] = useState<Array<{ id: string; type: string; recipient: string; message: string; status: string; time: string }>>([]);
   const [isSendingNotice, setIsSendingNotice] = useState(false);
 
   // Security states
-  const [jwtTokenToDecode, setJwtTokenToDecode] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c3JfODE5MjczOTEiLCJ0ZW5hbnRJZCI6Im9yZ18xIiwiZnVsbE5hbWUiOiJTb2hhbSBLaGFyYXQiLCJyb2xlIjoiT1dORVIiLCJ0aWVyIjoiUFJPRkVTU0lPTkFMIiwiaWF0IjoxNzg4NzA0MDAwLCJleHAiOjE3ODg4NzA0MDB9.x_B2B_SalesPilotMasterSignatureKeys');
+  const [jwtTokenToDecode, setJwtTokenToDecode] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c3JfODE5MjczOTEiLCJ0ZW5hbnRJZCI6Im9yZ19zYWxlc3BpbG90X2xpZmV0aW1lIiwiZnVsbE5hbWUiOiJTb2hhbSBLaGFyYXQiLCJyb2xlIjoiT1dORVIiLCJ0aWVyIjoiRU5URVJQUklTRSIsImlhdCI6MTc4ODcwNDAwMCwiZXhwIjoxNzg4ODcwNDAwfQ.x_B2B_SalesPilotMasterSignatureKeys');
   const [decodedJwt, setDecodedJwt] = useState<any>(null);
   const [activeSessions, setActiveSessions] = useState([
     { id: 'sess-1', ip: '157.51.92.14', browser: 'Chrome/122.0', os: 'macOS Sonoma', country: 'India', active: true, device: 'Desktop' },
@@ -293,7 +290,7 @@ export function LaunchCenterView() {
       setDnsStatus('VALIDATED');
       setTelemetryLogs(prev => [
         ...prev,
-        `[${new Date().toLocaleTimeString()}] [DNS] Custom domain mapping outreach.horizonmedia.co successfully routed and bound to secure SSL certificate.`
+        `[${new Date().toLocaleTimeString()}] [DNS] Custom domain mapping ${customDomain} successfully routed and bound to secure SSL certificate.`
       ]);
     }, 1800);
   };
@@ -567,10 +564,10 @@ export function LaunchCenterView() {
                             <strong>Astra AI:</strong> Welcome to SalesPilot. Tell me which qualified lead you want me to write a sequence for?
                           </div>
                           <div className="p-2 bg-blue-600 text-white rounded-lg text-[10px] self-end max-w-[80%] ml-auto text-right">
-                            Write follow up on Sneha Kapoor for SaaS outreach plan.
+                            Write follow up on target decision maker for SaaS outreach plan.
                           </div>
                           <div className="p-2 bg-slate-850 rounded-lg text-slate-300 text-[10px] animate-pulse">
-                            <strong>Aero composition logic:</strong> Analyzing CloudFlow HR tech stack profiles. Composing customized INR plan proposal...
+                            <strong>Aero composition logic:</strong> Analyzing target account tech stack profiles. Composing customized outreach proposal...
                           </div>
                         </div>
                         <div className="flex gap-1.5">
@@ -1063,7 +1060,7 @@ export async function registerForPushNotificationsAsync() {
                         type="text" 
                         value={customDomain} 
                         onChange={(e) => setCustomDomain(e.target.value)}
-                        placeholder="outreach.horizonmedia.in"
+                        placeholder="app.salespilot.co"
                         className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded p-2"
                       />
                     </div>

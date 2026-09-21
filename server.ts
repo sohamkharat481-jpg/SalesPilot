@@ -971,7 +971,7 @@ export function generateComprehensiveResearchFallback(lead: Lead): LeadResearchP
       'Highlight our built-in real-time SMTP and bounce verify checks'
     ],
 
-    executiveSummary: `Apex and similar modern enterprises face a crucial growth bottleneck: sales representatives spending up to 60% of their time researching prospects manually. This report details how SalesPilot's automated AI Research Engine can analyze target companies, extract key decision maker priorities, predict business pain points, and execute automated multi-channel sequences. Implementing SalesPilot will save their sales team 20 hours per week per representative while boosting demo bookings by up to 3x.`,
+    executiveSummary: `Modern enterprises face a crucial growth bottleneck: sales representatives spending up to 60% of their time researching prospects manually. This report details how SalesPilot's automated AI Research Engine can analyze target companies, extract key decision maker priorities, predict business pain points, and execute automated multi-channel sequences. Implementing SalesPilot will save their sales team 20 hours per week per representative while boosting demo bookings by up to 3x.`,
 
     insightsHotnessScore: 94,
     insightsBuyingIntent: 'HIGH',
@@ -1568,7 +1568,7 @@ async function startServer() {
 
     // Explicit dev bypass ONLY when configured in non-production
     if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
-      const devUser = localDb.getUserByEmail('dev@salespilot.local');
+      const devUser = localDb.getUserByEmail('sohamkharat481@gmail.com');
       if (devUser) {
         req.authenticatedUser = devUser;
         return next();
@@ -1661,7 +1661,7 @@ async function startServer() {
       }
     }
     if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
-      return localDb.getUserByEmail('dev@salespilot.local') || null;
+      return localDb.getUserByEmail('sohamkharat481@gmail.com') || null;
     }
     return null;
   };
@@ -4405,6 +4405,54 @@ Rules:
   };
 
   // --- 1. ORGANIZATIONS ENDPOINTS ---
+  app.get('/api/v1/superadmin/overview', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN' && !user.isFounder) {
+      return res.status(403).json({ error: 'Forbidden. Super Admin access required.' });
+    }
+    const orgs = localDb.getOrganizations();
+    const users = localDb.getUsers();
+    const auditLogs = localDb.getAuditLogs ? localDb.getAuditLogs(user.organizationId || 'org_salespilot_lifetime') : [];
+    res.json({
+      success: true,
+      organizations: orgs.map(o => ({
+        id: o.id,
+        name: o.name || o.companyName || 'Organization',
+        domain: o.domain || 'domain.com',
+        tier: o.subscriptionPlan || 'ENTERPRISE',
+        status: o.status || 'ACTIVE',
+        mrrInr: 0,
+        usersCount: users.filter(u => u.organizationId === o.id).length || 1,
+        aiCreditLimit: 500000,
+        aiCreditsUsed: 0,
+        createdAt: o.createdAt || new Date().toISOString()
+      })),
+      users: users.map(u => ({
+        id: u.id,
+        fullName: u.fullName || 'User',
+        email: u.email,
+        companyName: u.companyName || 'Workspace',
+        role: u.role || 'SALES',
+        status: 'ACTIVE',
+        isVerified: Boolean(u.isVerified),
+        createdAt: u.createdAt || new Date().toISOString()
+      })),
+      payments: [],
+      aiUsage: [],
+      tickets: [],
+      systemLogs: auditLogs.slice(0, 50).map((l: any, i: number) => ({
+        id: `log-${i}`,
+        timestamp: l.timestamp || new Date().toLocaleTimeString(),
+        level: 'INFO',
+        service: 'SYSTEM',
+        message: l.action || 'System activity'
+      }))
+    });
+  });
+
   app.get('/api/v1/workspace/organizations', (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
@@ -12984,7 +13032,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       success: true,
       intelligence: {
         companyName: cleanName,
-        domain: domain || 'apexmarketing.in',
+        domain: domain || 'targetdomain.com',
         fundingStatus: 'Early Stage Venture',
         lastFundingType: 'Seed Round',
         totalFundingRaised: '$1,200,000 USD',
@@ -13012,7 +13060,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     // Simulated high-fidelity local business details scraped from Maps API
     const businesses = [
-      { name: 'Apex Local Advertising', address: '4th Block, Koramangala, Bangalore, KA 560034', phone: '+918012345670', website: 'apexlocalads.in', rating: 4.8, reviewsCount: 142, placeId: 'ChIJa81723_Kora1' },
+      { name: 'Vanguard Local Advertising', address: '4th Block, Koramangala, Bangalore, KA 560034', phone: '+918012345670', website: 'vanguardlocalads.in', rating: 4.8, reviewsCount: 142, placeId: 'ChIJa81723_Kora1' },
       { name: 'Skyline Media Agency', address: 'Indiranagar Double Road, Bangalore, KA 560008', phone: '+918012345671', website: 'skylinemedia.in', rating: 4.6, reviewsCount: 89, placeId: 'ChIJa19302_Indi2' },
       { name: 'Zenith SEO Solutions', address: 'M.G. Road Central, Bangalore, KA 560001', phone: '+918012345672', website: 'zenithseo.co', rating: 4.4, reviewsCount: 34, placeId: 'ChIJa00112_MGRod3' }
     ];

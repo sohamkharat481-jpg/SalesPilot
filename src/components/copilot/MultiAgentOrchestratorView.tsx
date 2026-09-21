@@ -13,7 +13,7 @@ interface MultiAgentOrchestratorViewProps {
 
 export function MultiAgentOrchestratorView({ onTriggerToast }: MultiAgentOrchestratorViewProps) {
   const [orchestrator] = useState(() => new AgentOrchestrator());
-  const [goal, setGoal] = useState('Research Apex Solutions, evaluate ICP match, draft 3-step email sequence, and update CRM data.');
+  const [goal, setGoal] = useState('Research target prospect, evaluate ICP match, draft 3-step email sequence, and update CRM data.');
   const [isOrchestrating, setIsOrchestrating] = useState(false);
   const [activePlan, setActivePlan] = useState<OrchestrationPlan | null>(null);
 
@@ -25,11 +25,11 @@ export function MultiAgentOrchestratorView({ onTriggerToast }: MultiAgentOrchest
     setIsOrchestrating(true);
     try {
       const sampleLead = {
-        id: 'lead_apex_902',
+        id: 'lead_target_902',
         firstName: 'Rajesh',
         lastName: 'Kumar',
-        company: 'Apex Solutions',
-        email: 'rajesh@apexsolutions.in',
+        company: 'Target Enterprise',
+        email: 'rajesh@enterprise.in',
         title: 'VP of Engineering & Sales Ops'
       };
 

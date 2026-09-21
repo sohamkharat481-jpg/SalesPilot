@@ -91,17 +91,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
   const [adminTab, setAdminTab] = useState<'monitoring' | 'infrastructure' | 'orgs' | 'users' | 'payments' | 'ai-usage' | 'campaigns' | 'meetings' | 'reports' | 'tickets' | 'logs' | 'flags'>('monitoring');
 
   // 1. Initial State: Organizations
-  const [organizations, setOrganizations] = useState<AdminOrg[]>(
-    isDev
-      ? [
-          { id: 'org-1', name: 'Horizon Media', domain: 'horizonmedia.co', tier: 'PROFESSIONAL', status: 'ACTIVE', mrrInr: 8500, usersCount: 4, aiCreditLimit: 500000, aiCreditsUsed: 125000, createdAt: '2026-01-10 09:30' },
-          { id: 'org-2', name: 'Apex Marketing Solutions', domain: 'apexmarketing.in', tier: 'AGENCY', status: 'ACTIVE', mrrInr: 25000, usersCount: 8, aiCreditLimit: 2000000, aiCreditsUsed: 840000, createdAt: '2026-03-15 14:20' },
-          { id: 'org-3', name: 'StellarTech Labs', domain: 'stellartech.io', tier: 'BUSINESS', status: 'ACTIVE', mrrInr: 15000, usersCount: 5, aiCreditLimit: 1000000, aiCreditsUsed: 320000, createdAt: '2026-04-02 11:15' },
-          { id: 'org-4', name: 'CloudFlow SaaS', domain: 'cloudflowsaas.com', tier: 'GROWTH', status: 'ACTIVE', mrrInr: 6500, usersCount: 3, aiCreditLimit: 250000, aiCreditsUsed: 98000, createdAt: '2026-05-20 16:40' },
-          { id: 'org-5', name: 'CyberSec India', domain: 'cybersec.co.in', tier: 'ENTERPRISE', status: 'SUSPENDED', mrrInr: 50000, usersCount: 12, aiCreditLimit: 5000000, aiCreditsUsed: 1450000, createdAt: '2026-02-18 10:00' }
-        ]
-      : []
-  );
+  const [organizations, setOrganizations] = useState<AdminOrg[]>([]);
   const [searchOrg, setSearchOrg] = useState('');
   const [newOrgName, setNewOrgName] = useState('');
   const [newOrgDomain, setNewOrgDomain] = useState('');
@@ -109,17 +99,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
   const [newOrgLimit, setNewOrgLimit] = useState(500000);
 
   // 2. Initial State: Users
-  const [usersList, setUsersList] = useState<AdminUser[]>(
-    isDev
-      ? [
-          { id: 'usr-1', fullName: 'Soham Kharat', email: 'sohamkharat481@gmail.com', companyName: 'Horizon Media', role: 'ADMIN', status: 'ACTIVE', isVerified: true, createdAt: '2026-01-10 09:35' },
-          { id: 'usr-2', fullName: 'Ananya Sharma', email: 'ananya@apexmarketing.in', companyName: 'Apex Marketing Solutions', role: 'OWNER', status: 'ACTIVE', isVerified: true, createdAt: '2026-03-15 14:25' },
-          { id: 'usr-3', fullName: 'Rohan Mehta', email: 'rohan@stellartech.io', companyName: 'StellarTech Labs', role: 'MANAGER', status: 'ACTIVE', isVerified: true, createdAt: '2026-04-02 11:20' },
-          { id: 'usr-4', fullName: 'Sneha Kapoor', email: 'sneha@cloudflow.com', companyName: 'CloudFlow SaaS', role: 'SALES', status: 'ACTIVE', isVerified: false, createdAt: '2026-05-20 16:45' },
-          { id: 'usr-5', fullName: 'Vikram Joshi', email: 'v.joshi@cybersec.co.in', companyName: 'CyberSec India', role: 'OWNER', status: 'SUSPENDED', isVerified: true, createdAt: '2026-02-18 10:05' }
-        ]
-      : []
-  );
+  const [usersList, setUsersList] = useState<AdminUser[]>([]);
   const [searchUser, setSearchUser] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -127,33 +107,13 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
   const [newUserRole, setNewUserRole] = useState<AdminUser['role']>('SALES');
 
   // 3. Initial State: Payments
-  const [paymentsList, setPaymentsList] = useState<AdminPayment[]>(
-    isDev
-      ? [
-          { id: 'txn-9981', orgName: 'Horizon Media', amountInr: 8500, plan: 'Professional Plan', status: 'SUCCESS', gateway: 'CASHFREE', date: '2026-07-01 10:30' },
-          { id: 'txn-9982', orgName: 'Apex Marketing Solutions', amountInr: 25000, plan: 'Agency Plan', status: 'SUCCESS', gateway: 'CASHFREE', date: '2026-07-01 11:15' },
-          { id: 'txn-9983', orgName: 'StellarTech Labs', amountInr: 15000, plan: 'Business Plan', status: 'SUCCESS', gateway: 'STRIPE', date: '2026-07-02 09:00' },
-          { id: 'txn-9984', orgName: 'CloudFlow SaaS', amountInr: 6500, plan: 'Growth Plan', status: 'FAILED', gateway: 'RAZORPAY', date: '2026-07-03 16:40' },
-          { id: 'txn-9985', orgName: 'CyberSec India', amountInr: 50000, plan: 'Enterprise Plan', status: 'REFUNDED', gateway: 'STRIPE', date: '2026-06-15 14:00' }
-        ]
-      : []
-  );
+  const [paymentsList, setPaymentsList] = useState<AdminPayment[]>([]);
   const [newInvoiceOrg, setNewInvoiceOrg] = useState('Primary Workspace');
   const [newInvoiceAmount, setNewInvoiceAmount] = useState(8500);
   const [newInvoicePlan, setNewInvoicePlan] = useState('Professional Plan');
 
   // 4. Initial State: AI Usage Log
-  const [aiUsageList, setAiUsageList] = useState(
-    isDev
-      ? [
-          { id: 'ai-req-1', org: 'Horizon Media', apiCall: 'Lead Enrichment', tokens: 1850, model: 'gemini-3.5-flash', status: 'SUCCESS', costInr: 0.15, timestamp: '12 seconds ago' },
-          { id: 'ai-req-2', org: 'Apex Marketing Solutions', apiCall: 'Outreach Sequence', tokens: 4200, model: 'gemini-3.5-flash', status: 'SUCCESS', costInr: 0.35, timestamp: '1 minute ago' },
-          { id: 'ai-req-3', org: 'StellarTech Labs', apiCall: 'Reply Analysis', tokens: 2400, model: 'gemini-3.5-flash', status: 'SUCCESS', costInr: 0.20, timestamp: '5 minutes ago' },
-          { id: 'ai-req-4', org: 'CloudFlow SaaS', apiCall: 'Ask Insights', tokens: 1200, model: 'gemini-3.5-flash', status: 'SUCCESS', costInr: 0.10, timestamp: '15 minutes ago' },
-          { id: 'ai-req-5', org: 'Apex Marketing Solutions', apiCall: 'Lead Enrichment', tokens: 9800, model: 'gemini-3.5-pro', status: 'SUCCESS', costInr: 1.85, timestamp: '30 minutes ago' }
-        ]
-      : []
-  );
+  const [aiUsageList, setAiUsageList] = useState<any[]>([]);
   const [globalModelWeights, setGlobalModelWeights] = useState({
     'gemini-3.5-flash': 85,
     'gemini-3.5-pro': 15,
@@ -161,39 +121,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
   });
 
   // 5. Initial State: Support Tickets
-  const [ticketsList, setTicketsList] = useState<SupportTicket[]>(
-    isDev
-      ? [
-          {
-            id: 'tkt-401',
-            orgName: 'Horizon Media',
-            subject: 'Optimize Bangalore SaaS Leads Targeting',
-            category: 'Campaign Criteria',
-            priority: 'HIGH',
-            status: 'IN_PROGRESS',
-            description: 'We would like to narrow down our target criteria to focus purely on SaaS startups with post-seed funding in the tech corridor.',
-            createdAt: '2026-07-03 11:20',
-            messages: [
-              { sender: 'CLIENT', text: 'We need to focus on startups with seed/A rounds.', time: '2026-07-03 11:20' },
-              { sender: 'SUPPORT', text: 'Hi team, understood. I have updated our Google Maps spider to prioritize tech startups with funding parameters. Will share the new lead batch shortly!', time: '2026-07-03 14:15' }
-            ]
-          },
-          {
-            id: 'tkt-402',
-            orgName: 'CyberSec India',
-            subject: 'SMTP Server Node Validation Error',
-            category: 'SMTP Integrations',
-            priority: 'CRITICAL',
-            status: 'OPEN',
-            description: 'Our outbound sending node is returning connection timed out when mapping to port 587.',
-            createdAt: '2026-07-05 22:10',
-            messages: [
-              { sender: 'CLIENT', text: 'Our outbound sending node is returning connection timed out when mapping to port 587.', time: '2026-07-05 22:10' }
-            ]
-          }
-        ]
-      : []
-  );
+  const [ticketsList, setTicketsList] = useState<SupportTicket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [adminTicketReply, setAdminTicketReply] = useState('');
 
@@ -207,80 +135,42 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
   ]);
 
   // 7. Initial State: System Logs
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>(
-    isDev
-      ? [
-          { id: 'log-101', timestamp: '02:08:24', level: 'INFO', service: 'AUTH_SVC', message: 'Token signed successfully for usr_81927391' },
-          { id: 'log-102', timestamp: '02:09:15', level: 'INFO', service: 'GEMINI_API', message: 'Model gemini-3.5-flash response completed in 410ms. 1250 tokens.' },
-          { id: 'log-103', timestamp: '02:11:40', level: 'WARN', service: 'MAPS_SPIDER', message: 'Crawling node throttled for rate limit compliance.' },
-          { id: 'log-104', timestamp: '02:15:02', level: 'INFO', service: 'EMAIL_NODE', message: 'Delivered batch of 45 outbound sequences' },
-          { id: 'log-105', timestamp: '02:18:55', level: 'INFO', service: 'BILLING_GATEWAY', message: 'Webhook received for transaction inv-1004. Marking status PAID.' }
-        ]
-      : []
-  );
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [liveLogStreaming, setLiveLogStreaming] = useState(true);
   const logTerminalRef = useRef<HTMLDivElement>(null);
 
   // Reports Generation States
-  const [reportsList, setReportsList] = useState([
-    { id: 'rep-x1', name: 'System_Cohort_Churn_Audit_June_2026', type: 'PDF', date: '2026-07-01', size: '2.4 MB' },
-    { id: 'rep-x2', name: 'Gemini_API_Token_Invoice_Ledger_Q2', type: 'CSV', date: '2026-06-30', size: '1.1 MB' }
-  ]);
+  const [reportsList, setReportsList] = useState<any[]>([]);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
   const [compileStep, setCompileStep] = useState('');
 
-  // Live log streamer simulation
+  // Fetch real superadmin overview data from backend
   useEffect(() => {
-    if (!liveLogStreaming || !isDev) return;
+    async function fetchSuperAdminData() {
+      try {
+        const token = localStorage.getItem('salespilot_token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const interval = setInterval(() => {
-      const logLevels: SystemLog['level'][] = ['INFO', 'INFO', 'INFO', 'WARN', 'ERROR'];
-      const services: SystemLog['service'][] = ['MAPS_SPIDER', 'GEMINI_API', 'AUTH_SVC', 'EMAIL_NODE', 'BILLING_GATEWAY'];
-      const messages = [
-        'Google Maps spider fetched 12 startup targets from techpark-bangalore listings.',
-        'Gemini response generated successfully for enrichment request. Cost ₹0.22.',
-        'Session validation check for tenant group. Status Active.',
-        'Outbound queue flushed. 8 emails pushed via SMTP port 587.',
-        'API Request logged: GET /api/v1/leads. Status 200.',
-        'Billing ledger synchronized. Account balances valid.',
-        'Sync task scheduler booked: meeting_link verify checklist.',
-        'Security token validation complete. Cryptographic integrity secured.'
-      ];
-
-      const newLog: SystemLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toLocaleTimeString([], { hour12: false }),
-        level: logLevels[Math.floor(Math.random() * logLevels.length)],
-        service: services[Math.floor(Math.random() * services.length)],
-        message: messages[Math.floor(Math.random() * messages.length)]
-      };
-
-      setSystemLogs(prev => [...prev.slice(-35), newLog]);
-      
-      // Also simulate occasional AI usage activity in background
-      if (Math.random() > 0.6) {
-        const orgs = ['Horizon Media', 'Apex Marketing', 'StellarTech Labs', 'CloudFlow SaaS'];
-        const apiCalls = ['Lead Enrichment', 'Outreach Sequence', 'Reply Analysis', 'Ask Insights'];
-        const tokensVal = Math.floor(Math.random() * 8000) + 1000;
-        setAiUsageList(prev => [
-          {
-            id: `ai-req-${Date.now()}`,
-            org: orgs[Math.floor(Math.random() * orgs.length)],
-            apiCall: apiCalls[Math.floor(Math.random() * apiCalls.length)],
-            tokens: tokensVal,
-            model: Math.random() > 0.85 ? 'gemini-3.5-pro' : 'gemini-3.5-flash',
-            status: 'SUCCESS',
-            costInr: parseFloat((tokensVal * 0.0001).toFixed(2)),
-            timestamp: 'Just now'
-          },
-          ...prev.slice(0, 9)
-        ]);
+        const res = await fetch('/api/v1/superadmin/overview', { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            if (Array.isArray(data.organizations)) setOrganizations(data.organizations);
+            if (Array.isArray(data.users)) setUsersList(data.users);
+            if (Array.isArray(data.payments)) setPaymentsList(data.payments);
+            if (Array.isArray(data.aiUsage)) setAiUsageList(data.aiUsage);
+            if (Array.isArray(data.tickets)) setTicketsList(data.tickets);
+            if (Array.isArray(data.systemLogs)) setSystemLogs(data.systemLogs);
+          }
+        }
+      } catch (err) {
+        console.warn('[SuperAdminView] Failed fetching real superadmin overview:', err);
       }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [liveLogStreaming]);
+    }
+    fetchSuperAdminData();
+  }, []);
 
   // Scroll logs container to bottom when logs update
   useEffect(() => {

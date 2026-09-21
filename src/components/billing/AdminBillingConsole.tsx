@@ -53,16 +53,7 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
   const [adminCoupons, setAdminCoupons] = useState<Coupon[]>(AVAILABLE_COUPONS);
 
   // Local Client Subscriptions State
-  const [clients, setClients] = useState<ClientSubscription[]>(
-    Boolean(import.meta.env.DEV)
-      ? [
-          { id: 'cli-1', companyName: 'Horizon Media Group', email: 'billing@horizonmedia.co', tier: 'PROFESSIONAL', status: 'ACTIVE', billingCycle: 'monthly', autoRenew: true, nextRenewalDate: 'Aug 01, 2026' },
-          { id: 'cli-2', companyName: 'Apex Marketing Solutions', email: 'finance@apexmarketing.in', tier: 'ENTERPRISE', status: 'ACTIVE', billingCycle: 'annual', autoRenew: true, nextRenewalDate: 'Jul 15, 2027' },
-          { id: 'cli-3', companyName: 'StellarTech Labs', email: 'admin@stellartech.io', tier: 'GROWTH', status: 'PAUSED', billingCycle: 'monthly', autoRenew: false, nextRenewalDate: 'Aug 10, 2026' },
-          { id: 'cli-4', companyName: 'CloudFlow SaaS', email: 'ops@cloudflowsaas.com', tier: 'STARTER', status: 'CANCELLED', billingCycle: 'monthly', autoRenew: false, nextRenewalDate: 'Jul 28, 2026' }
-        ]
-      : []
-  );
+  const [clients, setClients] = useState<ClientSubscription[]>([]);
 
   // Modals / Form states
   const [showPlanModal, setShowPlanModal] = useState(false);

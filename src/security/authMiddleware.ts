@@ -14,15 +14,15 @@ export function authenticateUser(req: AuthenticatedRequest, res: Response, next:
     // Explicit development bypass ONLY if configured in non-production
     if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_AUTH_BYPASS === 'true') {
       req.user = {
-        id: 'usr_dev_bypass',
-        fullName: 'Dev User',
-        email: 'dev@salespilot.local',
+        id: 'usr_81927391',
+        fullName: 'Soham Kharat',
+        email: 'sohamkharat481@gmail.com',
         role: 'OWNER',
-        companyName: 'Dev Workspace',
+        companyName: 'SalesPilot Workspace',
         industry: 'SaaS',
         tier: 'ENTERPRISE',
-        subscriptionStatus: 'ACTIVE',
-        isFounder: false,
+        subscriptionStatus: 'LIFETIME',
+        isFounder: true,
         isVerified: true,
         onboardingCompleted: true,
         createdAt: new Date().toISOString()

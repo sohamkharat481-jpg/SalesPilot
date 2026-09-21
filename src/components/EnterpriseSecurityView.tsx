@@ -43,10 +43,7 @@ export function EnterpriseSecurityView() {
   });
 
   const [devices, setDevices] = useState<EnrolledDevice[]>([
-    { id: 'dev-1', user: 'Soham Kharat', role: 'CTO / Owner', device: 'MacBook Pro 16"', os: 'macOS Sonoma 14.5', ip: '184.22.90.10', location: 'Mumbai, IN', lastActive: 'Active Now', status: 'SECURE' },
-    { id: 'dev-2', user: 'Ananya Sharma', role: 'Sales Director', device: 'iPhone 15 Pro Max', os: 'iOS 17.5.1', ip: '184.22.90.12', location: 'Mumbai, IN', lastActive: '3 minutes ago', status: 'SECURE' },
-    { id: 'dev-3', user: 'Rohan Mehta', role: 'Support Lead', device: 'Lenovo ThinkPad X1 Carbon', os: 'Windows 11 Enterprise', ip: '203.44.150.18', location: 'Bengaluru, IN', lastActive: '1 hour ago', status: 'SECURE' },
-    { id: 'dev-4', user: 'Sneha Kapoor', role: 'SDR Manager', device: 'Dell XPS 15', os: 'Ubuntu 24.04 LTS', ip: '109.84.2.110', location: 'London, UK', lastActive: '3 days ago', status: 'SUSPICIOUS' }
+    { id: 'dev-1', user: 'Soham Kharat', role: 'Owner / Admin', device: 'MacBook Pro 16"', os: 'macOS Sonoma', ip: '184.22.90.10', location: 'Current Session', lastActive: 'Active Now', status: 'SECURE' }
   ]);
 
   const [soc2Checklist, setSoc2Checklist] = useState([
@@ -172,7 +169,7 @@ export function EnterpriseSecurityView() {
                     <span className="text-[9px] font-bold text-slate-500 block">ORGANIZATION DOMAIN ALLOWLIST</span>
                     <input 
                       type="text" 
-                      defaultValue="horizonmedia.co, horizonmedia.in"
+                      defaultValue="yourcompany.com, yourcompany.in"
                       className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
                     />
                   </div>
@@ -206,7 +203,7 @@ export function EnterpriseSecurityView() {
                     <label className="font-bold text-slate-600 block">SAML 2.0 Single Sign-On URL (IdP Entry)</label>
                     <input 
                       type="text" 
-                      defaultValue="https://okta.horizonmedia.co/app/salespilot/ex8849b" 
+                      defaultValue="https://okta.yourcompany.com/app/salespilot/ex8849b" 
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none font-mono text-[10px] text-slate-700" 
                     />
                   </div>
@@ -472,11 +469,11 @@ export function EnterpriseSecurityView() {
 
               <div className="space-y-3 font-mono text-[10px]">
                 {[
-                  { time: '2026-07-21 03:32:15', event: 'SSO_CONFIG_MODIFIED', ip: '184.22.90.10', user: 'soham@horizonmedia.co', status: 'SUCCESS' },
-                  { time: '2026-07-21 03:20:41', event: 'TOKEN_REVOKED_BY_ADMIN', ip: '184.22.90.10', user: 'soham@horizonmedia.co', status: 'SUCCESS' },
-                  { time: '2026-07-20 22:15:09', event: 'MFA_CHALLENGE_ISSUED', ip: '203.44.150.18', user: 'rohan@stellartech.io', status: 'VERIFIED' },
-                  { time: '2026-07-20 18:04:30', event: 'SAML_METADATA_LOADED', ip: '184.22.90.10', user: 'soham@horizonmedia.co', status: 'SUCCESS' },
-                  { time: '2026-07-19 14:22:11', event: 'SUSPICIOUS_GEO_LOGIN_ATTEMPT', ip: '109.84.2.110', user: 'sneha@cloudflow.com', status: 'BLOCKED' }
+                  { time: '2026-07-21 03:32:15', event: 'SSO_CONFIG_MODIFIED', ip: '184.22.90.10', user: 'sohamkharat481@gmail.com', status: 'SUCCESS' },
+                  { time: '2026-07-21 03:20:41', event: 'TOKEN_REVOKED_BY_ADMIN', ip: '184.22.90.10', user: 'sohamkharat481@gmail.com', status: 'SUCCESS' },
+                  { time: '2026-07-20 22:15:09', event: 'MFA_CHALLENGE_ISSUED', ip: '203.44.150.18', user: 'admin@salespilot.co', status: 'VERIFIED' },
+                  { time: '2026-07-20 18:04:30', event: 'SAML_METADATA_LOADED', ip: '184.22.90.10', user: 'sohamkharat481@gmail.com', status: 'SUCCESS' },
+                  { time: '2026-07-19 14:22:11', event: 'SUSPICIOUS_GEO_LOGIN_ATTEMPT', ip: '109.84.2.110', user: 'security@salespilot.co', status: 'BLOCKED' }
                 ].map((log, i) => (
                   <div key={i} className="flex flex-col md:flex-row md:items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50 gap-2">
                     <div className="flex gap-4 items-center">

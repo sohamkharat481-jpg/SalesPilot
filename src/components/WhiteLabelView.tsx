@@ -44,7 +44,7 @@ export function WhiteLabelView() {
     smtpPort: 587,
     smtpUser: 'postmaster@mg.yourdomain.com',
     senderEmail: 'notifications@yourdomain.com',
-    customDomain: 'crm.horizonmedia.co',
+    customDomain: 'app.yourcompany.com',
     domainVerified: false,
     sslStatus: 'PENDING'
   });
@@ -344,7 +344,7 @@ export function WhiteLabelView() {
                     <div className="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center">
                       <div>
                         <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-bold">CNAME</span>
-                        <span className="ml-2 text-slate-950">crm.horizonmedia.co</span>
+                        <span className="ml-2 text-slate-950">{config.customDomain}</span>
                       </div>
                       <div className="text-slate-500">Points to: <strong className="text-slate-900">ssl.salespilot.run.app</strong></div>
                     </div>
@@ -453,7 +453,7 @@ export function WhiteLabelView() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border border-slate-100 p-4 rounded-xl space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 block uppercase">iOS Native Package Bundle</span>
-                  <p className="text-xs font-mono font-bold text-slate-900">com.horizonmedia.ios.salespilot</p>
+                  <p className="text-xs font-mono font-bold text-slate-900">com.yourcompany.ios.app</p>
                   <div className="flex items-center gap-2 text-[10px] text-emerald-600">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Apple Developer Console Link Connected
@@ -462,7 +462,7 @@ export function WhiteLabelView() {
 
                 <div className="border border-slate-100 p-4 rounded-xl space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 block uppercase">Android Play Store Package</span>
-                  <p className="text-xs font-mono font-bold text-slate-900">com.horizonmedia.android.salespilot</p>
+                  <p className="text-xs font-mono font-bold text-slate-900">com.yourcompany.android.app</p>
                   <div className="flex items-center gap-2 text-[10px] text-emerald-600">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Google Play Developer Account Linked
@@ -598,7 +598,7 @@ export function WhiteLabelView() {
             <h4 className="text-xs font-bold text-slate-950">SSL & Custom Routing Health</h4>
             <div className="flex gap-2 items-center justify-between text-[11px]">
               <span className="text-slate-500">Domain Verification</span>
-              <span className="font-mono text-slate-700">crm.horizonmedia.co</span>
+              <span className="font-mono text-slate-700">{config.customDomain}</span>
             </div>
             <div className="flex gap-2 items-center justify-between text-[11px]">
               <span className="text-slate-500">Cert Issuer</span>

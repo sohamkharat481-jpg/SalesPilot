@@ -72,16 +72,16 @@ export function AiAgentsView() {
       speed: '2.8s', 
       tasksDone: 2150, 
       tokensUsed: '4.5M', 
-      currentTask: 'Analyzing AWS tech stack and security posture for Apex Solutions...',
+      currentTask: 'Analyzing tech stack and security posture for active target accounts...',
       icon: Globe,
       history: [
-        '[1 hour ago] Analyzed AWS architecture for StellarTech Labs.',
-        '[4 hours ago] Found company headcount expansion trend for Zylker Corp.',
-        '[Yesterday] Researched 24 Bangalore FinTech websites.'
+        '[1 hour ago] Analyzed web architecture for active prospect target.',
+        '[4 hours ago] Found company headcount expansion trend for verified lead.',
+        '[Yesterday] Researched 24 regional business websites.'
       ],
       logs: [
-        '[08:12:23] [INFO] Scanning technology presence of apexmarketing.in',
-        '[08:12:25] [INFO] Sourced engineering stack: AWS Cognito, React, Tailwind, PostgreSQL',
+        '[08:12:23] [INFO] Scanning technology presence for prospect domain...',
+        '[08:12:25] [INFO] Sourced engineering stack: Modern Web, React, Tailwind, PostgreSQL',
         '[08:12:28] [SUCCESS] Compiled 4 personalization hooks based on recent quarterly expansion blog.'
       ]
     },
@@ -200,14 +200,14 @@ export function AiAgentsView() {
       currentTask: 'Standing by for closed-negotiation triggers to compile enterprise contracts...',
       icon: FileText,
       history: [
-        '[Yesterday] Rendered Horizon_Media_SaaS_Outbound_Proposal.pdf.',
-        '[3 days ago] Created technical AWS Security checklist for StellarTech Labs.',
-        '[Last week] Compiled pricing agreement template for Zylker Systems.'
+        '[Yesterday] Rendered Enterprise_SaaS_Outbound_Proposal.pdf.',
+        '[3 days ago] Created technical Cloud Security checklist for target account.',
+        '[Last week] Compiled pricing agreement template for enterprise prospect.'
       ],
       logs: [
         '[17:20:00] [INFO] Extracting custom pricing schemas and contract variables from CRM',
         '[17:20:03] [INFO] Initializing PDF layout rendering engine with enterprise CSS theme',
-        '[17:20:06] [SUCCESS] Succeeded in generating PDF proposal asset. Saved to Apex document storage.'
+        '[17:20:06] [SUCCESS] Succeeded in generating PDF proposal asset. Saved to workspace document storage.'
       ]
     },
     { 
