@@ -10915,20 +10915,23 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       // Sync and save updated accounts
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering account synchronizations and database disk-persistence...');
+      saveAccountsToDisk();
       const supabase = getSupabaseClient();
       if (supabase) {
         const googleAccountRows = [
           { id: `ga_${email}`, user_id: oauthContext.userId, organization_id: oauthContext.organizationId || null, email, access_token, refresh_token: refresh_token || '', scopes: scopesArr, expiry_date: expiresAt, account_type: 'calendar' },
           { id: `ga_${email}_gmail`, user_id: oauthContext.userId, organization_id: oauthContext.organizationId || null, email, access_token, refresh_token: refresh_token || '', scopes: scopesArr, expiry_date: expiresAt, account_type: 'gmail' }
         ];
-        const { error: accountPersistError } = await supabase.from('google_accounts').upsert(googleAccountRows, { onConflict: 'id' });
-        if (accountPersistError) {
-          console.error('[GOOGLE CALLBACK FLOW] Supabase account persistence failed:', accountPersistError.message);
-          throw new Error('Google account could not be persisted. Please retry the connection.');
+        try {
+          const { error: accountPersistError } = await supabase.from('google_accounts').upsert(googleAccountRows, { onConflict: 'id' });
+          if (accountPersistError) {
+            console.warn('[GOOGLE CALLBACK FLOW] Supabase account persistence notice:', accountPersistError.message);
+          } else {
+            console.log('[GOOGLE CALLBACK FLOW] Supabase account persistence succeeded.');
+          }
+        } catch (sErr: any) {
+          console.warn('[GOOGLE CALLBACK FLOW] Supabase account persistence error:', sErr.message || String(sErr));
         }
-        console.log('[GOOGLE CALLBACK FLOW] Supabase account persistence succeeded.');
-      } else {
-        saveAccountsToDisk();
       }
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Disk write complete.');
 
@@ -11328,16 +11331,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }
 
   function saveAccountsToDisk() {
-    if (getSupabaseClient()) return;
     try {
       synchronizeUnifiedAccounts();
       fs.writeFileSync(ACCOUNTS_STORE_PATH, JSON.stringify({
         calendarAccounts,
         gmailAccounts
       }, null, 2), 'utf8');
-      console.log('[PERSISTENCE] Successfully saved Google Accounts to disk.');
+      console.log('[PERSISTENCE] Successfully saved Google Accounts to local disk store.');
     } catch (err: any) {
-      console.error('[PERSISTENCE] Error saving accounts:', err.message);
+      console.error('[PERSISTENCE] Error saving accounts to disk:', err.message);
     }
   }
 
@@ -11487,7 +11489,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }
 
   function loadAccountsFromDisk() {
-    if (getSupabaseClient()) return;
     try {
       if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
         const raw = fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8');
@@ -11513,7 +11514,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           });
         }
         synchronizeUnifiedAccounts();
-        console.log(`[PERSISTENCE] Loaded ${calendarAccounts.length} calendar and ${gmailAccounts.length} gmail accounts from disk.`);
+        console.log(`[PERSISTENCE] Loaded ${calendarAccounts.length} calendar and ${gmailAccounts.length} gmail accounts from local disk store.`);
         
         // Trigger background verification of scopes
         verifyAndInvalidateAccountsIfNeeded().catch(err => {
@@ -11521,45 +11522,56 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       }
     } catch (err: any) {
-      console.error('[PERSISTENCE] Error loading accounts:', err.message);
+      console.error('[PERSISTENCE] Error loading accounts from disk:', err.message);
     }
   }
 
   async function loadAccountsFromSupabase() {
+    // Always ensure local disk accounts are loaded as baseline
+    loadAccountsFromDisk();
+
     const supabase = getSupabaseClient();
     if (!supabase) return;
 
-    const { data, error } = await supabase
-      .from('google_accounts')
-      .select('email, access_token, refresh_token, scopes, expiry_date, account_type');
-    if (error) {
-      console.error('[PERSISTENCE] Error loading Google accounts from Supabase:', error.message);
-      return;
-    }
-
-    for (const row of data || []) {
-      if (!row.email || !row.access_token) continue;
-      const account = {
-        email: row.email,
-        fullName: row.email.split('@')[0],
-        accessToken: row.access_token,
-        refreshToken: row.refresh_token || undefined,
-        expiresAt: row.expiry_date || new Date(Date.now() + 3600000).toISOString(),
-        status: 'CONNECTED' as const,
-        createdAt: new Date().toISOString(),
-        scopes: row.scopes || []
-      };
-      if (row.account_type === 'calendar') {
-        const existing = calendarAccounts.find(item => item.email === row.email);
-        if (existing) Object.assign(existing, account);
-        else calendarAccounts.push(account);
-      } else if (row.account_type === 'gmail') {
-        const existing = gmailAccounts.find(item => item.email === row.email);
-        if (existing) Object.assign(existing, account);
-        else gmailAccounts.push({ ...account, sendingLimit: 500, sentToday: 0, bounceCount: 0, retryCount: 0 });
+    try {
+      const { data, error } = await supabase
+        .from('google_accounts')
+        .select('email, access_token, refresh_token, scopes, expiry_date, account_type');
+      if (error) {
+        if (error.code === '42501' || error.message?.includes('permission denied')) {
+          console.log('[PERSISTENCE] Supabase google_accounts table access restricted for anon client. Using local disk store.');
+        } else {
+          console.warn('[PERSISTENCE] Supabase google_accounts load notice:', error.message);
+        }
+        return;
       }
+
+      for (const row of data || []) {
+        if (!row.email || !row.access_token) continue;
+        const account = {
+          email: row.email,
+          fullName: row.email.split('@')[0],
+          accessToken: row.access_token,
+          refreshToken: row.refresh_token || undefined,
+          expiresAt: row.expiry_date || new Date(Date.now() + 3600000).toISOString(),
+          status: 'CONNECTED' as const,
+          createdAt: new Date().toISOString(),
+          scopes: row.scopes || []
+        };
+        if (row.account_type === 'calendar') {
+          const existing = calendarAccounts.find(item => item.email === row.email);
+          if (existing) Object.assign(existing, account);
+          else calendarAccounts.push(account);
+        } else if (row.account_type === 'gmail') {
+          const existing = gmailAccounts.find(item => item.email === row.email);
+          if (existing) Object.assign(existing, account);
+          else gmailAccounts.push({ ...account, sendingLimit: 500, sentToday: 0, bounceCount: 0, retryCount: 0 });
+        }
+      }
+      synchronizeUnifiedAccounts();
+    } catch (err: any) {
+      console.warn('[PERSISTENCE] Notice querying Supabase google_accounts:', err.message || String(err));
     }
-    synchronizeUnifiedAccounts();
   }
 
   function validateAndTrimEmail(emailInput: any): { valid: boolean; email?: string; error?: string } {
