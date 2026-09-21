@@ -9,6 +9,8 @@ import {
   Bell, Download
 } from 'lucide-react';
 import { useAuth } from '../authentication/AuthContext';
+import { getSupabaseClient } from '../lib/supabase';
+import { buildGoogleOAuthHeaders } from '../utils/googleOAuthClient';
 import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
 
 interface IntegrationsViewProps {
@@ -1160,9 +1162,42 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
 
   const triggerRealGoogleLogin = async () => {
     try {
-      const res = await fetch('/api/auth/google/url');
+      // 1. Resolve current active Supabase session token
+      let sessionToken: string | null = null;
+      if (typeof window !== 'undefined') {
+        sessionToken = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      }
+
+      // Query active Supabase client session if available
+      const supabaseClient = getSupabaseClient();
+      if (supabaseClient) {
+        try {
+          const { data } = await supabaseClient.auth.getSession();
+          if (data?.session?.access_token) {
+            sessionToken = data.session.access_token;
+          }
+        } catch (_) {}
+      }
+
+      if (!sessionToken) {
+        alert('Authentication Error: No active Supabase session found. Please sign in before connecting Google Workspace.');
+        return;
+      }
+
+      // 2. Resolve verified workspace organization ID
+      const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
+
+      let authHeaders: Record<string, string>;
+      try {
+        authHeaders = buildGoogleOAuthHeaders(sessionToken, workspaceId);
+      } catch (authErr: any) {
+        alert(authErr.message || 'Authentication Error: Please sign in before connecting Google Workspace.');
+        return;
+      }
+
+      const res = await fetch('/api/auth/google/url', { headers: authHeaders });
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to fetch Google Auth URL.');
       }
       const data = await res.json();

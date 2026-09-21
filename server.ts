@@ -51,6 +51,12 @@ import { generateSdrEmail, generateLinkedInMessages, optimizeCta } from './src/a
 import { generateMeetingBrief as generateMeetingBriefService } from './src/ai/meeting-service';
 import { generateLeadExecutiveSummary, generateCrmNote } from './src/ai/crm-service';
 
+import { 
+  resolveAuthoritativeGmailAccount, 
+  persistAuthoritativeGoogleAccount 
+} from './src/backend/googleAccountsService';
+import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
+
 import { validateStartupEnv } from './src/security/envValidator';
 import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
 import { configureSecurityHeaders } from './src/security/headers';
@@ -544,6 +550,31 @@ function getSupabaseClient(): SupabaseClient | null {
     }
   }
   return serverSupabaseInstance;
+}
+
+let privilegedSupabaseInstance: SupabaseClient | null = null;
+
+function getPrivilegedSupabaseClient(): SupabaseClient {
+  const url = (process.env.SUPABASE_URL || integrations.supabaseUrl || process.env.VITE_SUPABASE_URL || '').trim();
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+  if (!serviceKey) {
+    throw new Error('Configuration Error: SUPABASE_SERVICE_ROLE_KEY is required for privileged server-side operations on google_accounts.');
+  }
+
+  if (!url) {
+    throw new Error('Configuration Error: SUPABASE_URL is required for server-side database operations.');
+  }
+
+  if (!privilegedSupabaseInstance) {
+    privilegedSupabaseInstance = createClient(url, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    });
+  }
+  return privilegedSupabaseInstance;
 }
 
 interface IntegrationCredentialsMap {
@@ -2617,57 +2648,9 @@ async function startServer() {
       localDb.logOutreachEvent(event);
     },
     getGmailAccount: async (orgId: string, senderEmail?: string) => {
-      // 1. Check Supabase google_accounts table directly for real connected account
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        try {
-          let query = supabase
-            .from('google_accounts')
-            .select('*')
-            .eq('account_type', 'gmail')
-            .not('access_token', 'is', null);
-
-          if (orgId) {
-            query = query.eq('organization_id', orgId);
-          }
-          if (senderEmail) {
-            query = query.eq('email', senderEmail);
-          }
-
-          const { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
-          if (!error && data && data.access_token && !data.access_token.startsWith('mock_')) {
-            return {
-              email: data.email,
-              fullName: data.email.split('@')[0],
-              accessToken: data.access_token,
-              refreshToken: data.refresh_token,
-              expiresAt: data.expiry_date,
-              status: 'CONNECTED' as const,
-              createdAt: data.created_at || new Date().toISOString(),
-              scopes: data.scopes || []
-            };
-          }
-        } catch (dbErr) {
-          console.warn('[OUTREACH] Error querying Supabase google_accounts:', dbErr);
-        }
-      }
-
-      // 2. Check in-memory gmailAccounts for real token
-      if (senderEmail) {
-        const match = gmailAccounts.find(a => a.email === senderEmail && a.accessToken && !a.accessToken.startsWith('mock_'));
-        if (match) return match;
-      }
-      const validInMemory = gmailAccounts.find(a => a.accessToken && !a.accessToken.startsWith('mock_'));
-      if (validInMemory) return validInMemory;
-
-      // Mock Gmail account allowed strictly in test runner (NODE_ENV === 'test')
-      if (process.env.NODE_ENV === 'test') {
-        const testAcc = gmailAccounts.find(a => a.accessToken?.startsWith('mock_'));
-        if (testAcc) return testAcc;
-      }
-
-      // Production & preview: NEVER return a mock account
-      return null;
+      // Production Gmail account resolution strictly queries authoritative public.google_accounts
+      // via privileged Supabase client with SUPABASE_SERVICE_ROLE_KEY.
+      return resolveAuthoritativeGmailAccount({ organizationId: orgId, senderEmail });
     },
     sendGmailMessage: async (account: any, recipientEmail: string, subject: string, body: string) => {
       if (!account || !account.accessToken) {
@@ -8409,6 +8392,11 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
 
     try {
       const gmailAcc = await outreachWorker.context.getGmailAccount(orgId);
+      if (!gmailAcc || !gmailAcc.accessToken) {
+        return res.status(400).json({ 
+          error: 'No authorized Gmail account connected. Please connect your Google Workspace account under Settings > Integrations.' 
+        });
+      }
       const testSubject = subject || 'SalesPilot Outreach Engine Connection Test';
       const testBody = body || `<div style="font-family: sans-serif; padding: 20px;">
         <h2>SalesPilot Outreach Test</h2>
@@ -11728,9 +11716,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const secret = process.env.GOOGLE_CLIENT_SECRET || '';
     if (!user || !secret) return '';
 
+    // Verify organization_id: client-supplied headers MUST NOT override verified tenant context
+    const { orgId } = resolveVerifiedOrganizationId(req, user);
+    const effectiveOrgId = orgId || user.organizationId || '';
+
     const payload = Buffer.from(JSON.stringify({
       userId: user.id,
-      organizationId: user.organizationId || '',
+      organizationId: effectiveOrgId,
       issuedAt: Date.now()
     })).toString('base64url');
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
@@ -11782,11 +11774,20 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const auditSuffix = len >= 15 ? clientId.substring(len - 15) : clientId;
     console.log(`[GOOGLE OAUTH AUDIT] Runtime GOOGLE_CLIENT_ID characters: [First 15: "${auditPrefix}"] [Last 15: "${auditSuffix}"]`);
 
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'An authenticated SalesPilot session is required to connect Google Workspace.' });
+    }
+    const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !orgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Forbidden. Organization mismatch or access denied.' });
+    }
+
     // Log the redirect URI
     const redirectUri = getGoogleRedirectUri(req);
     const state = createGoogleOAuthState(req);
     if (!state) {
-      return res.status(401).json({ error: 'An authenticated SalesPilot session is required to connect Google Calendar.' });
+      return res.status(500).json({ error: 'Server configuration error: GOOGLE_CLIENT_SECRET is missing.' });
     }
     console.log(`[GOOGLE OAUTH AUDIT] FINAL RUNTIME REDIRECT URI: ${redirectUri}`);
     console.log(`[GOOGLE OAUTH URL GEN] Configured Redirect URI: ${redirectUri}`);
@@ -12026,28 +12027,26 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       // Sync and save updated accounts
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering account synchronizations and database disk-persistence...');
       saveAccountsToDisk();
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        const googleAccountRows = [
-          { id: `ga_${email}`, user_id: oauthContext.userId, organization_id: oauthContext.organizationId || null, email, access_token, refresh_token: refresh_token || '', scopes: scopesArr, expiry_date: expiresAt, account_type: 'calendar' },
-          { id: `ga_${email}_gmail`, user_id: oauthContext.userId, organization_id: oauthContext.organizationId || null, email, access_token, refresh_token: refresh_token || '', scopes: scopesArr, expiry_date: expiresAt, account_type: 'gmail' }
-        ];
-        try {
-          const { error: accountPersistError } = await supabase.from('google_accounts').upsert(googleAccountRows, { onConflict: 'id' });
-          if (accountPersistError) {
-            console.warn('[GOOGLE CALLBACK FLOW] Supabase account persistence notice:', accountPersistError.message);
-          } else {
-            console.log('[GOOGLE CALLBACK FLOW] Supabase account persistence succeeded.');
-          }
-        } catch (sErr: any) {
-          console.warn('[GOOGLE CALLBACK FLOW] Supabase account persistence error:', sErr.message || String(sErr));
-        }
+      try {
+        await persistAuthoritativeGoogleAccount({
+          userId: oauthContext.userId,
+          organizationId: oauthContext.organizationId || '',
+          email,
+          name,
+          accessToken: access_token,
+          refreshToken: refresh_token || '',
+          scopes: scopesArr,
+          expiresAt
+        });
+        console.log('[GOOGLE CALLBACK FLOW] Authoritative Supabase persistence succeeded.');
+      } catch (pErr: any) {
+        console.error('[GOOGLE CALLBACK FLOW] Supabase persistence error:', pErr.message || String(pErr));
       }
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Disk write complete.');
 
       // Immediate Readback/Verification to ensure they are persisted and correct
       try {
-        if (supabase) {
+        if (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) {
           console.log('[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] Supabase persistence already acknowledged successfully.');
         } else if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
           const verifyData = JSON.parse(fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8'));
@@ -12640,19 +12639,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     // Always ensure local disk accounts are loaded as baseline
     loadAccountsFromDisk();
 
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
+    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
+    if (!hasServiceRoleKey) {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('[PERSISTENCE] Missing SUPABASE_SERVICE_ROLE_KEY in production. Protected google_accounts table sync skipped.');
+      }
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
+      const privilegedClient = getPrivilegedSupabaseClient();
+      const { data, error } = await privilegedClient
         .from('google_accounts')
-        .select('email, access_token, refresh_token, scopes, expiry_date, account_type');
+        .select('email, access_token, refresh_token, scopes, expiry_date, account_type, organization_id');
       if (error) {
-        if (error.code === '42501' || error.message?.includes('permission denied')) {
-          console.log('[PERSISTENCE] Supabase google_accounts table access restricted for anon client. Using local disk store.');
-        } else {
-          console.warn('[PERSISTENCE] Supabase google_accounts load notice:', error.message);
-        }
+        console.warn('[PERSISTENCE] Supabase google_accounts load notice:', error.message);
         return;
       }
 
@@ -12668,11 +12669,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           createdAt: new Date().toISOString(),
           scopes: row.scopes || []
         };
-        if (row.account_type === 'calendar') {
+        const normalizedType = (row.account_type || '').toLowerCase();
+        if (normalizedType === 'calendar') {
           const existing = calendarAccounts.find(item => item.email === row.email);
           if (existing) Object.assign(existing, account);
           else calendarAccounts.push(account);
-        } else if (row.account_type === 'gmail') {
+        } else if (normalizedType === 'gmail') {
           const existing = gmailAccounts.find(item => item.email === row.email);
           if (existing) Object.assign(existing, account);
           else gmailAccounts.push({ ...account, sendingLimit: 500, sentToday: 0, bounceCount: 0, retryCount: 0 });
