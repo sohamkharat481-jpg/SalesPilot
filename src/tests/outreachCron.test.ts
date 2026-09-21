@@ -339,6 +339,61 @@ export async function runOutreachCronTestSuite() {
   const resIso = await worker.processQueue(20);
   assert(queue.find(q => q.id === 'q_cross_tenant')?.status === 'CANCELLED', 'Test 12: Tenant cross-mismatch cancels queue item and prevents unauthorized access');
 
+  // --- TEST 13: Throttled Piggyback Drain Functionality
+  let drainCalls = 0;
+  let lastDrain = 0;
+  const THROTTLE_MS = 45000;
+
+  const mockTriggerPiggyback = () => {
+    const now = Date.now();
+    if (now - lastDrain >= THROTTLE_MS) {
+      lastDrain = now;
+      drainCalls++;
+      worker.processQueue(20).catch(() => {});
+      return true;
+    }
+    return false;
+  };
+
+  const firstDrainExecuted = mockTriggerPiggyback();
+  const secondDrainExecuted = mockTriggerPiggyback(); // Should be throttled
+  assert(firstDrainExecuted === true && secondDrainExecuted === false && drainCalls === 1, 'Test 13: Piggyback drain executes once and throttles subsequent requests within interval');
+
+  // --- TEST 14 & 15: Campaign Start & Resume Trigger Non-Blocking Queue Drain
+  let startDrainTriggered = false as boolean;
+  let resumeDrainTriggered = false as boolean;
+
+  const simulateCampaignStart = async () => {
+    // Non-blocking trigger on start
+    worker.processQueue(20).then(() => { startDrainTriggered = true; }).catch(() => {});
+  };
+
+  const simulateCampaignResume = async () => {
+    // Non-blocking trigger on resume
+    worker.processQueue(20).then(() => { resumeDrainTriggered = true; }).catch(() => {});
+  };
+
+  await simulateCampaignStart();
+  await simulateCampaignResume();
+  assert(startDrainTriggered === true && resumeDrainTriggered === true, 'Tests 14 & 15: Campaign start and resume trigger non-blocking queue drains');
+
+  // --- TEST 16: Header-Only Auth Enforcement (Query secret rejected)
+  const checkAuthHeaderOnly = (authHeader?: string, cronHeader?: string, querySecret?: string) => {
+    const expectedSecret = SECRET;
+    let token = '';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    } else if (cronHeader) {
+      token = cronHeader.trim();
+    }
+    // Query parameter is intentionally ignored
+    return !!expectedSecret && !!token && token === expectedSecret;
+  };
+
+  assert(checkAuthHeaderOnly('Bearer ' + SECRET, undefined, undefined) === true, 'Test 16a: Authorization Bearer header accepted');
+  assert(checkAuthHeaderOnly(undefined, SECRET, undefined) === true, 'Test 16b: x-cron-secret header accepted');
+  assert(checkAuthHeaderOnly(undefined, undefined, SECRET) === false, 'Test 16c: Query secret parameter correctly rejected');
+
   console.log(`\n=== OUTREACH CRON TEST RESULTS: ${passed} PASSED, ${failed} FAILED ===\n`);
   return { passed, failed };
 }

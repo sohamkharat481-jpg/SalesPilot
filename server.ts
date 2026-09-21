@@ -2722,6 +2722,26 @@ async function startServer() {
     }, 30000);
   }
 
+  // Throttled Request-Piggyback Queue Processing Helper (Hobby Vercel architecture)
+  let lastPiggybackDrainTime = 0;
+  const PIGGYBACK_DRAIN_INTERVAL_MS = 45000; // 45 seconds throttle interval per server instance
+
+  const triggerThrottledPiggybackDrain = () => {
+    const now = Date.now();
+    if (now - lastPiggybackDrainTime >= PIGGYBACK_DRAIN_INTERVAL_MS) {
+      lastPiggybackDrainTime = now;
+      outreachWorker.processQueue(20).catch(err => {
+        console.warn('[OUTREACH PIGGYBACK DRAIN NOTICE]', err);
+      });
+    }
+  };
+
+  // Passive request-piggyback middleware on API routes (non-blocking)
+  app.use('/api/v1', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    triggerThrottledPiggybackDrain();
+    next();
+  });
+
   // AUTH API: Email Signup
   const handleSignup = async (req: any, res: any) => {
     const { email, password, fullName, role } = req.body;
