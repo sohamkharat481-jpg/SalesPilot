@@ -8385,7 +8385,9 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     const { orgId, error } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
 
-    const { recipientEmail, subject, body } = req.body;
+    const { recipientEmail, subject, body, senderEmail } = req.body;
+    const xOrgId = req.headers?.['x-organization-id'] || null;
+
     if (!recipientEmail || !recipientEmail.includes('@')) {
       return res.status(400).json({ error: 'Valid recipient email address is required.' });
     }
@@ -8394,13 +8396,24 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       console.log('[TEST EMAIL RUNTIME DIAGNOSTICS]', {
         authenticatedUserId: user.id,
         verifiedOrgId: orgId,
-        requestedSenderEmail: req.body.senderEmail || null,
-        resolverPath: 'outreachWorker.context.getGmailAccount'
+        xOrganizationIdReceived: xOrgId,
+        requestedSenderEmail: senderEmail || null,
+        resolverPath: 'resolveAuthoritativeGmailAccount'
       });
-      const gmailAcc = await outreachWorker.context.getGmailAccount(orgId);
+      const gmailAcc = await resolveAuthoritativeGmailAccount({
+        organizationId: orgId,
+        senderEmail,
+        userId: user.id,
+        xOrganizationId: xOrgId as string
+      });
       if (!gmailAcc || !gmailAcc.accessToken) {
         return res.status(400).json({ 
           error: 'No authorized Gmail account connected. Please connect your Google Workspace account under Settings > Integrations.' 
+        });
+      }
+      if (gmailAcc.status === 'REAUTH_REQUIRED' || gmailAcc.status === 'REAUTH_NEEDED') {
+        return res.status(400).json({
+          error: 'Your Gmail authorization has expired or been revoked. Please reconnect your Google account.'
         });
       }
       const testSubject = subject || 'SalesPilot Outreach Engine Connection Test';
@@ -12134,7 +12147,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Connects a Gmail Account
-  app.post('/gmail/connect', (req, res) => {
+  app.post('/gmail/connect', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const { orgId } = resolveVerifiedOrganizationId(req, user);
+    const effectiveOrgId = orgId || user?.organizationId || req.body.organizationId || 'org_default';
     const { email, fullName, accessToken, refreshToken, expiresAt, isSimulated } = req.body;
     
     if (!email || !accessToken) {
@@ -12150,32 +12166,42 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       existingAcc.expiresAt = expiresTimestamp;
       existingAcc.status = 'CONNECTED';
       existingAcc.fullName = fullName || existingAcc.fullName || email.split('@')[0];
-      
-      return res.json({ 
-        message: 'Google connection updated successfully.', 
-        account: existingAcc 
+    } else {
+      const newAcc: GmailAccount = {
+        email,
+        fullName: fullName || email.split('@')[0],
+        accessToken,
+        refreshToken,
+        expiresAt: expiresTimestamp,
+        status: 'CONNECTED',
+        sendingLimit: 500,
+        sentToday: 0,
+        bounceCount: 0,
+        retryCount: 0,
+        createdAt: new Date().toISOString()
+      };
+      gmailAccounts.push(newAcc);
+    }
+    saveAccountsToDisk();
+
+    try {
+      await persistAuthoritativeGoogleAccount({
+        userId: user?.id || 'usr_system',
+        organizationId: effectiveOrgId,
+        email,
+        name: fullName || email.split('@')[0],
+        accessToken,
+        refreshToken: refreshToken || '',
+        scopes: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'],
+        expiresAt: expiresTimestamp
       });
+    } catch (pErr: any) {
+      console.warn('[GMAIL CONNECT PERSISTENCE NOTICE]', pErr?.message || pErr);
     }
 
-    const newAcc: GmailAccount = {
-      email,
-      fullName: fullName || email.split('@')[0],
-      accessToken,
-      refreshToken,
-      expiresAt: expiresTimestamp,
-      status: 'CONNECTED',
-      sendingLimit: 500,
-      sentToday: 0,
-      bounceCount: 0,
-      retryCount: 0,
-      createdAt: new Date().toISOString()
-    };
-
-    gmailAccounts.push(newAcc);
-    saveAccountsToDisk();
     res.json({ 
       message: 'Gmail account connected successfully to SalesPilot.', 
-      account: newAcc 
+      account: gmailAccounts.find(a => a.email === email) 
     });
   });
 

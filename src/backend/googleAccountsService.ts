@@ -7,7 +7,7 @@ export interface AuthoritativeGmailAccount {
   accessToken: string;
   refreshToken?: string;
   expiresAt: string;
-  status: 'CONNECTED';
+  status: 'CONNECTED' | 'REAUTH_REQUIRED' | 'REAUTH_NEEDED' | string;
   createdAt: string;
   scopes: string[];
   organizationId: string;
@@ -17,6 +17,8 @@ export interface AuthoritativeGmailAccount {
 export interface ResolveGmailAccountOptions {
   organizationId: string;
   senderEmail?: string;
+  userId?: string;
+  xOrganizationId?: string;
   privilegedClient?: SupabaseClient;
 }
 
@@ -37,12 +39,12 @@ export interface PersistGoogleAccountParams {
  * strictly from authoritative public.google_accounts.
  *
  * Uses the privileged Supabase client with SUPABASE_SERVICE_ROLE_KEY.
- * Never falls back to mock tokens or unverified disk stores.
+ * Logs safe diagnostics and handles REAUTH_REQUIRED status correctly.
  */
 export async function resolveAuthoritativeGmailAccount(
   options: ResolveGmailAccountOptions
 ): Promise<AuthoritativeGmailAccount | null> {
-  const { organizationId, senderEmail, privilegedClient: customClient } = options;
+  const { organizationId, senderEmail, userId, xOrganizationId, privilegedClient: customClient } = options;
 
   // Strict tenant isolation: organizationId is required
   if (!organizationId || typeof organizationId !== 'string' || organizationId.trim() === '') {
@@ -76,7 +78,7 @@ export async function resolveAuthoritativeGmailAccount(
   // Query authoritative public.google_accounts with strict tenant isolation
   let query = client
     .from('google_accounts')
-    .select('*')
+    .select('*', { count: 'exact' })
     .in('account_type', ['gmail', 'GMAIL'])
     .eq('organization_id', cleanOrgId)
     .not('access_token', 'is', null);
@@ -85,10 +87,26 @@ export async function resolveAuthoritativeGmailAccount(
     query = query.eq('email', senderEmail.trim().toLowerCase());
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const { data, count, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+  const queryCount = count !== null && count !== undefined ? count : (data ? 1 : 0);
+  const matchedEmail = data?.email || null;
+  const matchedAccountType = data?.account_type || null;
+  const credentialsPresent = Boolean(data?.access_token);
 
   if (error) {
     console.error('[OUTREACH GOOGLE ACCOUNT] Database query error on google_accounts:', error.message);
+    console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
+      authenticatedUserId: userId || null,
+      verifiedOrganizationId: cleanOrgId,
+      xOrganizationIdReceived: xOrganizationId || null,
+      senderEmail: senderEmail || null,
+      googleAccountsQueryCount: queryCount,
+      matchedAccountEmail: matchedEmail,
+      matchedAccountType: matchedAccountType,
+      credentialsPresent,
+      resolverResult: 'error'
+    });
     if (process.env.NODE_ENV === 'production') {
       throw new Error(`Database error querying authoritative google_accounts: ${error.message}`);
     }
@@ -97,32 +115,32 @@ export async function resolveAuthoritativeGmailAccount(
 
   if (!data || !data.access_token) {
     console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
-      organizationId: cleanOrgId,
-      requestedSenderEmail: senderEmail || null,
-      matchingRecordCount: 0,
-      matchedAccountEmail: null,
-      matchedAccountType: null,
+      authenticatedUserId: userId || null,
+      verifiedOrganizationId: cleanOrgId,
+      xOrganizationIdReceived: xOrganizationId || null,
+      senderEmail: senderEmail || null,
+      googleAccountsQueryCount: queryCount,
+      matchedAccountEmail: matchedEmail,
+      matchedAccountType: matchedAccountType,
       credentialsPresent: false,
-      resolverPath: 'public.google_accounts (service-role) - not found'
+      resolverResult: 'not_found'
     });
     return null;
   }
 
-  console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
-    organizationId: cleanOrgId,
-    requestedSenderEmail: senderEmail || null,
-    matchingRecordCount: 1,
-    matchedAccountEmail: data.email || null,
-    matchedAccountType: data.account_type || null,
-    credentialsPresent: Boolean(data.access_token),
-    resolverPath: 'public.google_accounts (service-role)'
-  });
+  const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED';
 
-  // Strictly reject any mock accounts or synthetic tokens
-  if (data.access_token.startsWith('mock_') || data.email?.includes('mock')) {
-    console.warn('[OUTREACH GOOGLE ACCOUNT] Rejected mock account found in database.');
-    return null;
-  }
+  console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
+    authenticatedUserId: userId || null,
+    verifiedOrganizationId: cleanOrgId,
+    xOrganizationIdReceived: xOrganizationId || null,
+    senderEmail: senderEmail || null,
+    googleAccountsQueryCount: queryCount,
+    matchedAccountEmail: matchedEmail,
+    matchedAccountType: matchedAccountType,
+    credentialsPresent: true,
+    resolverResult: isReauthRequired ? 'REAUTH_REQUIRED' : 'success'
+  });
 
   const email = (data.email || '').toLowerCase().trim();
   const expiresAt = data.expiry_date
@@ -135,7 +153,7 @@ export async function resolveAuthoritativeGmailAccount(
     accessToken: data.access_token,
     refreshToken: data.refresh_token || undefined,
     expiresAt,
-    status: data.status || 'CONNECTED',
+    status: isReauthRequired ? 'REAUTH_REQUIRED' : (data.status || 'CONNECTED'),
     createdAt: data.created_at || new Date().toISOString(),
     scopes: Array.isArray(data.scopes) ? data.scopes : [],
     organizationId: cleanOrgId,
