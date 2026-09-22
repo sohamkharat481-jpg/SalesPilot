@@ -8446,7 +8446,22 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       });
     } catch (err: any) {
       console.error('[OUTREACH TEST EMAIL ERROR]', err);
-      res.status(500).json({ error: `Failed to send test email: ${err.message || String(err)}` });
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('invalid_grant') || errMsg.includes('revoked') || errMsg.includes('expired') || errMsg.includes('REAUTH_NEEDED') || errMsg.includes('REAUTH_REQUIRED')) {
+        try {
+          const privilegedClient = getPrivilegedSupabaseServerClient();
+          await privilegedClient
+            .from('google_accounts')
+            .update({ status: 'REAUTH_REQUIRED' })
+            .eq('organization_id', orgId);
+        } catch (dbErr) {
+          // ignore
+        }
+        return res.status(400).json({
+          error: 'Your Gmail authorization has expired or been revoked. Please reconnect your Google account.'
+        });
+      }
+      res.status(500).json({ error: `Failed to send test email: ${errMsg}` });
     }
   });
 

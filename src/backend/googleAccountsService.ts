@@ -73,8 +73,7 @@ export async function resolveAuthoritativeGmailAccount(
     return null;
   }
 
-  // Query authoritative public.google_accounts
-  // Support both normalized lowercase "gmail" and legacy "GMAIL" for full backward compatibility
+  // Query authoritative public.google_accounts with strict tenant isolation
   let query = client
     .from('google_accounts')
     .select('*')
@@ -136,7 +135,7 @@ export async function resolveAuthoritativeGmailAccount(
     accessToken: data.access_token,
     refreshToken: data.refresh_token || undefined,
     expiresAt,
-    status: 'CONNECTED',
+    status: data.status || 'CONNECTED',
     createdAt: data.created_at || new Date().toISOString(),
     scopes: Array.isArray(data.scopes) ? data.scopes : [],
     organizationId: cleanOrgId,

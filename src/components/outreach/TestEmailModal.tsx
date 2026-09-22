@@ -55,11 +55,23 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
 
     try {
       const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      const workspaceId = localStorage.getItem('salespilot_workspace_id') || localStorage.getItem('salespilot_org_id') || (() => {
+        try {
+          const org = JSON.parse(localStorage.getItem('salespilot_org') || '{}');
+          return org.id;
+        } catch {
+          return null;
+        }
+      })();
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+      }
+      if (workspaceId) {
+        headers['x-organization-id'] = workspaceId;
       }
 
       const res = await fetch('/api/v1/outreach/test-email', {

@@ -3914,15 +3914,29 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                       </div>
 
                       {/* Connection status badge */}
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="font-mono text-slate-400">STATUS</span>
-                        <span className={`px-2 py-0.5 font-bold rounded-full border ${
-                          account.status === 'CONNECTED' 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                          ● {account.status}
-                        </span>
+                      <div className="flex flex-col gap-2 text-[10px]">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-slate-400">STATUS</span>
+                          <span className={`px-2 py-0.5 font-bold rounded-full border ${
+                            account.status === 'CONNECTED' 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            ● {account.status}
+                          </span>
+                        </div>
+                        {(account.status === 'REAUTH_REQUIRED' || account.status === 'REAUTH_NEEDED') && (
+                          <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 space-y-2">
+                            <p className="font-medium">Gmail authorization expired — Reconnect Google</p>
+                            <button
+                              type="button"
+                              onClick={() => triggerRealGoogleLogin()}
+                              className="w-full py-1.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-md shadow-xs transition-colors cursor-pointer"
+                            >
+                              Reconnect Google
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

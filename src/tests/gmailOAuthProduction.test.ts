@@ -369,4 +369,93 @@ describe('Production Gmail OAuth & Authoritative Account Store', () => {
     });
     expect(resolved).toBeNull();
   });
+
+  // 10. REAUTH_REQUIRED state detection & mapping
+  it('10. REAUTH_REQUIRED state is correctly detected and returned by resolver', async () => {
+    const mockDbItem = {
+      id: 'ga_expired_gmail',
+      organization_id: 'org_tenant_reauth',
+      email: 'expired@corp.com',
+      access_token: 'ya29.expired_token',
+      refresh_token: '1//revoked_refresh',
+      status: 'REAUTH_REQUIRED',
+      account_type: 'gmail',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      created_at: new Date().toISOString()
+    };
+
+    const mockPrivilegedClient: any = {
+      from: () => ({
+        select: () => ({
+          in: () => ({
+            eq: () => ({
+              not: () => ({
+                order: () => ({
+                  limit: () => ({
+                    maybeSingle: async () => ({ data: mockDbItem, error: null })
+                  })
+                })
+              })
+            })
+          })
+        })
+      })
+    };
+
+    const account = await resolveAuthoritativeGmailAccount({
+      organizationId: 'org_tenant_reauth',
+      privilegedClient: mockPrivilegedClient
+    });
+
+    expect(account).not.toBeNull();
+    expect(account?.status).toBe('REAUTH_REQUIRED');
+  });
+
+  // 11. Reconnect OAuth callback upserts existing record for same org + email without duplicates
+  it('11. Reconnect OAuth callback updates existing record (same organization + same Gmail account) without duplication', async () => {
+    let upsertedRows: any[] = [];
+    const mockPrivilegedClient: any = {
+      from: (table: string) => {
+        expect(table).toBe('google_accounts');
+        return {
+          upsert: async (rows: any[], options: any) => {
+            expect(options?.onConflict).toBe('id');
+            upsertedRows = rows;
+            return { error: null };
+          }
+        };
+      }
+    };
+
+    // First auth persist
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_1',
+      organizationId: 'org_secure_1',
+      email: 'soham@company.com',
+      accessToken: 'ya29.token_v1',
+      refreshToken: '1//refresh_v1',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: new Date().toISOString(),
+      privilegedClient: mockPrivilegedClient
+    });
+
+    // Reconnect with new tokens
+    const result = await persistAuthoritativeGoogleAccount({
+      userId: 'usr_1',
+      organizationId: 'org_secure_1',
+      email: 'soham@company.com',
+      accessToken: 'ya29.token_v2_reconnected',
+      refreshToken: '1//refresh_v2_reconnected',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: new Date().toISOString(),
+      privilegedClient: mockPrivilegedClient
+    });
+
+    expect(result.success).toBe(true);
+    expect(upsertedRows.length).toBe(2);
+    const gmailRow = upsertedRows.find(r => r.account_type === 'gmail');
+    expect(gmailRow.access_token).toBe('ya29.token_v2_reconnected');
+    expect(gmailRow.refresh_token).toBe('1//refresh_v2_reconnected');
+    expect(gmailRow.id).toBe('ga_soham@company.com_gmail'); // deterministic ID prevents duplicates
+  });
 });
