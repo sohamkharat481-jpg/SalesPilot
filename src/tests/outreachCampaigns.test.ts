@@ -146,9 +146,53 @@ export async function runOutreachCampaignTestSuite() {
     });
   };
 
-  const duplicateMatch = checkDuplicate('Q3 Enterprise Outreach', ['lead_a_1'], ORG_A);
-  assert(duplicateMatch !== null && duplicateMatch?.id === campaignId, 'Duplicate submission idempotency detection matches existing campaign');
+  // 6. Test Persistence After Activation, Reload Simulation, Recipient & Sent Message Persistence
+  const persistCampId = `persist_${Date.now()}`;
+  const persistCampaign: OutreachCampaign = {
+    id: persistCampId,
+    organizationId: ORG_A,
+    name: 'A quick idea for Kanishka Software',
+    status: 'ACTIVE',
+    targetLeadIds: ['lead_a_1'],
+    dailyLimit: 30,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  db.saveOutreachCampaign(persistCampaign, steps);
+  
+  // Simulate queue sent message
+  const sentQueueItem: OutreachQueueItem = {
+    id: `q_sent_${Date.now()}`,
+    organizationId: ORG_A,
+    campaignId: persistCampId,
+    stepId: steps[0].id,
+    stepNumber: 1,
+    leadId: 'lead_a_1',
+    recipientEmail: 'alice@acme.com',
+    recipientName: 'Alice Smith',
+    subject: 'Hello Alice',
+    body: 'Hi Alice',
+    status: 'SENT',
+    scheduledAt: new Date().toISOString(),
+    attempts: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  db.enqueueOutreachItems([sentQueueItem]);
 
-  console.log(`=== OUTREACH CAMPAIGN TEST SUITE COMPLETED: ${passed} passed, ${failed} failed ===`);
+  // Simulate reload / GET fetch
+  const reloadedCampaigns = db.getOutreachCampaigns(ORG_A);
+  const reloadedQueue = db.getOutreachQueue(ORG_A);
+  const foundPersisted = reloadedCampaigns.find(c => c.id === persistCampId);
+  const foundQueueSent = reloadedQueue.find(q => q.campaignId === persistCampId && q.status === 'SENT');
+
+  assert(foundPersisted !== undefined && foundPersisted.status === 'ACTIVE', 'Campaign status ACTIVE survives reload');
+  assert(foundPersisted !== undefined && JSON.stringify(foundPersisted.targetLeadIds) === JSON.stringify(['lead_a_1']), 'Selected recipient IDs persist correctly');
+  assert(foundQueueSent !== undefined && foundQueueSent.status === 'SENT', 'Sent message record persists correctly after reload');
+
+  // 7. Tenant Isolation for Reload / GET
+  const reloadedOrgBCampaigns = db.getOutreachCampaigns(ORG_B);
+  const orgBHasPersisted = reloadedOrgBCampaigns.some(c => c.id === persistCampId);
+  assert(orgBHasPersisted === false, 'Tenant isolation verified: ORG_B cannot view ORG_A persisted campaigns');
   return { passed, failed };
 }

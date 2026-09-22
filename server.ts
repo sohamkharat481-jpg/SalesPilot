@@ -8000,7 +8000,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
   // OUTREACH ENGINE PRODUCTION API ENDPOINTS
   // =========================================================================
 
-  // Get Outreach Campaigns with Aggregated Metrics
+  // Get Outreach Campaigns with Aggregated Metrics (Authoritative Supabase + localDb fallback)
   app.get('/api/v1/outreach/campaigns', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -8008,9 +8008,94 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     if (error || !orgId) return res.status(status || 403).json({ error: error || 'Organization access denied.' });
 
     try {
-      const dbCampaigns = localDb.getOutreachCampaigns(orgId);
-      const queue = localDb.getOutreachQueue(orgId);
-      const replies = localDb.getOutreachReplies(orgId);
+      const supabase = getSupabaseClient();
+      let dbCampaigns: any[] = [];
+      let queue: any[] = [];
+      let replies: any[] = [];
+      let stepsMap: Record<string, any[]> = {};
+
+      if (supabase) {
+        try {
+          const [campsRes, queueRes, repliesRes, stepsRes] = await Promise.all([
+            supabase.from('outreach_campaigns').select('*').eq('organization_id', orgId),
+            supabase.from('outreach_queue').select('*').eq('organization_id', orgId),
+            supabase.from('outreach_replies').select('*').eq('organization_id', orgId),
+            supabase.from('outreach_steps').select('*').eq('organization_id', orgId)
+          ]);
+
+          if (campsRes.data && campsRes.data.length > 0) {
+            dbCampaigns = campsRes.data.map(c => ({
+              id: c.id,
+              organizationId: c.organization_id,
+              name: c.name,
+              status: c.status,
+              targetLeadIds: c.target_lead_ids || [],
+              dailyLimit: c.daily_limit || 20,
+              createdAt: c.created_at,
+              updatedAt: c.updated_at
+            }));
+          }
+
+          if (queueRes.data) {
+            queue = queueRes.data.map(q => ({
+              id: q.id,
+              organizationId: q.organization_id,
+              campaignId: q.campaign_id,
+              stepId: q.step_id,
+              stepNumber: q.step_number,
+              leadId: q.lead_id,
+              recipientEmail: q.recipient_email,
+              recipientName: q.recipient_name,
+              subject: q.subject,
+              body: q.body,
+              status: q.status,
+              scheduledAt: q.scheduled_at,
+              attempts: q.attempts,
+              createdAt: q.created_at,
+              updatedAt: q.updated_at
+            }));
+          }
+
+          if (repliesRes.data) {
+            replies = repliesRes.data.map(r => ({
+              id: r.id,
+              organizationId: r.organization_id,
+              campaignId: r.campaign_id,
+              leadId: r.lead_id,
+              classification: r.classification,
+              sentimentScore: r.sentiment_score,
+              summary: r.summary,
+              createdAt: r.created_at
+            }));
+          }
+
+          if (stepsRes.data) {
+            stepsRes.data.forEach(s => {
+              const campId = s.campaign_id;
+              if (!stepsMap[campId]) stepsMap[campId] = [];
+              stepsMap[campId].push({
+                id: s.id,
+                organizationId: s.organization_id,
+                campaignId: s.campaign_id,
+                stepNumber: s.step_number,
+                delayDays: s.delay_days,
+                subjectTemplate: s.subject_template,
+                bodyTemplate: s.body_template,
+                createdAt: s.created_at,
+                updatedAt: s.updated_at
+              });
+            });
+          }
+        } catch (sbErr) {
+          console.warn('[OUTREACH GET CAMPAIGNS SUPABASE FALLBACK]', sbErr);
+        }
+      }
+
+      if (dbCampaigns.length === 0) {
+        dbCampaigns = localDb.getOutreachCampaigns(orgId);
+        queue = localDb.getOutreachQueue(orgId);
+        replies = localDb.getOutreachReplies(orgId);
+      }
 
       const campaignsWithStats = dbCampaigns.map(c => {
         const campQueue = queue.filter(q => q.campaignId === c.id);
@@ -8026,7 +8111,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
         const bounced = campQueue.filter(q => q.status === 'BOUNCED').length;
         const failed = campQueue.filter(q => q.status === 'FAILED').length;
 
-        const steps = localDb.getOutreachSteps(c.id, orgId);
+        const steps = stepsMap[c.id] || localDb.getOutreachSteps(c.id, orgId);
 
         return {
           ...c,
