@@ -8091,11 +8091,27 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
         }
       }
 
-      if (dbCampaigns.length === 0) {
-        dbCampaigns = localDb.getOutreachCampaigns(orgId);
-        queue = localDb.getOutreachQueue(orgId);
-        replies = localDb.getOutreachReplies(orgId);
-      }
+      const localCamps = localDb.getOutreachCampaigns(orgId);
+      const localQueue = localDb.getOutreachQueue(orgId);
+      const localReplies = localDb.getOutreachReplies(orgId);
+
+      // Merge dbCampaigns (Supabase) and localCamps (LocalDB) by ID
+      const campMap = new Map();
+      localCamps.forEach(c => campMap.set(c.id, c));
+      dbCampaigns.forEach(c => campMap.set(c.id, c));
+      dbCampaigns = Array.from(campMap.values());
+
+      // Merge queues
+      const queueMap = new Map();
+      localQueue.forEach(q => queueMap.set(q.id, q));
+      queue.forEach(q => queueMap.set(q.id, q));
+      queue = Array.from(queueMap.values());
+
+      // Merge replies
+      const replyMap = new Map();
+      localReplies.forEach(r => replyMap.set(r.id, r));
+      replies.forEach(r => replyMap.set(r.id, r));
+      replies = Array.from(replyMap.values());
 
       const campaignsWithStats = dbCampaigns.map(c => {
         const campQueue = queue.filter(q => q.campaignId === c.id);

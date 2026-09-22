@@ -652,6 +652,7 @@ export default function App() {
     { id: 'ai-agents', label: 'AI Agents', icon: Bot },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'work-done', label: 'Implementation Progress', icon: CheckCircle2 },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'integrations', label: 'Integrations', icon: Settings },
     { id: 'developer-portal', label: 'API & Developer Hub', icon: Terminal },
@@ -667,7 +668,6 @@ export default function App() {
     { id: 'global-launch', label: 'Global Launch Hub', icon: Globe },
     { id: 'workspace', label: 'Workspace Hub', icon: Building2 },
     { id: 'client-portal', label: 'Client Portal', icon: Briefcase },
-    { id: 'work-done', label: 'Implementation Progress', icon: CheckCircle2 },
     ...((user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') ? [{ id: 'super-admin', label: 'Admin (Owner Only)', icon: ShieldCheck }] : [])
   ] : [
     { id: 'billing', label: 'Pricing & Plans', icon: CreditCard }
