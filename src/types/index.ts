@@ -262,12 +262,12 @@ export interface SequenceStep {
   delayDays: number;
 }
 
-export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'COMPLETED' | 'STOPPED';
 
 export interface Campaign {
   id: string;
   name: string;
-  targetAudience: 'MARKETING_AGENCY' | 'SAAS' | 'IT_COMPANY' | 'WEB_DEV' | 'REAL_ESTATE' | 'RECRUITMENT' | 'GENERAL';
+  targetAudience: 'MARKETING_AGENCY' | 'SAAS' | 'IT_COMPANY' | 'WEB_DEV' | 'REAL_ESTATE' | 'RECRUITMENT' | 'GENERAL' | string;
   status: CampaignStatus;
   channels?: string[];
   steps: SequenceStep[];

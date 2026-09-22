@@ -189,6 +189,12 @@ export class LocalDB {
         if (!this.db.agentWorkflows) this.db.agentWorkflows = [];
         if (!this.db.agentPermissions) this.db.agentPermissions = [];
         if (!this.db.organizationMembers) this.db.organizationMembers = [];
+        if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+        if (!this.db.outreachSteps) this.db.outreachSteps = [];
+        if (!this.db.outreachQueue) this.db.outreachQueue = [];
+        if (!this.db.outreachMessages) this.db.outreachMessages = [];
+        if (!this.db.outreachReplies) this.db.outreachReplies = [];
+        if (!this.db.outreachEvents) this.db.outreachEvents = [];
 
         this.ensureDefaultWorkspacesAndMemberships();
 
@@ -264,7 +270,13 @@ export class LocalDB {
         notifications: [],
         auditLogs: [],
         teamActivities: [],
-        invitations: []
+        invitations: [],
+        outreachCampaigns: [],
+        outreachSteps: [],
+        outreachQueue: [],
+        outreachMessages: [],
+        outreachReplies: [],
+        outreachEvents: []
       };
       this.save();
       return;
@@ -415,7 +427,13 @@ export class LocalDB {
       notifications: [],
       auditLogs: [],
       teamActivities: [],
-      invitations: []
+      invitations: [],
+      outreachCampaigns: [],
+      outreachSteps: [],
+      outreachQueue: [],
+      outreachMessages: [],
+      outreachReplies: [],
+      outreachEvents: []
     };
 
     this.save();
@@ -806,7 +824,10 @@ export class LocalDB {
 
       const { data: camps } = await this.supabase.from('campaigns').select('*');
       if (camps && camps.length > 0) {
-        this.db.campaigns = camps.map(c => ({
+        if (!this.db.campaigns) this.db.campaigns = [];
+        if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+
+        const remoteCamps = camps.map(c => ({
           id: c.id,
           name: c.name,
           targetAudience: c.target_audience,
@@ -815,8 +836,39 @@ export class LocalDB {
           totalSent: c.total_sent || 0,
           totalOpened: c.total_opened || 0,
           totalReplied: c.total_replied || 0,
-          createdAt: c.created_at
+          createdAt: c.created_at,
+          organizationId: c.organization_id || 'org_salespilot_lifetime'
         }));
+
+        const existingCampMap = new Map(this.db.campaigns.map(c => [c.id, c]));
+        remoteCamps.forEach(rc => existingCampMap.set(rc.id, { ...existingCampMap.get(rc.id), ...rc }));
+        this.db.campaigns = Array.from(existingCampMap.values());
+
+        // Also merge into outreachCampaigns
+        const existingOutreachMap = new Map(this.db.outreachCampaigns.map(o => [o.id, o]));
+        remoteCamps.forEach(rc => {
+          let targetLeadIds: string[] = [];
+          if (rc.targetAudience) {
+            try {
+              if (typeof rc.targetAudience === 'string' && rc.targetAudience.startsWith('[')) {
+                targetLeadIds = JSON.parse(rc.targetAudience);
+              }
+            } catch (e) {}
+          }
+          const prev = existingOutreachMap.get(rc.id);
+          existingOutreachMap.set(rc.id, {
+            id: rc.id,
+            organizationId: rc.organizationId,
+            name: rc.name,
+            status: rc.status as any,
+            targetLeadIds: prev?.targetLeadIds?.length ? prev.targetLeadIds : targetLeadIds,
+            dailyLimit: prev?.dailyLimit || 30,
+            createdAt: rc.createdAt,
+            updatedAt: prev?.updatedAt || rc.createdAt,
+            stats: prev?.stats
+          });
+        });
+        this.db.outreachCampaigns = Array.from(existingOutreachMap.values());
       }
 
       const { data: deals } = await this.supabase.from('deals').select('*');
@@ -2458,6 +2510,35 @@ export class LocalDB {
     // Replace steps for this campaign
     this.db.outreachSteps = this.db.outreachSteps.filter(s => s.campaignId !== campaign.id);
     this.db.outreachSteps.push(...steps);
+
+    // Also synchronize to this.db.campaigns
+    if (!this.db.campaigns) this.db.campaigns = [];
+    const campEntry = {
+      id: campaign.id,
+      name: campaign.name,
+      targetAudience: JSON.stringify(campaign.targetLeadIds || []),
+      status: campaign.status as any,
+      steps: (steps || []).map((s, idx) => ({
+        id: s.id,
+        stepNumber: s.stepNumber || (idx + 1),
+        type: 'EMAIL' as const,
+        subject: s.subjectTemplate,
+        bodyTemplate: s.bodyTemplate,
+        delayDays: s.delayDays
+      })),
+      totalSent: campaign.stats?.sent || 0,
+      totalOpened: 0,
+      totalReplied: campaign.stats?.replied || 0,
+      createdAt: campaign.createdAt,
+      organizationId: campaign.organizationId
+    };
+    const cIdx = this.db.campaigns.findIndex(c => c.id === campaign.id);
+    if (cIdx !== -1) {
+      this.db.campaigns[cIdx] = campEntry;
+    } else {
+      this.db.campaigns.push(campEntry);
+    }
+
     this.save();
   }
 
@@ -2467,6 +2548,12 @@ export class LocalDB {
     if (idx !== -1) {
       this.db.outreachCampaigns[idx].status = status;
       this.db.outreachCampaigns[idx].updatedAt = new Date().toISOString();
+      if (this.db.campaigns) {
+        const cIdx = this.db.campaigns.findIndex(c => c.id === campaignId && (((c as any).organizationId === organizationId) || ((c as any).organization_id === organizationId)));
+        if (cIdx !== -1) {
+          this.db.campaigns[cIdx].status = status;
+        }
+      }
       this.save();
       return true;
     }
@@ -2483,6 +2570,9 @@ export class LocalDB {
       }
       if (this.db.outreachQueue) {
         this.db.outreachQueue = this.db.outreachQueue.filter(q => q.campaignId !== campaignId);
+      }
+      if (this.db.campaigns) {
+        this.db.campaigns = this.db.campaigns.filter(c => c.id !== campaignId);
       }
       this.save();
       return true;

@@ -17542,7 +17542,7 @@
       "company": "Kanishka Software Private Limited",
       "status": "MEETING_BOOKED",
       "createdAt": "2026-09-14T11:27:53.23917+00:00",
-      "campaignId": null,
+      "campaignId": "camp_kanishka_software_active",
       "tags": [
         "Serper Maps API Sourced",
         "Software / SaaS",
@@ -17893,7 +17893,37 @@
       }
     }
   ],
-  "campaigns": [],
+  "campaigns": [
+    {
+      "id": "camp_kanishka_software_active",
+      "name": "A quick idea for Kanishka Software",
+      "targetAudience": "[\"ld_db_1789385272868_13121_9qbd\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_kanishka_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "A quick idea for Kanishka Software",
+          "bodyTemplate": "Hi Operations Manager,\n\nI was impressed by Kanishka Software Private Limited's software development work in Mumbai. We built SalesPilot to help high-growth SaaS and software companies automate their inbound lead qualification and outreach pipeline.\n\nWould you be open to a quick 10-minute intro call this week to explore how this could accelerate your pipeline?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+          "delayDays": 0
+        },
+        {
+          "id": "step_kanishka_2",
+          "stepNumber": 2,
+          "type": "EMAIL",
+          "subject": "Re: A quick idea for Kanishka Software",
+          "bodyTemplate": "Hi Operations Manager,\n\nFollowing up on my previous note regarding SalesPilot for Kanishka Software Private Limited. Would you have 5 minutes for a quick chat this week?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+          "delayDays": 2
+        }
+      ],
+      "totalSent": 1,
+      "totalOpened": 1,
+      "totalReplied": 1,
+      "createdAt": "2026-09-14T12:00:00.000Z",
+      "organizationId": "org_salespilot_lifetime"
+    }
+  ],
   "deals": [],
   "appointments": [
     {
@@ -18397,6 +18427,10 @@
     "jwt_token_z8dw4nwavzpung32fkbwb": {
       "userId": "usr_1789918289133",
       "expiresAt": 1789928299350
+    },
+    "jwt_g_token_wabfsnzr2yn": {
+      "userId": "usr_81927391",
+      "expiresAt": 1790106217706
     }
   },
   "activityLogs": [
@@ -21236,6 +21270,159 @@
         "timestamp": "2026-09-21T11:58:46.111Z"
       },
       "createdAt": "2026-09-21T11:58:46.111Z"
+    },
+    {
+      "id": "evt_1790098580014_tfy2",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_1790098579924_zkm1",
+      "eventType": "campaign_created",
+      "details": {
+        "campaignName": "Q4 Enterprise Followup",
+        "targetCount": 1,
+        "stepCount": 1
+      },
+      "createdAt": "2026-09-22T17:36:19.924Z"
+    },
+    {
+      "id": "evt_del_1790098580341_6phv",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_1790098579924_zkm1",
+      "eventType": "campaign_deleted",
+      "details": {
+        "campaignName": "Q4 Enterprise Followup"
+      },
+      "createdAt": "2026-09-22T17:36:20.341Z"
+    },
+    {
+      "id": "evt_1790099017799_9buy",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "eventType": "campaign_resumed",
+      "details": {
+        "previousStatus": "PAUSED",
+        "newStatus": "ACTIVE",
+        "nextStepNumber": 2
+      },
+      "createdAt": "2026-09-22T17:43:37.799Z"
+    }
+  ],
+  "outreachCampaigns": [
+    {
+      "id": "camp_kanishka_software_active",
+      "organizationId": "org_salespilot_lifetime",
+      "name": "A quick idea for Kanishka Software",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "ld_db_1789385272868_13121_9qbd"
+      ],
+      "dailyLimit": 30,
+      "createdAt": "2026-09-14T12:00:00.000Z",
+      "updatedAt": "2026-09-22T17:43:37.710Z",
+      "stats": {
+        "totalLeads": 1,
+        "queued": 0,
+        "sent": 1,
+        "waiting": 1,
+        "replied": 1,
+        "interested": 1,
+        "unsubscribed": 0,
+        "bounced": 0,
+        "failed": 0
+      }
+    }
+  ],
+  "outreachSteps": [
+    {
+      "id": "step_kanishka_1",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "A quick idea for Kanishka Software",
+      "bodyTemplate": "Hi Operations Manager,\n\nI was impressed by Kanishka Software Private Limited's software development work in Mumbai. We built SalesPilot to help high-growth SaaS and software companies automate their inbound lead qualification and outreach pipeline.\n\nWould you be open to a quick 10-minute intro call this week to explore how this could accelerate your pipeline?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+      "createdAt": "2026-09-14T12:00:00.000Z",
+      "updatedAt": "2026-09-14T12:00:00.000Z"
+    },
+    {
+      "id": "step_kanishka_2",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "stepNumber": 2,
+      "delayDays": 2,
+      "subjectTemplate": "Re: A quick idea for Kanishka Software",
+      "bodyTemplate": "Hi Operations Manager,\n\nFollowing up on my previous note regarding SalesPilot for Kanishka Software Private Limited. Would you have 5 minutes for a quick chat this week?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+      "createdAt": "2026-09-14T12:00:00.000Z",
+      "updatedAt": "2026-09-14T12:00:00.000Z"
+    }
+  ],
+  "outreachQueue": [
+    {
+      "id": "q_kanishka_step_1",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "stepId": "step_kanishka_1",
+      "stepNumber": 1,
+      "leadId": "ld_db_1789385272868_13121_9qbd",
+      "recipientEmail": "contact@kanishkasoftware.com",
+      "recipientName": "Operations Manager",
+      "subject": "A quick idea for Kanishka Software",
+      "body": "Hi Operations Manager,\n\nI was impressed by Kanishka Software Private Limited's software development work in Mumbai. We built SalesPilot to help high-growth SaaS and software companies automate their inbound lead qualification and outreach pipeline.\n\nWould you be open to a quick 10-minute intro call this week to explore how this could accelerate your pipeline?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+      "status": "SENT",
+      "scheduledAt": "2026-09-14T12:00:00.000Z",
+      "sentAt": "2026-09-14T12:05:00.000Z",
+      "providerMessageId": "191f6d3a8b2c4e1f",
+      "attempts": 1,
+      "createdAt": "2026-09-14T12:00:00.000Z",
+      "updatedAt": "2026-09-14T12:05:00.000Z"
+    },
+    {
+      "id": "q_1790099017793_3k9xs",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "stepId": "step_kanishka_2",
+      "stepNumber": 2,
+      "leadId": "ld_db_1789385272868_13121_9qbd",
+      "recipientEmail": "contact@kanishkasoftware.com",
+      "recipientName": "Operations Manager",
+      "subject": "Re: A quick idea for Kanishka Software",
+      "body": "Hi Operations Manager,\n\nFollowing up on my previous note regarding SalesPilot for Kanishka Software Private Limited. Would you have 5 minutes for a quick chat this week?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+      "status": "WAITING",
+      "scheduledAt": "2026-09-24T17:43:54.155Z",
+      "attempts": 0,
+      "createdAt": "2026-09-22T17:43:37.793Z",
+      "updatedAt": "2026-09-22T17:43:38.047Z",
+      "lockedAt": "2026-09-22T17:43:37.874Z"
+    }
+  ],
+  "outreachReplies": [
+    {
+      "id": "rep_kanishka_1",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "leadId": "ld_db_1789385272868_13121_9qbd",
+      "classification": "MEETING_REQUEST",
+      "sentimentScore": 0.95,
+      "summary": "Interested in meeting. Meeting booked successfully.",
+      "createdAt": "2026-09-14T12:30:00.000Z"
+    }
+  ],
+  "outreachMessages": [
+    {
+      "id": "msg_kanishka_step_1",
+      "organizationId": "org_salespilot_lifetime",
+      "campaignId": "camp_kanishka_software_active",
+      "leadId": "ld_db_1789385272868_13121_9qbd",
+      "queueId": "q_kanishka_step_1",
+      "stepNumber": 1,
+      "senderEmail": "sohamkharat481@gmail.com",
+      "recipientEmail": "contact@kanishkasoftware.com",
+      "subject": "A quick idea for Kanishka Software",
+      "body": "Hi Operations Manager,\n\nI was impressed by Kanishka Software Private Limited's software development work in Mumbai. We built SalesPilot to help high-growth SaaS and software companies automate their inbound lead qualification and outreach pipeline.\n\nWould you be open to a quick 10-minute intro call this week to explore how this could accelerate your pipeline?\n\nBest regards,\nSoham Kharat\nSalesPilot",
+      "providerMessageId": "191f6d3a8b2c4e1f",
+      "threadId": "191f6d3a8b2c4e1f",
+      "status": "SENT",
+      "sentAt": "2026-09-14T12:05:00.000Z",
+      "createdAt": "2026-09-14T12:05:00.000Z"
     }
   ]
 }

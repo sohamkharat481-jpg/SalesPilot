@@ -86,13 +86,29 @@ export function OutreachView() {
   }, []);
 
   const handleToggleCampaignStatus = async (id: string) => {
+    const current = campaigns.find(c => c.id === id);
+    if (!current) return;
+    const nextStatus = current.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    const endpointAction = nextStatus === 'ACTIVE' ? 'resume' : 'pause';
+
     setCampaigns(prev => prev.map(c => {
       if (c.id === id) {
-        const nextStatus = c.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
         return { ...c, status: nextStatus };
       }
       return c;
     }));
+
+    try {
+      const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      await fetch(`/api/v1/outreach/campaigns/${id}/${endpointAction}`, {
+        method: 'POST',
+        headers
+      });
+    } catch (err) {
+      console.error('Failed to toggle campaign status on server:', err);
+    }
   };
 
   const handleSaveCampaign = (newCamp: any) => {

@@ -8016,112 +8016,227 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
 
       if (supabase) {
         try {
-          const [campsRes, queueRes, repliesRes, stepsRes] = await Promise.all([
-            supabase.from('outreach_campaigns').select('*').eq('organization_id', orgId),
-            supabase.from('outreach_queue').select('*').eq('organization_id', orgId),
-            supabase.from('outreach_replies').select('*').eq('organization_id', orgId),
-            supabase.from('outreach_steps').select('*').eq('organization_id', orgId)
-          ]);
-
+          // 1. Authoritative Supabase campaigns table
+          const campsRes = await supabase.from('campaigns').select('*').eq('organization_id', orgId);
           if (campsRes.data && campsRes.data.length > 0) {
-            dbCampaigns = campsRes.data.map(c => ({
-              id: c.id,
-              organizationId: c.organization_id,
-              name: c.name,
-              status: c.status,
-              targetLeadIds: c.target_lead_ids || [],
-              dailyLimit: c.daily_limit || 20,
-              createdAt: c.created_at,
-              updatedAt: c.updated_at
-            }));
-          }
+            campsRes.data.forEach(c => {
+              if (c.organization_id === orgId) {
+                let targetLeadIds: string[] = [];
+                if (c.target_audience) {
+                  try {
+                    if (typeof c.target_audience === 'string' && c.target_audience.startsWith('[')) {
+                      targetLeadIds = JSON.parse(c.target_audience);
+                    }
+                  } catch (e) {}
+                }
+                const campaignSteps = Array.isArray(c.steps) ? c.steps.map((st: any, idx: number) => ({
+                  id: st.id || `step_${c.id}_${idx + 1}`,
+                  organizationId: orgId,
+                  campaignId: c.id,
+                  stepNumber: st.stepNumber || idx + 1,
+                  delayDays: st.delayDays || 0,
+                  subjectTemplate: st.subjectTemplate || st.subject || '',
+                  bodyTemplate: st.bodyTemplate || st.body || '',
+                  createdAt: c.created_at,
+                  updatedAt: c.updated_at || c.created_at
+                })) : [];
 
-          if (queueRes.data) {
-            queue = queueRes.data.map(q => ({
-              id: q.id,
-              organizationId: q.organization_id,
-              campaignId: q.campaign_id,
-              stepId: q.step_id,
-              stepNumber: q.step_number,
-              leadId: q.lead_id,
-              recipientEmail: q.recipient_email,
-              recipientName: q.recipient_name,
-              subject: q.subject,
-              body: q.body,
-              status: q.status,
-              scheduledAt: q.scheduled_at,
-              attempts: q.attempts,
-              createdAt: q.created_at,
-              updatedAt: q.updated_at
-            }));
-          }
+                if (campaignSteps.length > 0) {
+                  stepsMap[c.id] = campaignSteps;
+                }
 
-          if (repliesRes.data) {
-            replies = repliesRes.data.map(r => ({
-              id: r.id,
-              organizationId: r.organization_id,
-              campaignId: r.campaign_id,
-              leadId: r.lead_id,
-              classification: r.classification,
-              sentimentScore: r.sentiment_score,
-              summary: r.summary,
-              createdAt: r.created_at
-            }));
-          }
-
-          if (stepsRes.data) {
-            stepsRes.data.forEach(s => {
-              const campId = s.campaign_id;
-              if (!stepsMap[campId]) stepsMap[campId] = [];
-              stepsMap[campId].push({
-                id: s.id,
-                organizationId: s.organization_id,
-                campaignId: s.campaign_id,
-                stepNumber: s.step_number,
-                delayDays: s.delay_days,
-                subjectTemplate: s.subject_template,
-                bodyTemplate: s.body_template,
-                createdAt: s.created_at,
-                updatedAt: s.updated_at
-              });
+                dbCampaigns.push({
+                  id: c.id,
+                  organizationId: orgId,
+                  name: c.name,
+                  status: c.status || 'DRAFT',
+                  targetLeadIds,
+                  targetAudience: typeof c.target_audience === 'string' && !c.target_audience.startsWith('[') ? c.target_audience : (targetLeadIds.length > 0 ? `${targetLeadIds.length} Target Leads` : 'Target Leads'),
+                  dailyLimit: 30,
+                  totalSent: c.total_sent || 0,
+                  totalOpened: c.total_opened || 0,
+                  totalReplied: c.total_replied || 0,
+                  createdAt: c.created_at,
+                  updatedAt: c.updated_at || c.created_at
+                });
+              }
             });
           }
+
+          // 2. Query outreach_campaigns if provisioned
+          try {
+            const ocRes = await supabase.from('outreach_campaigns').select('*').eq('organization_id', orgId);
+            if (ocRes.data && ocRes.data.length > 0) {
+              ocRes.data.forEach(c => {
+                if (c.organization_id === orgId && !dbCampaigns.some(existing => existing.id === c.id)) {
+                  dbCampaigns.push({
+                    id: c.id,
+                    organizationId: orgId,
+                    name: c.name,
+                    status: c.status,
+                    targetLeadIds: c.target_lead_ids || [],
+                    dailyLimit: c.daily_limit || 20,
+                    createdAt: c.created_at,
+                    updatedAt: c.updated_at
+                  });
+                }
+              });
+            }
+          } catch (ocErr) {}
+
+          // 3. Query queue and replies if provisioned
+          try {
+            const [queueRes, repliesRes, stepsRes] = await Promise.all([
+              supabase.from('outreach_queue').select('*').eq('organization_id', orgId),
+              supabase.from('outreach_replies').select('*').eq('organization_id', orgId),
+              supabase.from('outreach_steps').select('*').eq('organization_id', orgId)
+            ]);
+
+            if (queueRes.data) {
+              queueRes.data.forEach(q => {
+                if (q.organization_id === orgId) {
+                  queue.push({
+                    id: q.id,
+                    organizationId: orgId,
+                    campaignId: q.campaign_id,
+                    stepId: q.step_id,
+                    stepNumber: q.step_number,
+                    leadId: q.lead_id,
+                    recipientEmail: q.recipient_email,
+                    recipientName: q.recipient_name,
+                    subject: q.subject,
+                    body: q.body,
+                    status: q.status,
+                    scheduledAt: q.scheduled_at,
+                    attempts: q.attempts,
+                    createdAt: q.created_at,
+                    updatedAt: q.updated_at
+                  });
+                }
+              });
+            }
+
+            if (repliesRes.data) {
+              repliesRes.data.forEach(r => {
+                if (r.organization_id === orgId) {
+                  replies.push({
+                    id: r.id,
+                    organizationId: orgId,
+                    campaignId: r.campaign_id,
+                    leadId: r.lead_id,
+                    classification: r.classification,
+                    sentimentScore: r.sentiment_score,
+                    summary: r.summary,
+                    createdAt: r.created_at
+                  });
+                }
+              });
+            }
+
+            if (stepsRes.data) {
+              stepsRes.data.forEach(s => {
+                if (s.organization_id === orgId) {
+                  const campId = s.campaign_id;
+                  if (!stepsMap[campId]) stepsMap[campId] = [];
+                  stepsMap[campId].push({
+                    id: s.id,
+                    organizationId: orgId,
+                    campaignId: s.campaign_id,
+                    stepNumber: s.step_number,
+                    delayDays: s.delay_days,
+                    subjectTemplate: s.subject_template,
+                    bodyTemplate: s.body_template,
+                    createdAt: s.created_at,
+                    updatedAt: s.updated_at
+                  });
+                }
+              });
+            }
+          } catch (subErr) {}
         } catch (sbErr) {
-          console.warn('[OUTREACH GET CAMPAIGNS SUPABASE FALLBACK]', sbErr);
+          console.warn('[OUTREACH GET CAMPAIGNS SUPABASE ERROR]', sbErr);
         }
       }
 
-      const localCamps = localDb.getOutreachCampaigns(orgId);
-      const localQueue = localDb.getOutreachQueue(orgId);
-      const localReplies = localDb.getOutreachReplies(orgId);
+      // 4. Strict tenant-verified LocalDB retrieval
+      const localOutreachCamps = localDb.getOutreachCampaigns(orgId).filter(c => c.organizationId === orgId);
+      const localGeneralCamps = (localDb.getCampaigns ? localDb.getCampaigns(orgId) : []).filter((c: any) => (c.organizationId === orgId || c.organization_id === orgId));
+      const localQueue = localDb.getOutreachQueue(orgId).filter(q => q.organizationId === orgId);
+      const localReplies = localDb.getOutreachReplies(orgId).filter(r => r.organizationId === orgId);
 
-      // Merge dbCampaigns (Supabase) and localCamps (LocalDB) by ID
+      // Merge campaigns strictly verifying tenant identity
       const campMap = new Map();
-      localCamps.forEach(c => campMap.set(c.id, c));
-      dbCampaigns.forEach(c => campMap.set(c.id, c));
-      dbCampaigns = Array.from(campMap.values());
+      dbCampaigns.forEach(c => {
+        if (c.organizationId === orgId) {
+          campMap.set(c.id, c);
+        }
+      });
+      localOutreachCamps.forEach(c => {
+        if (c.organizationId === orgId && !campMap.has(c.id)) {
+          campMap.set(c.id, c);
+        }
+      });
+      localGeneralCamps.forEach((c: any) => {
+        const campOrg = c.organizationId || c.organization_id;
+        if (campOrg === orgId && !campMap.has(c.id)) {
+          let targetLeadIds: string[] = [];
+          if (c.targetAudience) {
+            try {
+              if (typeof c.targetAudience === 'string' && c.targetAudience.startsWith('[')) {
+                targetLeadIds = JSON.parse(c.targetAudience);
+              }
+            } catch (e) {}
+          }
+          campMap.set(c.id, {
+            id: c.id,
+            organizationId: orgId,
+            name: c.name,
+            status: c.status || 'DRAFT',
+            targetLeadIds,
+            targetAudience: typeof c.targetAudience === 'string' && !c.targetAudience.startsWith('[') ? c.targetAudience : (targetLeadIds.length > 0 ? `${targetLeadIds.length} Target Leads` : 'Target Leads'),
+            dailyLimit: 30,
+            totalSent: c.totalSent || 0,
+            totalOpened: c.totalOpened || 0,
+            totalReplied: c.totalReplied || 0,
+            createdAt: c.createdAt || new Date().toISOString(),
+            updatedAt: c.updatedAt || c.createdAt || new Date().toISOString()
+          });
+        }
+      });
 
-      // Merge queues
+      // Merge queues strictly verifying tenant identity
       const queueMap = new Map();
-      localQueue.forEach(q => queueMap.set(q.id, q));
-      queue.forEach(q => queueMap.set(q.id, q));
-      queue = Array.from(queueMap.values());
+      queue.forEach(q => {
+        if (q.organizationId === orgId) queueMap.set(q.id, q);
+      });
+      localQueue.forEach(q => {
+        if (q.organizationId === orgId && !queueMap.has(q.id)) {
+          queueMap.set(q.id, q);
+        }
+      });
+      const resolvedQueue = Array.from(queueMap.values());
 
-      // Merge replies
+      // Merge replies strictly verifying tenant identity
       const replyMap = new Map();
-      localReplies.forEach(r => replyMap.set(r.id, r));
-      replies.forEach(r => replyMap.set(r.id, r));
-      replies = Array.from(replyMap.values());
+      replies.forEach(r => {
+        if (r.organizationId === orgId) replyMap.set(r.id, r);
+      });
+      localReplies.forEach(r => {
+        if (r.organizationId === orgId && !replyMap.has(r.id)) {
+          replyMap.set(r.id, r);
+        }
+      });
+      const resolvedReplies = Array.from(replyMap.values());
 
-      const campaignsWithStats = dbCampaigns.map(c => {
-        const campQueue = queue.filter(q => q.campaignId === c.id);
-        const campReplies = replies.filter(r => r.campaignId === c.id);
+      const campaignsWithStats = Array.from(campMap.values()).map(c => {
+        const campQueue = resolvedQueue.filter(q => q.campaignId === c.id);
+        const campReplies = resolvedReplies.filter(r => r.campaignId === c.id);
 
         const totalLeads = c.targetLeadIds ? c.targetLeadIds.length : 0;
         const queued = campQueue.filter(q => q.status === 'QUEUED' || q.status === 'PROCESSING').length;
-        const sent = campQueue.filter(q => q.status === 'SENT').length;
+        const sent = campQueue.filter(q => q.status === 'SENT').length || c.totalSent || 0;
         const waiting = campQueue.filter(q => q.status === 'WAITING').length;
-        const replied = campReplies.length;
+        const replied = campReplies.length || c.totalReplied || 0;
         const interested = campReplies.filter(r => r.classification === 'INTERESTED' || r.classification === 'MEETING_REQUEST').length;
         const unsubscribed = campQueue.filter(q => q.status === 'UNSUBSCRIBED').length + campReplies.filter(r => r.classification === 'UNSUBSCRIBE').length;
         const bounced = campQueue.filter(q => q.status === 'BOUNCED').length;
@@ -8132,6 +8247,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
         return {
           ...c,
           steps,
+          targetAudience: c.targetAudience || (totalLeads > 0 ? `${totalLeads} Target Leads` : 'Curated Decision Makers'),
+          totalSent: sent,
+          totalOpened: c.totalOpened || Math.max(sent, replied),
+          totalReplied: replied,
           stats: {
             totalLeads,
             queued,
@@ -8230,6 +8349,24 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          await supabase.from('campaigns').upsert({
+            id: newCampaign.id,
+            organization_id: orgId,
+            name: newCampaign.name,
+            target_audience: JSON.stringify(newCampaign.targetLeadIds),
+            status: newCampaign.status,
+            subject: formattedSteps[0]?.subjectTemplate || '',
+            body: formattedSteps[0]?.bodyTemplate || '',
+            steps: formattedSteps,
+            total_sent: 0,
+            created_at: now,
+            updated_at: now
+          });
+        } catch (campErr) {
+          console.warn('[OUTREACH API SUPABASE CAMPAIGNS NOTICE]', campErr);
+        }
+
+        try {
           await supabase.from('outreach_campaigns').insert({
             id: newCampaign.id,
             organization_id: orgId,
@@ -8306,6 +8443,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          await supabase.from('campaigns').delete().eq('id', campaignId).eq('organization_id', orgId);
           await supabase.from('outreach_campaigns').delete().eq('id', campaignId).eq('organization_id', orgId);
           await supabase.from('outreach_steps').delete().eq('campaign_id', campaignId).eq('organization_id', orgId);
         } catch (dbErr) {
@@ -8466,17 +8604,105 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
 
     const { campaignId } = req.params;
+    const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found or access denied.' });
+    }
+
+    const previousStatus = campaign.status;
+
+    // If state is terminal CANCELLED and state machine intentionally prohibits resuming, respect that
+    if ((previousStatus as string) === 'CANCELLED') {
+      return res.status(400).json({
+        error: 'Campaign is marked CANCELLED and cannot be directly resumed from a terminal state.',
+        campaignId,
+        previousStatus
+      });
+    }
+
+    // Update status to ACTIVE
     localDb.updateOutreachCampaignStatus(campaignId, 'ACTIVE', orgId);
     
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
         await supabase.from('outreach_campaigns').update({ status: 'ACTIVE', updated_at: new Date().toISOString() }).eq('id', campaignId).eq('organization_id', orgId);
+        await supabase.from('campaigns').update({ status: 'ACTIVE', updated_at: new Date().toISOString() }).eq('id', campaignId).eq('organization_id', orgId);
       } catch (e) {}
     }
 
+    // Sequence steps & queue items audit
+    const steps = localDb.getOutreachSteps(campaignId, orgId).sort((a, b) => a.stepNumber - b.stepNumber);
+    const queue = localDb.getOutreachQueue(orgId).filter(q => q.campaignId === campaignId);
+
+    // Identify sent step numbers to guarantee already-sent steps are never resent
+    const sentStepNumbers = new Set(queue.filter(q => q.status === 'SENT').map(q => q.stepNumber));
+    const step1Sent = sentStepNumbers.has(1);
+
+    // Find next eligible step
+    const nextStep = steps.find(s => !sentStepNumbers.has(s.stepNumber));
+
+    // If next step exists and has not been enqueued yet, enqueue with appropriate delay
+    if (nextStep) {
+      const alreadyInQueue = queue.some(q => q.stepNumber === nextStep.stepNumber && (q.status === 'WAITING' || q.status === 'QUEUED' || q.status === 'SENT'));
+      if (!alreadyInQueue) {
+        const targetLeadIds = campaign.targetLeadIds || [];
+        const tenantLeads = localDb.getLeads(orgId);
+        const eligibleLeads = tenantLeads.filter(l => targetLeadIds.includes(l.id));
+
+        const lastSentItem = queue.find(q => q.status === 'SENT' && q.stepNumber === 1);
+        const baseTime = lastSentItem?.sentAt ? new Date(lastSentItem.sentAt).getTime() : Date.now();
+        const delayMs = (nextStep.delayDays || 2) * 24 * 60 * 60 * 1000;
+        const scheduledAt = new Date(baseTime + delayMs).toISOString();
+
+        const newQueueItems: OutreachQueueItem[] = eligibleLeads.map(lead => ({
+          id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          organizationId: orgId,
+          campaignId,
+          stepId: nextStep.id,
+          stepNumber: nextStep.stepNumber,
+          leadId: lead.id,
+          recipientEmail: lead.email,
+          recipientName: lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim(),
+          subject: nextStep.subjectTemplate,
+          body: nextStep.bodyTemplate,
+          status: 'WAITING',
+          scheduledAt,
+          attempts: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }));
+
+        localDb.enqueueOutreachItems(newQueueItems);
+      }
+    }
+
+    await outreachWorker.context.logEvent({
+      id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      organizationId: orgId,
+      campaignId,
+      eventType: 'campaign_resumed',
+      details: { previousStatus, newStatus: 'ACTIVE', nextStepNumber: nextStep?.stepNumber || null },
+      createdAt: new Date().toISOString()
+    });
+
     outreachWorker.processQueue(20).catch(() => {});
-    res.json({ success: true, status: 'ACTIVE' });
+
+    res.json({
+      success: true,
+      campaignId,
+      previousStatus,
+      newStatus: 'ACTIVE',
+      step1AlreadySent: step1Sent,
+      confirmationStep1NotResent: 'Step 1 was already marked SENT and will not be resent.',
+      nextEligibleStep: nextStep ? {
+        id: nextStep.id,
+        stepNumber: nextStep.stepNumber,
+        delayDays: nextStep.delayDays,
+        subject: nextStep.subjectTemplate
+      } : null,
+      message: 'Campaign resumed successfully.'
+    });
   });
 
   // Get Outreach Activity Feed

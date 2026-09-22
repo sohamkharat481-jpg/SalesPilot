@@ -34,6 +34,7 @@ export type OutreachEventType =
   | 'interest_detected'
   | 'unsubscribe_detected'
   | 'campaign_paused'
+  | 'campaign_resumed'
   | 'campaign_stopped'
   | 'test_email_sent'
   | 'campaign_deleted';
