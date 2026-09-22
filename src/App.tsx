@@ -8,7 +8,7 @@ import {
   Sparkles, Layers, Users, Award, Calendar, CreditCard, 
   Settings, Loader2, LogOut, Check, ChevronRight, ChevronLeft, Menu, X, ArrowUpRight, ShieldAlert,
   Bell, Search, Bot, FileText, TrendingUp, Sun, Moon, Clock, Activity, Send, Briefcase, ShieldCheck,
-  Rocket, Building2, Terminal, HelpCircle, PhoneCall, Smartphone, Globe, Lock, Chrome
+  Rocket, Building2, Terminal, HelpCircle, PhoneCall, Smartphone, Globe, Lock, Chrome, CheckCircle2
 } from 'lucide-react';
 import { Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
   WorkspaceUser, SubscriptionTier, DealStage, SequenceStep 
@@ -48,6 +48,7 @@ import { ChromeExtensionView } from './components/ChromeExtensionView';
 import { AiMemoryManagerView } from './components/copilot/AiMemoryManagerView';
 import { HyperscaleInfraView } from './components/HyperscaleInfraView';
 import { GlobalLaunchHub } from './components/GlobalLaunchHub';
+import { WorkDoneView } from './components/WorkDoneView';
 import { PublicStatusPageModal } from './components/PublicStatusPageModal';
 import { LegalPrivacyModal } from './components/LegalPrivacyModal';
 import { GlobalProductionReportModal } from './components/GlobalProductionReportModal';
@@ -666,6 +667,7 @@ export default function App() {
     { id: 'global-launch', label: 'Global Launch Hub', icon: Globe },
     { id: 'workspace', label: 'Workspace Hub', icon: Building2 },
     { id: 'client-portal', label: 'Client Portal', icon: Briefcase },
+    { id: 'work-done', label: 'Implementation Progress', icon: CheckCircle2 },
     ...((user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') ? [{ id: 'super-admin', label: 'Admin (Owner Only)', icon: ShieldCheck }] : [])
   ] : [
     { id: 'billing', label: 'Pricing & Plans', icon: CreditCard }
@@ -1457,6 +1459,10 @@ export default function App() {
 
           {activeTab === 'developer-portal' && (
             <DeveloperPortalView />
+          )}
+
+          {activeTab === 'work-done' && (
+            <WorkDoneView />
           )}
           </ErrorBoundary>
         </main>
