@@ -8075,6 +8075,28 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       return res.status(400).json({ error: 'None of the provided lead IDs belong to your organization.' });
     }
 
+    // Idempotency check: prevent duplicate campaign creation if exact same name and lead selection submitted within the last 15 seconds
+    const existingCampaigns = localDb.getOutreachCampaigns(orgId);
+    const trimmedName = name.trim().toLowerCase();
+    const recentDuplicate = existingCampaigns.find(c => {
+      if (c.name.trim().toLowerCase() !== trimmedName) return false;
+      const timeDiff = Date.now() - new Date(c.createdAt || Date.now()).getTime();
+      if (timeDiff > 15000) return false;
+      const sameLeads = JSON.stringify((c.targetLeadIds || []).sort()) === JSON.stringify((validLeadIds || []).sort());
+      return sameLeads;
+    });
+
+    if (recentDuplicate) {
+      const steps = localDb.getOutreachSteps(recentDuplicate.id, orgId);
+      return res.status(201).json({
+        campaign: {
+          ...recentDuplicate,
+          steps
+        },
+        idempotentMatch: true
+      });
+    }
+
     const campaignId = `camp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const now = new Date().toISOString();
 
@@ -8148,6 +8170,61 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     } catch (err: any) {
       console.error('[OUTREACH API CREATE CAMPAIGN ERROR]', err);
       res.status(500).json({ error: 'Failed to save campaign.' });
+    }
+  });
+
+  // Delete DRAFT Outreach Campaign (Draft only, never running or with sent messages)
+  app.delete('/api/v1/outreach/campaigns/:campaignId', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+
+    const { campaignId } = req.params;
+    const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found or access denied.' });
+    }
+
+    // Rule: Must be DRAFT only
+    if (campaign.status !== 'DRAFT') {
+      return res.status(400).json({ error: 'Only DRAFT campaigns can be deleted. Active, paused, or running campaigns cannot be deleted.' });
+    }
+
+    // Rule: Never allow deletion if already running or has sent messages
+    const queue = localDb.getOutreachQueue(orgId);
+    const campQueue = queue.filter(q => q.campaignId === campaignId);
+    const hasSentOrActiveMessages = campQueue.some(q => q.status === 'SENT' || q.status === 'PROCESSING' || q.status === 'WAITING' || q.status === 'QUEUED');
+    if (hasSentOrActiveMessages) {
+      return res.status(400).json({ error: 'Cannot delete a campaign that has sent messages or active queue items.' });
+    }
+
+    try {
+      localDb.deleteOutreachCampaign(campaignId, orgId);
+
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('outreach_campaigns').delete().eq('id', campaignId).eq('organization_id', orgId);
+          await supabase.from('outreach_steps').delete().eq('campaign_id', campaignId).eq('organization_id', orgId);
+        } catch (dbErr) {
+          console.warn('[OUTREACH API SUPABASE DELETE NOTICE]', dbErr);
+        }
+      }
+
+      await outreachWorker.context.logEvent({
+        id: `evt_del_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        organizationId: orgId,
+        campaignId,
+        eventType: 'campaign_deleted',
+        details: { campaignName: campaign.name },
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, message: `Campaign "${campaign.name}" deleted successfully.` });
+    } catch (err: any) {
+      console.error('[OUTREACH DELETE CAMPAIGN ERROR]', err);
+      res.status(500).json({ error: 'Failed to delete campaign.' });
     }
   });
 

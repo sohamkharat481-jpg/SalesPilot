@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   TrendingUp, Mail, Linkedin, MessageSquare, Phone, Play, Pause, 
-  CheckCircle, Clock, AlertCircle, Calendar, ArrowUpRight, BarChart3, Users, Percent, ShieldCheck
+  CheckCircle, Clock, AlertCircle, Calendar, ArrowUpRight, BarChart3, Users, Percent, ShieldCheck, Trash2
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend, Cell } from 'recharts';
 
@@ -10,6 +10,7 @@ interface OutreachDashboardProps {
   onToggleStatus: (id: string) => void;
   onSelectCampaign: (id: string) => void;
   onCreateNewClick: () => void;
+  onDeleteCampaign?: (id: string) => void;
 }
 
 // Sample daily performance trend over 10 days
@@ -34,7 +35,7 @@ const channelPerformanceData = [
   { name: 'SMS Blast', Delivered: 350, Engagement: 310, Replies: 45, color: '#8b5cf6' }
 ];
 
-export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign, onCreateNewClick }: OutreachDashboardProps) {
+export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign, onCreateNewClick, onDeleteCampaign }: OutreachDashboardProps) {
   
   // Dynamic stats calculated from real tenant campaigns
   const totalSent = campaigns.reduce((sum, c) => sum + (c.totalSent || c.total_sent || 0), 0);
@@ -307,6 +308,19 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
                         >
                           {c.status === 'ACTIVE' ? <Pause className="w-3.5 h-3.5 text-amber-500" /> : <Play className="w-3.5 h-3.5 text-emerald-500" />}
                         </button>
+                        {c.status === 'DRAFT' && (c.totalSent || 0) === 0 && (!c.stats || c.stats.sent === 0) && onDeleteCampaign && (
+                          <button 
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete draft campaign "${c.name}"?`)) {
+                                onDeleteCampaign(c.id);
+                              }
+                            }}
+                            className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition"
+                            title="Delete Draft Campaign"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

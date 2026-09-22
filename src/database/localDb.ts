@@ -2473,6 +2473,23 @@ export class LocalDB {
     return false;
   }
 
+  public deleteOutreachCampaign(campaignId: string, organizationId: string): boolean {
+    if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
+    const idx = this.db.outreachCampaigns.findIndex(c => c.id === campaignId && c.organizationId === organizationId);
+    if (idx !== -1) {
+      this.db.outreachCampaigns.splice(idx, 1);
+      if (this.db.outreachSteps) {
+        this.db.outreachSteps = this.db.outreachSteps.filter(s => s.campaignId !== campaignId);
+      }
+      if (this.db.outreachQueue) {
+        this.db.outreachQueue = this.db.outreachQueue.filter(q => q.campaignId !== campaignId);
+      }
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
   public getOutreachSteps(campaignId: string, organizationId: string): OutreachStep[] {
     if (!this.db.outreachSteps) this.db.outreachSteps = [];
     return this.db.outreachSteps.filter(s => s.campaignId === campaignId && s.organizationId === organizationId)

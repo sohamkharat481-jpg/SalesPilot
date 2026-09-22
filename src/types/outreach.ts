@@ -35,7 +35,8 @@ export type OutreachEventType =
   | 'unsubscribe_detected'
   | 'campaign_paused'
   | 'campaign_stopped'
-  | 'test_email_sent';
+  | 'test_email_sent'
+  | 'campaign_deleted';
 
 export interface OutreachStep {
   id: string;

@@ -58,7 +58,7 @@ export function OutreachView() {
       };
 
       // Fetch Campaigns
-      const campData = await safeFetchJson('/api/v1/campaigns');
+      const campData = await safeFetchJson('/api/v1/outreach/campaigns');
       if (campData && campData.campaigns) {
         setCampaigns(campData.campaigns);
       }
@@ -98,6 +98,27 @@ export function OutreachView() {
   const handleSaveCampaign = (newCamp: any) => {
     setCampaigns(prev => [newCamp, ...prev]);
     setActiveSubTab('dashboard');
+  };
+
+  const handleDeleteCampaign = async (id: string) => {
+    try {
+      const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/outreach/campaigns/${id}`, {
+        method: 'DELETE',
+        headers
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete campaign.');
+        return;
+      }
+      setCampaigns(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Error deleting campaign:', err);
+    }
   };
 
   // Queue an approved message from Personalizer to the Outbox queue
@@ -282,6 +303,7 @@ export function OutreachView() {
                   }
                 }}
                 onCreateNewClick={() => setActiveSubTab('creator')}
+                onDeleteCampaign={handleDeleteCampaign}
               />
             )}
 
