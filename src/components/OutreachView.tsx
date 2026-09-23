@@ -28,6 +28,18 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns && initialCampaigns.length > 0 ? initialCampaigns : []);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [runtimeDiagnostic, setRuntimeDiagnostic] = useState<any>({
+    httpStatus: 'PENDING',
+    topKeys: [],
+    campaignsLen: 0,
+    outreachCampaignsLen: 0,
+    firstCampaignId: 'none',
+    firstCampaignStatus: 'none',
+    firstCampaignOrgId: 'none',
+    authUserId: user?.id || 'none',
+    authOrgId: organization?.id || user?.organizationId || 'none',
+    passesFilter: false
+  });
 
   // Manual Outbox Approvals Queue State
   const [queuedMessages, setQueuedMessages] = useState<any[]>([]);
@@ -91,9 +103,40 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
         return [];
       };
 
-      // Fetch Outreach Campaigns
+      // Fetch Outreach Campaigns with precise runtime diagnostic capture
       let loadedCampaigns: any[] = [];
-      const campData = await safeFetchJson('/api/v1/outreach/campaigns');
+      let httpStatus = 'UNKNOWN';
+      let campData = null;
+      try {
+        const res = await fetch('/api/v1/outreach/campaigns', { headers });
+        httpStatus = String(res.status);
+        if (res.ok) {
+          campData = await res.json();
+        }
+      } catch (fetchErr) {
+        httpStatus = 'FETCH_ERROR';
+      }
+
+      const topKeys = campData ? Object.keys(campData) : [];
+      const campList = Array.isArray(campData?.campaigns) ? campData.campaigns : [];
+      const outreachList = Array.isArray(campData?.outreachCampaigns) ? campData.outreachCampaigns : [];
+      const firstCamp = campList[0] || outreachList[0] || null;
+
+      const diagnosticInfo = {
+        httpStatus,
+        topKeys,
+        campaignsLen: campList.length,
+        outreachCampaignsLen: outreachList.length,
+        firstCampaignId: firstCamp?.id || firstCamp?.campaignId || 'none',
+        firstCampaignStatus: firstCamp?.status || 'none',
+        firstCampaignOrgId: firstCamp?.organizationId || firstCamp?.organization_id || 'none',
+        authUserId: user?.id || 'none',
+        authOrgId: verifiedOrgId || 'org_salespilot_lifetime',
+        passesFilter: firstCamp ? (String(firstCamp.status || '').toUpperCase() === 'ACTIVE' || String(firstCamp.status || '').toUpperCase() === 'RUNNING') : false
+      };
+      setRuntimeDiagnostic(diagnosticInfo);
+      console.log('[OUTREACH_RUNTIME_DIAGNOSTIC]', diagnosticInfo);
+
       const ocList = extractCampaigns(campData);
       if (ocList.length > 0) {
         loadedCampaigns = ocList;
@@ -378,6 +421,7 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
                 onToggleStatus={handleToggleCampaignStatus}
                 onCreateNewClick={() => setActiveSubTab('creator')}
                 onDeleteCampaign={handleDeleteCampaign}
+                diagnostic={runtimeDiagnostic}
               />
             )}
 

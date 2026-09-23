@@ -11,6 +11,7 @@ interface OutreachDashboardProps {
   onSelectCampaign?: (id: string) => void;
   onCreateNewClick: () => void;
   onDeleteCampaign?: (id: string) => void;
+  diagnostic?: any;
 }
 
 // Sample daily performance trend over 10 days
@@ -35,7 +36,7 @@ const channelPerformanceData = [
   { name: 'SMS Blast', Delivered: 350, Engagement: 310, Replies: 45, color: '#8b5cf6' }
 ];
 
-export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign, onCreateNewClick, onDeleteCampaign }: OutreachDashboardProps) {
+export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign, onCreateNewClick, onDeleteCampaign, diagnostic }: OutreachDashboardProps & { diagnostic?: any }) {
   const [inspectCampaign, setInspectCampaign] = useState<any | null>(null);
   
   // Dynamic stats calculated from real tenant campaigns
@@ -249,6 +250,28 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
       </div>
 
       {/* Active Campaigns Table */}
+      <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-xs border border-slate-800 shadow-sm">
+        <details>
+          <summary className="cursor-pointer font-bold text-emerald-400 flex items-center justify-between">
+            <span>Outreach Runtime Diagnostic (Browser Fetch Trace)</span>
+            <span className="text-[10px] text-slate-400">HTTP Status: {diagnostic?.httpStatus || 'N/A'} | Rendered Count: {campaigns.length}</span>
+          </summary>
+          <div className="mt-3 space-y-1.5 text-slate-300 border-t border-slate-800 pt-3">
+            <div>API status: <span className="text-emerald-400">{diagnostic?.httpStatus ?? 'N/A'}</span></div>
+            <div>Response top-level keys: <span className="text-emerald-400">{JSON.stringify(diagnostic?.topKeys ?? [])}</span></div>
+            <div>Response campaign count (campaigns): <span className="text-emerald-400">{diagnostic?.campaignsLen ?? 0}</span></div>
+            <div>Response campaign count (outreachCampaigns): <span className="text-emerald-400">{diagnostic?.outreachCampaignsLen ?? 0}</span></div>
+            <div>Response campaign ID: <span className="text-emerald-400">{diagnostic?.firstCampaignId ?? 'none'}</span></div>
+            <div>Response campaign status: <span className="text-emerald-400">{diagnostic?.firstCampaignStatus ?? 'none'}</span></div>
+            <div>Response organization ID: <span className="text-emerald-400">{diagnostic?.firstCampaignOrgId ?? 'none'}</span></div>
+            <div>Authenticated user ID: <span className="text-emerald-400">{diagnostic?.authUserId ?? 'none'}</span></div>
+            <div>Authenticated workspace (AuthContext): <span className="text-emerald-400">{diagnostic?.authOrgId ?? 'none'}</span></div>
+            <div>Passes UI Filter: <span className={diagnostic?.passesFilter ? 'text-emerald-400' : 'text-red-400'}>{diagnostic?.passesFilter ? 'YES' : 'NO'}</span></div>
+            <div>Filtered campaign count (rendered): <span className="text-emerald-400">{campaigns.length}</span></div>
+          </div>
+        </details>
+      </div>
+
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-xl shadow-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-slate-150 dark:border-slate-850">
           <div>
