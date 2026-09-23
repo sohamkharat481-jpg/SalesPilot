@@ -337,7 +337,18 @@ export default function App() {
           });
         }
 
-        setCampaigns(Array.isArray(campsData?.campaigns) ? campsData.campaigns : []);
+        let loadedCamps = Array.isArray(campsData?.campaigns) ? campsData.campaigns : (Array.isArray(campsData?.outreachCampaigns) ? campsData.outreachCampaigns : []);
+        if (loadedCamps.length === 0) {
+          try {
+            const ocRes = await fetch('/api/v1/outreach/campaigns', { headers });
+            if (ocRes.ok) {
+              const ocData = await ocRes.json();
+              const found = Array.isArray(ocData?.campaigns) ? ocData.campaigns : (Array.isArray(ocData?.outreachCampaigns) ? ocData.outreachCampaigns : []);
+              if (found.length > 0) loadedCamps = found;
+            }
+          } catch (e) {}
+        }
+        setCampaigns(loadedCamps);
         setDeals(Array.isArray(dealsData?.deals) ? dealsData.deals : []);
         setAppointments(Array.isArray(aptsData?.appointments) ? aptsData.appointments : []);
         setIntegrations(configData?.integrations || {});

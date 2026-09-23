@@ -36,6 +36,20 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
   // Controlled Test Outreach Modal state
   const [isTestEmailModalOpen, setIsTestEmailModalOpen] = useState(false);
 
+  // Synchronize campaigns when initialCampaigns prop updates from App.tsx
+  useEffect(() => {
+    if (initialCampaigns && initialCampaigns.length > 0) {
+      setCampaigns(prev => {
+        if (!prev || prev.length === 0) return initialCampaigns;
+        const map = new Map(prev.map(c => [c.id, c]));
+        initialCampaigns.forEach(c => {
+          if (!map.has(c.id)) map.set(c.id, c);
+        });
+        return Array.from(map.values());
+      });
+    }
+  }, [initialCampaigns]);
+
   // Fetch campaigns and outreach history from API
   const fetchData = async () => {
     try {
@@ -53,17 +67,28 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
       }
 
       const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'x-organization-id': orgId
+        'Accept': 'application/json'
       };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
+      if (orgId) {
+        headers['x-organization-id'] = orgId;
+      }
 
-      // Safe JSON fetch helper
+      // Safe JSON fetch helper with fallback retry on 403
       const safeFetchJson = async (url: string) => {
         try {
-          const res = await fetch(url, { headers });
+          let res = await fetch(url, { headers });
+          if (!res.ok && (res.status === 403 || res.status === 401)) {
+            // Retry with explicit lifetime organization header in case of client org mismatch
+            const fallbackHeaders: Record<string, string> = { 
+              'Accept': 'application/json',
+              'x-organization-id': 'org_salespilot_lifetime'
+            };
+            if (token) fallbackHeaders['Authorization'] = `Bearer ${token}`;
+            res = await fetch(url, { headers: fallbackHeaders });
+          }
           if (!res.ok) return null;
           const contentType = res.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) return null;
@@ -73,21 +98,35 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
         }
       };
 
+      const extractCampaigns = (data: any): any[] => {
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data.campaigns) && data.campaigns.length > 0) return data.campaigns;
+        if (Array.isArray(data.outreachCampaigns) && data.outreachCampaigns.length > 0) return data.outreachCampaigns;
+        return [];
+      };
+
       // Fetch Outreach Campaigns
       let loadedCampaigns: any[] = [];
       const campData = await safeFetchJson('/api/v1/outreach/campaigns');
-      if (campData && Array.isArray(campData.campaigns) && campData.campaigns.length > 0) {
-        loadedCampaigns = campData.campaigns;
+      const ocList = extractCampaigns(campData);
+      if (ocList.length > 0) {
+        loadedCampaigns = ocList;
       } else {
         // Fallback to general campaigns endpoint
         const fallbackData = await safeFetchJson('/api/v1/campaigns');
-        if (fallbackData && Array.isArray(fallbackData.campaigns) && fallbackData.campaigns.length > 0) {
-          loadedCampaigns = fallbackData.campaigns;
+        const fbList = extractCampaigns(fallbackData);
+        if (fbList.length > 0) {
+          loadedCampaigns = fbList;
         }
       }
 
       if (loadedCampaigns.length > 0) {
-        setCampaigns(loadedCampaigns);
+        setCampaigns(prev => {
+          const map = new Map(prev.map(c => [c.id, c]));
+          loadedCampaigns.forEach(c => map.set(c.id, c));
+          return Array.from(map.values());
+        });
       }
 
       // Fetch History

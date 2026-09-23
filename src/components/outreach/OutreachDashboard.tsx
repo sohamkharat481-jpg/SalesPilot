@@ -42,8 +42,14 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
   const totalSent = campaigns.reduce((sum, c) => sum + (c.totalSent || c.total_sent || c.sent || c.sentCount || (c.stats?.sent || 0)), 0);
   const totalOpened = campaigns.reduce((sum, c) => sum + (c.totalOpened || c.total_opened || (c.stats?.opened || 0)), 0);
   const totalReplied = campaigns.reduce((sum, c) => sum + (c.totalReplied || c.total_replied || (c.stats?.replied || 0)), 0);
-  const activeCount = campaigns.filter(c => c.status === 'ACTIVE' || c.status === 'RUNNING').length;
-  const scheduledCount = campaigns.filter(c => c.status === 'DRAFT' || c.status === 'PAUSED').length;
+  const activeCount = campaigns.filter(c => {
+    const s = String(c.status || '').toUpperCase();
+    return s === 'ACTIVE' || s === 'RUNNING';
+  }).length;
+  const scheduledCount = campaigns.filter(c => {
+    const s = String(c.status || '').toUpperCase();
+    return s === 'DRAFT' || s === 'PAUSED';
+  }).length;
   const positiveReplies = campaigns.reduce((sum, c) => sum + (c.interestedCount || c.interested_count || (c.stats?.interested || 0)), 0);
   const meetingsBooked = campaigns.reduce((sum, c) => sum + (c.meetingsBooked || c.meetings_booked || (c.stats?.meetingsBooked || 0)), 0);
 
