@@ -1251,7 +1251,7 @@ export default function App() {
 
           {activeTab === 'outreach' && (
             checkIntegration('gmail') ? (
-              <OutreachView />
+              <OutreachView initialCampaigns={campaigns} />
             ) : (
               <RestrictedViewPlaceholder 
                 title="Gmail Connection" 

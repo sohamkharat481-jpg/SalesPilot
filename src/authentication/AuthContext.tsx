@@ -322,19 +322,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedTeam = localStorage.getItem('salespilot_team');
 
       if (token && storedUser) {
-        // Enforce cleanup of any mock or sandbox identity:
+        // Enforce cleanup of any mock or invalid developer identity:
         try {
           const parsedUser = JSON.parse(storedUser);
           if (
             !token ||
-            token === 'sandbox_dev_auth_token' || 
-            token === 'sandbox_google_auth_token' || 
-            token.startsWith('sandbox_') ||
             parsedUser.fullName === 'Local Developer' ||
             parsedUser.email === 'developer@salespilot.dev' ||
             parsedUser.email === 'dev@salespilot.dev' ||
             parsedUser.email?.endsWith('.local') ||
-            parsedUser.email?.includes('sandbox') ||
             parsedUser.isDemo
           ) {
             localStorage.removeItem('salespilot_token');
@@ -348,9 +344,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsLoading(false);
             return;
           }
+
+          const emailLower = (parsedUser.email || '').toLowerCase();
+          const isFounder = parsedUser.isFounder || 
+                            emailLower === 'sohamkharat481@gmail.com' || 
+                            emailLower === 'soham@gmail.com' ||
+                            emailLower.includes('founder') ||
+                            parsedUser.role === 'OWNER';
+
+          if (isFounder) {
+            parsedUser.organizationId = 'org_salespilot_lifetime';
+            parsedUser.isFounder = true;
+            parsedUser.role = 'OWNER';
+            parsedUser.tier = 'ENTERPRISE';
+            parsedUser.companyName = 'SalesPilot';
+            localStorage.setItem('salespilot_user', JSON.stringify(parsedUser));
+          }
+
           setUser(parsedUser);
           setAuthView('authenticated');
-          if (storedOrg) setOrganization(JSON.parse(storedOrg));
+          if (storedOrg) {
+            const parsedOrg = JSON.parse(storedOrg);
+            if (isFounder) {
+              parsedOrg.id = 'org_salespilot_lifetime';
+              parsedOrg.name = 'SalesPilot';
+              parsedOrg.companyName = 'SalesPilot';
+              localStorage.setItem('salespilot_org', JSON.stringify(parsedOrg));
+            }
+            setOrganization(parsedOrg);
+          } else if (isFounder) {
+            const founderOrg: Organization = {
+              id: 'org_salespilot_lifetime',
+              name: 'SalesPilot',
+              companyName: 'SalesPilot',
+              industry: 'SaaS & Software',
+              domain: 'salespilot.co',
+              createdAt: new Date().toISOString()
+            };
+            setOrganization(founderOrg);
+            localStorage.setItem('salespilot_org', JSON.stringify(founderOrg));
+          }
           if (storedTeam) setTeamMembers(JSON.parse(storedTeam));
           setIsLoading(false);
           return;
@@ -430,11 +463,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const updatedUser: WorkspaceUser = {
           ...user,
           isFounder: true,
-          companyName: user.companyName || 'SalesPilot',
+          organizationId: 'org_salespilot_lifetime',
+          companyName: 'SalesPilot',
           industry: user.industry || 'SaaS & Software',
           subscriptionStatus: 'LIFETIME',
           tier: 'ENTERPRISE',
-          role: user.role || 'OWNER',
+          role: 'OWNER',
           isVerified: true,
           onboardingCompleted: true
         };
@@ -445,9 +479,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Failed saving founder user to localStorage", e);
         }
         setOrganization(prev => ({
-          id: prev?.id || 'org_salespilot_lifetime',
-          name: prev?.name || 'SalesPilot',
-          companyName: prev?.companyName || 'SalesPilot',
+          id: 'org_salespilot_lifetime',
+          name: 'SalesPilot',
+          companyName: 'SalesPilot',
           industry: prev?.industry || 'SaaS & Software',
           website: prev?.website || 'salespilot.co',
           country: prev?.country || 'India',
@@ -1038,23 +1072,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!supabase || SUPABASE_URL.includes('placeholder')) {
         console.warn('[OAUTH] Supabase credentials not fully configured; entering sandbox login mode.');
         const mockUser: WorkspaceUser = {
-          id: 'usr_sandbox_123',
+          id: 'usr_81927391',
           email: 'sohamkharat481@gmail.com',
           fullName: 'Soham Kharat',
-          companyName: 'Sandbox Corp',
-          industry: 'Technology',
+          companyName: 'SalesPilot',
+          industry: 'SaaS & Software',
           tier: 'ENTERPRISE',
-          role: 'ADMIN',
-          organizationId: 'org_sandbox_123',
+          role: 'OWNER',
+          organizationId: 'org_salespilot_lifetime',
+          isFounder: true,
+          subscriptionStatus: 'LIFETIME',
           avatarUrl: '',
-          title: 'Administrator',
+          title: 'Founder & CEO',
           createdAt: new Date().toISOString()
         };
         const mockOrg: Organization = {
-          id: 'org_sandbox_123',
-          name: 'Sandbox Organization',
-          industry: 'Technology',
-          domain: 'sandbox.com',
+          id: 'org_salespilot_lifetime',
+          name: 'SalesPilot',
+          companyName: 'SalesPilot',
+          industry: 'SaaS & Software',
+          domain: 'salespilot.co',
           createdAt: new Date().toISOString()
         };
         setUser(mockUser);

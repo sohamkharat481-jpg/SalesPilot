@@ -17,9 +17,13 @@ import { OutreachHistory } from './outreach/OutreachHistory';
 import { ProviderHub } from './outreach/ProviderHub';
 import { TestEmailModal } from './outreach/TestEmailModal';
 
-export function OutreachView() {
+interface OutreachViewProps {
+  initialCampaigns?: any[];
+}
+
+export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
   const [activeSubTab, setActiveSubTab] = useState<string>('dashboard'); // dashboard, creator, personalizer, approver, analyzer, templates, history
-  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns && initialCampaigns.length > 0 ? initialCampaigns : []);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,8 +41,20 @@ export function OutreachView() {
     try {
       setLoading(true);
       const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+      const storedOrg = localStorage.getItem('salespilot_org');
+      let orgId = 'org_salespilot_lifetime';
+      if (storedOrg) {
+        try {
+          const parsed = JSON.parse(storedOrg);
+          if (parsed?.id) orgId = parsed.id;
+        } catch {
+          // ignore
+        }
+      }
+
       const headers: Record<string, string> = {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'x-organization-id': orgId
       };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -57,10 +73,21 @@ export function OutreachView() {
         }
       };
 
-      // Fetch Campaigns
+      // Fetch Outreach Campaigns
+      let loadedCampaigns: any[] = [];
       const campData = await safeFetchJson('/api/v1/outreach/campaigns');
-      if (campData && campData.campaigns) {
-        setCampaigns(campData.campaigns);
+      if (campData && Array.isArray(campData.campaigns) && campData.campaigns.length > 0) {
+        loadedCampaigns = campData.campaigns;
+      } else {
+        // Fallback to general campaigns endpoint
+        const fallbackData = await safeFetchJson('/api/v1/campaigns');
+        if (fallbackData && Array.isArray(fallbackData.campaigns) && fallbackData.campaigns.length > 0) {
+          loadedCampaigns = fallbackData.campaigns;
+        }
+      }
+
+      if (loadedCampaigns.length > 0) {
+        setCampaigns(loadedCampaigns);
       }
 
       // Fetch History
@@ -100,7 +127,20 @@ export function OutreachView() {
 
     try {
       const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const storedOrg = localStorage.getItem('salespilot_org');
+      let orgId = 'org_salespilot_lifetime';
+      if (storedOrg) {
+        try {
+          const parsed = JSON.parse(storedOrg);
+          if (parsed?.id) orgId = parsed.id;
+        } catch {
+          // ignore
+        }
+      }
+      const headers: Record<string, string> = { 
+        'Content-Type': 'application/json',
+        'x-organization-id': orgId
+      };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       await fetch(`/api/v1/outreach/campaigns/${id}/${endpointAction}`, {
         method: 'POST',
@@ -312,12 +352,6 @@ export function OutreachView() {
               <OutreachDashboard 
                 campaigns={campaigns}
                 onToggleStatus={handleToggleCampaignStatus}
-                onSelectCampaign={(id) => {
-                  const camp = campaigns.find(c => c.id === id);
-                  if (camp) {
-                    alert(`Opening sequence details for campaign: ${camp.name}`);
-                  }
-                }}
                 onCreateNewClick={() => setActiveSubTab('creator')}
                 onDeleteCampaign={handleDeleteCampaign}
               />
