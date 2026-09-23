@@ -8282,13 +8282,13 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       });
       const resolvedQueue = Array.from(queueMap.values());
 
-      // Merge replies strictly verifying tenant identity
+      // Merge replies strictly verifying tenant identity and excluding quarantined / test-simulated replies
       const replyMap = new Map();
       replies.forEach(r => {
-        if (r.organizationId === orgId) replyMap.set(r.id, r);
+        if (r.organizationId === orgId && !(r as any).quarantined && (r as any).source !== 'TEST_SIMULATED') replyMap.set(r.id, r);
       });
       localReplies.forEach(r => {
-        if (r.organizationId === orgId && !replyMap.has(r.id)) {
+        if (r.organizationId === orgId && !(r as any).quarantined && (r as any).source !== 'TEST_SIMULATED' && !replyMap.has(r.id)) {
           replyMap.set(r.id, r);
         }
       });
@@ -9955,6 +9955,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     const combinedApts = Array.from(aptMap.values());
     const filteredApts = combinedApts
+      .filter(a => !(a as any).quarantined && (a as any).source !== 'TEST_SIMULATED' && a.status !== 'CANCELLED')
       .filter(a => {
         const meetingLink = String(a.meetingLink || '');
         return !meetingLink.includes('/mock-meet-') && !meetingLink.includes('/sp-demo-');

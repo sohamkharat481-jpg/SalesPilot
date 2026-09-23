@@ -18078,7 +18078,7 @@
       "email": "",
       "dateTime": "2026-09-17T13:28:59.375+00:00",
       "durationMins": 30,
-      "status": "SCHEDULED",
+      "status": "CANCELLED",
       "meetingLink": "https://meet.google.com/dnm-wmjz-hqq",
       "notes": "None",
       "timezone": "Asia/Kolkata",
@@ -18086,7 +18086,9 @@
       "googleEventId": "",
       "gmailMessageId": "",
       "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "source": "TEST_SIMULATED",
+      "quarantined": true
     },
     {
       "id": "apt_1789389108763_eg7m3",
@@ -18096,7 +18098,7 @@
       "email": "",
       "dateTime": "2026-09-17T13:28:59.34+00:00",
       "durationMins": 30,
-      "status": "SCHEDULED",
+      "status": "CANCELLED",
       "meetingLink": "https://meet.google.com/miq-nnnh-jkq",
       "notes": "None",
       "timezone": "Asia/Kolkata",
@@ -18104,7 +18106,9 @@
       "googleEventId": "",
       "gmailMessageId": "",
       "reminderSent": false,
-      "timelineList": []
+      "timelineList": [],
+      "source": "TEST_SIMULATED",
+      "quarantined": true
     }
   ],
   "sessions": {
@@ -18430,7 +18434,7 @@
     },
     "jwt_g_token_wabfsnzr2yn": {
       "userId": "usr_81927391",
-      "expiresAt": 1792693341531
+      "expiresAt": 1792741404917
     }
   },
   "activityLogs": [
@@ -21400,10 +21404,12 @@
       "organizationId": "org_salespilot_lifetime",
       "campaignId": "camp_kanishka_software_active",
       "leadId": "ld_db_1789385272868_13121_9qbd",
-      "classification": "MEETING_REQUEST",
+      "classification": "NONE",
       "sentimentScore": 0.95,
       "summary": "Interested in meeting. Meeting booked successfully.",
-      "createdAt": "2026-09-14T12:30:00.000Z"
+      "createdAt": "2026-09-14T12:30:00.000Z",
+      "source": "TEST_SIMULATED",
+      "quarantined": true
     }
   ],
   "outreachMessages": [
