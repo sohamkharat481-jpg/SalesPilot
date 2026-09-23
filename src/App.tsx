@@ -634,22 +634,7 @@ export default function App() {
   }
 
   const checkIntegration = (id: 'gmail' | 'calendar' | 'ai' | 'cashfree') => {
-    if (!user?.onboardingProgress) return true; // Existing or legacy users are completely unrestricted
-    
-    if (id === 'gmail') {
-      return user.onboardingProgress.find((s: any) => s.id === 'gmail')?.status === 'COMPLETED';
-    }
-    if (id === 'calendar') {
-      return user.onboardingProgress.find((s: any) => s.id === 'calendar')?.status === 'COMPLETED';
-    }
-    if (id === 'ai') {
-      return user.onboardingProgress.find((s: any) => s.id === 'openai')?.status === 'COMPLETED' || 
-             user.onboardingProgress.find((s: any) => s.id === 'gemini')?.status === 'COMPLETED';
-    }
-    if (id === 'cashfree') {
-      return user.onboardingProgress.find((s: any) => s.id === 'cashfree')?.status === 'COMPLETED';
-    }
-    return true;
+    return true; // Always allow access for authenticated workspace users
   };
 
   const isSubscriber = isFounderUser || user?.isFounder || user?.subscriptionStatus === 'ACTIVE' || user?.subscriptionStatus === 'LIFETIME' || user?.subscriptionStatus === 'TRIAL' || trialActive;
