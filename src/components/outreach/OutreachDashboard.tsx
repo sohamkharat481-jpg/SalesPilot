@@ -64,6 +64,19 @@ export function OutreachDashboard({ campaigns, onToggleStatus, onSelectCampaign,
     }
   };
 
+  // SAFE diagnostic immediately before rendering
+  const campaignsReceived = Array.isArray(campaigns) ? campaigns.length : 0;
+  const campaignsBeforeFilter = campaignsReceived;
+  const campaignsAfterFilter = campaignsReceived;
+  console.log('[SAFE_DIAGNOSTIC]', JSON.stringify({
+    campaignsReceived,
+    campaignsBeforeFilter,
+    campaignsAfterFilter,
+    campaignIds: Array.isArray(campaigns) ? campaigns.map(c => c.id || c.campaignId) : [],
+    campaignStatuses: Array.isArray(campaigns) ? campaigns.map(c => c.status) : [],
+    campaignOrganizations: Array.isArray(campaigns) ? campaigns.map(c => c.organizationId || c.organization_id) : []
+  }));
+
   return (
     <div className="space-y-6">
       {/* Metrics Grid */}

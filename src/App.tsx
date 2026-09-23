@@ -348,7 +348,13 @@ export default function App() {
             }
           } catch (e) {}
         }
-        setCampaigns(loadedCamps);
+        if (loadedCamps.length > 0) {
+          setCampaigns(prev => {
+            const map = new Map(prev.map(c => [c.id || (c as any).campaignId, c]));
+            loadedCamps.forEach((c: any) => map.set(c.id || c.campaignId, c));
+            return Array.from(map.values());
+          });
+        }
         setDeals(Array.isArray(dealsData?.deals) ? dealsData.deals : []);
         setAppointments(Array.isArray(aptsData?.appointments) ? aptsData.appointments : []);
         setIntegrations(configData?.integrations || {});

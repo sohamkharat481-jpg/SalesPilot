@@ -1721,44 +1721,73 @@ async function startServer() {
       return { orgId: null, error: 'Unauthorized. Authentication token required.', status: 401 };
     }
 
-    const emailLower = (user.email || '').toLowerCase();
-    const isFounder = (user as any).isFounder || 
-                      FOUNDER_EMAILS.has(emailLower) || 
-                      emailLower === 'sohamkharat481@gmail.com' || 
-                      emailLower === 'soham@gmail.com' || 
-                      emailLower.includes('founder') ||
-                      user.role === 'OWNER';
+    // Derive authoritative organization from user identity and verified workspace membership
+    let verifiedOrgId: string | null = null;
 
-    // Authoritative check: Founder/Owner ALWAYS resolves to org_salespilot_lifetime
-    if (isFounder) {
-      user.organizationId = 'org_salespilot_lifetime';
-      return { orgId: 'org_salespilot_lifetime' };
+    // 1. Direct user profile organization
+    if (user.organizationId && typeof user.organizationId === 'string' && user.organizationId.trim() !== '') {
+      verifiedOrgId = user.organizationId.trim();
     }
 
-    // Determine verified user organization
-    let verifiedOrgId = user.organizationId || localDb.getOrganizationByUserId(user.id)?.id || null;
+    // 2. Team member workspace membership
     if (!verifiedOrgId) {
-      verifiedOrgId = 'org_salespilot_lifetime';
-      user.organizationId = 'org_salespilot_lifetime';
+      const membership = localDb.getTeamMembers().find((tm: any) => 
+        tm.userId === user.id || (user.email && tm.email && tm.email.toLowerCase() === user.email.toLowerCase())
+      );
+      if (membership?.organizationId) {
+        verifiedOrgId = membership.organizationId;
+        user.organizationId = verifiedOrgId;
+      }
     }
 
-    // Check client organizationId from headers/query/body
+    // 3. Organization ownership
+    if (!verifiedOrgId) {
+      const ownedOrg = localDb.getOrganizations().find((o: any) => o.ownerId === user.id || o.owner === user.id);
+      if (ownedOrg?.id) {
+        verifiedOrgId = ownedOrg.id;
+        user.organizationId = verifiedOrgId;
+      }
+    }
+
+    // 4. Default user lookup in database
+    if (!verifiedOrgId) {
+      const dbUser = localDb.getUserById(user.id) || (user.email ? localDb.getUserByEmail(user.email) : null);
+      if (dbUser?.organizationId) {
+        verifiedOrgId = dbUser.organizationId;
+        user.organizationId = verifiedOrgId;
+      }
+    }
+
+    if (!verifiedOrgId) {
+      return { orgId: null, error: 'Forbidden. No verified organization membership found for this user.', status: 403 };
+    }
+
+    // Check client organizationId if supplied by browser/client
     const clientSuppliedOrgId = (req.headers?.['x-organization-id'] as string) || 
                                 (req.query?.organizationId as string) || 
                                 (req.body?.organizationId as string);
 
     if (clientSuppliedOrgId && typeof clientSuppliedOrgId === 'string' && clientSuppliedOrgId.trim() !== '') {
       const cleanClientOrgId = clientSuppliedOrgId.trim();
-      if (cleanClientOrgId !== verifiedOrgId.trim()) {
-        if (cleanClientOrgId.includes('sandbox') || cleanClientOrgId === 'org_salespilot_lifetime' || user.role === 'ADMIN') {
-          return { orgId: verifiedOrgId };
-        }
+      
+      // Verify client organization against user's actual verified workspace memberships
+      const isMemberOfClientOrg = cleanClientOrgId === verifiedOrgId || 
+        localDb.getTeamMembers().some((tm: any) => 
+          (tm.userId === user.id || (user.email && tm.email && tm.email.toLowerCase() === user.email.toLowerCase())) &&
+          tm.organizationId === cleanClientOrgId
+        ) ||
+        localDb.getOrganizations().some((o: any) => 
+          (o.ownerId === user.id || o.owner === user.id) && o.id === cleanClientOrgId
+        );
+
+      if (!isMemberOfClientOrg) {
         return { 
           orgId: null, 
-          error: 'Forbidden. Organization mismatch: client-supplied organizationId does not match verified user organization.', 
+          error: 'Forbidden. Organization mismatch: client-supplied organizationId does not match verified user workspace membership.', 
           status: 403 
         };
       }
+      return { orgId: cleanClientOrgId };
     }
 
     return { orgId: verifiedOrgId };
@@ -8288,7 +8317,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
         const recipientName = campQueue[0]?.recipientName || lead?.name || 'Operations Manager';
         const recipientCompany = lead?.company || (c.name.includes('Kanishka') ? 'Kanishka Software Private Limited' : 'Target Organization');
 
-        const resolvedSteps = (steps && steps.length > 0) ? steps : [
+        const resolvedSteps = (steps && steps.length > 0) ? steps.map((s: any, idx: number) => ({
+          ...s,
+          status: s.status || (idx === 0 && sent > 0 ? 'SENT' : 'WAITING')
+        })) : [
           { id: `step_${c.id}_1`, stepNumber: 1, type: 'EMAIL', subjectTemplate: c.name, delayDays: 0, status: 'SENT' },
           { id: `step_${c.id}_2`, stepNumber: 2, type: 'EMAIL', subjectTemplate: `Re: ${c.name}`, delayDays: 2, status: 'WAITING' }
         ];

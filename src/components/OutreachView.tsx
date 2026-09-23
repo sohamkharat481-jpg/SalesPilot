@@ -5,6 +5,7 @@ import {
   Sparkles, Calendar, Heart, Shield, Library, History, LayoutDashboard
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAuth } from '../authentication/AuthContext';
 
 // Subcomponents
 import { OutreachDashboard } from './outreach/OutreachDashboard';
@@ -22,6 +23,7 @@ interface OutreachViewProps {
 }
 
 export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
+  const { user, organization } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<string>('dashboard'); // dashboard, creator, personalizer, approver, analyzer, templates, history
   const [campaigns, setCampaigns] = useState<any[]>(initialCampaigns && initialCampaigns.length > 0 ? initialCampaigns : []);
   const [history, setHistory] = useState<any[]>([]);
@@ -41,9 +43,10 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
     if (initialCampaigns && initialCampaigns.length > 0) {
       setCampaigns(prev => {
         if (!prev || prev.length === 0) return initialCampaigns;
-        const map = new Map(prev.map(c => [c.id, c]));
+        const map = new Map(prev.map(c => [c.id || c.campaignId, c]));
         initialCampaigns.forEach(c => {
-          if (!map.has(c.id)) map.set(c.id, c);
+          const cid = c.id || c.campaignId;
+          if (!map.has(cid)) map.set(cid, c);
         });
         return Array.from(map.values());
       });
@@ -55,16 +58,7 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
     try {
       setLoading(true);
       const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
-      const storedOrg = localStorage.getItem('salespilot_org');
-      let orgId = 'org_salespilot_lifetime';
-      if (storedOrg) {
-        try {
-          const parsed = JSON.parse(storedOrg);
-          if (parsed?.id) orgId = parsed.id;
-        } catch {
-          // ignore
-        }
-      }
+      const verifiedOrgId = organization?.id || user?.organizationId;
 
       const headers: Record<string, string> = {
         'Accept': 'application/json'
@@ -72,23 +66,14 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      if (orgId) {
-        headers['x-organization-id'] = orgId;
+      if (verifiedOrgId) {
+        headers['x-organization-id'] = verifiedOrgId;
       }
 
-      // Safe JSON fetch helper with fallback retry on 403
+      // Safe JSON fetch helper
       const safeFetchJson = async (url: string) => {
         try {
-          let res = await fetch(url, { headers });
-          if (!res.ok && (res.status === 403 || res.status === 401)) {
-            // Retry with explicit lifetime organization header in case of client org mismatch
-            const fallbackHeaders: Record<string, string> = { 
-              'Accept': 'application/json',
-              'x-organization-id': 'org_salespilot_lifetime'
-            };
-            if (token) fallbackHeaders['Authorization'] = `Bearer ${token}`;
-            res = await fetch(url, { headers: fallbackHeaders });
-          }
+          const res = await fetch(url, { headers });
           if (!res.ok) return null;
           const contentType = res.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) return null;
@@ -123,8 +108,8 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
 
       if (loadedCampaigns.length > 0) {
         setCampaigns(prev => {
-          const map = new Map(prev.map(c => [c.id, c]));
-          loadedCampaigns.forEach(c => map.set(c.id, c));
+          const map = new Map(prev.map(c => [c.id || c.campaignId, c]));
+          loadedCampaigns.forEach(c => map.set(c.id || c.campaignId, c));
           return Array.from(map.values());
         });
       }
@@ -149,7 +134,7 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user?.id, organization?.id]);
 
   const handleToggleCampaignStatus = async (id: string) => {
     const current = campaigns.find(c => c.id === id);
