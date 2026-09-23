@@ -1487,6 +1487,15 @@ async function startServer() {
   const tokenVerificationCache = new Map<string, { user: WorkspaceUser; expiresAt: number }>();
 
   // Global Auth Token Verification Middleware
+  app.get('/api/v1/debug/build-info', (req, res) => {
+    res.json({
+      buildSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_SHA || 'f4uv-20260923-prod',
+      buildTime: new Date().toISOString(),
+      environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'production',
+      supabaseHost: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/https?:\/\//, '').split('.')[0] || 'unknown'
+    });
+  });
+
   app.use(async (req: any, res: any, next: any) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {

@@ -441,6 +441,13 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
           fetchData(); // Refresh history timeline
         }}
       />
+
+      {/* Temporary Build & Deployment Identity Banner */}
+      <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400">
+        <div>Build SHA: <span className="font-bold text-slate-600 dark:text-slate-300">f4uv-20260923-prod</span></div>
+        <div>Environment: production</div>
+        <div>API: /api/v1/outreach/campaigns</div>
+      </div>
     </div>
   );
 }
