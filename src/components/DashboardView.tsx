@@ -88,7 +88,13 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
           if (customStart) url += `&startDate=${customStart}`;
           if (customEnd) url += `&endDate=${customEnd}`;
         }
-        const response = await fetch(url);
+        const token = sessionStorage.getItem('salespilot_token');
+        const workspaceId = sessionStorage.getItem('salespilot_workspace_id');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+        const response = await fetch(url, { headers });
         if (!response.ok) {
           throw new Error(`HTTP status: ${response.status}`);
         }

@@ -1,6 +1,7 @@
 import { runNotificationsAutomationTestSuite } from './notificationsTaskAutomation.test';
 import { runOutreachCampaignTestSuite } from './outreachCampaigns.test';
 import { runOutreachCronTestSuite } from './outreachCron.test';
+import { runDashboardTelemetryAuthTestSuite } from './dashboardTelemetryAuth.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -37,6 +38,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Phase 8 Outreach Cron test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 4. Dashboard Telemetry Authentication & Tenant Isolation Suite
+  try {
+    const res = await runDashboardTelemetryAuthTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Dashboard Telemetry test suite crashed:', err);
     totalFailed++;
   }
 
