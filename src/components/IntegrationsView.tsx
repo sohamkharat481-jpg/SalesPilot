@@ -12,6 +12,7 @@ import { useAuth } from '../authentication/AuthContext';
 import { getSupabaseClient } from '../lib/supabase';
 import { buildGoogleOAuthHeaders } from '../utils/googleOAuthClient';
 import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
+import { MyCallingNumbers } from './voice/MyCallingNumbers';
 
 interface IntegrationsViewProps {
   credentials: IntegrationCredentials;
@@ -42,8 +43,8 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     extendSession
   } = useAuth();
 
-  // Settings Tabs: 'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'gmail' | 'workflows' | 'prompts' | 'notifications' | 'export'
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'gmail' | 'workflows' | 'prompts' | 'notifications' | 'export'>('profile');
+  // Settings Tabs: 'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'calling' | 'gmail' | 'workflows' | 'prompts' | 'notifications' | 'export'
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'organization' | 'team' | 'security' | 'integrations' | 'calling' | 'gmail' | 'workflows' | 'prompts' | 'notifications' | 'export'>('profile');
 
   // Notification settings states
   const [notifTrial, setNotifTrial] = useState(true);
@@ -51,6 +52,20 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const [notifFeatures, setNotifFeatures] = useState(true);
   const [notifReplies, setNotifReplies] = useState(true);
   const [notifSuccess, setNotifSuccess] = useState(false);
+
+  // Detailed Phase 9 Notification Preferences
+  const [prefSalesInApp, setPrefSalesInApp] = useState(() => localStorage.getItem('pref_sales_in_app') !== 'false');
+  const [prefSalesBrowser, setPrefSalesBrowser] = useState(() => localStorage.getItem('pref_sales_browser') !== 'false');
+  const [prefTasksInApp, setPrefTasksInApp] = useState(() => localStorage.getItem('pref_tasks_in_app') !== 'false');
+  const [prefTasksBrowser, setPrefTasksBrowser] = useState(() => localStorage.getItem('pref_tasks_browser') !== 'false');
+  const [prefMeetingsInApp, setPrefMeetingsInApp] = useState(() => localStorage.getItem('pref_meetings_in_app') !== 'false');
+  const [prefMeetingsBrowser, setPrefMeetingsBrowser] = useState(() => localStorage.getItem('pref_meetings_browser') !== 'false');
+  const [prefAssignmentsInApp, setPrefAssignmentsInApp] = useState(() => localStorage.getItem('pref_assignments_in_app') !== 'false');
+  const [prefAssignmentsBrowser, setPrefAssignmentsBrowser] = useState(() => localStorage.getItem('pref_assignments_browser') !== 'false');
+
+  const [browserPermissionState, setBrowserPermissionState] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
 
   // Export states
   const [exportProgress, setExportProgress] = useState(0);
@@ -1396,6 +1411,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
           { id: 'team', label: 'Team & RBAC', icon: Users },
           { id: 'security', label: 'Security & Logs', icon: Shield },
           { id: 'integrations', label: 'Integration Center', icon: Database },
+          { id: 'calling', label: 'My Calling Numbers', icon: Smartphone },
           { id: 'gmail', label: 'Gmail Settings', icon: Mail },
           { id: 'workflows', label: 'Workflow Automation', icon: Network },
           { id: 'prompts', label: 'Prompt Library', icon: Brain },
@@ -1423,6 +1439,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       {/* Tab Panels */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-6 md:p-8">
         
+        {/* TAB: MY CALLING NUMBERS */}
+        {activeSubTab === 'calling' && (
+          <MyCallingNumbers />
+        )}
+
         {/* TAB 1: USER PROFILE */}
         {activeSubTab === 'profile' && (
           <form onSubmit={handleProfileSave} className="space-y-6">
@@ -4589,71 +4610,181 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
               </div>
             )}
 
+            {/* Desktop Browser Notification Permission Banner */}
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl max-w-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                  🖥️ Desktop Browser Notifications
+                </h4>
+                <p className="text-[11px] text-indigo-700/80 leading-normal">
+                  {browserPermissionState === 'granted' 
+                    ? 'Desktop browser notifications are currently enabled and authorized.' 
+                    : browserPermissionState === 'denied' 
+                    ? 'Permission was denied by the browser. Please reset site permissions in your browser bar if you want browser alerts.' 
+                    : 'Get real-time push alerts on your desktop even when SalesPilot is in the background.'}
+                </p>
+              </div>
+              {browserPermissionState === 'default' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (typeof Notification !== 'undefined') {
+                      const res = await Notification.requestPermission();
+                      setBrowserPermissionState(res);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-mono font-bold text-[10px] uppercase rounded-lg shadow-sm transition shrink-0 cursor-pointer"
+                >
+                  Enable Desktop Notifications
+                </button>
+              )}
+            </div>
+
             <div className="space-y-4 max-w-2xl">
-              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-900">Trial Expiry Alerts</h4>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Receive active warnings and countdown banners before your 1-Day Trial expires.
-                  </p>
+              {/* Category: Sales Activity */}
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-slate-900">Sales Activity Alerts</h4>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Triggers on: Interested Lead, Outreach Reply, Deal Won/Lost, and Stage Changes.
+                    </p>
+                  </div>
                 </div>
-                <input 
-                  type="checkbox" 
-                  checked={notifTrial} 
-                  onChange={(e) => setNotifTrial(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
-                />
+                <div className="flex flex-wrap items-center gap-6 pt-1 text-xs font-mono font-bold">
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefSalesInApp} 
+                      onChange={(e) => setPrefSalesInApp(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span>IN-APP ALERT</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefSalesBrowser} 
+                      disabled={browserPermissionState !== 'granted'}
+                      onChange={(e) => setPrefSalesBrowser(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                    />
+                    <span className={browserPermissionState !== 'granted' ? 'text-slate-400' : ''}>BROWSER ALERT</span>
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-900">Cashfree Billing & Payment Failures</h4>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Get instantly notified via email or system toast on failed checkout attempts, renewal billing failures, or successful plan upgrades.
-                  </p>
+              {/* Category: Tasks */}
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-slate-900">Task & Follow-up Reminders</h4>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Triggers on: Follow-Up Due, Follow-Up Overdue, and Task Completed.
+                    </p>
+                  </div>
                 </div>
-                <input 
-                  type="checkbox" 
-                  checked={notifPayment} 
-                  onChange={(e) => setNotifPayment(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
-                />
+                <div className="flex flex-wrap items-center gap-6 pt-1 text-xs font-mono font-bold">
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefTasksInApp} 
+                      onChange={(e) => setPrefTasksInApp(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span>IN-APP ALERT</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefTasksBrowser} 
+                      disabled={browserPermissionState !== 'granted'}
+                      onChange={(e) => setPrefTasksBrowser(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                    />
+                    <span className={browserPermissionState !== 'granted' ? 'text-slate-400' : ''}>BROWSER ALERT</span>
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-900">Campaign Outbound & Replies</h4>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Receive a real-time system ping when a high-value lead replies to an outbound email campaign.
-                  </p>
+              {/* Category: Meetings */}
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-slate-900">Meeting & Booking Alerts</h4>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Triggers on: Meeting Requested and Meeting Booked on team calendars.
+                    </p>
+                  </div>
                 </div>
-                <input 
-                  type="checkbox" 
-                  checked={notifReplies} 
-                  onChange={(e) => setNotifReplies(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
-                />
+                <div className="flex flex-wrap items-center gap-6 pt-1 text-xs font-mono font-bold">
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefMeetingsInApp} 
+                      onChange={(e) => setPrefMeetingsInApp(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span>IN-APP ALERT</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefMeetingsBrowser} 
+                      disabled={browserPermissionState !== 'granted'}
+                      onChange={(e) => setPrefMeetingsBrowser(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                    />
+                    <span className={browserPermissionState !== 'granted' ? 'text-slate-400' : ''}>BROWSER ALERT</span>
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-start justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-900">Weekly Feature Announcements</h4>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Receive updates on new AI agents, enhanced LinkedIn and Google Maps scrapers, or prompt library additions.
-                  </p>
+              {/* Category: Assignments */}
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-slate-900">Assignments & Teammate Activities</h4>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Triggers on: Lead Assigned and Deal Assigned.
+                    </p>
+                  </div>
                 </div>
-                <input 
-                  type="checkbox" 
-                  checked={notifFeatures} 
-                  onChange={(e) => setNotifFeatures(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer mt-1"
-                />
+                <div className="flex flex-wrap items-center gap-6 pt-1 text-xs font-mono font-bold">
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefAssignmentsInApp} 
+                      onChange={(e) => setPrefAssignmentsInApp(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span>IN-APP ALERT</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-slate-650 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={prefAssignmentsBrowser} 
+                      disabled={browserPermissionState !== 'granted'}
+                      onChange={(e) => setPrefAssignmentsBrowser(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-350 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                    />
+                    <span className={browserPermissionState !== 'granted' ? 'text-slate-400' : ''}>BROWSER ALERT</span>
+                  </label>
+                </div>
               </div>
 
               <div className="flex justify-end pt-2">
                 <button
                   type="button"
                   onClick={() => {
+                    localStorage.setItem('pref_sales_in_app', String(prefSalesInApp));
+                    localStorage.setItem('pref_sales_browser', String(prefSalesBrowser));
+                    localStorage.setItem('pref_tasks_in_app', String(prefTasksInApp));
+                    localStorage.setItem('pref_tasks_browser', String(prefTasksBrowser));
+                    localStorage.setItem('pref_meetings_in_app', String(prefMeetingsInApp));
+                    localStorage.setItem('pref_meetings_browser', String(prefMeetingsBrowser));
+                    localStorage.setItem('pref_assignments_in_app', String(prefAssignmentsInApp));
+                    localStorage.setItem('pref_assignments_browser', String(prefAssignmentsBrowser));
                     setNotifSuccess(true);
                     setTimeout(() => setNotifSuccess(false), 3000);
                   }}

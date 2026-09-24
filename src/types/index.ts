@@ -277,22 +277,38 @@ export interface Campaign {
   createdAt: string;
 }
 
-export type DealStage = 'PROSPECTING' | 'QUALIFIED' | 'DEMO_SCHEDULED' | 'PROPOSAL_SENT' | 'NEGOTIATION' | 'CLOSED_WON' | 'CLOSED_LOST';
+export type DealStage = 
+  | 'PROSPECTING' | 'QUALIFIED' | 'DEMO_SCHEDULED' | 'PROPOSAL_SENT' | 'NEGOTIATION' | 'CLOSED_WON' | 'CLOSED_LOST'
+  | 'CONTACTED' | 'INTERESTED' | 'MEETING_REQUESTED' | 'PROPOSAL' | 'WON' | 'LOST';
 
 export interface Deal {
   id: string;
+  organizationId?: string;
   leadId: string;
   leadName: string;
   company: string;
-  valueInr: number;
-  stage: DealStage;
-  title?: string;
+  contactName?: string;
+  value?: number;
+  valueInr: number; // for backwards compatibility
+  currency?: string;
+  stage: DealStage | string;
   probability?: number;
+  expectedCloseDate?: string;
+  assignedUserId?: string;
+  assignedUserName?: string; // helper
+  source?: string;
+  description?: string;
+  notes?: string; // backwards compatibility
+  nextAction?: string;
+  createdAt: string;
   updatedAt: string;
-  notes?: string;
+  wonAt?: string;
+  lostAt?: string;
+  lostReason?: string;
+  title?: string; // compatibility
 }
 
-export type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+export type AppointmentStatus = 'REQUESTED' | 'SCHEDULED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
 
 export interface Appointment {
   id: string;
@@ -315,6 +331,17 @@ export interface Appointment {
   reminderSent?: boolean;
   createdAt?: string;
   timelineList?: { id: string; event: string; details: string; createdAt: string }[];
+  
+  // Phase 10 expanded fields
+  dealId?: string;
+  assignedUserId?: string;
+  description?: string;
+  startAt?: string;
+  endAt?: string;
+  attendees?: string[];
+  provider?: string;
+  providerEventId?: string;
+  updatedAt?: string;
 }
 
 export interface IntegrationCredentials {
@@ -458,6 +485,23 @@ export interface OrgNotification {
   type: 'assignment' | 'meeting' | 'alert' | 'general' | 'campaign';
   read: boolean;
   createdAt: string;
+}
+
+export interface SalesPilotNotification {
+  id: string;
+  organizationId: string;
+  userId: string;
+  type: 'LEAD_ASSIGNED' | 'NEW_LEAD' | 'OUTREACH_REPLY' | 'INTERESTED_LEAD' | 'MEETING_REQUESTED' | 'MEETING_BOOKED' | 'FOLLOW_UP_DUE' | 'FOLLOW_UP_OVERDUE' | 'DEAL_CREATED' | 'DEAL_STAGE_CHANGED' | 'DEAL_WON' | 'DEAL_LOST' | 'TASK_COMPLETED';
+  title: string;
+  message: string;
+  entityType?: 'LEAD' | 'DEAL' | 'FOLLOW_UP' | 'MEETING' | 'CALL';
+  entityId?: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  isRead: boolean;
+  createdAt: string;
+  readAt?: string | null;
+  metadata?: any;
+  idempotencyKey?: string;
 }
 
 export interface OrgAuditLog {
@@ -719,6 +763,8 @@ export interface DeveloperLog {
 
 export * from './team-collaboration';
 export * from './outreach';
+export * from './voice';
+export * from './followup';
 
 
 

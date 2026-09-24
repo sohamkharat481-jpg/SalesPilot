@@ -9,7 +9,9 @@ import {
   OrgRole, OrgPermission, OrgMemberPermission, OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
   AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory,
   ApiKey, OAuthClient, OAuthToken, WebhookEndpoint, WebhookDelivery, IntegrationConfig, MarketplaceApp, DeveloperLog,
-  OutreachCampaign, OutreachStep, OutreachQueueItem, OutreachMessage, OutreachEvent, OutreachReply
+  OutreachCampaign, OutreachStep, OutreachQueueItem, OutreachMessage, OutreachEvent, OutreachReply,
+  VoiceCallRecord, VoiceCallEvent, CallStatus, ManualCallActivity, ManualCallOutcome, CallingNumber,
+  SalesPilotNotification
 } from '../types';
 import { AIAgent, AgentTask, AgentMemory, AgentLog, AgentWorkflow, AgentPermission } from '../types/brain';
 import { LeadGenJob } from '../types';
@@ -72,6 +74,31 @@ export interface DBStructure {
   outreachMessages?: OutreachMessage[];
   outreachEvents?: OutreachEvent[];
   outreachReplies?: OutreachReply[];
+  voiceCalls?: VoiceCallRecord[];
+  voiceCallEvents?: VoiceCallEvent[];
+  manualCallActivities?: ManualCallActivity[];
+  callingNumbers?: CallingNumber[];
+  followUps?: any[];
+  salesPilotNotifications?: SalesPilotNotification[];
+}
+
+export function isValidCallStateTransition(from: CallStatus, to: CallStatus): boolean {
+  if (from === to) return true;
+
+  const validMap: Record<CallStatus, CallStatus[]> = {
+    QUEUED: ['DIALING', 'FAILED', 'CANCELLED'],
+    DIALING: ['RINGING', 'IN_PROGRESS', 'FAILED', 'CANCELLED'],
+    RINGING: ['IN_PROGRESS', 'NO_ANSWER', 'BUSY', 'FAILED', 'CANCELLED'],
+    IN_PROGRESS: ['COMPLETED', 'FAILED', 'CANCELLED'],
+    COMPLETED: [],
+    NO_ANSWER: [],
+    BUSY: [],
+    FAILED: [],
+    CANCELLED: []
+  };
+
+  const allowed = validMap[from] || [];
+  return allowed.includes(to);
 }
 
 export class LocalDB {
@@ -129,7 +156,8 @@ export class LocalDB {
     outreachQueue: [],
     outreachMessages: [],
     outreachEvents: [],
-    outreachReplies: []
+    outreachReplies: [],
+    followUps: []
   };
 
   private supabase: SupabaseClient | null = null;
@@ -195,6 +223,12 @@ export class LocalDB {
         if (!this.db.outreachMessages) this.db.outreachMessages = [];
         if (!this.db.outreachReplies) this.db.outreachReplies = [];
         if (!this.db.outreachEvents) this.db.outreachEvents = [];
+        if (!this.db.voiceCalls) this.db.voiceCalls = [];
+        if (!this.db.voiceCallEvents) this.db.voiceCallEvents = [];
+        if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+        if (!this.db.callingNumbers) this.db.callingNumbers = [];
+        if (!this.db.followUps) this.db.followUps = [];
+        if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
 
         this.ensureDefaultWorkspacesAndMemberships();
 
@@ -276,7 +310,8 @@ export class LocalDB {
         outreachQueue: [],
         outreachMessages: [],
         outreachReplies: [],
-        outreachEvents: []
+        outreachEvents: [],
+        salesPilotNotifications: []
       };
       this.save();
       return;
@@ -875,13 +910,28 @@ export class LocalDB {
       if (deals && deals.length > 0) {
         this.db.deals = deals.map(d => ({
           id: d.id,
-          leadId: d.lead_id,
-          leadName: d.lead_name,
+          organizationId: d.organization_id || d.organizationId,
+          leadId: d.lead_id || d.leadId,
+          leadName: d.lead_name || d.leadName,
           company: d.company,
-          valueInr: Number(d.value_inr || 0),
+          contactName: d.contact_name || d.contactName,
+          value: d.value !== undefined ? Number(d.value) : Number(d.value_inr || 0),
+          valueInr: Number(d.value_inr || d.value || 0),
+          currency: d.currency || 'INR',
           stage: d.stage,
-          updatedAt: d.updated_at,
-          notes: d.notes || ''
+          probability: d.probability !== undefined ? Number(d.probability) : undefined,
+          expectedCloseDate: d.expected_close_date || d.expectedCloseDate,
+          assignedUserId: d.assigned_user_id || d.assignedUserId,
+          assignedUserName: d.assigned_user_name || d.assignedUserName,
+          source: d.source || 'MANUAL',
+          description: d.description || '',
+          notes: d.notes || '',
+          nextAction: d.next_action || d.nextAction,
+          createdAt: d.created_at || d.createdAt || d.updated_at || new Date().toISOString(),
+          updatedAt: d.updated_at || d.updatedAt || new Date().toISOString(),
+          wonAt: d.won_at || d.wonAt,
+          lostAt: d.lost_at || d.lostAt,
+          lostReason: d.lost_reason || d.lostReason
         }));
       }
 
@@ -1180,6 +1230,11 @@ export class LocalDB {
     return this.db.users.find(u => u.id === id) || null;
   }
 
+  public getWorkspaceUsers(organizationId: string): any[] {
+    if (!this.db.users) this.db.users = [];
+    return this.db.users.filter(u => u.organizationId === organizationId);
+  }
+
   public addUser(user: any): void {
     this.db.users.push(user);
     this.save();
@@ -1420,6 +1475,17 @@ export class LocalDB {
     return lead;
   }
 
+  public saveLead(lead: Lead & { organizationId?: string }): Lead {
+    const idx = this.db.leads.findIndex(l => l.id === lead.id);
+    if (idx >= 0) {
+      this.db.leads[idx] = { ...this.db.leads[idx], ...lead };
+    } else {
+      this.db.leads.push(lead);
+    }
+    this.save();
+    return lead;
+  }
+
   public addLead(lead: Lead & { organizationId?: string }): void {
     this.db.leads.push(lead);
     this.save();
@@ -1540,6 +1606,19 @@ export class LocalDB {
     return false;
   }
 
+  public deleteDeal(id: string, organizationId?: string): boolean {
+    const idx = this.db.deals.findIndex(d => d.id === id);
+    if (idx !== -1) {
+      if (organizationId && (this.db.deals[idx] as any).organizationId !== organizationId) {
+        return false;
+      }
+      this.db.deals.splice(idx, 1);
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
   // --- Appointments Operations ---
   public getAppointments(organizationId: string | undefined): Appointment[] {
     if (!organizationId) return [];
@@ -1559,6 +1638,27 @@ export class LocalDB {
 
   public addAppointment(appointment: Appointment & { organizationId?: string }): void {
     this.db.appointments.push(appointment);
+    this.save();
+  }
+
+  public saveAppointment(appointment: Appointment & { organizationId?: string }): Appointment {
+    const idx = this.db.appointments.findIndex(a => a.id === appointment.id);
+    if (idx >= 0) {
+      this.db.appointments[idx] = { ...this.db.appointments[idx], ...appointment };
+    } else {
+      this.db.appointments.push(appointment);
+    }
+    this.save();
+    return appointment;
+  }
+
+  public getAppointmentsByLeadId(leadId: string): Appointment[] {
+    return this.db.appointments.filter(a => a.leadId === leadId);
+  }
+
+  public addLeadActivity(activity: any): void {
+    if (!this.db.activityLogs) this.db.activityLogs = [];
+    this.db.activityLogs.unshift(activity);
     this.save();
   }
 
@@ -2651,5 +2751,512 @@ export class LocalDB {
   public getOutreachEvents(organizationId: string): OutreachEvent[] {
     if (!this.db.outreachEvents) this.db.outreachEvents = [];
     return this.db.outreachEvents.filter(e => e.organizationId === organizationId);
+  }
+
+  // --- Voice Calling Module Methods ---
+
+  public getVoiceCalls(organizationId: string): VoiceCallRecord[] {
+    if (!this.db.voiceCalls) this.db.voiceCalls = [];
+    return this.db.voiceCalls.filter(c => c.organizationId === organizationId);
+  }
+
+  public getVoiceCallById(id: string, organizationId?: string): VoiceCallRecord | undefined {
+    if (!this.db.voiceCalls) this.db.voiceCalls = [];
+    return this.db.voiceCalls.find(c => c.id === id && (!organizationId || c.organizationId === organizationId));
+  }
+
+  public getVoiceCallByProviderId(providerCallId: string): VoiceCallRecord | undefined {
+    if (!this.db.voiceCalls) this.db.voiceCalls = [];
+    return this.db.voiceCalls.find(c => c.providerCallId === providerCallId);
+  }
+
+  public saveVoiceCall(callRecord: VoiceCallRecord): VoiceCallRecord {
+    if (!this.db.voiceCalls) this.db.voiceCalls = [];
+    const existingIdx = this.db.voiceCalls.findIndex(c => c.id === callRecord.id);
+    const updated = { ...callRecord, updatedAt: new Date().toISOString() };
+    if (existingIdx >= 0) {
+      this.db.voiceCalls[existingIdx] = updated;
+    } else {
+      this.db.voiceCalls.unshift(updated);
+    }
+    this.save();
+    return updated;
+  }
+
+  public updateVoiceCallStatus(
+    callId: string,
+    status: CallStatus,
+    organizationId?: string,
+    extra?: Partial<VoiceCallRecord>
+  ): VoiceCallRecord | undefined {
+    if (!this.db.voiceCalls) this.db.voiceCalls = [];
+    const call = this.db.voiceCalls.find(c => c.id === callId && (!organizationId || c.organizationId === organizationId));
+    if (!call) return undefined;
+
+    const fromStatus = call.status;
+
+    if (!isValidCallStateTransition(fromStatus, status)) {
+      throw new Error(`Invalid call state transition from ${fromStatus} to ${status}`);
+    }
+
+    call.status = status;
+    call.updatedAt = new Date().toISOString();
+    if (extra) {
+      Object.assign(call, extra);
+    }
+
+    // Record state transition event
+    this.addVoiceCallEvent({
+      organizationId: call.organizationId,
+      callId: call.id,
+      fromStatus,
+      toStatus: status,
+      details: extra?.summary ? { summary: extra.summary } : undefined
+    });
+
+    this.save();
+    return call;
+  }
+
+  public getVoiceCallEvents(callId: string, organizationId?: string): VoiceCallEvent[] {
+    if (!this.db.voiceCallEvents) this.db.voiceCallEvents = [];
+    return this.db.voiceCallEvents.filter(e => e.callId === callId && (!organizationId || e.organizationId === organizationId));
+  }
+
+  public addVoiceCallEvent(event: Omit<VoiceCallEvent, 'id' | 'createdAt'>): VoiceCallEvent {
+    if (!this.db.voiceCallEvents) this.db.voiceCallEvents = [];
+    const fullEvent: VoiceCallEvent = {
+      ...event,
+      id: 'vce_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      createdAt: new Date().toISOString()
+    };
+    this.db.voiceCallEvents.push(fullEvent);
+    this.save();
+    return fullEvent;
+  }
+
+  // --- Manual Phone Calls ---
+  public getManualCallActivities(organizationId: string, leadId?: string): ManualCallActivity[] {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    return this.db.manualCallActivities.filter(a => {
+      if (a.organizationId !== organizationId) return false;
+      if (leadId && a.leadId !== leadId) return false;
+      return true;
+    });
+  }
+
+  public getManualCallActivityById(id: string, organizationId: string): ManualCallActivity | undefined {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    return this.db.manualCallActivities.find(a => a.id === id && a.organizationId === organizationId);
+  }
+
+  public addManualCallActivity(activity: ManualCallActivity): ManualCallActivity {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    if (!activity.auditHistory || activity.auditHistory.length === 0) {
+      activity.auditHistory = [{
+        timestamp: activity.createdAt || new Date().toISOString(),
+        action: 'INITIATED',
+        actorId: activity.userId,
+        details: `Call initiated from SalesPilot device dialer to ${activity.phoneNumber}`
+      }];
+    }
+    this.db.manualCallActivities.unshift(activity);
+    this.save();
+    return activity;
+  }
+
+  public updateManualCallOutcome(
+    id: string,
+    organizationId: string,
+    outcome: ManualCallOutcome,
+    notes?: string,
+    actorId?: string,
+    actorName?: string
+  ): ManualCallActivity | undefined {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    const activity = this.db.manualCallActivities.find(a => a.id === id && a.organizationId === organizationId);
+    if (!activity) return undefined;
+
+    activity.outcome = outcome;
+    if (notes !== undefined && notes !== '') activity.notes = notes;
+    activity.status = 'COMPLETED';
+    activity.updatedAt = new Date().toISOString();
+
+    if (!activity.auditHistory) activity.auditHistory = [];
+    activity.auditHistory.push({
+      timestamp: activity.updatedAt,
+      action: 'OUTCOME_UPDATED',
+      actorId: actorId || activity.userId,
+      actorName: actorName,
+      details: `Outcome updated to ${outcome}${notes ? `. Notes: ${notes}` : ''}`
+    });
+
+    this.save();
+    return activity;
+  }
+
+  public updateManualCallNotes(
+    id: string,
+    organizationId: string,
+    notes: string,
+    actorId?: string,
+    actorName?: string
+  ): ManualCallActivity | undefined {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    const activity = this.db.manualCallActivities.find(a => a.id === id && a.organizationId === organizationId);
+    if (!activity) return undefined;
+
+    activity.notes = notes;
+    activity.updatedAt = new Date().toISOString();
+
+    if (!activity.auditHistory) activity.auditHistory = [];
+    activity.auditHistory.push({
+      timestamp: activity.updatedAt,
+      action: 'NOTES_UPDATED',
+      actorId: actorId || activity.userId,
+      actorName: actorName,
+      details: 'Call notes updated'
+    });
+
+    this.save();
+    return activity;
+  }
+
+  // --- Multi-User Calling Numbers ---
+  public getCallingNumbers(organizationId: string, userId: string): CallingNumber[] {
+    if (!this.db.callingNumbers) this.db.callingNumbers = [];
+    return this.db.callingNumbers.filter(cn => cn.organizationId === organizationId && cn.userId === userId);
+  }
+
+  public getCallingNumberById(id: string, organizationId: string, userId?: string): CallingNumber | undefined {
+    if (!this.db.callingNumbers) this.db.callingNumbers = [];
+    return this.db.callingNumbers.find(cn => {
+      if (cn.id !== id || cn.organizationId !== organizationId) return false;
+      if (userId && cn.userId !== userId) return false;
+      return true;
+    });
+  }
+
+  public addCallingNumber(data: {
+    userId: string;
+    organizationId: string;
+    phoneNumber: string;
+    countryCode: string;
+    isVerified?: boolean;
+    isDefault?: boolean;
+  }): CallingNumber {
+    if (!this.db.callingNumbers) this.db.callingNumbers = [];
+
+    // Check duplicate number for same user in same organization
+    const existing = this.db.callingNumbers.find(
+      cn => cn.organizationId === data.organizationId && 
+            cn.userId === data.userId && 
+            cn.phoneNumber === data.phoneNumber
+    );
+    if (existing) {
+      throw new Error("Duplicate phone number: This calling number already exists for your account in this workspace.");
+    }
+
+    const userNumbers = this.db.callingNumbers.filter(
+      cn => cn.organizationId === data.organizationId && cn.userId === data.userId
+    );
+
+    const shouldBeDefault = userNumbers.length === 0 || Boolean(data.isDefault);
+
+    if (shouldBeDefault) {
+      // Unset isDefault on existing numbers for this user/org
+      for (const cn of userNumbers) {
+        cn.isDefault = false;
+        cn.updatedAt = new Date().toISOString();
+      }
+    }
+
+    const now = new Date().toISOString();
+    const newCallingNumber: CallingNumber = {
+      id: 'cn_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      userId: data.userId,
+      organizationId: data.organizationId,
+      phoneNumber: data.phoneNumber,
+      countryCode: data.countryCode || '+1',
+      isVerified: data.isVerified ?? true,
+      isDefault: shouldBeDefault,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.db.callingNumbers.unshift(newCallingNumber);
+    this.save();
+    return newCallingNumber;
+  }
+
+  public updateCallingNumber(
+    id: string,
+    userId: string,
+    organizationId: string,
+    updates: Partial<{ phoneNumber: string; countryCode: string; isVerified: boolean; isDefault: boolean }>
+  ): CallingNumber | undefined {
+    if (!this.db.callingNumbers) this.db.callingNumbers = [];
+
+    const target = this.db.callingNumbers.find(
+      cn => cn.id === id && cn.organizationId === organizationId && cn.userId === userId
+    );
+
+    if (!target) return undefined;
+
+    if (updates.phoneNumber && updates.phoneNumber !== target.phoneNumber) {
+      const existing = this.db.callingNumbers.find(
+        cn => cn.organizationId === organizationId && 
+              cn.userId === userId && 
+              cn.phoneNumber === updates.phoneNumber && 
+              cn.id !== id
+      );
+      if (existing) {
+        throw new Error("Duplicate phone number: This calling number already exists for your account in this workspace.");
+      }
+      target.phoneNumber = updates.phoneNumber;
+    }
+
+    if (updates.countryCode) target.countryCode = updates.countryCode;
+    if (updates.isVerified !== undefined) target.isVerified = updates.isVerified;
+
+    if (updates.isDefault === true) {
+      const userNumbers = this.db.callingNumbers.filter(
+        cn => cn.organizationId === organizationId && cn.userId === userId
+      );
+      for (const cn of userNumbers) {
+        cn.isDefault = (cn.id === id);
+        cn.updatedAt = new Date().toISOString();
+      }
+    }
+
+    target.updatedAt = new Date().toISOString();
+    this.save();
+    return target;
+  }
+
+  public setDefaultCallingNumber(id: string, userId: string, organizationId: string): CallingNumber | undefined {
+    return this.updateCallingNumber(id, userId, organizationId, { isDefault: true });
+  }
+
+  public removeCallingNumber(id: string, userId: string, organizationId: string): CallingNumber[] {
+    if (!this.db.callingNumbers) this.db.callingNumbers = [];
+
+    const target = this.db.callingNumbers.find(
+      cn => cn.id === id && cn.organizationId === organizationId && cn.userId === userId
+    );
+
+    if (!target) {
+      return this.getCallingNumbers(organizationId, userId);
+    }
+
+    const wasDefault = target.isDefault;
+
+    // Remove target number (do NOT delete historical call activities)
+    this.db.callingNumbers = this.db.callingNumbers.filter(cn => cn.id !== id);
+
+    // If removed number was default, automatically select another number for this user/org as default
+    if (wasDefault) {
+      const remaining = this.db.callingNumbers.filter(
+        cn => cn.organizationId === organizationId && cn.userId === userId
+      );
+      if (remaining.length > 0) {
+        remaining[0].isDefault = true;
+        remaining[0].updatedAt = new Date().toISOString();
+      }
+    }
+
+    this.save();
+    return this.getCallingNumbers(organizationId, userId);
+  }
+
+  // --- Follow-Up Operations ---
+  public addFollowUp(followUp: any): void {
+    if (!this.db.followUps) this.db.followUps = [];
+    this.db.followUps.push(followUp);
+    this.save();
+  }
+
+  public getFollowUps(organizationId: string): any[] {
+    if (!this.db.followUps) this.db.followUps = [];
+    return this.db.followUps.filter(f => f.organizationId === organizationId);
+  }
+
+  public getFollowUpById(id: string, organizationId: string): any | null {
+    if (!this.db.followUps) this.db.followUps = [];
+    return this.db.followUps.find(f => f.id === id && f.organizationId === organizationId) || null;
+  }
+
+  public updateFollowUp(id: string, organizationId: string, updates: any): any | null {
+    if (!this.db.followUps) this.db.followUps = [];
+    const idx = this.db.followUps.findIndex(f => f.id === id && f.organizationId === organizationId);
+    if (idx !== -1) {
+      const updated = { ...this.db.followUps[idx], ...updates, updatedAt: new Date().toISOString() };
+      this.db.followUps[idx] = updated;
+      this.save();
+      return updated;
+    }
+    return null;
+  }
+
+  public addLeadTimelineEvent(leadId: string, organizationId: string, event: string, details: string): void {
+    const lead = this.getLeadById(leadId, organizationId);
+    if (lead) {
+      if (!lead.timelineList) lead.timelineList = [];
+      lead.timelineList.push({
+        id: 'evt_' + Math.random().toString(36).substring(2, 11),
+        event,
+        details,
+        createdAt: new Date().toISOString()
+      });
+      this.saveLead(lead);
+    }
+  }
+
+  // --- SalesPilot Notification Helper Methods ---
+  public addSalesPilotNotification(notification: {
+    organizationId: string;
+    userId: string;
+    type: SalesPilotNotification['type'];
+    title: string;
+    message: string;
+    entityType?: SalesPilotNotification['entityType'];
+    entityId?: string;
+    priority: SalesPilotNotification['priority'];
+    metadata?: any;
+    idempotencyKey?: string;
+  }): SalesPilotNotification {
+    if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+
+    // Generate deterministic idempotencyKey if not specified
+    const eventVersion = notification.metadata?.eventVersion || '1';
+    const finalIdempotencyKey = notification.idempotencyKey || 
+      `${notification.organizationId}_${notification.userId}_${notification.type}_${notification.entityId || ''}_v${eventVersion}`;
+
+    // Look for existing notification with same idempotency key
+    const existing = this.db.salesPilotNotifications.find(n => n.idempotencyKey === finalIdempotencyKey);
+    if (existing) {
+      console.log(`[LocalDB] Duplicate notification prevented. Returning existing notification: ${existing.id}`);
+      return existing;
+    }
+
+    const newNtf: SalesPilotNotification = {
+      id: 'ntf_' + crypto.randomUUID().replace(/-/g, ''),
+      organizationId: notification.organizationId,
+      userId: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      entityType: notification.entityType,
+      entityId: notification.entityId,
+      priority: notification.priority,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      readAt: null,
+      metadata: notification.metadata || {},
+      idempotencyKey: finalIdempotencyKey
+    };
+
+    this.db.salesPilotNotifications.push(newNtf);
+    this.save();
+    console.log(`[LocalDB] Persisted notification: ${newNtf.id} (type: ${newNtf.type}, user: ${newNtf.userId})`);
+    return newNtf;
+  }
+
+  public getSalesPilotNotifications(
+    organizationId: string, 
+    userId: string, 
+    filters: { 
+      type?: string; 
+      priority?: string; 
+      isRead?: boolean; 
+      entityType?: string; 
+      startDate?: string; 
+      endDate?: string;
+    } = {}
+  ): SalesPilotNotification[] {
+    if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+
+    return this.db.salesPilotNotifications.filter(n => {
+      // Basic tenant and user isolation
+      if (n.organizationId !== organizationId) return false;
+      if (n.userId !== userId) return false;
+
+      // Filter by type
+      if (filters.type && n.type !== filters.type) return false;
+
+      // Filter by priority
+      if (filters.priority && n.priority !== filters.priority) return false;
+
+      // Filter by isRead state
+      if (filters.isRead !== undefined && n.isRead !== filters.isRead) return false;
+
+      // Filter by entityType
+      if (filters.entityType && n.entityType !== filters.entityType) return false;
+
+      // Filter by date range
+      if (filters.startDate && new Date(n.createdAt) < new Date(filters.startDate)) return false;
+      if (filters.endDate && new Date(n.createdAt) > new Date(filters.endDate)) return false;
+
+      return true;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  public getUnreadSalesPilotNotificationCount(organizationId: string, userId: string): number {
+    if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+    return this.db.salesPilotNotifications.filter(
+      n => n.organizationId === organizationId && n.userId === userId && !n.isRead
+    ).length;
+  }
+
+  public getSalesPilotNotificationById(id: string, organizationId: string, userId: string): SalesPilotNotification | null {
+    if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+    return this.db.salesPilotNotifications.find(
+      n => n.id === id && n.organizationId === organizationId && n.userId === userId
+    ) || null;
+  }
+
+  public updateSalesPilotNotification(id: string, organizationId: string, userId: string, updates: Partial<SalesPilotNotification>): SalesPilotNotification | null {
+    if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+    const idx = this.db.salesPilotNotifications.findIndex(
+      n => n.id === id && n.organizationId === organizationId && n.userId === userId
+    );
+
+    if (idx !== -1) {
+      const updated = { 
+        ...this.db.salesPilotNotifications[idx], 
+        ...updates 
+      };
+      if (updates.isRead !== undefined) {
+        updated.readAt = updates.isRead ? new Date().toISOString() : null;
+      }
+      this.db.salesPilotNotifications[idx] = updated;
+      this.save();
+      return updated;
+    }
+    return null;
+  }
+
+  public markSalesPilotNotificationRead(id: string, organizationId: string, userId: string, isRead: boolean): SalesPilotNotification | null {
+    return this.updateSalesPilotNotification(id, organizationId, userId, { isRead });
+  }
+
+  public markAllSalesPilotNotificationsRead(organizationId: string, userId: string): void {
+    if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+    let changed = false;
+
+    this.db.salesPilotNotifications.forEach((n, idx) => {
+      if (n.organizationId === organizationId && n.userId === userId && !n.isRead) {
+        this.db.salesPilotNotifications![idx] = {
+          ...n,
+          isRead: true,
+          readAt: new Date().toISOString()
+        };
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.save();
+    }
   }
 }

@@ -11,7 +11,7 @@ import {
   Rocket, Building2, Terminal, HelpCircle, PhoneCall, Smartphone, Globe, Lock, Chrome, CheckCircle2
 } from 'lucide-react';
 import { Lead, Campaign, Deal, Appointment, IntegrationCredentials, 
-  WorkspaceUser, SubscriptionTier, DealStage, SequenceStep 
+  WorkspaceUser, SubscriptionTier, DealStage, SequenceStep, SalesPilotNotification 
  } from './types';
 import { DashboardView } from './components/DashboardView';
 import { LeadsView } from './components/LeadsView';
@@ -49,6 +49,7 @@ import { AiMemoryManagerView } from './components/copilot/AiMemoryManagerView';
 import { HyperscaleInfraView } from './components/HyperscaleInfraView';
 import { GlobalLaunchHub } from './components/GlobalLaunchHub';
 import { WorkDoneView } from './components/WorkDoneView';
+import { NotificationsView } from './components/NotificationsView';
 import { PublicStatusPageModal } from './components/PublicStatusPageModal';
 import { LegalPrivacyModal } from './components/LegalPrivacyModal';
 import { GlobalProductionReportModal } from './components/GlobalProductionReportModal';
@@ -235,7 +236,7 @@ export default function App() {
     'Compile pipeline health review'
   ]);
   
-  const [notifications, setNotifications] = useState<Array<{ id: string; text: string; time: string; read: boolean }>>([]);
+  const [notifications, setNotifications] = useState<SalesPilotNotification[]>([]);
   const [activities, setActivities] = useState<Array<{ id: string; text: string; time: string; icon: string; color: string }>>([]);
 
   // Redirect non-subscribers/non-founders to billing immediately
@@ -309,7 +310,7 @@ export default function App() {
           fetch('/api/v1/deals', { headers }),
           fetch('/api/v1/appointments', { headers }),
           fetch('/api/v1/integrations', { headers }),
-          fetch('/api/v1/dashboard/notifications', { headers }).catch(() => null),
+          fetch('/api/v1/notifications?limit=25', { headers }).catch(() => null),
           fetch('/api/v1/dashboard/activities', { headers }).catch(() => null)
         ]);
 
@@ -416,7 +417,19 @@ export default function App() {
       
       // Telemetry log and notification push
       setActivities(prev => [{ id: `act-${Date.now()}`, text: `Lead "${newLead.fullName}" created manually.`, time: 'Just now', icon: 'Users', color: 'text-emerald-500' }, ...prev]);
-      setNotifications(prev => [{ id: `not-${Date.now()}`, text: `New lead "${newLead.fullName}" added.`, time: 'Just now', read: false }, ...prev]);
+      setNotifications(prev => [{
+        id: `not-${Date.now()}`,
+        organizationId: workspaceId || '',
+        userId: user?.id || '',
+        type: 'NEW_LEAD',
+        title: 'New Lead Added',
+        message: `New lead "${newLead.fullName}" added.`,
+        entityType: 'LEAD',
+        entityId: newLead.id,
+        priority: 'LOW',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
     } catch (err) {
       console.error(err);
     }
@@ -437,7 +450,19 @@ export default function App() {
 
       // Telemetry log and notification push
       setActivities(prev => [{ id: `act-${Date.now()}`, text: `Lead "${updatedLead.fullName}" enriched via Gemini AI.`, time: 'Just now', icon: 'Bot', color: 'text-cyan-500' }, ...prev]);
-      setNotifications(prev => [{ id: `not-${Date.now()}`, text: `Gemini enriched lead "${updatedLead.fullName}".`, time: 'Just now', read: false }, ...prev]);
+      setNotifications(prev => [{
+        id: `not-${Date.now()}`,
+        organizationId: workspaceId || '',
+        userId: user?.id || '',
+        type: 'INTERESTED_LEAD',
+        title: 'Lead Enriched via AI',
+        message: `Gemini enriched lead "${updatedLead.fullName}".`,
+        entityType: 'LEAD',
+        entityId: leadId,
+        priority: 'MEDIUM',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
     } catch (err) {
       console.error(err);
     }
@@ -460,7 +485,17 @@ export default function App() {
 
       // Telemetry log and notification push
       setActivities(prev => [{ id: `act-${Date.now()}`, text: `Campaign "${newCamp.name}" successfully created.`, time: 'Just now', icon: 'Sparkles', color: 'text-blue-500' }, ...prev]);
-      setNotifications(prev => [{ id: `not-${Date.now()}`, text: `Campaign "${newCamp.name}" launched.`, time: 'Just now', read: false }, ...prev]);
+      setNotifications(prev => [{
+        id: `not-${Date.now()}`,
+        organizationId: workspaceId || '',
+        userId: user?.id || '',
+        type: 'NEW_LEAD',
+        title: 'Campaign Launched',
+        message: `Campaign "${newCamp.name}" launched.`,
+        priority: 'MEDIUM',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
     } catch (err) {
       console.error(err);
     }
@@ -497,17 +532,33 @@ export default function App() {
       return;
     }
     try {
+      const token = localStorage.getItem('salespilot_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch(`/api/v1/deals/${dealId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ stage })
       });
       const updatedDeal = await response.json();
-      setDeals(prev => prev.map(d => d.id === dealId ? updatedDeal : d));
+      setDeals(prev => prev.map(d => d.id === dealId ? { ...d, ...updatedDeal } : d));
 
       // Telemetry log and notification push
       setActivities(prev => [{ id: `act-${Date.now()}`, text: `Deal stage advanced to ${stage}.`, time: 'Just now', icon: 'Award', color: 'text-indigo-500' }, ...prev]);
-      setNotifications(prev => [{ id: `not-${Date.now()}`, text: `Deal stage advanced to ${stage}.`, time: 'Just now', read: false }, ...prev]);
+      setNotifications(prev => [{
+        id: `not-${Date.now()}`,
+        organizationId: workspaceId || '',
+        userId: user?.id || '',
+        type: 'DEAL_STAGE_CHANGED',
+        title: 'Deal Stage Changed',
+        message: `Deal stage advanced to ${stage}.`,
+        entityType: 'DEAL',
+        entityId: dealId,
+        priority: 'HIGH',
+        isRead: false,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
     } catch (err) {
       console.error(err);
     }
@@ -550,7 +601,19 @@ export default function App() {
 
         // Telemetry log and notification push
         setActivities(prev => [{ id: `act-${Date.now()}`, text: `Google Meet scheduled with ${updatedLead.fullName}.`, time: 'Just now', icon: 'Calendar', color: 'text-emerald-500' }, ...prev]);
-        setNotifications(prev => [{ id: `not-${Date.now()}`, text: `Meeting scheduled with ${updatedLead.fullName}.`, time: 'Just now', read: false }, ...prev]);
+        setNotifications(prev => [{
+          id: `not-${Date.now()}`,
+          organizationId: workspaceId || '',
+          userId: user?.id || '',
+          type: 'MEETING_BOOKED',
+          title: 'Meeting Booked',
+          message: `Meeting scheduled with ${updatedLead.fullName}.`,
+          entityType: 'MEETING',
+          entityId: newApt.id,
+          priority: 'HIGH',
+          isRead: false,
+          createdAt: new Date().toISOString()
+        }, ...prev]);
       }
       return newApt;
     } catch (err: any) {
@@ -649,6 +712,7 @@ export default function App() {
     { id: 'outreach', label: 'Outreach', icon: Send },
     { id: 'scheduler', label: 'Appointments', icon: Calendar, badge: appointments.filter(a => a.status === 'SCHEDULED').length },
     { id: 'pipeline', label: 'CRM', icon: Award },
+    { id: 'notifications-inbox', label: 'Notifications', icon: Bell, badge: notifications.filter(n => !n.isRead).length },
     { id: 'voice-calling', label: 'AI Voice Calling', icon: PhoneCall },
     { id: 'mobile-app', label: 'Mobile Workspace', icon: Smartphone },
     { id: 'ai-agents', label: 'AI Agents', icon: Bot },
@@ -895,9 +959,9 @@ export default function App() {
               title="View system notices"
             >
               <Bell className="w-4 h-4" />
-              {notifications.filter(n => !n.read).length > 0 && (
+              {notifications.filter(n => !n.isRead).length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-bold font-mono text-[9px] rounded-full flex items-center justify-center animate-bounce">
-                  {notifications.filter(n => !n.read).length}
+                  {notifications.filter(n => !n.isRead).length}
                 </span>
               )}
             </button>
@@ -908,11 +972,18 @@ export default function App() {
                 <div className="absolute right-0 top-10 w-80 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg shadow-xl p-4 z-50 space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
                     <span className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                      <Bell className="w-3.5 h-3.5 text-blue-500" /> System Notices
+                      <Bell className="w-3.5 h-3.5 text-blue-500" /> Active Alerts
                     </span>
                     <button 
-                      onClick={() => {
-                        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                      onClick={async () => {
+                        const token = sessionStorage.getItem('salespilot_token');
+                        const workspaceId = sessionStorage.getItem('salespilot_workspace_id');
+                        const headers: Record<string, string> = {};
+                        if (token) headers['Authorization'] = `Bearer ${token}`;
+                        if (workspaceId) headers['x-organization-id'] = workspaceId;
+                        
+                        await fetch('/api/v1/notifications/read-all', { method: 'POST', headers }).catch(() => null);
+                        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
                       }}
                       className="text-[9px] font-mono text-blue-600 dark:text-blue-400 hover:underline"
                     >
@@ -920,20 +991,67 @@ export default function App() {
                     </button>
                   </div>
                   <div className="space-y-2.5 max-h-60 overflow-y-auto scrollbar-none">
-                    {notifications.map(n => (
+                    {notifications.slice(0, 10).map(n => (
                       <div 
                         key={n.id}
-                        onClick={() => {
-                          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+                        onClick={async () => {
+                          const token = sessionStorage.getItem('salespilot_token');
+                          const workspaceId = sessionStorage.getItem('salespilot_workspace_id');
+                          const headers: Record<string, string> = {};
+                          if (token) headers['Authorization'] = `Bearer ${token}`;
+                          if (workspaceId) headers['x-organization-id'] = workspaceId;
+                          
+                          await fetch(`/api/v1/notifications/${n.id}/read`, { method: 'POST', headers }).catch(() => null);
+                          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+                          setShowNotifications(false);
+                          
+                          // Handle deep linking based on type
+                          if (n.entityId && n.entityType) {
+                            if (n.entityType === 'LEAD') {
+                              setActiveTab('leads');
+                            } else if (n.entityType === 'DEAL') {
+                              setActiveTab('pipeline');
+                            } else if (n.entityType === 'MEETING') {
+                              setActiveTab('scheduler');
+                            } else if (n.entityType === 'FOLLOW_UP') {
+                              setActiveTab('leads');
+                            } else if (n.entityType === 'CALL') {
+                              setActiveTab('voice-calling');
+                            }
+                          } else {
+                            setActiveTab('notifications-inbox');
+                          }
                         }}
-                        className={`p-2 rounded-lg text-xs leading-normal transition cursor-pointer ${n.read ? 'bg-slate-50/50 dark:bg-slate-850/10 text-slate-500' : 'bg-blue-50/40 dark:bg-blue-950/20 border-l-2 border-blue-500 text-slate-800 dark:text-slate-100'}`}
+                        className={`p-2 rounded-lg text-xs leading-normal transition cursor-pointer ${n.isRead ? 'bg-slate-50/50 dark:bg-slate-850/10 text-slate-500' : 'bg-blue-50/40 dark:bg-blue-950/20 border-l-2 border-blue-500 text-slate-800 dark:text-slate-100'}`}
                       >
-                        <div>{n.text}</div>
-                        <div className="text-[9px] text-slate-400 font-mono mt-1 flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" /> {n.time}
+                        <div className="font-bold text-[10px] text-slate-900 dark:text-white mb-0.5">{n.title}</div>
+                        <div>{n.message}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-1 flex items-center gap-1 justify-between">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" /> {new Date(n.createdAt).toLocaleTimeString()}
+                          </span>
+                          <span className="px-1 bg-slate-100 dark:bg-slate-800 rounded font-bold uppercase text-[8px]">
+                            {n.priority}
+                          </span>
                         </div>
                       </div>
                     ))}
+                    {notifications.length === 0 && (
+                      <div className="p-4 text-center text-[10px] font-mono text-slate-450">
+                        No active notices.
+                      </div>
+                    )}
+                  </div>
+                  <div className="border-t border-slate-100 dark:border-slate-850 pt-2 text-center">
+                    <button
+                      onClick={() => {
+                        setActiveTab('notifications-inbox');
+                        setShowNotifications(false);
+                      }}
+                      className="w-full text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      Open Notification Control Inbox
+                    </button>
                   </div>
                 </div>
               </>
@@ -1264,10 +1382,17 @@ export default function App() {
             )
           )}
 
+          {activeTab === 'notifications-inbox' && (
+            <NotificationsView 
+              setActiveTab={setActiveTab}
+            />
+          )}
+
           {activeTab === 'pipeline' && (
             <PipelineView 
               deals={deals} 
               onUpdateDealStage={handleUpdateDealStage} 
+              setActiveTab={setActiveTab}
             />
           )}
 

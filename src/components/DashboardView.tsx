@@ -6,7 +6,8 @@ import {
   Clock, Bot, Send, RefreshCw, Plus, Search, MapPin, 
   Building, CheckCircle2, XCircle, ExternalLink, MessageSquare, 
   DollarSign, Activity, ChevronLeft, UserCheck, ShieldAlert, 
-  Compass, Eye, EyeOff, LayoutGrid, Save, Trash2, ArrowUp, ArrowDown, HelpCircle
+  Compass, Eye, EyeOff, LayoutGrid, Save, Trash2, ArrowUp, ArrowDown, HelpCircle,
+  Bell
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
@@ -68,6 +69,48 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Sales Command Center States
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'command_center' | 'ai_insights'>('command_center');
+  const [dateRange, setDateRange] = useState<string>('30days');
+  const [customStart, setCustomStart] = useState<string>('');
+  const [customEnd, setCustomEnd] = useState<string>('');
+  const [ccData, setCcData] = useState<any>(null);
+  const [isLoadingCC, setIsLoadingCC] = useState<boolean>(true);
+  const [ccError, setCcError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchCommandCenter() {
+      setIsLoadingCC(true);
+      setCcError(null);
+      try {
+        let url = `/api/v1/dashboard/command-center?dateRange=${dateRange}`;
+        if (dateRange === 'custom') {
+          if (customStart) url += `&startDate=${customStart}`;
+          if (customEnd) url += `&endDate=${customEnd}`;
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP status: ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.success) {
+          setCcData(data);
+        } else {
+          setCcError(data.error || 'Failed to retrieve telemetry data.');
+        }
+      } catch (err: any) {
+        console.error('Failed to load Command Center data:', err);
+        setCcError(err.message || 'Error loading dashboard dataset.');
+      } finally {
+        setIsLoadingCC(false);
+      }
+    }
+
+    if (activeDashboardTab === 'command_center') {
+      fetchCommandCenter();
+    }
+  }, [dateRange, customStart, customEnd, activeDashboardTab, leads, deals, appointments]);
+
   // Interactive UI States
   const [activeRecommendation, setActiveRecommendation] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -115,15 +158,25 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
   });
 
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [dashboardNotifications, setDashboardNotifications] = useState<any[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
 
   // Fetch metrics & analytics from true Backend APIs
   useEffect(() => {
     async function fetchDashboardMetrics() {
       try {
-        const [metRes, anaRes, actRes] = await Promise.all([
-          fetch('/api/v1/dashboard/metrics').catch(() => null),
-          fetch('/api/v1/dashboard/analytics').catch(() => null),
-          fetch('/api/v1/dashboard/activities').catch(() => null)
+        const token = sessionStorage.getItem('salespilot_token');
+        const workspaceId = sessionStorage.getItem('salespilot_workspace_id');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+        const [metRes, anaRes, actRes, notRes, cntRes] = await Promise.all([
+          fetch('/api/v1/dashboard/metrics', { headers }).catch(() => null),
+          fetch('/api/v1/dashboard/analytics', { headers }).catch(() => null),
+          fetch('/api/v1/dashboard/activities', { headers }).catch(() => null),
+          fetch('/api/v1/notifications?limit=8', { headers }).catch(() => null),
+          fetch('/api/v1/notifications/unread-count', { headers }).catch(() => null)
         ]);
 
         if (metRes) {
@@ -142,6 +195,18 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
           const acData = await actRes.json();
           if (acData.success && acData.activities) {
             setRecentActivities(acData.activities);
+          }
+        }
+        if (notRes) {
+          const nData = await notRes.json();
+          if (nData.success && nData.notifications) {
+            setDashboardNotifications(nData.notifications);
+          }
+        }
+        if (cntRes) {
+          const cData = await cntRes.json();
+          if (cData.success) {
+            setUnreadNotifCount(cData.count);
           }
         }
       } catch (err) {
@@ -352,8 +417,544 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
         </div>
       </div>
 
-      {/* Widget Customizer Control Popover Panel */}
-      {isCustomizeMode && (
+      {/* Dashboard Mode Switcher Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2">
+        <button
+          onClick={() => setActiveDashboardTab('command_center')}
+          className={`px-4 sm:px-6 py-3 font-display text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            activeDashboardTab === 'command_center'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Activity className="w-4 h-4 text-blue-500" />
+          Sales Command Center
+        </button>
+        <button
+          onClick={() => setActiveDashboardTab('ai_insights')}
+          className={`px-4 sm:px-6 py-3 font-display text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            activeDashboardTab === 'ai_insights'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-purple-500" />
+          AI Strategy & Custom Layouts
+        </button>
+      </div>
+
+      {activeDashboardTab === 'command_center' ? (
+        <div className="space-y-6">
+          {/* Controls row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">Selected Window:</span>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 border border-slate-250 dark:border-slate-755 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="thisMonth">This Month</option>
+                <option value="prevMonth">Previous Month</option>
+                <option value="custom">Custom Date Range</option>
+              </select>
+            </div>
+
+            {dateRange === 'custom' && (
+              <div className="flex flex-wrap items-center gap-2 animate-fade-in">
+                <span className="text-[11px] font-mono text-slate-400">From:</span>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-250 dark:border-slate-750 text-slate-800 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <span className="text-[11px] font-mono text-slate-400">To:</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-250 dark:border-slate-750 text-slate-800 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Real Persistent Data Only</span>
+            </div>
+          </div>
+
+          {isLoadingCC ? (
+            <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+              <p className="text-xs text-slate-500 font-mono">Compiling live workspace telemetry and financial metrics...</p>
+            </div>
+          ) : ccError ? (
+            <div className="p-6 text-center bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-2xl flex flex-col items-center justify-center gap-2">
+              <AlertCircle className="w-8 h-8 text-rose-500" />
+              <p className="text-sm font-bold text-slate-800 dark:text-white">Telemetry Synchronization Failure</p>
+              <p className="text-xs text-slate-500">{ccError}</p>
+            </div>
+          ) : ccData ? (
+            <div className="space-y-6">
+              {/* 10 KPI Cards Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                {[
+                  { label: 'Total Leads Sourced', val: ccData.kpis.leadsCount, icon: Users, color: 'text-blue-500', tab: 'leads' },
+                  { label: 'New Sourced Leads', val: ccData.kpis.newLeadsCount, icon: Plus, color: 'text-indigo-500', tab: 'leads' },
+                  { label: 'Interested Prospects', val: ccData.kpis.interestedLeadsCount, icon: Sparkles, color: 'text-orange-500', tab: 'leads' },
+                  { label: 'Manual Calls Today', val: ccData.kpis.callsTodayCount, icon: Activity, color: 'text-rose-500', tab: 'leads' },
+                  { label: 'Follow-Ups Due Today', val: ccData.kpis.followUpsDueTodayCount, icon: Clock, color: 'text-amber-500', tab: 'leads' },
+                  { label: 'Overdue Follow-Ups', val: ccData.kpis.overdueFollowUpsCount, icon: AlertCircle, color: 'text-red-500', tab: 'leads' },
+                  { label: 'Meetings Booked', val: ccData.kpis.meetingsCount, icon: Calendar, color: 'text-emerald-500', tab: 'appointments' },
+                  { label: 'Active Open Deals', val: ccData.kpis.openDealsCount, icon: Layers, color: 'text-cyan-500', tab: 'pipeline' },
+                  { label: 'Total Pipeline Value', val: `₹${ccData.kpis.pipelineValueSum.toLocaleString('en-IN')}`, icon: DollarSign, color: 'text-teal-500', tab: 'pipeline' },
+                  { label: 'Closed Won Revenue', val: `₹${ccData.kpis.wonRevenueSum.toLocaleString('en-IN')}`, icon: Award, color: 'text-purple-500', tab: 'pipeline' }
+                ].map((kpi, idx) => {
+                  const Icon = kpi.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveTab(kpi.tab)}
+                      className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm text-left hover:border-blue-500 dark:hover:border-blue-500 transition group flex flex-col justify-between h-28 cursor-pointer relative overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between w-full text-slate-500 dark:text-slate-400">
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold truncate pr-2">{kpi.label}</span>
+                        <Icon className={`w-4 h-4 ${kpi.color} opacity-80 group-hover:scale-110 transition`} />
+                      </div>
+                      <div className="mt-2">
+                        <h4 className="text-lg md:text-xl font-display font-black text-slate-900 dark:text-white truncate">
+                          {kpi.val}
+                        </h4>
+                        <span className="text-[9px] text-blue-500 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 mt-1 font-mono">
+                          Manage section <ChevronRight className="w-2.5 h-2.5" />
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Analytics block: Funnel + Pipeline Snapshot */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Sales Funnel */}
+                <div className="lg:col-span-6 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <div>
+                      <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <BarChart2 className="w-4 h-4 text-indigo-500" /> Real conversion funnel metrics
+                      </h3>
+                      <p className="text-[11px] text-slate-400">Based on Lead statuses & Deal stages</p>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-500 rounded border border-indigo-200/20 font-bold">Operational</span>
+                  </div>
+
+                  <div className="space-y-2.5 pt-2">
+                    {[
+                      { stage: 'Leads Sourced', val: ccData.funnel.leads, color: 'bg-slate-400 dark:bg-slate-600', origin: 'Lead Status = Sourced' },
+                      { stage: 'Contacted', val: ccData.funnel.contacted, color: 'bg-blue-500', origin: 'Lead Status = Contacted / Call Logged' },
+                      { stage: 'Interested', val: ccData.funnel.interested, color: 'bg-orange-500', origin: 'Lead Status = Interested' },
+                      { stage: 'Meeting Requested', val: ccData.funnel.meetingRequested, color: 'bg-amber-500', origin: 'Deal Stage = MEETING_REQUESTED' },
+                      { stage: 'Proposal Sent', val: ccData.funnel.proposal, color: 'bg-cyan-500', origin: 'Deal Stage = PROPOSAL' },
+                      { stage: 'Negotiation', val: ccData.funnel.negotiation, color: 'bg-purple-500', origin: 'Deal Stage = NEGOTIATION' },
+                      { stage: 'Closed Won', val: ccData.funnel.won, color: 'bg-emerald-500', origin: 'Deal Stage = CLOSED_WON' }
+                    ].map((step, sIdx, arr) => {
+                      const prevVal = sIdx > 0 ? arr[sIdx - 1].val : 0;
+                      const conversion = prevVal > 0 ? Math.round((step.val / prevVal) * 100) : 0;
+                      const maxVal = arr[0].val || 1;
+                      const percentageWidth = Math.max(8, Math.round((step.val / maxVal) * 100));
+
+                      return (
+                        <div key={sIdx} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-700 dark:text-slate-300">{step.stage}</span>
+                              <span className="text-[9px] text-slate-400 font-mono">({step.origin})</span>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="font-extrabold text-slate-900 dark:text-white">{step.val}</span>
+                              {sIdx > 0 && (
+                                <span className="text-[10px] text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded">
+                                  {conversion}% conv.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                            <div
+                              className={`h-full ${step.color} transition-all duration-500 rounded-full`}
+                              style={{ width: `${percentageWidth}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Pipeline Snapshot */}
+                <div className="lg:col-span-6 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <div>
+                      <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-cyan-500" /> Pipeline Forecast & Snapshot
+                      </h3>
+                      <p className="text-[11px] text-slate-400">Current financial positions and stage probabilites</p>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('pipeline')}
+                      className="px-2.5 py-1 text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg border border-blue-200/50 cursor-pointer"
+                    >
+                      View Pipeline Board
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">Active Open Deals</span>
+                      <span className="text-xl font-bold text-slate-900 dark:text-white mt-1 block">{ccData.pipelineSnapshot.openDeals}</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">Pipeline Total Gross Value</span>
+                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1 block">₹{ccData.pipelineSnapshot.totalPipelineValue.toLocaleString('en-IN')}</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">Weighted Probability Value</span>
+                      <span className="text-xl font-bold text-teal-600 dark:text-teal-400 mt-1 block">₹{ccData.pipelineSnapshot.weightedPipelineValue.toLocaleString('en-IN')}</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">Expected Won Closing Soon</span>
+                      <span className="text-xl font-bold text-amber-500 mt-1 block">{ccData.pipelineSnapshot.dealsClosingSoon} deals</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">Completed Won Revenue</span>
+                      <span className="text-xl font-bold text-emerald-600 mt-1 block">₹{ccData.pipelineSnapshot.wonRevenue.toLocaleString('en-IN')}</span>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">Lost Deals This Window</span>
+                      <span className="text-xl font-bold text-slate-500 mt-1 block">{ccData.pipelineSnapshot.lostDeals} deals</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Operational Activity Overview metrics */}
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-emerald-500" /> Operational Activity Metrics
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Total activities recorded within the current search range</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+                  {[
+                    { label: 'Leads Generated', val: ccData.activityOverview.leadsGenerated, desc: 'Google Spider + Imports' },
+                    { label: 'Outreach Sent', val: ccData.activityOverview.outreachSent, desc: 'Sequences started' },
+                    { label: 'Calls Initiated', val: ccData.activityOverview.callsInitiated, desc: 'Manual Dial triggers' },
+                    { label: 'Connected Calls', val: ccData.activityOverview.connectedCalls, desc: 'Excl. initiated status' },
+                    { label: 'Follow-ups Completed', val: ccData.activityOverview.followupsCompleted, desc: 'Tasks resolved' },
+                    { label: 'Meetings Requested', val: ccData.activityOverview.meetingsRequested, desc: 'Pipeline stage events' },
+                    { label: 'Meetings Booked', val: ccData.activityOverview.meetingsBooked, desc: 'Confirmed calendar slots' }
+                  ].map((act, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-lg text-center">
+                      <span className="text-[10px] font-mono text-slate-400 block truncate font-bold">{act.label}</span>
+                      <span className="text-lg font-extrabold text-slate-800 dark:text-white mt-1 block">{act.val}</span>
+                      <span className="text-[9px] text-slate-400 mt-0.5 block truncate">{act.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Needs Attention & Active Alerts Dashboard Widget */}
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-indigo-500" /> Sales Team Needs Attention Panel
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Durable active notifications, high priority reminders, and deal pipeline changes.</p>
+                  </div>
+                  <span className="px-2.5 py-1 bg-indigo-50 text-indigo-650 dark:bg-indigo-950/40 dark:text-indigo-400 font-mono font-bold text-[10px] rounded-lg">
+                    {unreadNotifCount} UNREAD ALERTS
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Stats columns */}
+                  <div className="md:col-span-1 grid grid-cols-2 md:grid-cols-1 gap-2">
+                    <div className="p-3 bg-rose-50/45 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-950 rounded-lg">
+                      <span className="text-[10px] font-mono text-slate-400 block font-bold uppercase">High & Urgent</span>
+                      <span className="text-lg font-extrabold text-rose-600 mt-1 block">
+                        {dashboardNotifications.filter(n => (n.priority === 'HIGH' || n.priority === 'URGENT') && !n.isRead).length}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-amber-50/45 dark:bg-amber-950/10 border border-amber-100 dark:border-amber-950 rounded-lg">
+                      <span className="text-[10px] font-mono text-slate-400 block font-bold uppercase">Follow-up Tasks</span>
+                      <span className="text-lg font-extrabold text-amber-600 mt-1 block">
+                        {dashboardNotifications.filter(n => n.type.startsWith('FOLLOW_UP')).length}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-purple-50/45 dark:bg-purple-950/10 border border-purple-100 dark:border-purple-950 rounded-lg">
+                      <span className="text-[10px] font-mono text-slate-400 block font-bold uppercase">Interested Leads</span>
+                      <span className="text-lg font-extrabold text-purple-600 mt-1 block">
+                        {dashboardNotifications.filter(n => n.type === 'INTERESTED_LEAD').length}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-emerald-50/45 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-950 rounded-lg">
+                      <span className="text-[10px] font-mono text-slate-400 block font-bold uppercase">Meetings Booked</span>
+                      <span className="text-lg font-extrabold text-emerald-600 mt-1 block">
+                        {dashboardNotifications.filter(n => n.type === 'MEETING_BOOKED').length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* List of unread/critical alerts */}
+                  <div className="md:col-span-3 bg-slate-50 dark:bg-slate-950/40 p-3 rounded-lg border border-slate-100 dark:border-slate-850 space-y-2 max-h-[240px] overflow-y-auto scrollbar-none">
+                    {dashboardNotifications.slice(0, 5).map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => {
+                          if (n.entityId && n.entityType) {
+                            if (n.entityType === 'LEAD') {
+                              setActiveTab('leads');
+                            } else if (n.entityType === 'DEAL') {
+                              setActiveTab('pipeline');
+                            } else if (n.entityType === 'MEETING') {
+                              setActiveTab('scheduler');
+                            } else if (n.entityType === 'FOLLOW_UP') {
+                              setActiveTab('leads');
+                            } else if (n.entityType === 'CALL') {
+                              setActiveTab('voice-calling');
+                            }
+                          } else {
+                            setActiveTab('notifications-inbox');
+                          }
+                        }}
+                        className={`p-2.5 rounded-lg border text-xs flex items-start justify-between gap-3 transition cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 ${n.isRead ? 'border-slate-250 dark:border-slate-800 opacity-60' : 'border-blue-200 dark:border-blue-900 shadow-sm'}`}
+                      >
+                        <div className="space-y-0.5 text-left">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-extrabold text-slate-900 dark:text-white text-[11px]">{n.title}</span>
+                            <span className={`px-1.5 py-0.2 rounded font-mono text-[8px] font-bold ${
+                              n.priority === 'URGENT' ? 'bg-red-100 text-red-750 dark:bg-red-950/30 dark:text-red-400' :
+                              n.priority === 'HIGH' ? 'bg-amber-100 text-amber-750' : 'bg-slate-100 text-slate-650'
+                            }`}>{n.priority}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">{n.message}</p>
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-400 shrink-0">{new Date(n.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                    ))}
+                    {dashboardNotifications.length === 0 && (
+                      <div className="py-8 text-center text-[11px] font-mono text-slate-400 italic">
+                        No pending unread alerts or tasks requiring workspace attention.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Center & Chronological Activity Feed */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Actions Center */}
+                <div className="lg:col-span-7 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-rose-500 animate-pulse" /> Today's Actions Console
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Critical items demanding response</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Urgent Column */}
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold text-rose-600 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded border border-rose-200/20">Urgent Requirements</span>
+                      <div className="mt-2.5 space-y-2">
+                        {ccData.todaysActions.urgent.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            onClick={() => setActiveTab(item.type === 'deal_closing' ? 'pipeline' : 'leads')}
+                            className="p-3 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-200/30 dark:border-rose-900/20 rounded-lg transition flex items-center justify-between text-xs cursor-pointer"
+                          >
+                            <div className="space-y-0.5 text-left">
+                              <span className="font-bold text-slate-800 dark:text-white block">{item.title}</span>
+                              <span className="text-[10px] text-slate-400 block">{item.subtitle}</span>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-rose-600 shrink-0 ml-2">{item.badge}</span>
+                          </div>
+                        ))}
+                        {ccData.todaysActions.urgent.length === 0 && (
+                          <p className="text-[11px] text-slate-400 italic">No pressing urgent alerts pending.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Today Column */}
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded border border-blue-200/20">Scheduled Today</span>
+                      <div className="mt-2.5 space-y-2">
+                        {ccData.todaysActions.today.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            onClick={() => setActiveTab(item.type === 'meeting' ? 'appointments' : 'leads')}
+                            className="p-3 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-200/30 dark:border-blue-900/20 rounded-lg transition flex items-center justify-between text-xs cursor-pointer"
+                          >
+                            <div className="space-y-0.5 text-left">
+                              <span className="font-bold text-slate-800 dark:text-white block">{item.title}</span>
+                              <span className="text-[10px] text-slate-400 block">{item.subtitle}</span>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-blue-600 shrink-0 ml-2">{item.badge}</span>
+                          </div>
+                        ))}
+                        {ccData.todaysActions.today.length === 0 && (
+                          <p className="text-[11px] text-slate-400 italic">No activities planned for today.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Recent Column */}
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-widest font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-200/20">Recent Signals</span>
+                      <div className="mt-2.5 space-y-2">
+                        {ccData.todaysActions.recent.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            onClick={() => setActiveTab(item.type === 'deal_updated' ? 'pipeline' : 'leads')}
+                            className="p-3 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-200/30 dark:border-emerald-900/20 rounded-lg transition flex items-center justify-between text-xs cursor-pointer"
+                          >
+                            <div className="space-y-0.5 text-left">
+                              <span className="font-bold text-slate-800 dark:text-white block">{item.title}</span>
+                              <span className="text-[10px] text-slate-400 block">{item.subtitle}</span>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-emerald-600 shrink-0 ml-2">{item.badge}</span>
+                          </div>
+                        ))}
+                        {ccData.todaysActions.recent.length === 0 && (
+                          <p className="text-[11px] text-slate-400 italic">No recent intent alerts found.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity Timeline Feed */}
+                <div className="lg:col-span-5 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Send className="w-4 h-4 text-blue-500" /> Chronological Telemetry Logs
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Live outbound event stream</p>
+                  </div>
+
+                  <div className="relative pl-4 space-y-4 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800 h-[380px] overflow-y-auto pr-1">
+                    {ccData.recentActivities.map((act: any, aIdx: number) => (
+                      <div key={aIdx} className="relative text-xs text-left">
+                        {/* Bullet point indicator */}
+                        <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900" />
+                        
+                        <div className="space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 dark:text-white">{act.event}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{act.timeAgo}</span>
+                          </div>
+                          <p className="text-slate-500 leading-normal">{act.details}</p>
+                          {act.user && (
+                            <span className="text-[9px] font-mono text-slate-400 block text-left">By {act.user}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {ccData.recentActivities.length === 0 && (
+                      <div className="py-12 text-center text-slate-400 italic">No logged events found in selection window.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Workspace Team Performance */}
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-4">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-indigo-500" /> Operational Team Performance
+                    </h3>
+                    <p className="text-[11px] text-slate-400 text-left">
+                      {ccData.teamPerformance.length > 1
+                        ? 'Operational metrics comparisons for workspace sales representatives'
+                        : 'Your personal sales performance insights'}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-0.5 rounded border border-indigo-200/20 uppercase tracking-widest shrink-0">
+                    {ccData.teamPerformance.length > 1 ? 'Workspace View' : 'Personal View'}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-slate-150 dark:border-slate-800 text-slate-400 font-mono font-bold text-[10px] uppercase">
+                        <th className="py-3 px-3">Team Member</th>
+                        <th className="py-3 px-3">Role</th>
+                        <th className="py-3 px-3 text-center">Contacted</th>
+                        <th className="py-3 px-3 text-center">Dialed</th>
+                        <th className="py-3 px-3 text-center">Connected</th>
+                        <th className="py-3 px-3 text-center">Interested</th>
+                        <th className="py-3 px-3 text-center">Follow-Ups Done</th>
+                        <th className="py-3 px-3 text-center">Meetings Req</th>
+                        <th className="py-3 px-3 text-center">Deals Created</th>
+                        <th className="py-3 px-3 text-center">Deals Won</th>
+                        <th className="py-3 px-3 text-right">Won Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      {ccData.teamPerformance.map((member: any, mIdx: number) => (
+                        <tr key={mIdx} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-all">
+                          <td className="py-3 px-3 flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold font-mono text-xs text-slate-700 dark:text-slate-300">
+                              {member.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="font-bold text-slate-900 dark:text-white">{member.name}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="text-[10px] font-mono uppercase bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">
+                              {member.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono font-bold">{member.contacted}</td>
+                          <td className="py-3 px-3 text-center font-mono">{member.callsInitiated}</td>
+                          <td className="py-3 px-3 text-center font-mono text-emerald-600 font-bold">{member.connectedCalls}</td>
+                          <td className="py-3 px-3 text-center font-mono text-orange-500 font-bold">{member.interested}</td>
+                          <td className="py-3 px-3 text-center font-mono">{member.followupsCompleted}</td>
+                          <td className="py-3 px-3 text-center font-mono">{member.meetingsRequested}</td>
+                          <td className="py-3 px-3 text-center font-mono">{member.dealsCreated}</td>
+                          <td className="py-3 px-3 text-center font-mono text-indigo-500 font-bold">{member.dealsWon}</td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600">₹{member.wonRevenue.toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          {/* Widget Customizer Control Popover Panel */}
+          {isCustomizeMode && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1162,6 +1763,7 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
         })}
 
       </div>
+      </>)}
 
     </div>
   );

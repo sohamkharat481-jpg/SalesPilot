@@ -23,6 +23,9 @@ import { WorkflowScheduler } from './src/lib/workflowScheduler';
 import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery, isGenericCompanyName } from './src/backend/leadProviders';
 import { LeadGenWorker } from './src/backend/leadGenWorker';
 import { OutreachWorker } from './src/backend/outreachWorker';
+import { VoiceProviderAdapter } from './src/server/voice/VoiceProviderAdapter';
+import { VoiceCallRecord, CallStatus, CallOutcome, ManualCallActivity, ManualCallOutcome } from './src/types/voice';
+import { normalizePhoneNumber } from './src/utils/phoneUtils';
 import { 
   OutreachCampaign, OutreachStep, OutreachQueueItem, 
   OutreachMessage, OutreachReply, OutreachEvent, QueueItemStatus 
@@ -1702,7 +1705,8 @@ async function startServer() {
       if (cached && cached.expiresAt > Date.now()) {
         return cached.user;
       }
-      if (token === 'sb_access_token_sandbox_valid' || token.startsWith('sandbox_')) {
+      const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
+      if (!isProductionRuntime && (token === 'sb_access_token_sandbox_valid' || token.startsWith('sandbox_'))) {
         const founderUser = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com');
         if (founderUser) return founderUser;
       }
@@ -3748,6 +3752,13 @@ async function startServer() {
       return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
     }
 
+    // Role-based Access Control Validation
+    const callerTeammate = serverTeamMembers.find(m => m.email === user.email && (m as any).organizationId === verifiedOrgId);
+    const callerRole = callerTeammate?.role || user.role || 'REP';
+    if (callerRole !== 'OWNER' && callerRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden. Owner or Admin permissions required to invite teammates.' });
+    }
+
     const { email, role, fullName } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Teammate email address is required.' });
@@ -3788,6 +3799,13 @@ async function startServer() {
       return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
     }
 
+    // Role-based Access Control Validation
+    const callerTeammate = serverTeamMembers.find(m => m.email === user.email && (m as any).organizationId === verifiedOrgId);
+    const callerRole = callerTeammate?.role || user.role || 'REP';
+    if (callerRole !== 'OWNER' && callerRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden. Owner or Admin permissions required to modify teammates.' });
+    }
+
     const { id, role, status } = req.body;
     if (!id) {
       return res.status(400).json({ error: 'Team member ID is required.' });
@@ -3796,6 +3814,11 @@ async function startServer() {
     const member = serverTeamMembers.find(m => m.id === id && ((m as any).organizationId === verifiedOrgId || !(m as any).organizationId));
     if (!member) {
       return res.status(404).json({ error: 'Team member not found.' });
+    }
+
+    // Prevent demoting of workspace OWNER
+    if (member.role === 'OWNER' && role !== undefined && role !== 'OWNER') {
+      return res.status(403).json({ error: 'Forbidden. The primary workspace OWNER cannot be demoted.' });
     }
 
     if (role !== undefined) member.role = role;
@@ -3821,6 +3844,13 @@ async function startServer() {
       return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
     }
 
+    // Role-based Access Control Validation
+    const callerTeammate = serverTeamMembers.find(m => m.email === user.email && (m as any).organizationId === verifiedOrgId);
+    const callerRole = callerTeammate?.role || user.role || 'REP';
+    if (callerRole !== 'OWNER' && callerRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden. Owner or Admin permissions required to remove teammates.' });
+    }
+
     const { id } = req.body;
     if (!id) {
       return res.status(400).json({ error: 'Team member ID is required.' });
@@ -3829,6 +3859,12 @@ async function startServer() {
     const index = serverTeamMembers.findIndex(m => m.id === id && ((m as any).organizationId === verifiedOrgId || !(m as any).organizationId));
     if (index === -1) {
       return res.status(404).json({ error: 'Team member not found.' });
+    }
+
+    const targetMember = serverTeamMembers[index];
+    // Prevent deletion of workspace OWNER
+    if (targetMember.role === 'OWNER') {
+      return res.status(403).json({ error: 'Forbidden. The primary workspace OWNER cannot be removed from the team.' });
     }
 
     const deleted = serverTeamMembers.splice(index, 1)[0];
@@ -3842,6 +3878,13 @@ async function startServer() {
 
   // Database Health & Persistence Diagnostics Endpoint (Safe, no secrets logged or returned)
   app.get('/api/v1/diagnostics/database', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && !user.isFounder) {
+      return res.status(403).json({ error: 'Forbidden. Diagnostic access restricted to Owners and Admins.' });
+    }
     const supabase = getSupabaseClient();
     const result: any = {
       supabaseConfigured: Boolean(supabase),
@@ -3954,6 +3997,18 @@ async function startServer() {
 
     // Save lead to production database
     const savedLead = await insertLeadAsync(newLead);
+
+    // Create a NEW_LEAD persistent notification
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: user.id,
+      type: 'NEW_LEAD',
+      priority: 'LOW',
+      title: 'New Lead Added',
+      message: `Lead ${savedLead.firstName} ${savedLead.lastName || ''} from ${savedLead.company} has been added to the database.`,
+      entityType: 'LEAD',
+      entityId: savedLead.id
+    });
 
     // Queue background research
     researchQueue.push({
@@ -4955,7 +5010,7 @@ Rules:
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
-    if (user.role !== 'SUPER_ADMIN' && user.role !== 'OWNER' && user.role !== 'ADMIN' && !user.isFounder) {
+    if (user.role !== 'SUPER_ADMIN' && !user.isFounder) {
       return res.status(403).json({ error: 'Forbidden. Super Admin access required.' });
     }
     const orgs = localDb.getOrganizations();
@@ -5975,10 +6030,15 @@ Rules:
   });
 
   // --- 5. NOTIFICATIONS ENDPOINTS ---
+  // Legacy compatibility endpoints
   app.get('/api/v1/workspace/notifications', (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
     }
     const list = localDb.getNotifications(user.id);
     res.json({ success: true, notifications: list });
@@ -5990,6 +6050,10 @@ Rules:
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
     const { id } = req.params;
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
     localDb.markNotificationRead(id);
     res.json({ success: true });
   });
@@ -6003,25 +6067,263 @@ Rules:
     if (error || !orgId) {
       return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
     }
-    const { targetUserId, title, message, type } = req.body;
+    const { targetUserId, title, message, type, priority, entityType, entityId } = req.body;
 
     if (!targetUserId || !title || !message) {
       return res.status(400).json({ error: 'targetUserId, title, and message are required.' });
     }
 
-    const newNotification: OrgNotification = {
-      id: `nt_${Date.now()}`,
+    const newNotification = localDb.addSalesPilotNotification({
       organizationId: orgId,
       userId: targetUserId,
+      type: (type || 'NEW_LEAD') as any,
       title,
       message,
-      type: type || 'general',
-      read: false,
-      createdAt: new Date().toISOString()
-    };
+      entityType: entityType,
+      entityId: entityId,
+      priority: (priority || 'MEDIUM') as any
+    });
 
-    localDb.addNotification(newNotification);
     res.json({ success: true, notification: newNotification });
+  });
+
+  // --- Phase 9 Real Persistent Notification System Endpoints ---
+  app.get('/api/v1/notifications', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const page = parseInt(req.query.page as string || '1', 10);
+    const limit = parseInt(req.query.limit as string || '20', 10);
+    const offset = (page - 1) * limit;
+
+    let isReadVal: boolean | undefined = undefined;
+    if (req.query.isRead !== undefined) {
+      isReadVal = req.query.isRead === 'true';
+    } else if (req.query.read !== undefined) {
+      isReadVal = req.query.read === 'true';
+    }
+
+    const list = localDb.getSalesPilotNotifications(orgId, user.id, {
+      type: req.query.type as string,
+      priority: req.query.priority as string,
+      isRead: isReadVal,
+      entityType: req.query.entityType as string,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string
+    });
+
+    const paginated = list.slice(offset, offset + limit);
+
+    res.json({
+      success: true,
+      notifications: paginated,
+      pagination: {
+        total: list.length,
+        page,
+        limit,
+        pages: Math.ceil(list.length / limit)
+      }
+    });
+  });
+
+  app.get('/api/v1/notifications/unread-count', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const count = localDb.getUnreadSalesPilotNotificationCount(orgId, user.id);
+    res.json({ success: true, count });
+  });
+
+  app.get('/api/v1/notifications/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const notification = localDb.getSalesPilotNotificationById(id, orgId, user.id);
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    res.json({ success: true, notification });
+  });
+
+  app.post('/api/v1/notifications/:id/read', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const updated = localDb.markSalesPilotNotificationRead(id, orgId, user.id, true);
+    if (!updated) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    res.json({ success: true, notification: updated });
+  });
+
+  app.post('/api/v1/notifications/:id/unread', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const updated = localDb.markSalesPilotNotificationRead(id, orgId, user.id, false);
+    if (!updated) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    res.json({ success: true, notification: updated });
+  });
+
+  app.post('/api/v1/notifications/read-all', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    localDb.markAllSalesPilotNotificationsRead(orgId, user.id);
+    res.json({ success: true });
+  });
+
+  app.post('/api/v1/notifications/:id/archive', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const updated = localDb.updateSalesPilotNotification(id, orgId, user.id, { metadata: { isArchived: true } });
+    if (!updated) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    res.json({ success: true, notification: updated });
+  });
+
+  // Server-Side Reminder Processor Endpoint
+  app.post('/api/v1/notifications/process-due', async (req, res) => {
+    const expectedSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers['authorization'];
+    const cronHeader = req.headers['x-cron-secret'];
+
+    let providedToken = '';
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      providedToken = authHeader.substring(7).trim();
+    } else if (cronHeader && typeof cronHeader === 'string') {
+      providedToken = cronHeader.trim();
+    }
+
+    if (!expectedSecret || !providedToken || providedToken !== expectedSecret) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or missing CRON_SECRET.' });
+    }
+
+    const allFollowUps = localDb.db.followUps || [];
+    const now = new Date();
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    let processedCount = 0;
+    let createdCount = 0;
+
+    const limit = 100; // Bounded batch processing
+
+    const pendingFollowUps = allFollowUps.filter((f: any) => f.status === 'PENDING').slice(0, limit);
+
+    for (const f of pendingFollowUps) {
+      if (!f.dueAt) continue;
+      const dueTime = new Date(f.dueAt);
+
+      processedCount++;
+
+      const isOverdue = dueTime < now;
+      const isDueSoon = dueTime >= now && dueTime <= twentyFourHoursFromNow;
+
+      if (isOverdue) {
+        // Trigger FOLLOW_UP_OVERDUE notification
+        const idempotencyKey = `${f.organizationId}_${f.userId}_FOLLOW_UP_OVERDUE_${f.id}_v1`;
+        const lead = localDb.getLeadById(f.leadId, f.organizationId);
+        const leadName = lead ? `${lead.firstName} ${lead.lastName || ''}`.trim() : 'Lead';
+
+        const ntf = localDb.addSalesPilotNotification({
+          organizationId: f.organizationId,
+          userId: f.userId,
+          type: 'FOLLOW_UP_OVERDUE',
+          title: '🚨 Follow-Up is Overdue!',
+          message: `Your follow-up with ${leadName} was due on ${dueTime.toLocaleDateString()} ${dueTime.toLocaleTimeString()}.`,
+          priority: 'URGENT',
+          entityType: 'FOLLOW_UP' as any,
+          entityId: f.id,
+          idempotencyKey
+        });
+
+        if (ntf.createdAt && new Date(ntf.createdAt) >= now) {
+          createdCount++;
+        }
+      } else if (isDueSoon) {
+        // Trigger FOLLOW_UP_DUE notification
+        const idempotencyKey = `${f.organizationId}_${f.userId}_FOLLOW_UP_DUE_${f.id}_v1`;
+        const lead = localDb.getLeadById(f.leadId, f.organizationId);
+        const leadName = lead ? `${lead.firstName} ${lead.lastName || ''}`.trim() : 'Lead';
+
+        const ntf = localDb.addSalesPilotNotification({
+          organizationId: f.organizationId,
+          userId: f.userId,
+          type: 'FOLLOW_UP_DUE',
+          title: '📅 Follow-Up Due Soon',
+          message: `Your follow-up with ${leadName} is due soon on ${dueTime.toLocaleDateString()} ${dueTime.toLocaleTimeString()}.`,
+          priority: 'HIGH',
+          entityType: 'FOLLOW_UP' as any,
+          entityId: f.id,
+          idempotencyKey
+        });
+
+        if (ntf.createdAt && new Date(ntf.createdAt) >= now) {
+          createdCount++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      processed: processedCount,
+      created: createdCount,
+      message: `Successfully processed ${processedCount} follow-ups, created ${createdCount} new notifications.`
+    });
   });
 
   // --- 6. AUDIT LOGS ENDPOINTS ---
@@ -6091,15 +6393,29 @@ Rules:
 
     // Notify assignee
     if ((assignee as any).userId) {
-      localDb.addNotification({
-        id: `nt_${Date.now()}`,
+      let notifyType: any = 'LEAD_ASSIGNED';
+      let notifyTitle = `Lead Assigned: ${targetName}`;
+      let notifyMsg = `Teammate ${user.fullName} assigned lead "${targetName}" to you.`;
+
+      if (targetType === 'deal') {
+        notifyType = 'DEAL_STAGE_CHANGED';
+        notifyTitle = `Deal Assigned: ${targetName}`;
+        notifyMsg = `Teammate ${user.fullName} assigned deal "${targetName}" to you.`;
+      } else if (targetType === 'meeting') {
+        notifyType = 'MEETING_BOOKED';
+        notifyTitle = `Meeting Assigned: ${targetName}`;
+        notifyMsg = `Teammate ${user.fullName} assigned meeting "${targetName}" to you.`;
+      }
+
+      localDb.addSalesPilotNotification({
         organizationId: orgId,
         userId: (assignee as any).userId,
-        title: `New CRM Assignment: ${targetType}`,
-        message: `Teammate ${user.fullName} assigned a ${targetType} (${targetName}) to you.`,
-        type: 'assignment',
-        read: false,
-        createdAt: new Date().toISOString()
+        type: notifyType,
+        title: notifyTitle,
+        message: notifyMsg,
+        priority: 'MEDIUM',
+        entityType: targetType.toUpperCase() as any,
+        entityId: targetId
       });
     }
 
@@ -6428,6 +6744,19 @@ Ensure the output is strictly valid JSON format.`;
         createdAt: new Date().toISOString()
       });
       updates.timelineList = timelineList;
+
+      if (status === 'INTERESTED' && oldStatus !== 'INTERESTED') {
+        localDb.addSalesPilotNotification({
+          organizationId: orgId,
+          userId: (lead as any).assignedToId || user.id,
+          type: 'INTERESTED_LEAD',
+          priority: 'HIGH',
+          title: 'Lead is Interested! 🔥',
+          message: `Lead ${lead.firstName} ${lead.lastName || ''} from ${lead.company} has been marked as INTERESTED.`,
+          entityType: 'LEAD',
+          entityId: lead.id
+        });
+      }
     }
 
     if (leadScore !== undefined) updates.leadScore = leadScore;
@@ -6651,6 +6980,21 @@ Ensure the output is strictly valid JSON format.`;
     });
 
     await updateLeadAsync(id, { tasksList, timelineList });
+
+    // Trigger TASK_COMPLETED persistent notification if checked completed
+    if (task.completed) {
+      localDb.addSalesPilotNotification({
+        organizationId: orgId,
+        userId: (lead as any).assignedToId || user.id,
+        type: 'TASK_COMPLETED',
+        priority: 'LOW',
+        title: 'Task Completed ✅',
+        message: `Teammate completed task "${task.text}" for lead ${lead.firstName} ${lead.lastName || ''}.`,
+        entityType: 'LEAD' as any,
+        entityId: lead.id
+      });
+    }
+
     res.json(task);
   });
 
@@ -9067,6 +9411,22 @@ Return JSON strictly:
         body
       });
 
+      const leadObj = localDb.getLeadById(leadId, orgId);
+      localDb.addSalesPilotNotification({
+        organizationId: orgId,
+        userId: (leadObj as any)?.assignedToId || user.id,
+        type: 'OUTREACH_REPLY',
+        priority: 'HIGH',
+        title: 'New Outreach Reply Received! ✉️',
+        message: `Received a reply from ${leadObj ? `${leadObj.firstName} ${leadObj.lastName || ''}` : senderEmail}: "${body.slice(0, 60)}${body.length > 60 ? '...' : ''}"`,
+        entityType: 'LEAD',
+        entityId: leadId,
+        metadata: {
+          replyId: replyRecord.id,
+          campaignId
+        }
+      });
+
       res.json({
         success: true,
         reply: replyRecord
@@ -9666,6 +10026,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   });
 
+  // Log Deal Timeline Event Helper
+  const logDealTimelineEvent = (orgId: string, userId: string, userName: string, dealId: string, eventType: string, details: string, metadata?: any) => {
+    const activity = {
+      id: 'act_' + Math.random().toString(36).substring(2, 11),
+      organizationId: orgId,
+      userId,
+      userName,
+      actionType: eventType,
+      targetId: dealId,
+      targetType: 'deal' as const,
+      details: `${details}${metadata ? ' - ' + JSON.stringify(metadata) : ''}`,
+      createdAt: new Date().toISOString()
+    };
+    localDb.addTeamActivity(activity);
+  };
+
   // Fetch Pipeline Deals
   app.get('/api/v1/deals', (req, res) => {
     const user = getAuthenticatedUser(req);
@@ -9676,12 +10052,149 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (error || !orgId) {
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
-    const filteredDeals = deals.filter(d => (d as any).organizationId === orgId);
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+
+    let filteredDeals = deals.filter(d => (d as any).organizationId === orgId);
+
+    if (isRep) {
+      filteredDeals = filteredDeals.filter(d => d.assignedUserId === user.id);
+    }
+
+    // Apply Query Filters
+    const { stage, assignedUserId, company, leadId, startDate, endDate, minValue, maxValue, search } = req.query;
+
+    if (stage) {
+      filteredDeals = filteredDeals.filter(d => String(d.stage).toUpperCase() === String(stage).toUpperCase());
+    }
+    if (assignedUserId) {
+      filteredDeals = filteredDeals.filter(d => d.assignedUserId === assignedUserId);
+    }
+    if (company) {
+      filteredDeals = filteredDeals.filter(d => d.company?.toLowerCase().includes(String(company).toLowerCase()));
+    }
+    if (leadId) {
+      filteredDeals = filteredDeals.filter(d => d.leadId === leadId);
+    }
+    if (startDate) {
+      filteredDeals = filteredDeals.filter(d => new Date(d.createdAt || d.updatedAt) >= new Date(String(startDate)));
+    }
+    if (endDate) {
+      filteredDeals = filteredDeals.filter(d => new Date(d.createdAt || d.updatedAt) <= new Date(String(endDate)));
+    }
+    if (minValue) {
+      filteredDeals = filteredDeals.filter(d => (d.value || d.valueInr || 0) >= Number(minValue));
+    }
+    if (maxValue) {
+      filteredDeals = filteredDeals.filter(d => (d.value || d.valueInr || 0) <= Number(maxValue));
+    }
+    if (search) {
+      const q = String(search).toLowerCase();
+      filteredDeals = filteredDeals.filter(d => 
+        d.company?.toLowerCase().includes(q) || 
+        d.leadName?.toLowerCase().includes(q) || 
+        d.title?.toLowerCase().includes(q) ||
+        (d as any).name?.toLowerCase().includes(q)
+      );
+    }
+
     res.json({ deals: filteredDeals });
   });
 
-  // Update Deal Stage
-  app.put('/api/v1/deals/:id', (req, res) => {
+  // Fetch Pipeline Analytics
+  app.get('/api/v1/pipeline/analytics', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+
+    let filteredDeals = deals.filter(d => (d as any).organizationId === orgId);
+    if (isRep) {
+      filteredDeals = filteredDeals.filter(d => d.assignedUserId === user.id);
+    }
+
+    const openDeals = filteredDeals.filter(d => d.stage !== 'WON' && d.stage !== 'LOST' && d.stage !== 'CLOSED_WON' && d.stage !== 'CLOSED_LOST');
+    const wonDealsList = filteredDeals.filter(d => d.stage === 'WON' || d.stage === 'CLOSED_WON');
+    const lostDealsList = filteredDeals.filter(d => d.stage === 'LOST' || d.stage === 'CLOSED_LOST');
+
+    const totalOpenDeals = openDeals.length;
+    const totalPipelineValue = openDeals.reduce((sum, d) => sum + (d.value || d.valueInr || 0), 0);
+
+    const getStageProbability = (stg: string): number => {
+      switch (String(stg).toUpperCase()) {
+        case 'QUALIFIED': return 0.2;
+        case 'CONTACTED': return 0.3;
+        case 'INTERESTED': return 0.4;
+        case 'MEETING_REQUESTED': return 0.6;
+        case 'PROPOSAL': return 0.8;
+        case 'NEGOTIATION': return 0.9;
+        case 'WON':
+        case 'CLOSED_WON': return 1.0;
+        case 'LOST':
+        case 'CLOSED_LOST': return 0.0;
+        default: return 0.1;
+      }
+    };
+
+    const weightedPipelineValue = openDeals.reduce((sum, d) => {
+      const prob = d.probability !== undefined ? d.probability : getStageProbability(String(d.stage));
+      const val = d.value !== undefined ? d.value : d.valueInr;
+      return sum + (val * prob);
+    }, 0);
+
+    const wonDeals = wonDealsList.length;
+    const wonValue = wonDealsList.reduce((sum, d) => sum + (d.value || d.valueInr || 0), 0);
+
+    const lostDeals = lostDealsList.length;
+    const lostValue = lostDealsList.reduce((sum, d) => sum + (d.value || d.valueInr || 0), 0);
+
+    const thirtyDaysLater = new Date();
+    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+    const now = new Date();
+
+    const dealsClosingSoon = openDeals.filter(d => {
+      if (!d.expectedCloseDate) return false;
+      const closeDate = new Date(d.expectedCloseDate);
+      return closeDate >= now && closeDate <= thirtyDaysLater;
+    }).length;
+
+    const valueByStage: Record<string, number> = {};
+    const countByStage: Record<string, number> = {};
+
+    filteredDeals.forEach(d => {
+      const stageKey = String(d.stage).toUpperCase();
+      valueByStage[stageKey] = (valueByStage[stageKey] || 0) + (d.value || d.valueInr || 0);
+      countByStage[stageKey] = (countByStage[stageKey] || 0) + 1;
+    });
+
+    res.json({
+      totalOpenDeals,
+      totalPipelineValue,
+      weightedPipelineValue,
+      wonDeals,
+      wonValue,
+      lostDeals,
+      lostValue,
+      dealsClosingSoon,
+      valueByStage,
+      countByStage,
+      wonLostBreakdown: {
+        won: wonDeals,
+        lost: lostDeals
+      }
+    });
+  });
+
+  // Fetch Single Deal
+  app.get('/api/v1/deals/:id', (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -9692,19 +10205,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const { id } = req.params;
-    const { stage, valueInr } = req.body;
     const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
 
     if (!deal) {
-      res.status(404).json({ error: 'Deal not found in this workspace.' });
-      return;
+      return res.status(404).json({ error: 'Deal not found in this workspace.' });
     }
 
-    if (stage) deal.stage = stage as DealStage;
-    if (valueInr !== undefined) deal.valueInr = Number(valueInr);
-    deal.updatedAt = new Date().toISOString();
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+    if (isRep && deal.assignedUserId !== user.id) {
+      return res.status(403).json({ error: 'Forbidden. You are not authorized to view this deal.' });
+    }
 
-    saveDb();
     res.json(deal);
   });
 
@@ -9719,28 +10231,943 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const { leadId, valueInr, stage, notes } = req.body;
+    const { 
+      leadId, name, company, contactName, value, currency, stage, probability, 
+      expectedCloseDate, assignedUserId, source, description, nextAction, allowDuplicate 
+    } = req.body;
+
     const lead = leads.find(l => l.id === leadId && (l as any).organizationId === orgId) || localDb.getLeadById(leadId);
     if (!lead || (lead as any).organizationId !== orgId) {
-      res.status(400).json({ error: 'Invalid lead ID selected for deal or lead belongs to another workspace.' });
-      return;
+      return res.status(400).json({ error: 'Invalid lead ID selected for deal or lead belongs to another workspace.' });
+    }
+
+    // Prevent accidental duplicate deals for the same lead unless explicitly allowed
+    const existingDeal = deals.find(d => d.leadId === leadId && (d as any).organizationId === orgId && d.stage !== 'LOST' && d.stage !== 'CLOSED_LOST');
+    if (existingDeal && !allowDuplicate) {
+      return res.status(409).json({ 
+        error: 'An active deal already exists for this lead.', 
+        dealId: existingDeal.id,
+        isDuplicate: true
+      });
+    }
+
+    const val = value !== undefined ? Number(value) : 50000;
+    const finalStage = stage || 'QUALIFIED';
+
+    let assignedUserName = '';
+    if (assignedUserId) {
+      const teamMember = localDb.getTeamMembers(orgId).find(tm => tm.id === assignedUserId || tm.userId === assignedUserId);
+      if (teamMember) {
+        assignedUserName = teamMember.fullName;
+      }
     }
 
     const newDeal: Deal & { organizationId?: string } = {
       id: `dl_${Date.now()}`,
       organizationId: orgId,
       leadId,
-      leadName: `${lead.firstName} ${lead.lastName}`,
-      company: lead.company,
-      valueInr: valueInr || 50000,
-      stage: stage || 'PROSPECTING',
-      notes: notes || '',
+      leadName: contactName || `${lead.firstName} ${lead.lastName}`,
+      company: company || lead.company,
+      contactName: contactName || `${lead.firstName} ${lead.lastName}`,
+      value: val,
+      valueInr: val,
+      currency: currency || 'INR',
+      stage: finalStage,
+      probability: probability !== undefined ? Number(probability) : undefined,
+      expectedCloseDate: expectedCloseDate || undefined,
+      assignedUserId: assignedUserId || user.id,
+      assignedUserName: assignedUserName || user.fullName,
+      source: source || 'MANUAL',
+      description: description || '',
+      nextAction: nextAction || '',
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     deals.push(newDeal);
     saveDb();
+
+    // Create a persistent notification for DEAL_CREATED
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: newDeal.assignedUserId || user.id,
+      type: 'DEAL_CREATED',
+      priority: 'MEDIUM',
+      title: 'New Deal Created',
+      message: `Deal for ${newDeal.contactName} (${newDeal.company}) was created with value ${newDeal.currency || 'INR'} ${newDeal.value}.`,
+      entityType: 'DEAL' as any,
+      entityId: newDeal.id
+    });
+
+    // Link dealId to the lead
+    lead.value = val;
+    (lead as any).dealId = newDeal.id;
+    localDb.saveLead(lead);
+
+    // Add DEAL_CREATED to CRM timeline and team activities
+    logDealTimelineEvent(orgId, user.id, user.fullName, newDeal.id, 'DEAL_CREATED', `Deal "${newDeal.leadName}" created with value ${newDeal.currency || 'INR'} ${newDeal.value}`, { value: val, stage: finalStage });
+    localDb.addLeadTimelineEvent(leadId, orgId, 'DEAL_CREATED', `Deal created with initial stage: ${finalStage} and value: ${val}`);
+
     res.json(newDeal);
+  });
+
+  // Update Deal Stage or Details
+  app.put('/api/v1/deals/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
+
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found in this workspace.' });
+    }
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+    if (isRep && deal.assignedUserId !== user.id) {
+      return res.status(403).json({ error: 'Forbidden. You are not authorized to modify this deal.' });
+    }
+
+    const { 
+      name, company, contactName, value, currency, stage, probability, 
+      expectedCloseDate, assignedUserId, source, description, nextAction, notes
+    } = req.body;
+
+    const oldStage = deal.stage;
+
+    if (name !== undefined) (deal as any).name = name;
+    if (company !== undefined) deal.company = company;
+    if (contactName !== undefined) deal.contactName = contactName;
+    if (value !== undefined) {
+      deal.value = Number(value);
+      deal.valueInr = Number(value);
+    }
+    if (currency !== undefined) deal.currency = currency;
+    if (stage !== undefined) deal.stage = stage;
+    if (probability !== undefined) deal.probability = Number(probability);
+    if (expectedCloseDate !== undefined) deal.expectedCloseDate = expectedCloseDate;
+    if (assignedUserId !== undefined) {
+      deal.assignedUserId = assignedUserId;
+      let assignedUserName = '';
+      const teamMember = localDb.getTeamMembers(orgId).find(tm => tm.id === assignedUserId || tm.userId === assignedUserId);
+      if (teamMember) {
+        assignedUserName = teamMember.fullName;
+      }
+      deal.assignedUserName = assignedUserName || undefined;
+    }
+    if (source !== undefined) deal.source = source;
+    if (description !== undefined) deal.description = description;
+    if (nextAction !== undefined) deal.nextAction = nextAction;
+    if (notes !== undefined) deal.notes = notes;
+
+    deal.updatedAt = new Date().toISOString();
+
+    saveDb();
+
+    logDealTimelineEvent(orgId, user.id, user.fullName, deal.id, 'DEAL_UPDATED', `Deal updated by ${user.fullName}`, { changedFields: Object.keys(req.body) });
+    
+    if (stage && stage !== oldStage) {
+      logDealTimelineEvent(orgId, user.id, user.fullName, deal.id, 'DEAL_STAGE_CHANGED', `Deal stage shifted from ${oldStage} to ${stage}`, { previousStage: oldStage, newStage: stage });
+      localDb.addLeadTimelineEvent(deal.leadId, orgId, 'DEAL_STAGE_CHANGED', `Deal stage updated from ${oldStage} to ${stage}`);
+    }
+
+    res.json(deal);
+  });
+
+  // Specific Endpoint to Update Deal Stage
+  app.post('/api/v1/deals/:id/stage', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const { stage } = req.body;
+
+    if (!stage) {
+      return res.status(400).json({ error: 'Missing required field: stage' });
+    }
+
+    const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found in this workspace.' });
+    }
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+    if (isRep && deal.assignedUserId !== user.id) {
+      return res.status(403).json({ error: 'Forbidden. You are not authorized to modify this deal.' });
+    }
+
+    const previousStage = deal.stage;
+    deal.stage = stage;
+    deal.updatedAt = new Date().toISOString();
+
+    saveDb();
+
+    logDealTimelineEvent(orgId, user.id, user.fullName, deal.id, 'DEAL_STAGE_CHANGED', `Deal stage shifted from ${previousStage} to ${stage}`, { previousStage, newStage: stage });
+    localDb.addLeadTimelineEvent(deal.leadId, orgId, 'DEAL_STAGE_CHANGED', `Deal stage updated from ${previousStage} to ${stage}`);
+
+    res.json({ success: true, deal });
+  });
+
+  // Mark Deal Won
+  app.post('/api/v1/deals/:id/won', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found.' });
+    }
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+    if (isRep && deal.assignedUserId !== user.id) {
+      return res.status(403).json({ error: 'Forbidden. You are not authorized to modify this deal.' });
+    }
+
+    deal.stage = 'WON';
+    deal.wonAt = new Date().toISOString();
+    deal.updatedAt = new Date().toISOString();
+
+    saveDb();
+
+    // Create a persistent notification for DEAL_WON
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: deal.assignedUserId || user.id,
+      type: 'DEAL_WON',
+      priority: 'HIGH',
+      title: 'Deal Won! 🎉',
+      message: `Outstanding! The deal for ${deal.contactName} (${deal.company}) was closed as WON. Value: ${deal.currency || 'INR'} ${deal.value}.`,
+      entityType: 'DEAL' as any,
+      entityId: deal.id
+    });
+
+    logDealTimelineEvent(orgId, user.id, user.fullName, deal.id, 'DEAL_WON', `Deal won by ${user.fullName}!`, { wonAt: deal.wonAt });
+    localDb.addLeadTimelineEvent(deal.leadId, orgId, 'DEAL_WON', `Deal closed as WON`);
+
+    res.json({ success: true, deal });
+  });
+
+  // Mark Deal Lost
+  app.post('/api/v1/deals/:id/lost', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const { lostReason } = req.body;
+
+    const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found.' });
+    }
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+    if (isRep && deal.assignedUserId !== user.id) {
+      return res.status(403).json({ error: 'Forbidden. You are not authorized to modify this deal.' });
+    }
+
+    deal.stage = 'LOST';
+    deal.lostAt = new Date().toISOString();
+    deal.lostReason = lostReason || 'No reason provided';
+    deal.updatedAt = new Date().toISOString();
+
+    saveDb();
+
+    // Create a persistent notification for DEAL_LOST
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: deal.assignedUserId || user.id,
+      type: 'DEAL_LOST',
+      priority: 'MEDIUM',
+      title: 'Deal Lost',
+      message: `The deal for ${deal.contactName} (${deal.company}) was closed as LOST. Reason: ${deal.lostReason}.`,
+      entityType: 'DEAL' as any,
+      entityId: deal.id
+    });
+
+    logDealTimelineEvent(orgId, user.id, user.fullName, deal.id, 'DEAL_LOST', `Deal closed as LOST. Reason: ${deal.lostReason}`, { lostAt: deal.lostAt, lostReason: deal.lostReason });
+    localDb.addLeadTimelineEvent(deal.leadId, orgId, 'DEAL_LOST', `Deal closed as LOST. Reason: ${deal.lostReason}`);
+
+    res.json({ success: true, deal });
+  });
+
+  // Delete Deal
+  app.delete('/api/v1/deals/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const deal = deals.find(d => d.id === id && (d as any).organizationId === orgId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found.' });
+    }
+
+    const role: any = user.role;
+    const isRep = role === 'SALES' || role === 'REP' || role === 'CLIENT';
+    if (isRep && deal.assignedUserId !== user.id) {
+      return res.status(403).json({ error: 'Forbidden. You are not authorized to delete this deal.' });
+    }
+
+    const deleted = localDb.deleteDeal(id, orgId);
+    if (deleted) {
+      const idx = deals.findIndex(d => d.id === id);
+      if (idx !== -1) deals.splice(idx, 1);
+
+      logDealTimelineEvent(orgId, user.id, user.fullName, id, 'DEAL_DELETED', `Deal ID ${id} was deleted by ${user.fullName}`);
+      res.json({ success: true, message: 'Deal deleted successfully.' });
+    } else {
+      res.status(500).json({ error: 'Failed to delete deal.' });
+    }
+  });
+
+  // unified sales command center dashboard api
+  app.get('/api/v1/dashboard/command-center', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized. Authentication token required.' });
+      }
+
+      const { orgId, error, status: statusKey } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(statusKey || 403).json({ success: false, error: error || 'Organization access denied.' });
+      }
+
+      const dateRange = (req.query.dateRange as string) || '30days';
+      const customStart = req.query.startDate as string | undefined;
+      const customEnd = req.query.endDate as string | undefined;
+
+      const now = new Date();
+      let start = new Date();
+      let end = new Date();
+
+      // Set boundaries based on dateRange
+      switch (dateRange) {
+        case 'today':
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case 'yesterday':
+          start.setDate(now.getDate() - 1);
+          start.setHours(0, 0, 0, 0);
+          end.setDate(now.getDate() - 1);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case '7days':
+          start.setDate(now.getDate() - 6);
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case '30days':
+          start.setDate(now.getDate() - 29);
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case 'thisMonth':
+          start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          break;
+        case 'prevMonth':
+          start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+          end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+          break;
+        case 'custom':
+          if (customStart) {
+            start = new Date(customStart);
+            if (isNaN(start.getTime())) {
+              start = new Date();
+              start.setHours(0, 0, 0, 0);
+            }
+          } else {
+            start.setDate(now.getDate() - 29);
+            start.setHours(0, 0, 0, 0);
+          }
+          if (customEnd) {
+            end = new Date(customEnd);
+            if (isNaN(end.getTime())) {
+              end = new Date();
+              end.setHours(23, 59, 59, 999);
+            } else {
+              end.setHours(23, 59, 59, 999);
+            }
+          } else {
+            end.setHours(23, 59, 59, 999);
+          }
+          break;
+        default:
+          start.setDate(now.getDate() - 29);
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+      }
+
+      // Helper function to check if a record is production data (exclude tests/simulations)
+      function isProductionRecord(record: any): boolean {
+        if (!record) return false;
+        if (record.isTest || record.is_test || record.isSimulated || record.is_simulated) return false;
+        if (record.status === 'ARCHIVED' || record.status === 'DELETED') return false;
+        if (record.tags && Array.isArray(record.tags)) {
+          const lowerTags = record.tags.map((t: any) => String(t).toLowerCase());
+          if (lowerTags.includes('test') || lowerTags.includes('demo') || lowerTags.includes('simulated')) {
+            return false;
+          }
+        }
+        if (record.source && String(record.source).toLowerCase() === 'test') return false;
+        return true;
+      }
+
+      // Helper function to verify date range
+      function isWithinPeriod(dateStr: string | undefined, startBound: Date, endBound: Date): boolean {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
+        return d >= startBound && d <= endBound;
+      }
+
+      // Fetch all required tables
+      const scopedLeads = (localDb.getLeads(orgId) || []).filter(isProductionRecord);
+      const scopedDeals = (localDb.getDeals(orgId) || []).filter(isProductionRecord);
+      const scopedAppointments = (localDb.getAppointments(orgId) || []).filter(isProductionRecord);
+      const scopedFollowUps = (localDb.getFollowUps(orgId) || []).filter(isProductionRecord);
+      const scopedManualCalls = (localDb.getManualCallActivities(orgId) || []).filter(isProductionRecord);
+      const scopedVoiceCalls = (localDb.getVoiceCalls(orgId) || []).filter(isProductionRecord);
+      const scopedOutreachMessages = (localDb.getOutreachMessages(orgId) || []).filter(isProductionRecord);
+      const scopedOutreachReplies = (localDb.getOutreachReplies(orgId) || []).filter(isProductionRecord);
+
+      // --- 1. KPIs SECTION ---
+      // Current-state / Point-in-time metrics:
+      const totalLeads = scopedLeads.length;
+      const openDealsCount = scopedDeals.filter(d => d.stage !== 'WON' && d.stage !== 'CLOSED_WON' && d.stage !== 'LOST' && d.stage !== 'CLOSED_LOST').length;
+      const pipelineValueSum = scopedDeals
+        .filter(d => d.stage !== 'WON' && d.stage !== 'CLOSED_WON' && d.stage !== 'LOST' && d.stage !== 'CLOSED_LOST')
+        .reduce((sum, d) => sum + (d.value !== undefined ? d.value : d.valueInr || 0), 0);
+      const overdueFollowUpsCount = scopedFollowUps.filter(f => {
+        const d = f.dueAt || f.dueDate;
+        if (!d || f.status === 'COMPLETED') return false;
+        const dueDate = new Date(d);
+        return !isNaN(dueDate.getTime()) && dueDate < new Date();
+      }).length;
+
+      // Period-based / Time-filtered metrics:
+      const newLeads = scopedLeads.filter(l => isWithinPeriod(l.createdAt, start, end)).length;
+      const interestedLeads = scopedLeads.filter(l => l.status === 'INTERESTED').length; // let's show total active interested leads
+      
+      const callsInPeriod = [
+        ...scopedManualCalls.filter(c => isWithinPeriod(c.createdAt, start, end)),
+        ...scopedVoiceCalls.filter(v => isWithinPeriod(v.createdAt || (v as any).initiatedAt, start, end))
+      ].length;
+
+      const followUpsDueInPeriod = scopedFollowUps.filter(f => {
+        const d = f.dueAt || f.dueDate;
+        return f.status !== 'COMPLETED' && isWithinPeriod(d, start, end);
+      }).length;
+
+      const meetingsInPeriod = scopedAppointments.filter(a => 
+        isWithinPeriod(a.dateTime || a.createdAt, start, end) && (String(a.status) === 'SCHEDULED' || String(a.status) === 'COMPLETED' || String(a.status) === 'CONFIRMED')
+      ).length;
+
+      const wonRevenueInPeriod = scopedDeals
+        .filter(d => (d.stage === 'WON' || d.stage === 'CLOSED_WON') && isWithinPeriod(d.wonAt || d.updatedAt || d.createdAt, start, end))
+        .reduce((sum, d) => sum + (d.value !== undefined ? d.value : d.valueInr || 0), 0);
+
+      const kpis = {
+        totalLeads,
+        newLeads,
+        interestedLeads,
+        callsToday: callsInPeriod, // represents total call counts in the selected period
+        followUpsDueToday: followUpsDueInPeriod, // due in period
+        overdueFollowUps: overdueFollowUpsCount,
+        meetings: meetingsInPeriod,
+        openDeals: openDealsCount,
+        pipelineValue: pipelineValueSum,
+        wonRevenue: wonRevenueInPeriod
+      };
+
+      // --- 2. SALES FUNNEL SECTION ---
+      const leadsCount = scopedLeads.filter(l => ['NEW', 'READY', 'RESEARCH', 'NURTURING'].includes(l.status || '')).length;
+      const contactedCount = scopedLeads.filter(l => ['CONTACTED', 'OUTREACH'].includes(l.status || '')).length;
+      const interestedCount = scopedLeads.filter(l => l.status === 'INTERESTED').length;
+      const meetingReqCount = scopedLeads.filter(l => l.status === 'MEETING_BOOKED').length;
+      const proposalCount = scopedDeals.filter(d => ['PROPOSAL', 'PROPOSAL_SENT'].includes(d.stage || '')).length;
+      const negotiationCount = scopedDeals.filter(d => d.stage === 'NEGOTIATION').length;
+      const wonCount = scopedDeals.filter(d => ['WON', 'CLOSED_WON'].includes(d.stage || '')).length;
+
+      const funnel = [
+        { stage: 'Leads', count: leadsCount, percentage: 100, source: 'Lead status: NEW, READY, RESEARCH, NURTURING' },
+        { stage: 'Contacted', count: contactedCount, percentage: leadsCount > 0 ? Math.round((contactedCount / leadsCount) * 100) : 0, source: 'Lead status: CONTACTED, OUTREACH' },
+        { stage: 'Interested', count: interestedCount, percentage: contactedCount > 0 ? Math.round((interestedCount / contactedCount) * 100) : 0, source: 'Lead status: INTERESTED' },
+        { stage: 'Meeting Requested', count: meetingReqCount, percentage: interestedCount > 0 ? Math.round((meetingReqCount / interestedCount) * 100) : 0, source: 'Lead status: MEETING_BOOKED / Appointments' },
+        { stage: 'Proposal', count: proposalCount, percentage: meetingReqCount > 0 ? Math.round((proposalCount / meetingReqCount) * 100) : 0, source: 'Deal stage: PROPOSAL' },
+        { stage: 'Negotiation', count: negotiationCount, percentage: proposalCount > 0 ? Math.round((negotiationCount / proposalCount) * 100) : 0, source: 'Deal stage: NEGOTIATION' },
+        { stage: 'Won', count: wonCount, percentage: negotiationCount > 0 ? Math.round((wonCount / negotiationCount) * 100) : 0, source: 'Deal stage: WON / CLOSED_WON' }
+      ];
+
+      // --- 3. PIPELINE SNAPSHOT SECTION ---
+      function getStageWeight(stageStr: string): number {
+        switch (String(stageStr).toUpperCase()) {
+          case 'PROSPECTING': return 0.10;
+          case 'QUALIFIED': return 0.25;
+          case 'DEMO_SCHEDULED': return 0.50;
+          case 'PROPOSAL_SENT': return 0.70;
+          case 'NEGOTIATION': return 0.85;
+          case 'CLOSED_WON':
+          case 'WON': return 1.00;
+          case 'CLOSED_LOST':
+          case 'LOST': return 0.00;
+          case 'CONTACTED': return 0.30;
+          case 'INTERESTED': return 0.45;
+          case 'MEETING_REQUESTED': return 0.60;
+          case 'PROPOSAL': return 0.75;
+          default: return 0.10;
+        }
+      }
+
+      const weightedSum = scopedDeals
+        .filter(d => d.stage !== 'WON' && d.stage !== 'CLOSED_WON' && d.stage !== 'LOST' && d.stage !== 'CLOSED_LOST')
+        .reduce((sum, d) => {
+          const val = d.value !== undefined ? d.value : d.valueInr || 0;
+          const weight = getStageWeight(d.stage || 'PROSPECTING');
+          return sum + val * weight;
+        }, 0);
+
+      const soonLimit = new Date();
+      soonLimit.setDate(soonLimit.getDate() + 14);
+      const dealsClosingSoonCount = scopedDeals.filter(d => {
+        const isOpen = d.stage !== 'WON' && d.stage !== 'CLOSED_WON' && d.stage !== 'LOST' && d.stage !== 'CLOSED_LOST';
+        if (!isOpen || !d.expectedCloseDate) return false;
+        const cd = new Date(d.expectedCloseDate);
+        return cd >= new Date() && cd <= soonLimit;
+      }).length;
+
+      const lostDealsCount = scopedDeals.filter(d => 
+        (d.stage === 'LOST' || d.stage === 'CLOSED_LOST') && isWithinPeriod(d.lostAt || d.updatedAt || d.createdAt, start, end)
+      ).length;
+
+      const pipeline = {
+        openDeals: openDealsCount,
+        totalPipelineValue: pipelineValueSum,
+        weightedPipelineValue: Math.round(weightedSum),
+        dealsClosingSoon: dealsClosingSoonCount,
+        wonRevenue: wonRevenueInPeriod,
+        lostDeals: lostDealsCount
+      };
+
+      // --- 4. ACTIVITY OVERVIEW SECTION ---
+      const leadsGenerated = scopedLeads.filter(l => isWithinPeriod(l.createdAt, start, end)).length;
+      const outreachSent = scopedOutreachMessages.filter(m => isWithinPeriod(m.createdAt || (m as any).sentAt, start, end)).length;
+      const callsInit = [
+        ...scopedManualCalls.filter(c => isWithinPeriod(c.createdAt, start, end)),
+        ...scopedVoiceCalls.filter(v => isWithinPeriod(v.createdAt || (v as any).initiatedAt, start, end))
+      ].length;
+
+      // Filter connected calls (outcomes must represent actual connected outcomes, status must not be INITIATED_FROM_SALES_PILOT)
+      const connectedManual = scopedManualCalls.filter(c => {
+        const inRange = isWithinPeriod(c.createdAt, start, end);
+        if (!inRange) return false;
+        const isNotInitiatedOnly = c.status !== 'INITIATED_FROM_SALES_PILOT';
+        const hasOutcome = !!c.outcome;
+        const isConnected = String(c.outcome) !== 'No Answer' && String(c.outcome) !== 'No_Answer' && String(c.outcome) !== 'Failed';
+        return isNotInitiatedOnly && hasOutcome && isConnected;
+      }).length;
+
+      const connectedVoice = scopedVoiceCalls.filter(v => {
+        const inRange = isWithinPeriod(v.createdAt || (v as any).initiatedAt, start, end);
+        if (!inRange) return false;
+        return String(v.status) === 'completed' && ((v as any).duration > 0 || (v as any).answeredAt || String((v as any).outcome) === 'connected');
+      }).length;
+
+      const connectedCalls = connectedManual + connectedVoice;
+
+      const completedFollowUps = scopedFollowUps.filter(f => 
+        f.status === 'COMPLETED' && isWithinPeriod(f.updatedAt || f.createdAt, start, end)
+      ).length;
+
+      const meetingsRequestedCount = scopedAppointments.filter(a => 
+        isWithinPeriod(a.createdAt || a.dateTime, start, end) && (String(a.status) === 'REQUESTED' || String(a.status) === 'PENDING')
+      ).length;
+
+      const meetingsBookedCount = scopedAppointments.filter(a => 
+        isWithinPeriod(a.createdAt || a.dateTime, start, end) && (String(a.status) === 'SCHEDULED' || String(a.status) === 'COMPLETED' || String(a.status) === 'CONFIRMED')
+      ).length;
+
+      const activity = {
+        leadsGenerated,
+        outreachMessagesSent: outreachSent,
+        manualCallsInitiated: callsInit,
+        connectedCalls,
+        followUpsCompleted: completedFollowUps,
+        meetingsRequested: meetingsRequestedCount,
+        meetingsBooked: meetingsBookedCount
+      };
+
+      // --- 5. TODAY'S ACTION CENTER SECTION ---
+      const urgentList: any[] = [];
+      const todayList: any[] = [];
+      const recentList: any[] = [];
+
+      const isToday = (dateStr: string | undefined) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        const todayD = new Date();
+        return d.getFullYear() === todayD.getFullYear() && d.getMonth() === todayD.getMonth() && d.getDate() === todayD.getDate();
+      };
+
+      const isPast = (dateStr: string | undefined) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        const todayD = new Date();
+        todayD.setHours(0,0,0,0);
+        return d < todayD;
+      };
+
+      // Urgent: Overdue follow-ups
+      scopedFollowUps.filter(f => f.status !== 'COMPLETED' && isPast(f.dueAt || f.dueDate)).slice(0, 5).forEach(f => {
+        urgentList.push({
+          id: `urgent-fu-${f.id}`,
+          title: f.title || 'Follow-up Call',
+          subtitle: `Due: ${new Date(f.dueAt || f.dueDate).toLocaleDateString()}`,
+          type: 'OVERDUE_FOLLOW_UP',
+          entityId: f.leadId || f.id,
+          linkTab: 'leads'
+        });
+      });
+
+      // Urgent: Deals closing soon
+      scopedDeals.filter(d => {
+        const isOpen = d.stage !== 'WON' && d.stage !== 'CLOSED_WON' && d.stage !== 'LOST' && d.stage !== 'CLOSED_LOST';
+        if (!isOpen || !d.expectedCloseDate) return false;
+        const cd = new Date(d.expectedCloseDate);
+        return cd >= new Date() && cd <= soonLimit;
+      }).slice(0, 5).forEach(d => {
+        urgentList.push({
+          id: `urgent-deal-${d.id}`,
+          title: `${d.company} Deal Closing`,
+          subtitle: `Value: ${d.valueInr || d.value || 0} INR · Est: ${new Date(d.expectedCloseDate!).toLocaleDateString()}`,
+          type: 'DEAL_CLOSING_SOON',
+          entityId: d.id,
+          linkTab: 'pipeline'
+        });
+      });
+
+      // Urgent: High-priority follow-ups
+      scopedFollowUps.filter(f => f.status !== 'COMPLETED' && f.priority === 'HIGH' && !isPast(f.dueAt || f.dueDate)).slice(0, 5).forEach(f => {
+        urgentList.push({
+          id: `urgent-hp-${f.id}`,
+          title: `High Priority: ${f.title}`,
+          subtitle: `Due: ${new Date(f.dueAt || f.dueDate).toLocaleDateString()}`,
+          type: 'HIGH_PRIORITY_FOLLOW_UP',
+          entityId: f.leadId || f.id,
+          linkTab: 'leads'
+        });
+      });
+
+      // Today: Follow-ups due today
+      scopedFollowUps.filter(f => f.status !== 'COMPLETED' && isToday(f.dueAt || f.dueDate)).slice(0, 5).forEach(f => {
+        todayList.push({
+          id: `today-fu-${f.id}`,
+          title: f.title || 'Follow-up Call',
+          subtitle: 'Scheduled for today',
+          type: 'FOLLOW_UP_TODAY',
+          entityId: f.leadId || f.id,
+          linkTab: 'leads'
+        });
+      });
+
+      // Today: Meetings today
+      scopedAppointments.filter(a => isToday(a.dateTime) && a.status !== 'CANCELLED').slice(0, 5).forEach(a => {
+        todayList.push({
+          id: `today-meet-${a.id}`,
+          title: `Demo with ${a.leadName}`,
+          subtitle: `Time: ${a.startTime || new Date(a.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
+          type: 'MEETING_TODAY',
+          entityId: a.leadId,
+          linkTab: 'leads'
+        });
+      });
+
+      // Recent: Recent interested leads
+      scopedLeads.filter(l => l.status === 'INTERESTED').slice(0, 5).forEach(l => {
+        recentList.push({
+          id: `recent-lead-${l.id}`,
+          title: `New Interested Prospect: ${l.firstName} ${l.lastName}`,
+          subtitle: `Company: ${l.company || 'N/A'} · ${new Date(l.createdAt).toLocaleDateString()}`,
+          type: 'RECENT_INTERESTED',
+          entityId: l.id,
+          linkTab: 'leads'
+        });
+      });
+
+      // Recent: Recent replies
+      scopedOutreachReplies.slice(0, 5).forEach(r => {
+        recentList.push({
+          id: `recent-reply-${r.id}`,
+          title: `Reply from ${r.leadName || r.leadId}`,
+          subtitle: `Received: ${new Date(r.createdAt || r.receivedAt).toLocaleDateString()}`,
+          type: 'RECENT_REPLY',
+          entityId: r.leadId,
+          linkTab: 'leads'
+        });
+      });
+
+      // Recent: Recently updated deals
+      scopedDeals.slice(0, 5).forEach(d => {
+        recentList.push({
+          id: `recent-deal-${d.id}`,
+          title: `${d.company} Opportunity Status`,
+          subtitle: `Stage: ${d.stage} · Value: ${d.valueInr || d.value || 0} INR`,
+          type: 'RECENT_DEAL_UPDATE',
+          entityId: d.id,
+          linkTab: 'pipeline'
+        });
+      });
+
+      const todaysActions = {
+        urgent: urgentList,
+        today: todayList,
+        recent: recentList
+      };
+
+      // --- 6. TEAM PERFORMANCE SECTION ---
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+      let targetUsers = [];
+      if (isElevatedUser) {
+        targetUsers = localDb.getWorkspaceUsers(orgId);
+      } else {
+        targetUsers = [user];
+      }
+
+      // Safeguard in case no users exist
+      if (!targetUsers || targetUsers.length === 0) {
+        targetUsers = [user];
+      }
+
+      const teamPerformance = targetUsers.map(u => {
+        const userLeads = scopedLeads.filter(l => (l as any).assignedUserId === u.id);
+        const userDeals = scopedDeals.filter(d => d.assignedUserId === u.id);
+        const userFollowUps = scopedFollowUps.filter(f => f.userId === u.id);
+        const userManualCalls = scopedManualCalls.filter(c => c.userId === u.id);
+        const userVoiceCalls = scopedVoiceCalls.filter(c => (c as any).userId === u.id);
+        const userAppointments = scopedAppointments.filter(a => (a as any).assignedUserId === u.id || (a as any).userId === u.id);
+
+        const contacted = userLeads.filter(l => ['CONTACTED', 'OUTREACH'].includes(l.status || '')).length;
+        const callsCountInit = userManualCalls.length + userVoiceCalls.length;
+        
+        const cManual = userManualCalls.filter(c => {
+          return c.status !== 'INITIATED_FROM_SALES_PILOT' && c.outcome && String(c.outcome) !== 'No Answer' && String(c.outcome) !== 'No_Answer' && String(c.outcome) !== 'Failed';
+        }).length;
+        const cVoice = userVoiceCalls.filter(v => String(v.status) === 'completed' && ((v as any).duration > 0 || (v as any).answeredAt || String((v as any).outcome) === 'connected')).length;
+        const connectedCallsCount = cManual + cVoice;
+
+        const interested = userLeads.filter(l => l.status === 'INTERESTED').length;
+        const fuCompleted = userFollowUps.filter(f => f.status === 'COMPLETED').length;
+        const meetingsReq = userAppointments.length;
+        
+        const dCreated = userDeals.length;
+        const dWon = userDeals.filter(d => d.stage === 'WON' || d.stage === 'CLOSED_WON').length;
+        const wRev = userDeals.filter(d => d.stage === 'WON' || d.stage === 'CLOSED_WON').reduce((sum, d) => sum + (d.value !== undefined ? d.value : d.valueInr || 0), 0);
+
+        return {
+          userId: u.id,
+          fullName: u.fullName || u.email,
+          role: u.role,
+          leadsContacted: contacted,
+          callsInitiated: callsCountInit,
+          connectedCalls: connectedCallsCount,
+          interestedLeads: interested,
+          followUpsCompleted: fuCompleted,
+          meetingsRequested: meetingsReq,
+          dealsCreated: dCreated,
+          dealsWon: dWon,
+          wonRevenue: wRev
+        };
+      });
+
+      // --- 7. RECENT ACTIVITY FEED SECTION ---
+      const timelineEvents: any[] = [];
+
+      scopedLeads.forEach(l => {
+        timelineEvents.push({
+          id: `act-lead-${l.id}`,
+          event: 'Lead Created',
+          entity: l.firstName + ' ' + l.lastName,
+          subtitle: `Sourced from ${l.source || 'Manual'}`,
+          user: 'System Bot',
+          timestamp: l.createdAt,
+          type: 'LEAD_CREATED',
+          entityId: l.id,
+          linkTab: 'leads'
+        });
+      });
+
+      scopedOutreachMessages.forEach(m => {
+        timelineEvents.push({
+          id: `act-msg-${m.id || Math.random().toString()}`,
+          event: 'Outreach Sent',
+          entity: (m as any).leadName || `Lead ${m.leadId}`,
+          subtitle: `Message sent via ${(m as any).channel || 'Email'}`,
+          user: 'Outreach Manager',
+          timestamp: m.createdAt || (m as any).sentAt,
+          type: 'OUTREACH_SENT',
+          entityId: m.leadId,
+          linkTab: 'leads'
+        });
+      });
+
+      scopedOutreachReplies.forEach(r => {
+        timelineEvents.push({
+          id: `act-rep-${r.id}`,
+          event: 'Reply Received',
+          entity: r.leadName || `Lead ${r.leadId}`,
+          subtitle: `Reply: "${r.snippet || r.body || ''}"`,
+          user: r.leadName || 'Prospect',
+          timestamp: r.createdAt || r.receivedAt,
+          type: 'REPLY_RECEIVED',
+          entityId: r.leadId,
+          linkTab: 'leads'
+        });
+      });
+
+      scopedManualCalls.forEach(c => {
+        timelineEvents.push({
+          id: `act-mcall-${c.id}`,
+          event: c.status === 'INITIATED_FROM_SALES_PILOT' ? 'Manual Call Initiated' : 'Call Outcome Logged',
+          entity: `Call to ${c.phoneNumber || 'Prospect'}`,
+          subtitle: c.outcome ? `Outcome: ${c.outcome} · Notes: ${c.notes}` : `Dialed`,
+          user: c.userId || 'Agent',
+          timestamp: c.createdAt || c.updatedAt,
+          type: 'CALL_LOGGED',
+          entityId: c.leadId,
+          linkTab: 'leads'
+        });
+      });
+
+      scopedFollowUps.forEach(f => {
+        timelineEvents.push({
+          id: `act-fu-${f.id}`,
+          event: f.status === 'COMPLETED' ? 'Follow-up Completed' : 'Follow-up Created',
+          entity: f.title || 'Follow-up Call',
+          subtitle: `Due: ${new Date(f.dueAt || f.dueDate).toLocaleDateString()}`,
+          user: f.userId || 'Agent',
+          timestamp: f.status === 'COMPLETED' ? (f.updatedAt || f.createdAt) : f.createdAt,
+          type: 'FOLLOW_UP_EVENT',
+          entityId: f.leadId || f.id,
+          linkTab: 'leads'
+        });
+      });
+
+      scopedDeals.forEach(d => {
+        timelineEvents.push({
+          id: `act-deal-c-${d.id}`,
+          event: 'Deal Created',
+          entity: `${d.company} - ${d.leadName || 'Opportunity'}`,
+          subtitle: `Initial stage: ${d.stage} · Value: ${d.valueInr || d.value || 0} INR`,
+          user: d.assignedUserName || 'Agent',
+          timestamp: d.createdAt,
+          type: 'DEAL_CREATED',
+          entityId: d.id,
+          linkTab: 'pipeline'
+        });
+        if (d.stage === 'WON' || d.stage === 'CLOSED_WON') {
+          timelineEvents.push({
+            id: `act-deal-w-${d.id}`,
+            event: 'Deal Won',
+            entity: `${d.company} - ${d.leadName || 'Opportunity'}`,
+            subtitle: `Won total value: ${d.valueInr || d.value || 0} INR!`,
+            user: d.assignedUserName || 'Agent',
+            timestamp: d.wonAt || d.updatedAt,
+            type: 'DEAL_WON',
+            entityId: d.id,
+            linkTab: 'pipeline'
+          });
+        }
+        if (d.stage === 'LOST' || d.stage === 'CLOSED_LOST') {
+          timelineEvents.push({
+            id: `act-deal-l-${d.id}`,
+            event: 'Deal Lost',
+            entity: `${d.company} - ${d.leadName || 'Opportunity'}`,
+            subtitle: `Closed Lost · Reason: ${d.lostReason || 'N/A'}`,
+            user: d.assignedUserName || 'Agent',
+            timestamp: d.lostAt || d.updatedAt,
+            type: 'DEAL_LOST',
+            entityId: d.id,
+            linkTab: 'pipeline'
+          });
+        }
+      });
+
+      scopedAppointments.forEach(a => {
+        timelineEvents.push({
+          id: `act-app-${a.id}`,
+          event: 'Meeting Booked',
+          entity: `Strategy call with ${a.leadName}`,
+          subtitle: `Confirmed for ${new Date(a.dateTime).toLocaleString()}`,
+          user: (a as any).assignedUserId || (a as any).userId || 'Agent',
+          timestamp: a.createdAt || a.dateTime,
+          type: 'MEETING_BOOKED',
+          entityId: a.leadId,
+          linkTab: 'leads'
+        });
+      });
+
+      const recentActivity = timelineEvents
+        .filter(e => e.timestamp)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 30);
+
+      res.json({
+        success: true,
+        kpis,
+        funnel,
+        pipeline,
+        activity,
+        todaysActions,
+        teamPerformance,
+        recentActivity,
+        metadata: {
+          lastUpdated: new Date().toISOString(),
+          dateRange,
+          start: start.toISOString(),
+          end: end.toISOString()
+        }
+      });
+    } catch (err: any) {
+      console.error('[CommandCenter] Server error:', err);
+      res.status(500).json({ success: false, error: 'Failed to aggregate command center telemetry metrics: ' + err.message });
+    }
   });
 
   // Fetch Dashboard Metrics API
@@ -9790,9 +11217,243 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const notifications = localDb.getSalesPilotNotifications(orgId, user.id, {});
     res.json({
       success: true,
-      notifications: []
+      notifications
+    });
+  });
+
+  // 1. GET /api/v1/notifications (with pagination and filters)
+  app.get('/api/v1/notifications', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { type, priority, isRead, entityType, startDate, endDate } = req.query;
+    const filters: any = {};
+    if (type) filters.type = type as string;
+    if (priority) filters.priority = priority as string;
+    if (isRead !== undefined) filters.isRead = isRead === 'true';
+    if (entityType) filters.entityType = entityType as string;
+    if (startDate) filters.startDate = startDate as string;
+    if (endDate) filters.endDate = endDate as string;
+
+    const allNotifs = localDb.getSalesPilotNotifications(orgId, user.id, filters);
+
+    // Pagination
+    const page = parseInt(req.query.page as string || '1', 10);
+    const limit = parseInt(req.query.limit as string || '25', 10);
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+
+    const paginated = allNotifs.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      notifications: paginated,
+      pagination: {
+        total: allNotifs.length,
+        page,
+        limit,
+        pages: Math.ceil(allNotifs.length / limit)
+      }
+    });
+  });
+
+  // 2. GET /api/v1/notifications/unread-count
+  app.get('/api/v1/notifications/unread-count', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const count = localDb.getUnreadSalesPilotNotificationCount(orgId, user.id);
+    res.json({
+      success: true,
+      count
+    });
+  });
+
+  // 3. GET /api/v1/notifications/:id
+  app.get('/api/v1/notifications/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const ntf = localDb.getSalesPilotNotificationById(req.params.id, orgId, user.id);
+    if (!ntf) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    res.json({
+      success: true,
+      notification: ntf
+    });
+  });
+
+  // 4. POST /api/v1/notifications/:id/read
+  app.post('/api/v1/notifications/:id/read', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const updated = localDb.markSalesPilotNotificationRead(req.params.id, orgId, user.id, true);
+    if (!updated) {
+      return res.status(404).json({ error: 'Notification not found or access denied.' });
+    }
+
+    res.json({
+      success: true,
+      notification: updated
+    });
+  });
+
+  // 5. POST /api/v1/notifications/:id/unread
+  app.post('/api/v1/notifications/:id/unread', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const updated = localDb.markSalesPilotNotificationRead(req.params.id, orgId, user.id, false);
+    if (!updated) {
+      return res.status(404).json({ error: 'Notification not found or access denied.' });
+    }
+
+    res.json({
+      success: true,
+      notification: updated
+    });
+  });
+
+  // 6. POST /api/v1/notifications/read-all
+  app.post('/api/v1/notifications/read-all', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    localDb.markAllSalesPilotNotificationsRead(orgId, user.id);
+    res.json({
+      success: true
+    });
+  });
+
+  // 7. POST /api/v1/notifications/:id/archive
+  app.post('/api/v1/notifications/:id/archive', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const ntf = localDb.getSalesPilotNotificationById(req.params.id, orgId, user.id);
+    if (!ntf) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+
+    const updatedMetadata = { ...ntf.metadata, isArchived: true };
+    const updated = localDb.updateSalesPilotNotification(req.params.id, orgId, user.id, { metadata: updatedMetadata });
+
+    res.json({
+      success: true,
+      notification: updated
+    });
+  });
+
+  // 8. POST /api/v1/notifications/process-due
+  app.post('/api/v1/notifications/process-due', (req, res) => {
+    // 1. Cron Authentication
+    const authHeader = req.headers['authorization'];
+    const cronSecret = process.env.CRON_SECRET || 'super_secret_cron_pass_921';
+    
+    if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
+      console.warn('[CRON] Unauthorized cron trigger attempt rejected.');
+      return res.status(401).json({ error: 'Unauthorized cron token' });
+    }
+
+    console.log('[CRON] Running follow-up due processor...');
+    
+    // Find all uncompleted follow-ups
+    const followUps = (localDb as any).db.followUps || [];
+    const now = new Date();
+    const createdNotifs: any[] = [];
+    
+    // Limit processing to bounded batches (e.g. max 100 follow-ups per cron run)
+    const pendingFollowUps = followUps.filter((f: any) => f.status !== 'COMPLETED').slice(0, 100);
+
+    for (const f of pendingFollowUps) {
+      if (!f.dueAt) continue;
+      const dueTime = new Date(f.dueAt);
+      
+      const isOverdue = dueTime < now;
+
+      if (dueTime <= now) {
+        const type = isOverdue ? 'FOLLOW_UP_OVERDUE' : 'FOLLOW_UP_DUE';
+        const title = isOverdue ? 'Follow-Up Overdue' : 'Follow-Up Due Today';
+        const message = isOverdue 
+          ? `Your follow-up task "${f.title || 'Untitled task'}" is overdue.` 
+          : `Your follow-up task "${f.title || 'Untitled task'}" is due today.`;
+
+        // Resolve user ID
+        const targetUserId = f.userId || f.assignedUserId || f.creatorId || 'default_user';
+
+        // Add persistent notification idempotently (idempotencyKey prevents duplicates automatically)
+        const added = localDb.addSalesPilotNotification({
+          organizationId: f.organizationId || 'default_org',
+          userId: targetUserId,
+          type,
+          title,
+          message,
+          entityType: 'FOLLOW_UP',
+          entityId: f.id,
+          priority: f.priority || 'MEDIUM'
+        });
+
+        createdNotifs.push(added);
+      }
+    }
+
+    res.json({
+      success: true,
+      processedCount: pendingFollowUps.length,
+      createdCount: createdNotifs.length,
+      notifications: createdNotifs
     });
   });
 
@@ -10339,6 +12000,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       await updateLeadAsync(lead.id, { status: 'MEETING_BOOKED', timelineList: lead.timelineList });
 
+      // Create a persistent notification for MEETING_BOOKED event
+      localDb.addSalesPilotNotification({
+        organizationId: orgId,
+        userId: (lead as any).assignedToId || user.id,
+        type: 'MEETING_BOOKED',
+        priority: 'HIGH',
+        title: 'Meeting Booked! 📅',
+        message: `A demo meeting was scheduled with ${lead.firstName} ${lead.lastName || ''} (${lead.company}) on ${startDateTime.toLocaleDateString()} at ${startDateTime.toLocaleTimeString()}.`,
+        entityType: 'MEETING',
+        entityId: newApt.id
+      });
+
       saveDb();
       console.log(`[BOOKING CREATION SUCCESS] Created appointment ID: "${newApt.id}" for Lead ID: "${lead.id}" ("${lead.firstName} ${lead.lastName}" at ${lead.company}). Google Calendar Synced: ${newApt.googleSynced}`);
       res.json(newApt);
@@ -10505,6 +12178,1446 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     res.json({ success: true, appointment: apt });
+  });
+
+  // =========================================================================
+  // PHASE 10: CALENDAR & MEETING MANAGEMENT ENDPOINTS
+  // =========================================================================
+
+  app.get('/api/v1/meetings', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { filter, status: statusFilter } = req.query;
+    const now = new Date();
+
+    let orgMeetings = appointments.filter(a => (a as any).organizationId === orgId);
+
+    // Apply status filter
+    if (statusFilter) {
+      orgMeetings = orgMeetings.filter(m => m.status === statusFilter);
+    }
+
+    // Apply date range/relative filters
+    if (filter === 'today') {
+      const todayStr = now.toISOString().split('T')[0];
+      orgMeetings = orgMeetings.filter(m => (m.dateTime || m.startAt || '').startsWith(todayStr));
+    } else if (filter === 'week') {
+      const oneWeekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      orgMeetings = orgMeetings.filter(m => {
+        const d = new Date(m.dateTime || m.startAt || '');
+        return d >= now && d <= oneWeekLater;
+      });
+    } else if (filter === 'month') {
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      orgMeetings = orgMeetings.filter(m => {
+        const d = new Date(m.dateTime || m.startAt || '');
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+    } else if (filter === 'upcoming') {
+      orgMeetings = orgMeetings.filter(m => new Date(m.dateTime || m.startAt || '') >= now);
+    } else if (filter === 'past') {
+      orgMeetings = orgMeetings.filter(m => new Date(m.dateTime || m.startAt || '') < now);
+    }
+
+    res.json({ success: true, meetings: orgMeetings });
+  });
+
+  app.post('/api/v1/meetings', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    // Server-side billing limits enforcement for meetings
+    const userTier = user.tier || 'FREE';
+    const activeMeetingsCount = appointments.filter(a => (a as any).organizationId === orgId && a.status !== 'CANCELLED').length;
+    let maxMeetings = 2;
+    if (userTier === 'STARTER') maxMeetings = 20;
+    else if (userTier === 'GROWTH') maxMeetings = 100;
+    else if (userTier === 'ENTERPRISE') maxMeetings = 999999;
+
+    if (activeMeetingsCount >= maxMeetings) {
+      return res.status(402).json({
+        error: `Meeting schedule limit reached. Current tier "${userTier}" allows up to ${maxMeetings} scheduled meetings. Please upgrade your subscription.`
+      });
+    }
+
+    const {
+      leadId,
+      dealId,
+      assignedUserId,
+      title,
+      description,
+      startAt,
+      endAt,
+      timezone,
+      durationMins,
+      provider = 'google'
+    } = req.body;
+
+    if (!leadId) {
+      return res.status(400).json({ error: 'Lead ID is required to schedule a meeting.' });
+    }
+    if (!startAt) {
+      return res.status(400).json({ error: 'Start date and time (startAt) is required.' });
+    }
+
+    // 1. Verify lead ownership
+    const lead = leads.find(l => l.id === leadId && l.organizationId === orgId);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found in this workspace.' });
+    }
+
+    // 2. Verify deal ownership if provided
+    if (dealId) {
+      const deal = deals.find(d => d.id === dealId && d.organizationId === orgId);
+      if (!deal) {
+        return res.status(404).json({ error: 'Deal not found in this workspace.' });
+      }
+    }
+
+    // 3. Prevent duplicate scheduling at exact same time for the same lead
+    const duplicate = appointments.find(a => 
+      a.leadId === leadId && 
+      (a as any).organizationId === orgId && 
+      a.dateTime === startAt &&
+      a.status !== 'CANCELLED'
+    );
+    if (duplicate) {
+      return res.status(409).json({ error: 'A meeting is already scheduled with this lead at the specified time.', duplicate });
+    }
+
+    const tz = timezone || 'Asia/Kolkata';
+    const startDateTime = new Date(startAt);
+    const calculatedDuration = durationMins || 30;
+    const endDateTime = endAt ? new Date(endAt) : new Date(startDateTime.getTime() + calculatedDuration * 60 * 1000);
+
+    const eventSummary = title || `SalesPilot Meeting: ${lead.firstName} ${lead.lastName}`;
+    const eventDescription = description || 'CRM scheduled meeting.';
+
+    let googleEventId = '';
+    let meetingLink = `https://meet.google.com/sp-demo-${Math.random().toString(36).substring(2, 6)}-${Math.random().toString(36).substring(2, 6)}`;
+    const activeAcc = calendarAccounts[0];
+    const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+
+    // Integrates with existing Google Calendar integration
+    if (activeAcc && isRealToken) {
+      try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
+        const googleEventPayload = {
+          summary: eventSummary,
+          description: eventDescription,
+          start: { dateTime: startDateTime.toISOString(), timeZone: tz },
+          end: { dateTime: endDateTime.toISOString(), timeZone: tz },
+          attendees: lead.email ? [{ email: lead.email }] : []
+        };
+        const gRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(googleEventPayload)
+        });
+
+        if (gRes.ok) {
+          const gData: any = await gRes.json();
+          googleEventId = gData.id;
+          if (gData.hangoutLink) {
+            meetingLink = gData.hangoutLink;
+          }
+        }
+      } catch (gErr) {
+        console.error('[GOOGLE CALENDAR API SYNC ERROR IN MEETINGS ROUTE]', gErr);
+      }
+    }
+
+    const newMeeting: Appointment = {
+      id: `mtg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      organizationId: orgId,
+      leadId: lead.id,
+      leadName: `${lead.firstName} ${lead.lastName}`.trim(),
+      company: lead.company || '',
+      email: lead.email || '',
+      dateTime: startDateTime.toISOString(),
+      durationMins: calculatedDuration,
+      status: 'SCHEDULED',
+      meetingLink,
+      notes: eventDescription,
+      timezone: tz,
+      googleSynced: !!googleEventId,
+      googleEventId,
+      reminderSent: false,
+      createdAt: new Date().toISOString(),
+      timelineList: [
+        { id: `tl_sub_${Date.now()}_1`, event: 'Meeting Scheduled', details: `Scheduled via advanced Meetings Panel. Timezone: ${tz}`, createdAt: new Date().toISOString() }
+      ],
+      
+      // Phase 10 fields
+      dealId,
+      assignedUserId: assignedUserId || user.id,
+      description: eventDescription,
+      startAt: startDateTime.toISOString(),
+      endAt: endDateTime.toISOString(),
+      attendees: lead.email ? [lead.email] : [],
+      provider,
+      providerEventId: googleEventId,
+      updatedAt: new Date().toISOString()
+    };
+
+    appointments.unshift(newMeeting);
+    localDb.db.appointments = localDb.db.appointments || [];
+    localDb.db.appointments.unshift(newMeeting);
+
+    // Sync to CRM Lead Timeline
+    if (!lead.timelineList) lead.timelineList = [];
+    lead.timelineList.unshift({
+      id: `tl_lead_mtg_${Date.now()}`,
+      event: 'Meeting Booked',
+      details: `Scheduled "${eventSummary}" for ${startDateTime.toLocaleString()} (${tz})`,
+      createdAt: new Date().toISOString()
+    });
+
+    await updateLeadAsync(lead.id, { status: 'MEETING_BOOKED', timelineList: lead.timelineList });
+
+    // In-app notifications
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: assignedUserId || user.id,
+      type: 'MEETING_BOOKED',
+      priority: 'HIGH',
+      title: 'Meeting Booked! 📅',
+      message: `Meeting "${eventSummary}" was successfully scheduled on ${startDateTime.toLocaleDateString()}.`,
+      entityType: 'MEETING',
+      entityId: newMeeting.id
+    });
+
+    saveDb();
+    res.status(201).json({ success: true, meeting: newMeeting });
+  });
+
+  app.get('/api/v1/meetings/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const mtg = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
+    if (!mtg) {
+      return res.status(404).json({ error: 'Meeting not found.' });
+    }
+
+    res.json({ success: true, meeting: mtg });
+  });
+
+  app.put('/api/v1/meetings/:id', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const mtg = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
+    if (!mtg) {
+      return res.status(404).json({ error: 'Meeting not found.' });
+    }
+
+    const { title, description, startAt, endAt, timezone, status, assignedUserId, dealId } = req.body;
+
+    if (title) mtg.title = title;
+    if (description) {
+      mtg.description = description;
+      mtg.notes = description;
+    }
+    if (timezone) mtg.timezone = timezone;
+    if (status) mtg.status = status;
+    if (assignedUserId) mtg.assignedUserId = assignedUserId;
+    if (dealId) mtg.dealId = dealId;
+
+    if (startAt) {
+      mtg.startAt = startAt;
+      mtg.dateTime = startAt;
+    }
+    if (endAt) mtg.endAt = endAt;
+
+    mtg.updatedAt = new Date().toISOString();
+
+    // Call Google Calendar update event API
+    const activeAcc = calendarAccounts[0];
+    const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+    if (mtg.googleEventId && activeAcc && isRealToken) {
+      try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
+        const googleEventPayload = {
+          summary: mtg.title || `SalesPilot Meeting`,
+          description: mtg.description || '',
+          start: { dateTime: new Date(mtg.startAt || mtg.dateTime).toISOString(), timeZone: mtg.timezone || 'Asia/Kolkata' },
+          end: { dateTime: new Date(mtg.endAt || new Date(new Date(mtg.startAt || mtg.dateTime).getTime() + 30 * 60 * 1000)).toISOString(), timeZone: mtg.timezone || 'Asia/Kolkata' }
+        };
+
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mtg.googleEventId}?sendUpdates=all`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(googleEventPayload)
+        });
+      } catch (gErr) {
+        console.error('[GOOGLE CALENDAR API UPDATE ERROR]', gErr);
+      }
+    }
+
+    // Log update timeline
+    if (!mtg.timelineList) mtg.timelineList = [];
+    mtg.timelineList.unshift({
+      id: `tl_upd_${Date.now()}`,
+      event: 'Meeting Updated',
+      details: 'Meeting parameters re-synced successfully.',
+      createdAt: new Date().toISOString()
+    });
+
+    saveDb();
+    res.json({ success: true, meeting: mtg });
+  });
+
+  app.post('/api/v1/meetings/:id/reschedule', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const { startAt, endAt } = req.body;
+
+    if (!startAt) {
+      return res.status(400).json({ error: 'New start date (startAt) is required.' });
+    }
+
+    const mtg = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
+    if (!mtg) {
+      return res.status(404).json({ error: 'Meeting not found.' });
+    }
+
+    mtg.startAt = startAt;
+    mtg.dateTime = startAt;
+    if (endAt) mtg.endAt = endAt;
+    else mtg.endAt = new Date(new Date(startAt).getTime() + (mtg.durationMins || 30) * 60 * 1000).toISOString();
+    mtg.status = 'SCHEDULED';
+    mtg.updatedAt = new Date().toISOString();
+
+    // Call Google Calendar reschedule
+    const activeAcc = calendarAccounts[0];
+    const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+    if (mtg.googleEventId && activeAcc && isRealToken) {
+      try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
+        const googleEventPayload = {
+          start: { dateTime: new Date(mtg.startAt).toISOString(), timeZone: mtg.timezone || 'Asia/Kolkata' },
+          end: { dateTime: new Date(mtg.endAt).toISOString(), timeZone: mtg.timezone || 'Asia/Kolkata' }
+        };
+
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mtg.googleEventId}?sendUpdates=all`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(googleEventPayload)
+        });
+      } catch (gErr) {
+        console.error('[GOOGLE CALENDAR API RESCHEDULE ERROR]', gErr);
+      }
+    }
+
+    // Add notification
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: mtg.assignedUserId || user.id,
+      type: 'MEETING_BOOKED',
+      priority: 'MEDIUM',
+      title: 'Meeting Rescheduled 📅',
+      message: `Your meeting with ${mtg.leadName} has been rescheduled to ${new Date(startAt).toLocaleDateString()}.`,
+      entityType: 'MEETING',
+      entityId: mtg.id
+    });
+
+    saveDb();
+    res.json({ success: true, meeting: mtg });
+  });
+
+  app.post('/api/v1/meetings/:id/cancel', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const mtg = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
+    if (!mtg) {
+      return res.status(404).json({ error: 'Meeting not found.' });
+    }
+
+    mtg.status = 'CANCELLED';
+    mtg.updatedAt = new Date().toISOString();
+
+    // Call Google Calendar Cancel event
+    const activeAcc = calendarAccounts[0];
+    const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+    if (mtg.googleEventId && activeAcc && isRealToken) {
+      try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
+        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mtg.googleEventId}?sendUpdates=all`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (gErr) {
+        console.error('[GOOGLE CALENDAR API CANCEL ERROR]', gErr);
+      }
+    }
+
+    // Update CRM Lead timeline
+    const lead = leads.find(l => l.id === mtg.leadId && l.organizationId === orgId);
+    if (lead) {
+      if (!lead.timelineList) lead.timelineList = [];
+      lead.timelineList.unshift({
+        id: `tl_mtg_cancel_${Date.now()}`,
+        event: 'Meeting Cancelled',
+        details: `Scheduled meeting was marked cancelled.`,
+        createdAt: new Date().toISOString()
+      });
+      await updateLeadAsync(lead.id, { status: 'CONTACTED', timelineList: lead.timelineList });
+    }
+
+    localDb.addSalesPilotNotification({
+      organizationId: orgId,
+      userId: mtg.assignedUserId || user.id,
+      type: 'MEETING_BOOKED',
+      priority: 'MEDIUM',
+      title: 'Meeting Cancelled ❌',
+      message: `The meeting scheduled with ${mtg.leadName} has been cancelled.`,
+      entityType: 'MEETING',
+      entityId: mtg.id
+    });
+
+    saveDb();
+    res.json({ success: true, meeting: mtg });
+  });
+
+  app.post('/api/v1/meetings/:id/complete', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const mtg = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
+    if (!mtg) {
+      return res.status(404).json({ error: 'Meeting not found.' });
+    }
+
+    mtg.status = 'COMPLETED';
+    mtg.updatedAt = new Date().toISOString();
+
+    const lead = leads.find(l => l.id === mtg.leadId && l.organizationId === orgId);
+    if (lead) {
+      if (!lead.timelineList) lead.timelineList = [];
+      lead.timelineList.unshift({
+        id: `tl_mtg_comp_${Date.now()}`,
+        event: 'Meeting Completed',
+        details: `Scheduled meeting successfully completed.`,
+        createdAt: new Date().toISOString()
+      });
+      updateLeadAsync(lead.id, { status: 'QUALIFIED', timelineList: lead.timelineList }).catch(() => {});
+    }
+
+    saveDb();
+    res.json({ success: true, meeting: mtg });
+  });
+
+  app.post('/api/v1/meetings/:id/no-show', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const mtg = appointments.find(a => a.id === id && (a as any).organizationId === orgId);
+    if (!mtg) {
+      return res.status(404).json({ error: 'Meeting not found.' });
+    }
+
+    mtg.status = 'NO_SHOW';
+    mtg.updatedAt = new Date().toISOString();
+
+    const lead = leads.find(l => l.id === mtg.leadId && l.organizationId === orgId);
+    if (lead) {
+      if (!lead.timelineList) lead.timelineList = [];
+      lead.timelineList.unshift({
+        id: `tl_mtg_noshow_${Date.now()}`,
+        event: 'Meeting No-Show',
+        details: `Prospect missed the scheduled call.`,
+        createdAt: new Date().toISOString()
+      });
+      updateLeadAsync(lead.id, { status: 'CONTACTED', timelineList: lead.timelineList }).catch(() => {});
+    }
+
+    saveDb();
+    res.json({ success: true, meeting: mtg });
+  });
+
+
+  // =========================================================================
+  // PHASE 11: TEAM MANAGEMENT & RBAC ENDPOINTS
+  // =========================================================================
+
+  app.get('/api/v1/team', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
+    // Gather team members
+    const orgTeamMembers = serverTeamMembers.filter(m => (m as any).organizationId === verifiedOrgId);
+    
+    // Enrich team members with actual workload statistics
+    const enrichedMembers = orgTeamMembers.map(m => {
+      const assignedLeadsCount = leads.filter(l => (l as any).assignedToId === m.id && l.organizationId === verifiedOrgId).length;
+      const activeDealsCount = deals.filter(d => (d as any).assignedToId === m.id && d.organizationId === verifiedOrgId && d.stage !== 'CLOSED_WON' && d.stage !== 'CLOSED_LOST').length;
+      const pendingFollowUpsCount = (localDb.db.followUps || []).filter(f => (f.userId === m.id || f.assignedUserId === m.id) && f.organizationId === verifiedOrgId && f.status !== 'COMPLETED').length;
+      const meetingsCount = appointments.filter(a => ((a as any).assignedUserId === m.id || (a as any).userId === m.id) && (a as any).organizationId === verifiedOrgId).length;
+
+      return {
+        ...m,
+        workload: {
+          leadsAssigned: assignedLeadsCount,
+          activeDeals: activeDealsCount,
+          pendingFollowUps: pendingFollowUpsCount,
+          meetings: meetingsCount
+        }
+      };
+    });
+
+    // Gather pending invitations
+    const orgInvitations = localDb.getInvitations(verifiedOrgId);
+
+    res.json({
+      success: true,
+      teamMembers: enrichedMembers,
+      invitations: orgInvitations
+    });
+  });
+
+  app.post('/api/v1/team/invitations/:id/accept', (req, res) => {
+    const { id } = req.params;
+    
+    if (!localDb.db.invitations) localDb.db.invitations = [];
+    const invitation = localDb.db.invitations.find(i => i.id === id);
+    if (!invitation) {
+      return res.status(404).json({ error: 'Workspace invitation code not found.' });
+    }
+
+    if (invitation.status !== 'PENDING') {
+      return res.status(400).json({ error: `Invitation is already ${invitation.status.toLowerCase()}.` });
+    }
+
+    invitation.status = 'ACCEPTED';
+
+    // Create team member
+    const newMember: TeamMember = {
+      id: `tm_usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      fullName: invitation.email.split('@')[0],
+      email: invitation.email.toLowerCase(),
+      role: (invitation.role || 'REP') as UserRole,
+      status: 'ACTIVE',
+      joinedAt: new Date().toISOString(),
+      organizationId: invitation.organizationId
+    };
+
+    serverTeamMembers.push(newMember);
+    localDb.addTeamMember(newMember);
+    saveDb();
+
+    res.json({
+      success: true,
+      message: 'Workspace invitation successfully accepted!',
+      member: newMember
+    });
+  });
+
+  app.post('/api/v1/team/invitations/:id/revoke', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
+    // Verify current user capability (only OWNER/ADMIN can revoke)
+    const currentTeammate = serverTeamMembers.find(t => t.email === user.email && (t as any).organizationId === verifiedOrgId);
+    const currentUserRole = currentTeammate?.role || 'REP';
+    if (currentUserRole !== 'OWNER' && currentUserRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied. Only Owners and Admins can revoke workspace invitations.' });
+    }
+
+    const { id } = req.params;
+    if (!localDb.db.invitations) localDb.db.invitations = [];
+    const idx = localDb.db.invitations.findIndex(i => i.id === id && i.organizationId === verifiedOrgId);
+    
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Invitation not found in this workspace.' });
+    }
+
+    localDb.db.invitations[idx].status = 'DECLINED';
+    saveDb();
+
+    res.json({
+      success: true,
+      message: 'Invitation successfully revoked.'
+    });
+  });
+
+  app.put('/api/v1/team/:userId/role', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ error: 'Role value is required.' });
+    }
+
+    // Role Escalation Safety / RBAC Rules
+    const currentTeammate = serverTeamMembers.find(t => t.email === user.email && (t as any).organizationId === verifiedOrgId);
+    const currentUserRole = currentTeammate?.role || 'REP';
+    
+    if (currentUserRole !== 'OWNER' && currentUserRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied. Teammate role updates require Owner or Admin status.' });
+    }
+
+    const targetMember = serverTeamMembers.find(t => t.id === userId && (t as any).organizationId === verifiedOrgId);
+    if (!targetMember) {
+      return res.status(404).json({ error: 'Teammate not found in this workspace.' });
+    }
+
+    // Ownership preservation rule
+    if (targetMember.role === 'OWNER' && role !== 'OWNER') {
+      return res.status(400).json({ error: 'Workspace owner role cannot be degraded or removed. Demotion blocked.' });
+    }
+
+    targetMember.role = role as UserRole;
+    saveDb();
+
+    res.json({
+      success: true,
+      member: targetMember
+    });
+  });
+
+  app.put('/api/v1/team/:userId/permissions', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
+    const { userId } = req.params;
+    const { permissions } = req.body; // e.g. { leadAccess: true, billingAccess: false }
+
+    const currentTeammate = serverTeamMembers.find(t => t.email === user.email && (t as any).organizationId === verifiedOrgId);
+    const currentUserRole = currentTeammate?.role || 'REP';
+
+    if (currentUserRole !== 'OWNER' && currentUserRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied. Custom permission updates require Owner or Admin status.' });
+    }
+
+    const targetMember = serverTeamMembers.find(t => t.id === userId && (t as any).organizationId === verifiedOrgId);
+    if (!targetMember) {
+      return res.status(404).json({ error: 'Teammate not found in this workspace.' });
+    }
+
+    (targetMember as any).customPermissions = permissions;
+    saveDb();
+
+    res.json({
+      success: true,
+      member: targetMember
+    });
+  });
+
+  app.delete('/api/v1/team/:userId', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId: verifiedOrgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (orgErr || !verifiedOrgId) {
+      return res.status(orgStatus || 403).json({ error: orgErr || 'Organization access denied.' });
+    }
+
+    const { userId } = req.params;
+
+    const currentTeammate = serverTeamMembers.find(t => t.email === user.email && (t as any).organizationId === verifiedOrgId);
+    const currentUserRole = currentTeammate?.role || 'REP';
+
+    if (currentUserRole !== 'OWNER' && currentUserRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied. Only workspace Owners and Admins can remove team members.' });
+    }
+
+    const idx = serverTeamMembers.findIndex(t => t.id === userId && (t as any).organizationId === verifiedOrgId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Teammate not found in this workspace.' });
+    }
+
+    const targetMember = serverTeamMembers[idx];
+    if (targetMember.role === 'OWNER') {
+      return res.status(400).json({ error: 'Workspace primary owner cannot be removed.' });
+    }
+
+    serverTeamMembers.splice(idx, 1);
+    localDb.db.teamMembers = localDb.db.teamMembers.filter(t => t.id !== userId);
+    saveDb();
+
+    res.json({
+      success: true,
+      message: `Teammate ${targetMember.fullName || targetMember.email} removed successfully.`
+    });
+  });
+
+
+  // =========================================================================
+  // PHASE 12: CRM INTELLIGENCE ENDPOINTS
+  // =========================================================================
+
+  app.get('/api/v1/leads/:id/intelligence', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    const lead = leads.find(l => l.id === id && l.organizationId === orgId);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found.' });
+    }
+
+    // 1. Transparent Lead Scoring Model
+    let score = 30; // base score
+    const breakdown: string[] = ['Base Profile Index: +30'];
+
+    // Outreach Engagement Criteria
+    const leadEmails = (localDb.db.outreachMessages || []).filter(m => m.leadId === lead.id);
+    if (leadEmails.length > 0) {
+      score += 10;
+      breakdown.push(`Active Campaign Outreach Message Sent: +10`);
+    }
+
+    const leadReplies = (localDb.db.outreachReplies || []).filter(r => r.leadId === lead.id);
+    if (leadReplies.length > 0) {
+      score += 25;
+      breakdown.push(`Prospect Email Reply Received: +25`);
+
+      const positiveReplies = leadReplies.filter(r => r.classification === 'INTERESTED' || r.classification === 'MEETING_REQUEST');
+      if (positiveReplies.length > 0) {
+        score += 20;
+        breakdown.push(`Positive Intent/Meeting Request Detected: +20`);
+      }
+    }
+
+    // Meeting Booked Criteria
+    const leadMeetings = appointments.filter(a => a.leadId === lead.id && a.status !== 'CANCELLED');
+    if (leadMeetings.length > 0) {
+      score += 30;
+      breakdown.push(`Google Calendar Meeting Booked: +30`);
+    }
+
+    // Deal progression
+    const leadDeals = deals.filter(d => d.leadId === lead.id);
+    if (leadDeals.some(d => d.stage === 'CLOSED_WON')) {
+      score += 50;
+      breakdown.push(`Deal Successfully Closed Won: +50`);
+    } else if (leadDeals.some(d => ['QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION'].includes(d.stage))) {
+      score += 20;
+      breakdown.push(`Active Pipeline Deal Opportunity: +20`);
+    }
+
+    score = Math.min(Math.max(score, 0), 100);
+
+    // 2. Next Action Suggestions (Clearly labeled Recommendations)
+    const suggestions: string[] = [];
+    if (leadReplies.length > 0 && leadMeetings.length === 0) {
+      suggestions.push('RECOMMENDATION: Dispatch a Google Calendar booking link to lock in a demo slot.');
+    }
+    if (leadMeetings.some(m => m.status === 'SCHEDULED' && new Date(m.dateTime).getTime() < Date.now())) {
+      suggestions.push('RECOMMENDATION: Mark past demo session as Completed or No-Show to clean pipeline state.');
+    }
+    if (leadEmails.length === 0) {
+      suggestions.push('RECOMMENDATION: Enroll prospect into active mult-step outreach campaign sequence.');
+    }
+    if (suggestions.length === 0) {
+      suggestions.push('RECOMMENDATION: Log a follow-up reminder call to keep account warm.');
+    }
+
+    // 3. Duplicate Detection
+    const possibleDuplicates = leads
+      .filter(l => l.id !== lead.id && l.organizationId === orgId)
+      .filter(l => {
+        const emailMatch = lead.email && l.email && lead.email.trim().toLowerCase() === l.email.trim().toLowerCase();
+        const phoneMatch = lead.phone && l.phone && lead.phone.replace(/\D/g, '') === l.phone.replace(/\D/g, '');
+        const companyMatch = lead.company && l.company && lead.company.toLowerCase() === l.company.toLowerCase();
+        return emailMatch || phoneMatch || companyMatch;
+      })
+      .map(l => ({ id: l.id, firstName: l.firstName, lastName: l.lastName, email: l.email, company: l.company }));
+
+    // 4. Verification-Only Enrichment
+    const enrichment = {
+      companySize: (lead as any).companySize || 'Not available',
+      industrySegment: lead.industry || 'Not available',
+      fundingStage: (lead as any).fundingStage || 'Not available',
+      website: (lead as any).website || 'Not available'
+    };
+
+    res.json({
+      success: true,
+      leadId: lead.id,
+      score,
+      scoreBreakdown: breakdown,
+      suggestions,
+      duplicates: possibleDuplicates,
+      enrichment
+    });
+  });
+
+
+  // =========================================================================
+  // PHASE 13: ADVANCED OUTREACH ENDPOINTS
+  // =========================================================================
+
+  app.get('/api/v1/templates', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    if (!(localDb.db as any).templates) (localDb.db as any).templates = [];
+    const orgTemplates = (localDb.db as any).templates.filter((t: any) => t.organizationId === orgId);
+
+    res.json({ success: true, templates: orgTemplates });
+  });
+
+  app.post('/api/v1/templates', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { name, subjectTemplate, bodyTemplate } = req.body;
+    if (!name || !subjectTemplate || !bodyTemplate) {
+      return res.status(400).json({ error: 'Template name, subject, and body are required.' });
+    }
+
+    const newTpl = {
+      id: `tpl_${Date.now()}`,
+      organizationId: orgId,
+      name,
+      subjectTemplate,
+      bodyTemplate,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (!(localDb.db as any).templates) (localDb.db as any).templates = [];
+    (localDb.db as any).templates.push(newTpl);
+    saveDb();
+
+    res.status(201).json({ success: true, template: newTpl });
+  });
+
+  app.get('/api/v1/templates/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    if (!(localDb.db as any).templates) (localDb.db as any).templates = [];
+    const tpl = (localDb.db as any).templates.find((t: any) => t.id === id && t.organizationId === orgId);
+    
+    if (!tpl) {
+      return res.status(404).json({ error: 'Template not found.' });
+    }
+
+    res.json({ success: true, template: tpl });
+  });
+
+  app.put('/api/v1/templates/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    if (!(localDb.db as any).templates) (localDb.db as any).templates = [];
+    const tpl = (localDb.db as any).templates.find((t: any) => t.id === id && t.organizationId === orgId);
+
+    if (!tpl) {
+      return res.status(404).json({ error: 'Template not found.' });
+    }
+
+    const { name, subjectTemplate, bodyTemplate } = req.body;
+    if (name) tpl.name = name;
+    if (subjectTemplate) tpl.subjectTemplate = subjectTemplate;
+    if (bodyTemplate) tpl.bodyTemplate = bodyTemplate;
+    tpl.updatedAt = new Date().toISOString();
+
+    saveDb();
+    res.json({ success: true, template: tpl });
+  });
+
+  app.delete('/api/v1/templates/:id', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    if (!(localDb.db as any).templates) (localDb.db as any).templates = [];
+    const initialLen = (localDb.db as any).templates.length;
+    (localDb.db as any).templates = (localDb.db as any).templates.filter((t: any) => !(t.id === id && t.organizationId === orgId));
+
+    if ((localDb.db as any).templates.length === initialLen) {
+      return res.status(404).json({ error: 'Template not found or access denied.' });
+    }
+
+    saveDb();
+    res.json({ success: true, message: 'Template successfully deleted.' });
+  });
+
+  app.post('/api/v1/templates/:id/duplicate', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { id } = req.params;
+    if (!(localDb.db as any).templates) (localDb.db as any).templates = [];
+    const tpl = (localDb.db as any).templates.find((t: any) => t.id === id && t.organizationId === orgId);
+
+    if (!tpl) {
+      return res.status(404).json({ error: 'Template to duplicate not found.' });
+    }
+
+    const newTpl = {
+      ...tpl,
+      id: `tpl_dup_${Date.now()}`,
+      name: `${tpl.name} (Copy)`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    (localDb.db as any).templates.push(newTpl);
+    saveDb();
+
+    res.status(201).json({ success: true, template: newTpl });
+  });
+
+  app.get('/api/v1/outreach/suppression', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    if (!(localDb.db as any).suppressionList) (localDb.db as any).suppressionList = [];
+    const orgSuppression = (localDb.db as any).suppressionList.filter((s: any) => s.organizationId === orgId);
+
+    res.json({ success: true, suppressionList: orgSuppression });
+  });
+
+  app.post('/api/v1/outreach/suppression', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { email, reason = 'MANUAL' } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email to suppress is required.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!(localDb.db as any).suppressionList) (localDb.db as any).suppressionList = [];
+    const duplicate = (localDb.db as any).suppressionList.find((s: any) => s.email === cleanEmail && s.organizationId === orgId);
+    if (duplicate) {
+      return res.status(409).json({ error: 'Email is already present in suppression list.' });
+    }
+
+    const record = {
+      id: `sup_${Date.now()}`,
+      organizationId: orgId,
+      email: cleanEmail,
+      reason,
+      createdAt: new Date().toISOString()
+    };
+
+    (localDb.db as any).suppressionList.push(record);
+
+    // Also update any matching lead status in CRM to SUPPRESSED
+    const matchingLeads = leads.filter(l => l.email && l.email.trim().toLowerCase() === cleanEmail && l.organizationId === orgId);
+    matchingLeads.forEach(lead => {
+      lead.status = 'UNSUBSCRIBED';
+    });
+
+    saveDb();
+    res.status(201).json({ success: true, suppressed: record });
+  });
+
+  app.delete('/api/v1/outreach/suppression/:email', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const email = req.params.email.trim().toLowerCase();
+    if (!(localDb.db as any).suppressionList) (localDb.db as any).suppressionList = [];
+
+    const initialLen = (localDb.db as any).suppressionList.length;
+    (localDb.db as any).suppressionList = (localDb.db as any).suppressionList.filter((s: any) => !(s.email === email && s.organizationId === orgId));
+
+    if ((localDb.db as any).suppressionList.length === initialLen) {
+      return res.status(404).json({ error: 'Email not found in suppression list.' });
+    }
+
+    saveDb();
+    res.json({ success: true, message: 'Email successfully removed from suppression list.' });
+  });
+
+  app.get('/api/v1/outreach/rate-limits', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const userTier = user.tier || 'FREE';
+    let dailyLimit = 20;
+    if (userTier === 'STARTER') dailyLimit = 200;
+    else if (userTier === 'GROWTH') dailyLimit = 2000;
+    else if (userTier === 'ENTERPRISE') dailyLimit = 99999;
+
+    // Calculate sent messages today
+    const sentToday = (localDb.db.outreachMessages || [])
+      .filter(m => m.organizationId === orgId && m.sentAt.startsWith(new Date().toISOString().split('T')[0]))
+      .length;
+
+    res.json({
+      success: true,
+      tier: userTier,
+      dailyLimit,
+      sentToday,
+      remaining: Math.max(dailyLimit - sentToday, 0)
+    });
+  });
+
+
+  // =========================================================================
+  // PHASE 14: REPORTING & REVENUE ANALYTICS ENDPOINTS
+  // =========================================================================
+
+  app.get('/api/v1/reports/funnel', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const orgLeads = leads.filter(l => l.organizationId === orgId);
+
+    const stages = {
+      leads: orgLeads.length,
+      reached: orgLeads.filter(l => ['REACHED', 'CONTACTED', 'MEETING_BOOKED', 'QUALIFIED', 'CONVERTED'].includes(l.status || '')).length,
+      replied: orgLeads.filter(l => (localDb.db.outreachReplies || []).some(r => r.leadId === l.id)).length,
+      meetingsBooked: orgLeads.filter(l => appointments.some(a => a.leadId === l.id && a.status !== 'CANCELLED')).length,
+      won: deals.filter(d => d.organizationId === orgId && d.stage === 'CLOSED_WON').length
+    };
+
+    res.json({ success: true, funnel: stages });
+  });
+
+  app.get('/api/v1/reports/pipeline', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const orgDeals = deals.filter(d => d.organizationId === orgId);
+
+    const dealsByStage = {
+      LEAD: orgDeals.filter(d => d.stage === 'LEAD'),
+      CONTACTED: orgDeals.filter(d => d.stage === 'CONTACTED'),
+      QUALIFIED: orgDeals.filter(d => d.stage === 'QUALIFIED'),
+      PROPOSAL_SENT: orgDeals.filter(d => d.stage === 'PROPOSAL_SENT'),
+      NEGOTIATION: orgDeals.filter(d => d.stage === 'NEGOTIATION'),
+      CLOSED_WON: orgDeals.filter(d => d.stage === 'CLOSED_WON'),
+      CLOSED_LOST: orgDeals.filter(d => d.stage === 'CLOSED_LOST')
+    };
+
+    const valueByStage = Object.entries(dealsByStage).reduce((acc, [stage, list]) => {
+      acc[stage] = list.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    res.json({
+      success: true,
+      dealsCount: Object.fromEntries(Object.entries(dealsByStage).map(([s, l]) => [s, l.length])),
+      valueByStage
+    });
+  });
+
+  app.get('/api/v1/reports/activity', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const teamActivitiesList = serverTeamMembers
+      .filter(m => (m as any).organizationId === orgId)
+      .map(m => {
+        const loggedCalls = localDb.getManualCallActivities(orgId).filter(c => c.userId === m.id).length;
+        const loggedEmails = (localDb.db.outreachMessages || []).filter(mRecord => mRecord.organizationId === orgId).length;
+        const loggedMeetings = appointments.filter(a => ((a as any).assignedUserId === m.id || (a as any).userId === m.id) && (a as any).organizationId === orgId).length;
+        const loggedFollowUps = (localDb.db.followUps || []).filter(f => (f.userId === m.id || f.assignedUserId === m.id) && f.organizationId === orgId).length;
+
+        return {
+          id: m.id,
+          fullName: m.fullName,
+          role: m.role,
+          activities: {
+            calls: loggedCalls,
+            emails: loggedEmails,
+            meetings: loggedMeetings,
+            followUps: loggedFollowUps
+          }
+        };
+      });
+
+    res.json({ success: true, activityReport: teamActivitiesList });
+  });
+
+  app.get('/api/v1/reports/revenue', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const wonDeals = deals.filter(d => d.organizationId === orgId && d.stage === 'CLOSED_WON');
+    const totalWonRevenue = wonDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+
+    const lostDeals = deals.filter(d => d.organizationId === orgId && d.stage === 'CLOSED_LOST');
+    const totalLostRevenue = lostDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+
+    res.json({
+      success: true,
+      revenue: {
+        totalWon: totalWonRevenue,
+        totalLost: totalLostRevenue,
+        wonCount: wonDeals.length,
+        lostCount: lostDeals.length
+      }
+    });
+  });
+
+  app.get('/api/v1/reports/campaign', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const orgCampaigns = localDb.getOutreachCampaigns(orgId);
+
+    const reportsList = orgCampaigns.map(c => {
+      const messages = (localDb.db.outreachMessages || []).filter(m => m.campaignId === c.id);
+      const replies = (localDb.db.outreachReplies || []).filter(r => r.campaignId === c.id);
+      const meetings = appointments.filter(a => (a as any).campaignId === c.id || appointments.some(apt => apt.leadId === a.leadId && (apt as any).campaignId === c.id));
+
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        sent: messages.length,
+        replies: replies.length,
+        meetingsBooked: meetings.length,
+        replyRate: messages.length > 0 ? ((replies.length / messages.length) * 100).toFixed(1) + '%' : '0%',
+        bookingRate: messages.length > 0 ? ((meetings.length / messages.length) * 100).toFixed(1) + '%' : '0%'
+      };
+    });
+
+    res.json({ success: true, campaigns: reportsList });
+  });
+
+  app.get('/api/v1/reports/export', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { type } = req.query;
+
+    let csvContent = '';
+    let filename = 'report.csv';
+
+    if (type === 'pipeline') {
+      filename = 'pipeline_report.csv';
+      csvContent = 'Deal ID,Lead Name,Company,Value,Stage,Created At\n';
+      deals.filter(d => d.organizationId === orgId).forEach(d => {
+        csvContent += `"${d.id}","${d.leadName || ''}","${d.company || ''}",${d.value || 0},"${d.stage}","${d.createdAt || ''}"\n`;
+      });
+    } else if (type === 'leads') {
+      filename = 'leads_report.csv';
+      csvContent = 'Lead ID,Name,Company,Email,Phone,Status,Created At\n';
+      leads.filter(l => l.organizationId === orgId).forEach(l => {
+        csvContent += `"${l.id}","${l.firstName || ''} ${l.lastName || ''}","${l.company || ''}","${l.email || ''}","${l.phone || ''}","${l.status || ''}","${l.createdAt || ''}"\n`;
+      });
+    } else {
+      filename = 'activity_report.csv';
+      csvContent = 'Teammate ID,Name,Role,Calls logged,Meetings Scheduled\n';
+      serverTeamMembers.filter(m => (m as any).organizationId === orgId).forEach(m => {
+        const loggedCalls = localDb.getManualCallActivities(orgId).filter(c => c.userId === m.id).length;
+        const loggedMeetings = appointments.filter(a => ((a as any).assignedUserId === m.id || (a as any).userId === m.id) && (a as any).organizationId === orgId).length;
+        csvContent += `"${m.id}","${m.fullName || ''}","${m.role || ''}",${loggedCalls},${loggedMeetings}\n`;
+      });
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.status(200).send(csvContent);
+  });
+
+
+  // =========================================================================
+  // PHASE 15: BILLING & LIMITS MANAGEMENT ENDPOINTS
+  // =========================================================================
+
+  app.get('/api/v1/billing/subscription', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const currentTier = user.tier || 'FREE';
+
+    // Current usages
+    const currentLeadsCount = leads.filter(l => l.organizationId === orgId).length;
+    const currentCampaignsCount = localDb.getOutreachCampaigns(orgId).length;
+    const currentTeamMembersCount = serverTeamMembers.filter(m => (m as any).organizationId === orgId).length;
+    const currentMeetingsCount = appointments.filter(a => (a as any).organizationId === orgId).length;
+    const currentCallsCount = localDb.getManualCallActivities(orgId).length;
+
+    // Plan limits mapping
+    const planLimits = {
+      FREE: { leads: 10, campaigns: 1, teamMembers: 2, meetings: 2, calls: 5 },
+      STARTER: { leads: 100, campaigns: 3, teamMembers: 5, meetings: 20, calls: 50 },
+      GROWTH: { leads: 1000, campaigns: 10, teamMembers: 15, meetings: 100, calls: 500 },
+      ENTERPRISE: { leads: 999999, campaigns: 999999, teamMembers: 999999, meetings: 999999, calls: 999999 }
+    };
+
+    const limits = planLimits[currentTier as keyof typeof planLimits] || planLimits.FREE;
+
+    const paymentHistory = Array.from(pendingOrders.values())
+      .filter(o => o.userId === user.id && o.status === 'SUCCESS')
+      .map((o, idx) => ({
+        id: `inv_sp_${idx}_${Date.now()}`,
+        date: new Date().toLocaleDateString(),
+        amount: `Rs. ${o.valueInr} INR`,
+        plan: o.tier,
+        status: 'PAID'
+      }));
+
+    res.json({
+      success: true,
+      currentTier,
+      status: 'ACTIVE',
+      renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+      usage: {
+        leads: { current: currentLeadsCount, max: limits.leads },
+        campaigns: { current: currentCampaignsCount, max: limits.campaigns },
+        teamMembers: { current: currentTeamMembersCount, max: limits.teamMembers },
+        meetings: { current: currentMeetingsCount, max: limits.meetings },
+        calls: { current: currentCallsCount, max: limits.calls }
+      },
+      paymentHistory
+    });
+  });
+
+  app.post('/api/v1/billing/cancel', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
+    const targetUser = serverUsers.find(u => u.id === user.id) || localDb.getUserById(user.id) || user;
+    targetUser.tier = 'FREE';
+    try { localDb.saveUser(targetUser as any); } catch (_) {}
+
+    saveDb();
+    res.json({
+      success: true,
+      message: 'Subscription successfully cancelled. Your account tier has been set back to Free.',
+      updated_user: targetUser
+    });
+  });
+
+  app.post('/api/v1/billing/upgrade', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
+    const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
+    if (isProductionRuntime) {
+      return res.status(403).json({ error: 'Forbidden. Direct subscription upgrades are disabled in production. Please complete the secure checkout flow.' });
+    }
+
+    const { tier } = req.body;
+    if (!tier) {
+      return res.status(400).json({ error: 'Target tier name is required.' });
+    }
+
+    const targetUser = serverUsers.find(u => u.id === user.id) || localDb.getUserById(user.id) || user;
+    targetUser.tier = tier;
+    try { localDb.saveUser(targetUser as any); } catch (_) {}
+
+    saveDb();
+    res.json({
+      success: true,
+      message: `Your workspace subscription has been upgraded to ${tier}!`,
+      updated_user: targetUser
+    });
   });
 
   // Cashfree INR Billing Simulation & Production Architecture Setup
@@ -11788,9 +14901,64 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   });
 
-  // In-memory call logs store tenant-scoped
-  let callLogs: any[] = [];
+  // --- AI Voice Calling Phase 1 Module Routes ---
+  const voiceProviderAdapter = new VoiceProviderAdapter();
 
+  function calculateVoiceStats(calls: VoiceCallRecord[]) {
+    return {
+      totalCalls: calls.length,
+      completedCalls: calls.filter(c => c.status === 'COMPLETED').length,
+      callsInProgress: calls.filter(c => ['QUEUED', 'DIALING', 'RINGING', 'IN_PROGRESS'].includes(c.status)).length,
+      interestedLeads: calls.filter(c => c.outcome === 'INTERESTED').length,
+      meetingsRequested: calls.filter(c => c.outcome === 'MEETING_REQUESTED').length,
+      failedCalls: calls.filter(c => ['FAILED', 'NO_ANSWER', 'BUSY', 'CANCELLED'].includes(c.status)).length
+    };
+  }
+
+  // 1. Get Voice Provider Configuration & Production Diagnostic
+  app.get(['/api/v1/voice/provider/config', '/api/v1/voice/provider-status'], (req, res) => {
+    try {
+      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-f4uv.vercel.app';
+      const isConfigured = voiceProviderAdapter.isConfigured();
+      res.json({
+        success: true,
+        configured: isConfigured,
+        apiKeyConfigured: isConfigured,
+        provider: isConfigured ? voiceProviderAdapter.name : 'None',
+        providerName: voiceProviderAdapter.name,
+        webhookUrl: `${baseUrl}/api/v1/voice/webhook`,
+        environment: process.env.NODE_ENV || 'production',
+        readyForRealCall: isConfigured,
+        supportedVoices: [
+          { id: 'nat', name: 'Nat - Professional Female', gender: 'Female', language: 'en-US' },
+          { id: 'dom', name: 'Dom - Confident Male', gender: 'Male', language: 'en-US' },
+          { id: 'rachel', name: 'Rachel - Warm Female', gender: 'Female', language: 'en-US' },
+          { id: 'adam', name: 'Adam - Executive Male', gender: 'Male', language: 'en-US' }
+        ]
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Get All Tenant Calls with Dashboard KPI Summary
+  app.get('/api/v1/voice/calls', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      const calls = localDb.getVoiceCalls(orgId);
+      const stats = calculateVoiceStats(calls);
+
+      res.json({ success: true, calls, stats });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Backward compatibility alias for /api/v1/calls
   app.get('/api/v1/calls', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
@@ -11798,29 +14966,328 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
       if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
 
-      const filtered = callLogs.filter(c => c.organizationId === orgId);
-      res.json({ success: true, calls: filtered });
+      const calls = localDb.getVoiceCalls(orgId);
+      res.json({ success: true, calls });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  app.post('/api/v1/calls', (req, res) => {
+  // 3. Get Single Call Details + State History Events
+  app.get('/api/v1/voice/calls/:id', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
       if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
       const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
       if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
 
-      const callData = { ...req.body, organizationId: orgId, createdAt: req.body.createdAt || new Date().toISOString() };
-      const idx = callLogs.findIndex(c => c.id === callData.id);
-      if (idx >= 0) {
-        callLogs[idx] = callData;
-      } else {
-        callLogs.unshift(callData);
-      }
-      res.json({ success: true, call: callData });
+      const call = localDb.getVoiceCallById(req.params.id, orgId);
+      if (!call) return res.status(404).json({ success: false, error: 'Call not found in workspace' });
+
+      const events = localDb.getVoiceCallEvents(call.id, orgId);
+      res.json({ success: true, call, events });
     } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Initiate AI Voice Call
+  app.post('/api/v1/voice/calls/initiate', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      const {
+        leadId,
+        phoneNumber: providedPhone,
+        agentName,
+        openingMessage,
+        callObjective,
+        companyContext,
+        leadContext,
+        maxDurationMinutes,
+        language,
+        voiceId,
+        meetingBookingGoal
+      } = req.body;
+
+      if (!leadId) {
+        return res.status(400).json({ success: false, error: 'leadId is required' });
+      }
+
+      // Verify Lead belongs to Tenant Workspace
+      const lead = localDb.getLeadById(leadId, orgId);
+      if (!lead) {
+        return res.status(404).json({ success: false, error: 'Lead not found in authorized workspace' });
+      }
+
+      // Validate Phone Number
+      const phoneToUse = (providedPhone || lead.phone || '').trim();
+      const digitsOnly = phoneToUse.replace(/\D/g, '');
+      if (!phoneToUse || digitsOnly.length < 7) {
+        return res.status(400).json({
+          success: false,
+          error: 'Lead does not have a valid phone number for voice calling.'
+        });
+      }
+
+      // Check Provider Configuration
+      if (!voiceProviderAdapter.isConfigured()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Voice provider not configured'
+        });
+      }
+
+      // Create Call Record in QUEUED state
+      const callId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+      const now = new Date().toISOString();
+
+      const newCall: VoiceCallRecord = {
+        id: callId,
+        organizationId: orgId,
+        leadId: lead.id,
+        leadName: lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim(),
+        company: lead.company || lead.companyName,
+        jobTitle: lead.title,
+        email: lead.email,
+        website: lead.enrichment?.website,
+        phoneNumber: phoneToUse,
+        status: 'QUEUED',
+        startedAt: now,
+        outcome: 'PENDING',
+        transcript: [],
+        agentName: agentName || 'Astra AI SDR',
+        openingMessage: openingMessage || `Hi ${lead.name || 'there'}, this is ${agentName || 'Astra'} from SalesPilot.`,
+        callObjective: callObjective || 'Qualify prospect interest and schedule brief introduction.',
+        companyContext,
+        leadContext,
+        maxDurationMinutes: Number(maxDurationMinutes) || 5,
+        language: language || 'en-US',
+        voiceId: voiceId || 'nat',
+        meetingBookingGoal: Boolean(meetingBookingGoal),
+        createdAt: now,
+        updatedAt: now
+      };
+
+      // Save call in QUEUED state & log event
+      localDb.saveVoiceCall(newCall);
+      localDb.addVoiceCallEvent({
+        organizationId: orgId,
+        callId: newCall.id,
+        fromStatus: undefined,
+        toStatus: 'QUEUED',
+        details: { agentName, callObjective }
+      });
+
+      // Invoke Provider to Start Call
+      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-f4uv.vercel.app';
+      const webhookUrl = `${baseUrl}/api/v1/voice/webhook`;
+
+      const providerResult = await voiceProviderAdapter.createCall({
+        callId: newCall.id,
+        organizationId: orgId,
+        phoneNumber: phoneToUse,
+        leadName: lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim(),
+        company: lead.company || lead.companyName,
+        jobTitle: lead.title,
+        agentName: newCall.agentName!,
+        openingMessage: newCall.openingMessage!,
+        callObjective: newCall.callObjective!,
+        companyContext,
+        leadContext,
+        maxDurationMinutes: newCall.maxDurationMinutes,
+        language: newCall.language,
+        voiceId: newCall.voiceId,
+        meetingBookingGoal: newCall.meetingBookingGoal,
+        webhookUrl
+      });
+
+      if (providerResult.success && providerResult.providerCallId) {
+        // Transition to DIALING
+        const updatedCall = localDb.updateVoiceCallStatus(newCall.id, 'DIALING', orgId, {
+          providerCallId: providerResult.providerCallId,
+          providerName: providerResult.providerName || voiceProviderAdapter.name
+        });
+        return res.json({ success: true, call: updatedCall });
+      } else {
+        // Transition to FAILED
+        const failedCall = localDb.updateVoiceCallStatus(newCall.id, 'FAILED', orgId, {
+          summary: providerResult.error || 'Provider call creation failed'
+        });
+        return res.status(400).json({
+          success: false,
+          error: providerResult.error || 'Voice provider failed to initiate call',
+          call: failedCall
+        });
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Backward compatibility POST /api/v1/calls
+  app.post('/api/v1/calls', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      if (req.body.leadId && !req.body.status) {
+        req.url = '/api/v1/voice/calls/initiate';
+        return (app as any)._router.handle(req, res);
+      }
+
+      const callData = { ...req.body, organizationId: orgId, createdAt: req.body.createdAt || new Date().toISOString() };
+      const saved = localDb.saveVoiceCall(callData);
+      res.json({ success: true, call: saved });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Cancel / End Call
+  app.post('/api/v1/voice/calls/:id/cancel', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      const call = localDb.getVoiceCallById(req.params.id, orgId);
+      if (!call) return res.status(404).json({ success: false, error: 'Call not found' });
+
+      if (call.providerCallId) {
+        await voiceProviderAdapter.endCall(call.providerCallId);
+      }
+
+      const updatedCall = localDb.updateVoiceCallStatus(call.id, 'CANCELLED', orgId, {
+        endedAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, call: updatedCall });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 6. Manual Outcome Confirmation & CRM Sync
+  app.post('/api/v1/voice/calls/:id/outcome', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Access denied' });
+
+      const call = localDb.getVoiceCallById(req.params.id, orgId);
+      if (!call) return res.status(404).json({ success: false, error: 'Call not found' });
+
+      const { outcome, summary, notes, bookMeeting, meetingDetails } = req.body;
+
+      if (!outcome) {
+        return res.status(400).json({ success: false, error: 'outcome is required' });
+      }
+
+      const updatedCall = localDb.saveVoiceCall({
+        ...call,
+        outcome,
+        summary: summary || call.summary,
+        status: ['IN_PROGRESS', 'DIALING', 'RINGING', 'QUEUED'].includes(call.status) ? 'COMPLETED' : call.status,
+        endedAt: call.endedAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      if (call.leadId) {
+        localDb.addLeadActivity({
+          id: 'act_' + Date.now(),
+          leadId: call.leadId,
+          organizationId: orgId,
+          type: 'AI_VOICE_CALL',
+          title: `AI Call Outcome: ${String(outcome).replace('_', ' ')}`,
+          description: summary || notes || `Voice call with ${call.leadName || call.phoneNumber} concluded with outcome ${outcome}.`,
+          timestamp: new Date().toISOString()
+        });
+
+        if (outcome === 'INTERESTED') {
+          const lead = localDb.getLeadById(call.leadId, orgId);
+          if (lead) {
+            lead.status = 'INTERESTED';
+            localDb.saveLead(lead);
+          }
+        }
+
+        if ((bookMeeting || outcome === 'MEETING_REQUESTED') && meetingDetails) {
+          const dateStr = meetingDetails.date || new Date().toISOString().split('T')[0];
+          const timeStr = meetingDetails.time || '14:00';
+          const newAppointment: Appointment = {
+            id: 'appt_v_' + Date.now(),
+            organizationId: orgId,
+            leadId: call.leadId,
+            leadName: call.leadName || 'Contact',
+            company: call.company || '',
+            email: call.email || '',
+            title: meetingDetails.title || `Introduction Call - ${call.company || call.leadName}`,
+            dateTime: `${dateStr}T${timeStr}:00.000Z`,
+            durationMins: 30,
+            status: 'SCHEDULED',
+            meetingLink: 'https://meet.google.com/salespilot-demo',
+            notes: `Booked via AI Voice Call (${call.id}). ${summary || ''}`,
+            createdAt: new Date().toISOString()
+          };
+          localDb.saveAppointment(newAppointment);
+        }
+      }
+
+      res.json({ success: true, call: updatedCall });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 7. Webhook Receiver for Provider Real Events
+  app.post('/api/v1/voice/webhook', async (req, res) => {
+    try {
+      const parsed = await voiceProviderAdapter.handleWebhook(req.body, req.headers);
+      if (!parsed.providerCallId) {
+        return res.status(200).json({ success: true, note: 'No providerCallId in payload' });
+      }
+
+      const call = localDb.getVoiceCallByProviderId(parsed.providerCallId);
+      if (!call) {
+        return res.status(200).json({ success: true, note: 'Call record not found' });
+      }
+
+      const nextStatus = (parsed.status || call.status) as CallStatus;
+      const extraUpdates: Partial<VoiceCallRecord> = {};
+      if (parsed.durationSeconds) extraUpdates.durationSeconds = parsed.durationSeconds;
+      if (parsed.recordingUrl) extraUpdates.recordingUrl = parsed.recordingUrl;
+      if (parsed.summary) extraUpdates.summary = parsed.summary;
+      if (parsed.transcript && parsed.transcript.length > 0) extraUpdates.transcript = parsed.transcript;
+      if (parsed.outcome) extraUpdates.outcome = parsed.outcome as CallOutcome;
+      if (['COMPLETED', 'FAILED', 'NO_ANSWER', 'BUSY', 'CANCELLED'].includes(nextStatus)) {
+        extraUpdates.endedAt = new Date().toISOString();
+      }
+
+      const updatedCall = localDb.updateVoiceCallStatus(call.id, nextStatus, call.organizationId, extraUpdates);
+
+      if (nextStatus === 'COMPLETED' && call.leadId) {
+        localDb.addLeadActivity({
+          id: 'act_' + Date.now(),
+          leadId: call.leadId,
+          organizationId: call.organizationId,
+          type: 'AI_VOICE_CALL',
+          title: `Real AI Call Completed: ${call.phoneNumber}`,
+          description: parsed.summary || `Call completed with duration ${parsed.durationSeconds || 0}s.`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.json({ success: true, callId: call.id, status: nextStatus });
+    } catch (err: any) {
+      console.error('[Voice Webhook Error]', err);
       res.status(500).json({ success: false, error: err.message });
     }
   });
@@ -11842,22 +15309,1086 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   });
 
+  // --- MULTI-USER CALLING NUMBER MANAGEMENT ---
+
+  // Get user's calling numbers
+  app.get('/api/v1/calling-numbers', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const callingNumbers = localDb.getCallingNumbers(orgId, user.id);
+      return res.json({ success: true, callingNumbers });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Add a new calling number
+  app.post('/api/v1/calling-numbers', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { phoneNumber, countryCode, isVerified, isDefault } = req.body;
+      if (!phoneNumber) {
+        return res.status(400).json({ success: false, error: 'Phone number is required.' });
+      }
+
+      const normResult = normalizePhoneNumber(phoneNumber);
+      if (!normResult.valid || !normResult.normalized) {
+        return res.status(400).json({ 
+          success: false, 
+          error: normResult.error || 'Cannot add calling number: Invalid phone number format.' 
+        });
+      }
+
+      const callingNumber = localDb.addCallingNumber({
+        userId: user.id,
+        organizationId: orgId,
+        phoneNumber: normResult.normalized,
+        countryCode: countryCode || '+1',
+        isVerified: isVerified ?? true,
+        isDefault: Boolean(isDefault)
+      });
+
+      return res.status(201).json({ success: true, callingNumber });
+    } catch (err: any) {
+      if (err.message?.includes('Duplicate')) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Update a calling number
+  app.put('/api/v1/calling-numbers/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const { phoneNumber, countryCode, isVerified, isDefault } = req.body;
+
+      const updates: any = {};
+      if (phoneNumber) {
+        const normResult = normalizePhoneNumber(phoneNumber);
+        if (!normResult.valid || !normResult.normalized) {
+          return res.status(400).json({ success: false, error: normResult.error || 'Invalid phone number format.' });
+        }
+        updates.phoneNumber = normResult.normalized;
+      }
+      if (countryCode !== undefined) updates.countryCode = countryCode;
+      if (isVerified !== undefined) updates.isVerified = isVerified;
+      if (isDefault !== undefined) updates.isDefault = Boolean(isDefault);
+
+      const updated = localDb.updateCallingNumber(id, user.id, orgId, updates);
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Calling number not found or access denied.' });
+      }
+
+      return res.json({ success: true, callingNumber: updated });
+    } catch (err: any) {
+      if (err.message?.includes('Duplicate')) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Set calling number as default
+  app.post('/api/v1/calling-numbers/:id/default', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const updated = localDb.setDefaultCallingNumber(id, user.id, orgId);
+      if (!updated) {
+        return res.status(404).json({ success: false, error: 'Calling number not found or access denied.' });
+      }
+
+      const callingNumbers = localDb.getCallingNumbers(orgId, user.id);
+      return res.json({ success: true, callingNumbers, activeDefault: updated });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Remove a calling number
+  app.delete('/api/v1/calling-numbers/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const target = localDb.getCallingNumberById(id, orgId, user.id);
+      if (!target) {
+        return res.status(404).json({ success: false, error: 'Calling number not found or access denied.' });
+      }
+
+      const remaining = localDb.removeCallingNumber(id, user.id, orgId);
+      return res.json({ success: true, callingNumbers: remaining });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // --- PHASE 4: MANUAL PHONE CALL INTEGRATION ---
+
+  // 1. Initiate Manual Phone Call
+  app.post('/api/v1/manual-calls/initiate', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation: Invalid organization context.' });
+      }
+
+      const { leadId, phoneNumber: clientPhoneNumber, callingNumberId } = req.body;
+      if (!leadId) {
+        return res.status(400).json({ success: false, error: 'Target leadId is required.' });
+      }
+
+      // Verify that the lead exists AND belongs to the authenticated tenant
+      const lead = localDb.getLeadById(leadId, orgId);
+      if (!lead) {
+        return res.status(403).json({ success: false, error: 'Access denied: Target lead not found in authenticated workspace tenant.' });
+      }
+
+      // Validate & normalize target lead phone number
+      const phoneToTest = lead.phone || clientPhoneNumber;
+      const normResult = normalizePhoneNumber(phoneToTest);
+      if (!normResult.valid || !normResult.normalized) {
+        return res.status(400).json({ 
+          success: false, 
+          error: normResult.error || 'Cannot initiate call: Missing or invalid phone number for target lead.' 
+        });
+      }
+
+      // Resolve selected or default user calling number
+      let selectedCallingNumberObj;
+      if (callingNumberId) {
+        selectedCallingNumberObj = localDb.getCallingNumberById(callingNumberId, orgId, user.id);
+      }
+      if (!selectedCallingNumberObj) {
+        const userNumbers = localDb.getCallingNumbers(orgId, user.id);
+        selectedCallingNumberObj = userNumbers.find(cn => cn.isDefault) || userNumbers[0];
+      }
+
+      // Create CRM Call Activity with status INITIATED_FROM_SALES_PILOT
+      // Crucial: Do NOT mark as COMPLETED
+      const activity: ManualCallActivity = {
+        id: 'act_manual_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        leadId: lead.id,
+        organizationId: orgId,
+        userId: user.id,
+        callingNumberId: selectedCallingNumberObj?.id,
+        callingNumber: selectedCallingNumberObj?.phoneNumber,
+        phoneNumber: normResult.normalized, // LEAD's phone number
+        direction: 'OUTBOUND',
+        activityType: 'PHONE_CALL',
+        status: 'INITIATED_FROM_SALES_PILOT',
+        createdAt: new Date().toISOString()
+      };
+
+      localDb.addManualCallActivity(activity);
+
+      // Log in lead timeline/activities
+      localDb.addLeadActivity({
+        id: 'act_' + Date.now(),
+        leadId: lead.id,
+        organizationId: orgId,
+        type: 'PHONE_CALL',
+        title: `Manual Outbound Call Initiated: ${normResult.normalized}`,
+        description: `Call initiated from user device (${selectedCallingNumberObj?.phoneNumber || 'Default Device'}) to ${lead.name} (${lead.company || 'Company'})`,
+        timestamp: new Date().toISOString()
+      });
+
+      return res.json({
+        success: true,
+        activity,
+        lead: {
+          id: lead.id,
+          name: lead.name,
+          company: lead.company,
+          title: (lead as any).title || (lead as any).jobTitle,
+          phone: normResult.normalized,
+          website: (lead as any).website
+        },
+        callingNumberUsed: selectedCallingNumberObj?.phoneNumber || null,
+        normalizedPhoneNumber: normResult.normalized,
+        telUrl: `tel:${normResult.normalized}`
+      });
+    } catch (err: any) {
+      console.error('[Manual Call Initiate Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Log Manual Call Outcome
+  app.post('/api/v1/manual-calls/outcome', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation: Invalid organization context.' });
+      }
+
+      const { activityId, leadId, outcome, notes } = req.body;
+
+      const validOutcomes: ManualCallOutcome[] = [
+        'Connected', 'No Answer', 'Busy', 'Call Back Later', 
+        'Not Interested', 'Interested', 'Meeting Requested'
+      ];
+
+      if (!outcome || !validOutcomes.includes(outcome as ManualCallOutcome)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Invalid outcome. Must be one of: ${validOutcomes.join(', ')}` 
+        });
+      }
+
+      // If activityId is provided, update existing activity
+      let updatedActivity: ManualCallActivity | undefined;
+      if (activityId) {
+        updatedActivity = localDb.updateManualCallOutcome(
+          activityId, 
+          orgId, 
+          outcome as ManualCallOutcome, 
+          notes,
+          user.id,
+          user.fullName
+        );
+      }
+
+      const targetLeadId = leadId || updatedActivity?.leadId;
+      if (!targetLeadId) {
+        return res.status(400).json({ success: false, error: 'Target leadId is required to log outcome.' });
+      }
+
+      // Verify lead belongs to authenticated tenant
+      const lead = localDb.getLeadById(targetLeadId, orgId);
+      if (!lead) {
+        return res.status(403).json({ success: false, error: 'Access denied: Target lead not found in workspace.' });
+      }
+
+      if (!updatedActivity) {
+        const normPhone = normalizePhoneNumber(lead.phone).normalized || lead.phone || 'N/A';
+        updatedActivity = localDb.addManualCallActivity({
+          id: 'act_manual_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          leadId: lead.id,
+          organizationId: orgId,
+          userId: user.id,
+          phoneNumber: normPhone,
+          direction: 'OUTBOUND',
+          activityType: 'PHONE_CALL',
+          status: 'COMPLETED',
+          outcome: outcome as ManualCallOutcome,
+          notes: notes || '',
+          auditHistory: [
+            {
+              timestamp: new Date().toISOString(),
+              action: 'INITIATED',
+              actorId: user.id,
+              actorName: user.fullName,
+              details: `Call initiated from SalesPilot device dialer to ${normPhone}`
+            },
+            {
+              timestamp: new Date().toISOString(),
+              action: 'OUTCOME_UPDATED',
+              actorId: user.id,
+              actorName: user.fullName,
+              details: `Outcome recorded as ${outcome}${notes ? `. Notes: ${notes}` : ''}`
+            }
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      // Update lead CRM status based on outcome
+      if (outcome === 'Interested') {
+        localDb.updateLead(lead.id, { status: 'INTERESTED' as LeadStatus }, orgId);
+      } else if (outcome === 'Meeting Requested') {
+        localDb.updateLead(lead.id, { status: 'MEETING_BOOKED' as LeadStatus }, orgId);
+      } else if (outcome === 'Not Interested') {
+        localDb.updateLead(lead.id, { status: 'LOST' as LeadStatus }, orgId);
+      } else if (outcome === 'Call Back Later') {
+        localDb.updateLead(lead.id, { status: 'FOLLOW_UP_REQUIRED' as LeadStatus }, orgId);
+      } else if (['Connected', 'No Answer', 'Busy'].includes(outcome)) {
+        if (['NEW', 'OUTREACH'].includes(lead.status)) {
+          localDb.updateLead(lead.id, { status: 'CONTACTED' as LeadStatus }, orgId);
+        }
+      }
+
+      // Add CRM activity note
+      localDb.addLeadActivity({
+        id: 'act_' + Date.now(),
+        leadId: lead.id,
+        organizationId: orgId,
+        type: 'PHONE_CALL',
+        title: `Manual Call Outcome Recorded: ${outcome}`,
+        description: notes ? `Outcome: ${outcome}. Notes: ${notes}` : `Outcome: ${outcome}`,
+        timestamp: new Date().toISOString()
+      });
+
+      return res.json({
+        success: true,
+        activity: updatedActivity,
+        leadStatus: lead.status
+      });
+    } catch (err: any) {
+      console.error('[Manual Call Outcome Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3. Get Manual Call History (Phase 5)
+  app.get('/api/v1/manual-calls/history', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const targetUserId = req.query.userId as string | undefined;
+      const leadId = req.query.leadId as string | undefined;
+      const company = req.query.company as string | undefined;
+      const callStatus = req.query.status as string | undefined;
+      const outcome = req.query.outcome as string | undefined;
+      const callingNumber = req.query.callingNumber as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      // Fetch all manual call activities for organization
+      let activities = localDb.getManualCallActivities(orgId);
+
+      // Security scoping: Non-elevated reps can ONLY see their own calls
+      if (!isElevatedUser) {
+        activities = activities.filter(a => a.userId === user.id);
+      } else if (targetUserId) {
+        activities = activities.filter(a => a.userId === targetUserId);
+      }
+
+      // Enrich with Lead & User details for query filtering & view
+      const enrichedHistory = activities.map(a => {
+        const lead = localDb.getLeadById(a.leadId, orgId);
+        const teamUser = a.userId ? localDb.getUserById(a.userId) : null;
+        return {
+          ...a,
+          leadName: lead ? (lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Lead') : 'Lead',
+          company: lead?.company || 'N/A',
+          leadPhone: lead?.phone || a.phoneNumber,
+          userName: teamUser?.fullName || (a.userId === user.id ? user.fullName : 'Sales Rep'),
+          userEmail: teamUser?.email || (a.userId === user.id ? user.email : ''),
+          duration: 'Not available' // Explicit requirement: do not fabricate duration
+        };
+      });
+
+      // Apply Filter predicates
+      let filtered = enrichedHistory;
+
+      if (leadId) {
+        filtered = filtered.filter(a => a.leadId === leadId);
+      }
+
+      if (startDate) {
+        const startIso = new Date(startDate).toISOString();
+        filtered = filtered.filter(a => a.createdAt >= startIso);
+      }
+
+      if (endDate) {
+        // Set end date to end of day if YYYY-MM-DD
+        const endObj = new Date(endDate);
+        if (endDate.length <= 10) endObj.setHours(23, 59, 59, 999);
+        const endIso = endObj.toISOString();
+        filtered = filtered.filter(a => a.createdAt <= endIso);
+      }
+
+      if (company) {
+        const compLower = company.toLowerCase();
+        filtered = filtered.filter(a => a.company?.toLowerCase().includes(compLower));
+      }
+
+      if (callStatus) {
+        filtered = filtered.filter(a => a.status === callStatus);
+      }
+
+      if (outcome) {
+        filtered = filtered.filter(a => a.outcome === outcome);
+      }
+
+      if (callingNumber) {
+        filtered = filtered.filter(a => a.callingNumber === callingNumber || a.callingNumberId === callingNumber);
+      }
+
+      if (search) {
+        const sLower = search.toLowerCase();
+        filtered = filtered.filter(a => 
+          a.leadName.toLowerCase().includes(sLower) ||
+          a.company.toLowerCase().includes(sLower) ||
+          a.phoneNumber.toLowerCase().includes(sLower) ||
+          (a.callingNumber && a.callingNumber.toLowerCase().includes(sLower)) ||
+          (a.notes && a.notes.toLowerCase().includes(sLower))
+        );
+      }
+
+      return res.json({ 
+        success: true, 
+        history: filtered, 
+        total: filtered.length,
+        isElevatedUser
+      });
+    } catch (err: any) {
+      console.error('[Manual Call History Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Get Manual Call Analytics (Phase 5)
+  app.get('/api/v1/manual-calls/analytics', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const targetUserId = req.query.userId as string | undefined;
+
+      let activities = localDb.getManualCallActivities(orgId);
+
+      // Security scoping: Non-elevated reps can ONLY see their own calls
+      if (!isElevatedUser) {
+        activities = activities.filter(a => a.userId === user.id);
+      } else if (targetUserId) {
+        activities = activities.filter(a => a.userId === targetUserId);
+      }
+
+      // Date filtering
+      if (startDate) {
+        const startIso = new Date(startDate).toISOString();
+        activities = activities.filter(a => a.createdAt >= startIso);
+      }
+
+      if (endDate) {
+        const endObj = new Date(endDate);
+        if (endDate.length <= 10) endObj.setHours(23, 59, 59, 999);
+        const endIso = endObj.toISOString();
+        activities = activities.filter(a => a.createdAt <= endIso);
+      }
+
+      // Calculate KPI Aggregations strictly from actual persisted records
+      const totalCalls = activities.length;
+      const connected = activities.filter(a => ['Connected', 'Interested', 'Meeting Requested'].includes(a.outcome || '')).length;
+      const noAnswer = activities.filter(a => a.outcome === 'No Answer').length;
+      const busy = activities.filter(a => a.outcome === 'Busy').length;
+      const callBackLater = activities.filter(a => a.outcome === 'Call Back Later').length;
+      const interested = activities.filter(a => a.outcome === 'Interested').length;
+      const meetingRequested = activities.filter(a => a.outcome === 'Meeting Requested').length;
+      const notInterested = activities.filter(a => a.outcome === 'Not Interested').length;
+      const pendingOutcome = activities.filter(a => a.status === 'INITIATED_FROM_SALES_PILOT' && !a.outcome).length;
+
+      // Group Calls over Time (by Date YYYY-MM-DD)
+      const dateMap: Record<string, { date: string; total: number; connected: number; interested: number; meetingRequested: number; noAnswer: number; busy: number }> = {};
+      
+      activities.forEach(a => {
+        const dateStr = a.createdAt ? a.createdAt.substring(0, 10) : new Date().toISOString().substring(0, 10);
+        if (!dateMap[dateStr]) {
+          dateMap[dateStr] = { date: dateStr, total: 0, connected: 0, interested: 0, meetingRequested: 0, noAnswer: 0, busy: 0 };
+        }
+        dateMap[dateStr].total++;
+        if (['Connected', 'Interested', 'Meeting Requested'].includes(a.outcome || '')) dateMap[dateStr].connected++;
+        if (a.outcome === 'Interested') dateMap[dateStr].interested++;
+        if (a.outcome === 'Meeting Requested') dateMap[dateStr].meetingRequested++;
+        if (a.outcome === 'No Answer') dateMap[dateStr].noAnswer++;
+        if (a.outcome === 'Busy') dateMap[dateStr].busy++;
+      });
+
+      const callsOverTime = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+
+      // Group Calls by Team Member
+      const memberMap: Record<string, { userId: string; userName: string; email: string; totalCalls: number; connected: number; noAnswer: number; busy: number; interested: number; meetingRequested: number }> = {};
+
+      activities.forEach(a => {
+        const uId = a.userId || 'unassigned';
+        if (!memberMap[uId]) {
+          const teamUser = uId !== 'unassigned' ? localDb.getUserById(uId) : null;
+          memberMap[uId] = {
+            userId: uId,
+            userName: teamUser?.fullName || (uId === user.id ? user.fullName : 'Sales Rep'),
+            email: teamUser?.email || (uId === user.id ? user.email : ''),
+            totalCalls: 0,
+            connected: 0,
+            noAnswer: 0,
+            busy: 0,
+            interested: 0,
+            meetingRequested: 0
+          };
+        }
+        memberMap[uId].totalCalls++;
+        if (['Connected', 'Interested', 'Meeting Requested'].includes(a.outcome || '')) memberMap[uId].connected++;
+        if (a.outcome === 'No Answer') memberMap[uId].noAnswer++;
+        if (a.outcome === 'Busy') memberMap[uId].busy++;
+        if (a.outcome === 'Interested') memberMap[uId].interested++;
+        if (a.outcome === 'Meeting Requested') memberMap[uId].meetingRequested++;
+      });
+
+      const callsByTeamMember = Object.values(memberMap);
+
+      // Group Calls by Outcome
+      const validOutcomes: ManualCallOutcome[] = ['Connected', 'No Answer', 'Busy', 'Call Back Later', 'Not Interested', 'Interested', 'Meeting Requested'];
+      const outcomeCounts: Record<string, number> = {};
+      validOutcomes.forEach(o => outcomeCounts[o] = 0);
+      outcomeCounts['Pending'] = 0;
+
+      activities.forEach(a => {
+        if (a.outcome && outcomeCounts[a.outcome] !== undefined) {
+          outcomeCounts[a.outcome]++;
+        } else {
+          outcomeCounts['Pending']++;
+        }
+      });
+
+      const callsByOutcome = Object.entries(outcomeCounts).map(([o, count]) => ({
+        outcome: o,
+        count,
+        percentage: totalCalls > 0 ? Math.round((count / totalCalls) * 100) : 0
+      }));
+
+      // Group Calls by Company / Lead
+      const companyMap: Record<string, { company: string; totalCalls: number; connected: number; interested: number }> = {};
+
+      activities.forEach(a => {
+        const lead = localDb.getLeadById(a.leadId, orgId);
+        const comp = lead?.company || 'Other Leads';
+        if (!companyMap[comp]) {
+          companyMap[comp] = { company: comp, totalCalls: 0, connected: 0, interested: 0 };
+        }
+        companyMap[comp].totalCalls++;
+        if (['Connected', 'Interested', 'Meeting Requested'].includes(a.outcome || '')) companyMap[comp].connected++;
+        if (a.outcome === 'Interested' || a.outcome === 'Meeting Requested') companyMap[comp].interested++;
+      });
+
+      const callsByCompany = Object.values(companyMap).sort((a, b) => b.totalCalls - a.totalCalls).slice(0, 10);
+
+      return res.json({
+        success: true,
+        analytics: {
+          kpis: {
+            totalCalls,
+            connected,
+            noAnswer,
+            busy,
+            callBackLater,
+            interested,
+            meetingRequested,
+            notInterested,
+            pendingOutcome,
+            duration: 'Not available' // Explicit requirement
+          },
+          callsOverTime,
+          callsByTeamMember,
+          callsByOutcome,
+          callsByCompany,
+          isElevatedUser
+        }
+      });
+    } catch (err: any) {
+      console.error('[Manual Call Analytics Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Get Single Call Details (Phase 5)
+  app.get('/api/v1/manual-calls/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const activity = localDb.getManualCallActivityById(id, orgId);
+
+      if (!activity) {
+        return res.status(404).json({ success: false, error: 'Manual call record not found or access denied.' });
+      }
+
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+
+      if (!isElevatedUser && activity.userId !== user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied: You can only view your own call records.' });
+      }
+
+      const lead = localDb.getLeadById(activity.leadId, orgId);
+      const teamUser = activity.userId ? localDb.getUserById(activity.userId) : null;
+
+      const enriched = {
+        ...activity,
+        leadName: lead ? (lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim()) : 'Lead',
+        company: lead?.company || 'N/A',
+        leadPhone: lead?.phone || activity.phoneNumber,
+        leadEmail: lead?.email || '',
+        leadTitle: (lead as any)?.title || (lead as any)?.jobTitle || '',
+        userName: teamUser?.fullName || (activity.userId === user.id ? user.fullName : 'Sales Rep'),
+        userEmail: teamUser?.email || (activity.userId === user.id ? user.email : ''),
+        duration: 'Not available',
+        auditHistory: activity.auditHistory || [
+          {
+            timestamp: activity.createdAt,
+            action: 'INITIATED',
+            actorId: activity.userId,
+            details: `Call initiated from SalesPilot device dialer to ${activity.phoneNumber}`
+          }
+        ]
+      };
+
+      return res.json({ success: true, call: enriched });
+    } catch (err: any) {
+      console.error('[Manual Call Get Details Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 6. Update Manual Call Notes (Phase 5)
+  app.put('/api/v1/manual-calls/:id/notes', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      if (notes === undefined || notes === null) {
+        return res.status(400).json({ success: false, error: 'Notes string parameter is required.' });
+      }
+
+      const existing = localDb.getManualCallActivityById(id, orgId);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Manual call record not found or access denied.' });
+      }
+
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+
+      if (!isElevatedUser && existing.userId !== user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied: You can only update notes for your own calls.' });
+      }
+
+      const updated = localDb.updateManualCallNotes(id, orgId, notes, user.id, user.fullName);
+
+      return res.json({
+        success: true,
+        activity: updated,
+        message: 'Call notes updated successfully.'
+      });
+    } catch (err: any) {
+      console.error('[Manual Call Notes Update Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // --- PHASE 6: SMART FOLLOW-UP MANAGEMENT ENDPOINTS ---
+
+  // 1. Get All Follow-Ups with query filtering
+  app.get('/api/v1/follow-ups', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status: statusKey } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(statusKey || 403).json({ success: false, error: error || 'Tenant isolation violation: Invalid organization context.' });
+      }
+
+      const statusFilter = req.query.status as string | undefined;
+      const priorityFilter = req.query.priority as string | undefined;
+      const userIdFilter = req.query.userId as string | undefined;
+      const leadIdFilter = req.query.leadId as string | undefined;
+
+      let followUps = localDb.getFollowUps(orgId);
+
+      // Enforce strict workspace & RBAC role isolation:
+      // Non-elevated members can ONLY access follow-ups assigned to them.
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+      if (!isElevatedUser) {
+        followUps = followUps.filter(f => f.userId === user.id);
+      } else if (userIdFilter) {
+        followUps = followUps.filter(f => f.userId === userIdFilter);
+      }
+
+      if (statusFilter) {
+        // Enforce statuses and calculate OVERDUE on-the-fly for PENDING tasks past their due date.
+        const now = new Date().toISOString();
+        followUps = followUps.map(f => {
+          if (f.status === 'PENDING' && f.dueAt && f.dueAt < now) {
+            return { ...f, status: 'OVERDUE' };
+          }
+          return f;
+        });
+        followUps = followUps.filter(f => f.status === statusFilter);
+      } else {
+        // Automatically mark PENDING tasks that are past dueAt as OVERDUE
+        const now = new Date().toISOString();
+        followUps = followUps.map(f => {
+          if (f.status === 'PENDING' && f.dueAt && f.dueAt < now) {
+            return { ...f, status: 'OVERDUE' };
+          }
+          return f;
+        });
+      }
+
+      if (priorityFilter) {
+        followUps = followUps.filter(f => f.priority === priorityFilter);
+      }
+
+      if (leadIdFilter) {
+        followUps = followUps.filter(f => f.leadId === leadIdFilter);
+      }
+
+      // Enrich with lead company name, lead name, and username details
+      const enriched = followUps.map(f => {
+        const lead = localDb.getLeadById(f.leadId, orgId);
+        const teamUser = f.userId ? localDb.getUserById(f.userId) : null;
+        return {
+          ...f,
+          leadName: lead ? (lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim()) : 'Lead',
+          company: lead?.company || 'N/A',
+          userName: teamUser?.fullName || 'Sales Rep',
+          userEmail: teamUser?.email || ''
+        };
+      });
+
+      // Sort by dueAt ascending (soonest first)
+      enriched.sort((a, b) => {
+        if (!a.dueAt) return 1;
+        if (!b.dueAt) return -1;
+        return a.dueAt.localeCompare(b.dueAt);
+      });
+
+      return res.json({ success: true, followUps: enriched });
+    } catch (err: any) {
+      console.error('[Get Follow-Ups Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 2. Get Single Follow-Up by ID
+  app.get('/api/v1/follow-ups/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status: statusKey } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(statusKey || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const followUp = localDb.getFollowUpById(id, orgId);
+      if (!followUp) {
+        return res.status(404).json({ success: false, error: 'Follow-up task not found or access denied.' });
+      }
+
+      // Respect standard RBAC rules
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+      if (!isElevatedUser && followUp.userId !== user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to view this follow-up.' });
+      }
+
+      const lead = localDb.getLeadById(followUp.leadId, orgId);
+      const teamUser = followUp.userId ? localDb.getUserById(followUp.userId) : null;
+
+      const enriched = {
+        ...followUp,
+        leadName: lead ? (lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim()) : 'Lead',
+        company: lead?.company || 'N/A',
+        userName: teamUser?.fullName || 'Sales Rep',
+        userEmail: teamUser?.email || ''
+      };
+
+      return res.json({ success: true, followUp: enriched });
+    } catch (err: any) {
+      console.error('[Get Single Follow-Up Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 3. Create a Follow-Up Task
+  app.post('/api/v1/follow-ups', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status: statusKey } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(statusKey || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { leadId, callId, title, description, dueAt, priority, source } = req.body;
+
+      if (!leadId) {
+        return res.status(400).json({ success: false, error: 'Target leadId is required.' });
+      }
+      if (!title) {
+        return res.status(400).json({ success: false, error: 'Task title is required.' });
+      }
+      if (!dueAt) {
+        return res.status(400).json({ success: false, error: 'Due date (dueAt) is required.' });
+      }
+
+      // Verify that the lead exists AND belongs to the authenticated tenant
+      const lead = localDb.getLeadById(leadId, orgId);
+      if (!lead) {
+        return res.status(403).json({ success: false, error: 'Access denied: Target lead not found in workspace.' });
+      }
+
+      const now = new Date().toISOString();
+      const followUpId = 'fup_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+
+      const newFollowUp = {
+        id: followUpId,
+        organizationId: orgId,
+        userId: user.id, // assigned to creator by default
+        leadId,
+        callId: callId || null,
+        title,
+        description: description || '',
+        dueAt,
+        priority: priority || 'MEDIUM',
+        status: 'PENDING',
+        source: source || 'MANUAL',
+        createdAt: now,
+        updatedAt: now
+      };
+
+      localDb.addFollowUp(newFollowUp);
+
+      // CRM Integration: Update lead timelines
+      localDb.addLeadTimelineEvent(
+        leadId,
+        orgId,
+        'FOLLOW_UP_SCHEDULED',
+        `Follow-up scheduled: "${title}" due on ${new Date(dueAt).toLocaleString()}`
+      );
+
+      // Also log activity
+      localDb.addLeadActivity({
+        id: 'act_' + Date.now(),
+        leadId,
+        organizationId: orgId,
+        type: 'TASK_CREATED',
+        title: `Follow-up Scheduled`,
+        description: `Task: "${title}" scheduled for ${new Date(dueAt).toLocaleString()} by ${user.fullName}`,
+        timestamp: now
+      });
+
+      return res.status(201).json({ success: true, followUp: newFollowUp });
+    } catch (err: any) {
+      console.error('[Create Follow-Up Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 4. Update a Follow-Up Task (with Complete / Cancel logic)
+  app.put('/api/v1/follow-ups/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status: statusKey } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(statusKey || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const updates = req.body;
+
+      const existing = localDb.getFollowUpById(id, orgId);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Follow-up record not found or access denied.' });
+      }
+
+      // Respect RBAC
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+      if (!isElevatedUser && existing.userId !== user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to update this follow-up.' });
+      }
+
+      const now = new Date().toISOString();
+      const updatedFields: any = { ...updates };
+
+      // Handle transitions
+      if (updates.status === 'COMPLETED' && existing.status !== 'COMPLETED') {
+        updatedFields.completedAt = now;
+        updatedFields.completedBy = user.id;
+
+        // CRM Integration: Update lead timelines
+        localDb.addLeadTimelineEvent(
+          existing.leadId,
+          orgId,
+          'FOLLOW_UP_COMPLETED',
+          `Follow-up completed: "${existing.title}"`
+        );
+
+        localDb.addLeadActivity({
+          id: 'act_' + Date.now(),
+          leadId: existing.leadId,
+          organizationId: orgId,
+          type: 'TASK_COMPLETED',
+          title: `Follow-up Completed`,
+          description: `Task: "${existing.title}" completed by ${user.fullName}`,
+          timestamp: now
+        });
+      } else if (updates.status === 'CANCELLED' && existing.status !== 'CANCELLED') {
+        localDb.addLeadTimelineEvent(
+          existing.leadId,
+          orgId,
+          'FOLLOW_UP_CANCELLED',
+          `Follow-up cancelled: "${existing.title}"`
+        );
+      }
+
+      const updated = localDb.updateFollowUp(id, orgId, updatedFields);
+      return res.json({ success: true, followUp: updated, message: 'Follow-up updated successfully.' });
+    } catch (err: any) {
+      console.error('[Update Follow-Up Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // 5. Delete a Follow-Up Task
+  app.delete('/api/v1/follow-ups/:id', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status: statusKey } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(statusKey || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const existing = localDb.getFollowUpById(id, orgId);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: 'Follow-up record not found or access denied.' });
+      }
+
+      // Respect RBAC
+      const isElevatedUser = ['OWNER', 'ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes((user.role || '').toUpperCase());
+      if (!isElevatedUser && existing.userId !== user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to delete this follow-up.' });
+      }
+
+      // Remove from LocalDB array
+      if (!localDb.db.followUps) localDb.db.followUps = [];
+      localDb.db.followUps = localDb.db.followUps.filter(f => f.id !== id);
+      localDb.save();
+
+      return res.json({ success: true, message: 'Follow-up deleted successfully.' });
+    } catch (err: any) {
+      console.error('[Delete Follow-Up Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   app.post('/api/v1/call-analytics', (req, res) => {
     try {
       const user = getAuthenticatedUser(req);
       if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
       const { orgId } = resolveVerifiedOrganizationId(req, user);
       const { callId, transcript } = req.body;
-      const call = callLogs.find(c => c.id === callId) || {
+      const call = (callId ? localDb.getVoiceCallById(callId, orgId) : null) || {
         id: callId || 'call-' + Date.now(),
         organizationId: orgId,
         leadId: 'lead-demo-1',
         leadName: 'Prospect',
         company: 'Enterprise Inc',
-        phone: '+91 99999 88888',
-        direction: 'outbound',
-        status: 'completed',
-        duration: 45,
+        phoneNumber: '+15551234567',
+        status: 'COMPLETED',
+        durationSeconds: 45,
         transcript: transcript || [],
         createdAt: new Date().toISOString()
       };
@@ -11928,6 +16459,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     sentToday: number;
     bounceCount: number;
     retryCount: number;
+    organizationId?: string;
     createdAt: string;
   }
 
@@ -12661,8 +17193,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Connects a Gmail Account
   app.post('/gmail/connect', async (req, res) => {
     const user = getAuthenticatedUser(req);
-    const { orgId } = resolveVerifiedOrganizationId(req, user);
-    const effectiveOrgId = orgId || user?.organizationId || req.body.organizationId || 'org_default';
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const effectiveOrgId = orgId;
     const { email, fullName, accessToken, refreshToken, expiresAt, isSimulated } = req.body;
     
     if (!email || !accessToken) {
@@ -12678,6 +17216,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       existingAcc.expiresAt = expiresTimestamp;
       existingAcc.status = 'CONNECTED';
       existingAcc.fullName = fullName || existingAcc.fullName || email.split('@')[0];
+      existingAcc.organizationId = effectiveOrgId;
     } else {
       const newAcc: GmailAccount = {
         email,
@@ -12690,6 +17229,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         sentToday: 0,
         bounceCount: 0,
         retryCount: 0,
+        organizationId: effectiveOrgId,
         createdAt: new Date().toISOString()
       };
       gmailAccounts.push(newAcc);
@@ -12698,7 +17238,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     try {
       await persistAuthoritativeGoogleAccount({
-        userId: user?.id || 'usr_system',
+        userId: user.id,
         organizationId: effectiveOrgId,
         email,
         name: fullName || email.split('@')[0],
@@ -12719,10 +17259,25 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Disconnect / Delete connected Gmail account
   app.post('/gmail/disconnect', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { email } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Missing account email parameter' });
     }
+
+    const targetGmail = gmailAccounts.find(a => a.email === email);
+    if (targetGmail && targetGmail.organizationId && targetGmail.organizationId !== orgId) {
+      return res.status(403).json({ error: 'Forbidden. You do not own this Google account.' });
+    }
+
     gmailAccounts = gmailAccounts.filter(a => a.email !== email);
     calendarAccounts = calendarAccounts.filter(c => c.email !== email);
     saveAccountsToDisk();
@@ -12731,16 +17286,28 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Sends an Email or Saves a Draft
   app.post('/gmail/send', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { accountId, recipient, subject, body, attachments, isDraft } = req.body;
 
     if (!accountId || !recipient || !subject || !body) {
       return res.status(400).json({ error: 'Missing required email field (accountId, recipient, subject, or body)' });
     }
 
-    // Check account existence
+    // Check account existence and tenant ownership
     const senderAccount = gmailAccounts.find(a => a.email === accountId);
     if (!senderAccount) {
       return res.status(404).json({ error: 'Sender account not found among connected Gmail accounts.' });
+    }
+    if (senderAccount.organizationId && senderAccount.organizationId !== orgId) {
+      return res.status(403).json({ error: 'Forbidden. Sender account belongs to another organization.' });
     }
 
     if (isDraft) {
@@ -12821,7 +17388,23 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetches Inbox Threads & Messages List
   app.get('/gmail/inbox', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { accountId, label } = req.query;
+
+    if (accountId) {
+      const senderAccount = gmailAccounts.find(a => a.email === accountId);
+      if (senderAccount && senderAccount.organizationId && senderAccount.organizationId !== orgId) {
+        return res.status(403).json({ error: 'Forbidden. Account belongs to another organization.' });
+      }
+    }
 
     const threadList = Object.entries(gmailThreads).map(([threadId, messages]) => {
       // Get chronological latest message
@@ -12846,6 +17429,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     let filteredThreads = threadList;
     if (accountId) {
       filteredThreads = filteredThreads.filter(t => t.from === accountId || t.to === accountId);
+    } else {
+      // Limit to accounts in user's organization
+      const orgEmails = new Set(gmailAccounts.filter(a => a.organizationId === orgId).map(a => a.email));
+      filteredThreads = filteredThreads.filter(t => orgEmails.has(t.from) || orgEmails.has(t.to));
     }
     if (label) {
       filteredThreads = filteredThreads.filter(t => t.labels.includes(label as string));
@@ -12859,6 +17446,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Fetches Individual Thread Messages chronological order
   app.get('/gmail/thread', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { threadId } = req.query;
 
     if (!threadId) {
@@ -12866,6 +17462,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const messages = gmailThreads[threadId as string] || [];
+
+    // Verify thread ownership by scanning messages against tenant emails
+    const orgEmails = new Set(gmailAccounts.filter(a => a.organizationId === orgId).map(a => a.email));
+    const isOwner = messages.some(m => orgEmails.has(m.from) || orgEmails.has(m.to));
+    if (messages.length > 0 && !isOwner) {
+      return res.status(403).json({ error: 'Forbidden. Thread belongs to another organization.' });
+    }
     
     // Mark as read when opened
     messages.forEach(m => {
@@ -12878,16 +17481,45 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Gets general Gmail connection dashboard statistics, limits, queues, and logs
   app.get('/gmail/status', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    // Filter accounts owned by this organization only
+    const filteredAccounts = gmailAccounts.filter(a => a.organizationId === orgId);
+    const filteredQueue = gmailQueue.filter(q => {
+      const acc = gmailAccounts.find(a => a.email === q.accountId);
+      return acc && acc.organizationId === orgId;
+    });
+    const filteredLogs = emailLogs.filter(l => {
+      const acc = gmailAccounts.find(a => a.email === l.accountId);
+      return acc && acc.organizationId === orgId;
+    });
+
     res.json({
-      accounts: gmailAccounts,
-      queue: gmailQueue,
-      logs: emailLogs,
+      accounts: filteredAccounts,
+      queue: filteredQueue,
+      logs: filteredLogs,
       templates: gmailTemplates
     });
   });
 
   // Saves or updates email templates
   app.post('/gmail/templates', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { id, name, subject, body, category } = req.body;
 
     if (!name || !subject || !body) {
@@ -12926,6 +17558,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     refreshToken?: string;
     expiresAt: string;
     status: 'CONNECTED' | 'REAUTH_NEEDED';
+    organizationId?: string;
     createdAt: string;
   }
 
@@ -13373,8 +18006,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // GET /calendar/accounts
   app.get('/calendar/accounts', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const filteredCalendarAccounts = calendarAccounts.filter(c => c.organizationId === orgId);
     res.json({
-      accounts: calendarAccounts.map(c => ({
+      accounts: filteredCalendarAccounts.map(c => ({
         email: c.email,
         fullName: c.fullName,
         status: c.status,
@@ -13386,13 +18029,26 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // POST /calendar/disconnect
   app.post('/calendar/disconnect', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { email } = req.body;
     if (email) {
+      const targetAcc = calendarAccounts.find(c => c.email === email);
+      if (targetAcc && targetAcc.organizationId && targetAcc.organizationId !== orgId) {
+        return res.status(403).json({ error: 'Forbidden. You do not own this Google account.' });
+      }
       calendarAccounts = calendarAccounts.filter(c => c.email !== email);
       gmailAccounts = gmailAccounts.filter(a => a.email !== email);
     } else {
-      calendarAccounts = [];
-      gmailAccounts = [];
+      calendarAccounts = calendarAccounts.filter(c => c.organizationId !== orgId);
+      gmailAccounts = gmailAccounts.filter(a => a.organizationId !== orgId);
     }
     saveAccountsToDisk();
     res.json({ success: true, message: 'Google Calendar and Gmail account disconnected.' });
@@ -13400,6 +18056,16 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // POST /calendar/connect
   app.post('/calendar/connect', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const effectiveOrgId = orgId;
+
     const { email, fullName, accessToken, refreshToken, expiresAt } = req.body;
     if (!email || !accessToken) {
       return res.status(400).json({ error: 'Missing required parameters: email, accessToken' });
@@ -13414,6 +18080,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       existing.expiresAt = expiresTimestamp;
       existing.status = 'CONNECTED';
       existing.fullName = fullName || existing.fullName || email.split('@')[0];
+      existing.organizationId = effectiveOrgId;
       saveAccountsToDisk();
       return res.json({ success: true, message: 'Google Calendar connection updated.', account: existing });
     }
@@ -13425,6 +18092,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       refreshToken,
       expiresAt: expiresTimestamp,
       status: 'CONNECTED',
+      organizationId: effectiveOrgId,
       createdAt: new Date().toISOString()
     };
     calendarAccounts.push(newAcc);
@@ -13434,11 +18102,23 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // POST /calendar/create
   app.post('/calendar/create', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { leadId, dateTime, durationMins, notes, timezone, summary, attendees, recurrence, isOnline = true } = req.body;
     
-    // Find lead details for CRM Sync
+    // Find lead details for CRM Sync and verify tenant isolation
     const cleanLeadId = leadId ? String(leadId).trim() : '';
     const lead = cleanLeadId ? await findLeadByIdAsync(cleanLeadId) : null;
+    if (lead && lead.organizationId !== orgId) {
+      return res.status(403).json({ error: 'Forbidden. Lead belongs to another organization.' });
+    }
     
     const attendeeEmails = attendees || (lead ? [lead.email] : []);
 
@@ -13466,8 +18146,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const eventSummary = summary || `SalesPilot Demo: ${lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect Meeting'}`;
     const eventDescription = notes || 'SalesPilot CRM Scheduled Meeting';
 
-    // Get active account
-    const activeAcc = calendarAccounts[0]; // defaults to first connected
+    // Get active account owned by this organization
+    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId) || calendarAccounts[0];
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
 
     let googleEventId = '';
@@ -13514,7 +18194,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           });
 
           if (gRes.ok) {
-            const gData = await gRes.json();
+            const gData = await gRes.ok ? await gRes.json() : {};
             googleEventId = gData.id;
             if (isOnline && gData.hangoutLink) {
               meetingLink = gData.hangoutLink;
@@ -13563,6 +18243,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     };
 
     (newApt as any).googleEventId = googleEventId;
+    (newApt as any).organizationId = orgId;
     if (recurrence && recurrence.length > 0) {
       (newApt as any).recurrence = recurrence;
     }
@@ -13592,14 +18273,23 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // PUT /calendar/update
   app.put('/calendar/update', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(orgStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { eventId, aptId, dateTime, durationMins, notes, timezone, summary, attendees, status } = req.body;
 
     if (!eventId && !aptId) {
       return res.status(400).json({ error: 'Missing identifier: eventId or aptId required' });
     }
 
-    // Find local appointment
-    const apt = appointments.find(a => a.id === aptId || (a as any).googleEventId === eventId);
+    // Find local appointment (with tenant scope check)
+    const apt = appointments.find(a => (a.id === aptId || (a as any).googleEventId === eventId) && ((a as any).organizationId === orgId || !(a as any).organizationId));
     if (!apt) {
       return res.status(404).json({ error: 'Appointment not found in local CRM state' });
     }
@@ -13619,7 +18309,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (status) apt.status = status;
 
     // Google API update if real token
-    const activeAcc = calendarAccounts[0];
+    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId) || calendarAccounts[0];
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
 
     if (isRealToken && gEventId && !gEventId.startsWith('mock_')) {
@@ -13709,19 +18399,28 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // DELETE /calendar/delete
   app.delete('/calendar/delete', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(orgStatus || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { eventId, aptId } = req.body;
 
     if (!eventId && !aptId) {
       return res.status(400).json({ error: 'Missing parameter: eventId or aptId is required.' });
     }
 
-    const apt = appointments.find(a => a.id === aptId || (a as any).googleEventId === eventId);
+    const apt = appointments.find(a => (a.id === aptId || (a as any).googleEventId === eventId) && ((a as any).organizationId === orgId || !(a as any).organizationId));
     if (!apt) {
       return res.status(404).json({ error: 'Local appointment not found.' });
     }
 
     const gEventId = eventId || (apt as any).googleEventId;
-    const activeAcc = calendarAccounts[0];
+    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId) || calendarAccounts[0];
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
 
     if (isRealToken && gEventId && !gEventId.startsWith('mock_')) {
@@ -13770,8 +18469,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // GET /calendar/events
   app.get('/calendar/events', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { email } = req.query;
-    const activeAcc = calendarAccounts.find(c => c.email === email) || calendarAccounts[0];
+    const activeAcc = calendarAccounts.find(c => c.email === email && c.organizationId === orgId) || calendarAccounts.find(c => c.organizationId === orgId);
 
     if (!activeAcc) {
       return res.json({ events: [] });
@@ -13820,11 +18528,20 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // POST /calendar/availability
   app.post('/calendar/availability', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
     const { date, timezone } = req.body;
     const targetDateStr = date || new Date().toISOString().split('T')[0];
     
     const busySlots = appointments
-      .filter(apt => apt.status === 'SCHEDULED' && apt.dateTime.startsWith(targetDateStr))
+      .filter(apt => apt.status === 'SCHEDULED' && apt.dateTime.startsWith(targetDateStr) && ((apt as any).organizationId === orgId || !(apt as any).organizationId))
       .map(apt => ({
         start: apt.dateTime,
         end: new Date(new Date(apt.dateTime).getTime() + apt.durationMins * 60 * 1000).toISOString()
