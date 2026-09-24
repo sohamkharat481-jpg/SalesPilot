@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { Lead, Campaign, Deal, Appointment, WorkspaceUser } from '../types';
 import { useAuth } from '../authentication/AuthContext';
+import { getSupabaseClient } from '../lib/supabase';
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -35,9 +36,11 @@ interface WidgetConfig {
   order: number;
 }
 
-export function DashboardView({ leads, campaigns, deals, appointments, setActiveTab, user, onReopenOnboarding }: DashboardViewProps) {
-  const { organization } = useAuth();
-  const activeWorkspaceName = organization?.name || user?.companyName || (user as any)?.organizationName || 'Active Workspace';
+export function DashboardView({ leads, campaigns, deals, appointments, setActiveTab, user: propUser, onReopenOnboarding }: DashboardViewProps) {
+  const { organization, isLoading: authLoading, user: authUser } = useAuth();
+  const currentUser = authUser || propUser;
+  const user = currentUser;
+  const activeWorkspaceName = organization?.name || currentUser?.companyName || (currentUser as any)?.organizationName || 'Active Workspace';
 
   // 1. Dashboard Layout Widgets Config State
   const [widgets, setWidgets] = useState<WidgetConfig[]>(() => {
@@ -80,6 +83,16 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
 
   useEffect(() => {
     async function fetchCommandCenter() {
+      if (authLoading) {
+        setIsLoadingCC(true);
+        return;
+      }
+      if (!currentUser) {
+        setIsLoadingCC(false);
+        setCcError('Unauthorized. Please log in to view the Operations Dashboard.');
+        return;
+      }
+
       setIsLoadingCC(true);
       setCcError(null);
       try {
@@ -88,11 +101,39 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
           if (customStart) url += `&startDate=${customStart}`;
           if (customEnd) url += `&endDate=${customEnd}`;
         }
-        const token = sessionStorage.getItem('salespilot_token');
-        const workspaceId = sessionStorage.getItem('salespilot_workspace_id');
+
+        let token = localStorage.getItem('salespilot_token');
+        let workspaceId = localStorage.getItem('salespilot_workspace_id') || organization?.id || currentUser?.organizationId;
+
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error || !session) {
+              const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+              if (refreshedSession?.access_token) {
+                token = refreshedSession.access_token;
+              }
+            } else if (session?.access_token) {
+              token = session.access_token;
+            }
+          } catch (e) {
+            console.error('Failed to resolve active Supabase session for telemetry:', e);
+          }
+        }
+
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+        // SAFE diagnostics for development/testing
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[DEBUG TELEMETRY SYNC REQUEST]', {
+            hasAuthorizationHeader: Boolean(token),
+            hasOrganizationHeader: Boolean(workspaceId),
+            authenticated: Boolean(currentUser)
+          });
+        }
 
         const response = await fetch(url, { headers });
         if (!response.ok) {
@@ -115,7 +156,7 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
     if (activeDashboardTab === 'command_center') {
       fetchCommandCenter();
     }
-  }, [dateRange, customStart, customEnd, activeDashboardTab, leads, deals, appointments]);
+  }, [dateRange, customStart, customEnd, activeDashboardTab, leads, deals, appointments, authLoading, currentUser, organization]);
 
   // Interactive UI States
   const [activeRecommendation, setActiveRecommendation] = useState<number>(0);
@@ -170,9 +211,30 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
   // Fetch metrics & analytics from true Backend APIs
   useEffect(() => {
     async function fetchDashboardMetrics() {
+      if (authLoading) return;
+      if (!currentUser) return;
+
       try {
-        const token = sessionStorage.getItem('salespilot_token');
-        const workspaceId = sessionStorage.getItem('salespilot_workspace_id');
+        let token = localStorage.getItem('salespilot_token');
+        let workspaceId = localStorage.getItem('salespilot_workspace_id') || organization?.id || currentUser?.organizationId;
+
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error || !session) {
+              const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+              if (refreshedSession?.access_token) {
+                token = refreshedSession.access_token;
+              }
+            } else if (session?.access_token) {
+              token = session.access_token;
+            }
+          } catch (e) {
+            console.error('Failed to resolve active Supabase session for dashboard metrics:', e);
+          }
+        }
+
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (workspaceId) headers['x-organization-id'] = workspaceId;
@@ -220,7 +282,7 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
       }
     }
     fetchDashboardMetrics();
-  }, [leads, campaigns, deals, appointments]);
+  }, [leads, campaigns, deals, appointments, authLoading, currentUser, organization]);
 
   // Widget Layout handlers
   const handleSaveLayout = () => {
