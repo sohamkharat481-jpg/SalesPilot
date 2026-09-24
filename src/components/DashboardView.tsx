@@ -160,7 +160,6 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
 
   // Interactive UI States
   const [activeRecommendation, setActiveRecommendation] = useState<number>(0);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<number>(new Date().getDate());
   const [hoveredMonth, setHoveredMonth] = useState<string | null>('Jul');
   const [selectedAgent, setSelectedAgent] = useState<'MAPS' | 'VESPER'>('MAPS');
@@ -394,16 +393,6 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
     { name: 'Closed Lost', key: 'LOST', count: deals.filter(d => d.stage === 'CLOSED_LOST').length, width: 'w-1/12', color: '#ef4444' }
   ];
 
-  // Simulated live sync trigger
-  const handleTriggerSync = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setSuccessMessage('Workspace database synchronized instantly with real-time outbound sockets.');
-      setTimeout(() => setSuccessMessage(null), 3500);
-    }, 1200);
-  };
-
   // Direct Lead Enrichment caller
   const handleDirectEnrich = async (leadId: string, leadName: string) => {
     setSuccessMessage(`Google Maps Spider is compiling background intel on ${leadName}...`);
@@ -452,8 +441,8 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
               {activeWorkspaceName}
             </span>
             <span className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Sync Active
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Live Data
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -473,14 +462,6 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             {isCustomizeMode ? 'Close Layout Editor' : 'Edit Dashboard Widgets'}
-          </button>
-
-          <button 
-            onClick={handleTriggerSync}
-            className={`px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-mono text-[10px] uppercase font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-sm ${isRefreshing ? 'opacity-80' : ''}`}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing Sockets...' : 'Sync Live'}
           </button>
         </div>
       </div>
@@ -560,12 +541,12 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
           {isLoadingCC ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3">
               <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
-              <p className="text-xs text-slate-500 font-mono">Compiling live workspace telemetry and financial metrics...</p>
+              <p className="text-xs text-slate-500 font-mono">Loading operations dashboard data and financial metrics...</p>
             </div>
           ) : ccError ? (
             <div className="p-6 text-center bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-2xl flex flex-col items-center justify-center gap-2">
               <AlertCircle className="w-8 h-8 text-rose-500" />
-              <p className="text-sm font-bold text-slate-800 dark:text-white">Telemetry Synchronization Failure</p>
+              <p className="text-sm font-bold text-slate-800 dark:text-white">Dashboard Operations Error</p>
               <p className="text-xs text-slate-500">{ccError}</p>
             </div>
           ) : ccData ? (
