@@ -1391,8 +1391,8 @@ export class LocalDB {
       pordigyUser.organizationId = 'org_pordigy_enterprise';
       pordigyUser.role = 'OWNER';
       pordigyUser.tier = 'ENTERPRISE';
-      pordigyUser.isFounder = false;
-      pordigyUser.subscriptionStatus = 'ACTIVE';
+      pordigyUser.isFounder = true;
+      pordigyUser.subscriptionStatus = 'LIFETIME';
     }
 
     let pordigyOrg = this.getOrganizationById('org_pordigy_enterprise');
@@ -2848,6 +2848,44 @@ export class LocalDB {
   public getManualCallActivityById(id: string, organizationId: string): ManualCallActivity | undefined {
     if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
     return this.db.manualCallActivities.find(a => a.id === id && a.organizationId === organizationId);
+  }
+
+  public getManualCallActivityByProviderId(providerCallId: string): ManualCallActivity | undefined {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    return this.db.manualCallActivities.find(a => a.providerCallId === providerCallId);
+  }
+
+  public updateManualCallActivityStatus(
+    id: string,
+    status: CallStatus | 'INITIATED_FROM_SALES_PILOT' | 'COMPLETED',
+    organizationId?: string,
+    updates?: Partial<ManualCallActivity>
+  ): ManualCallActivity | undefined {
+    if (!this.db.manualCallActivities) this.db.manualCallActivities = [];
+    const activity = this.db.manualCallActivities.find(a => a.id === id && (!organizationId || a.organizationId === organizationId));
+    if (!activity) return undefined;
+
+    activity.status = status;
+    activity.updatedAt = new Date().toISOString();
+    if (updates) {
+      if (updates.durationSeconds !== undefined) activity.durationSeconds = updates.durationSeconds;
+      if (updates.recordingUrl) activity.recordingUrl = updates.recordingUrl;
+      if (updates.transcript) activity.transcript = updates.transcript;
+      if (updates.providerStatus) activity.providerStatus = updates.providerStatus;
+      if (updates.outcome) activity.outcome = updates.outcome;
+      if (updates.endedAt) activity.endedAt = updates.endedAt;
+      if (updates.notes) activity.notes = updates.notes;
+    }
+
+    if (!activity.auditHistory) activity.auditHistory = [];
+    activity.auditHistory.push({
+      timestamp: activity.updatedAt,
+      action: 'STATUS_UPDATED' as any,
+      details: `Call status transitioned to ${status}`
+    });
+
+    this.save();
+    return activity;
   }
 
   public addManualCallActivity(activity: ManualCallActivity): ManualCallActivity {

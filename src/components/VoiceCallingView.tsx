@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  PhoneCall, Phone, PhoneOff, AlertTriangle, CheckCircle2, XCircle, Clock, 
+  PhoneCall, Phone, PhoneOff, AlertTriangle, AlertCircle, CheckCircle2, XCircle, Clock, 
   User, Building2, Mail, Globe, Briefcase, Calendar, Sparkles, FileText, 
   Play, ShieldAlert, ChevronRight, RefreshCw, Plus, Filter, Search, Check, Info,
-  History, BarChart2
+  History, BarChart2, Smartphone
 } from 'lucide-react';
 import { Lead, Appointment, Deal } from '../types';
 import { VoiceCallRecord, CallStatus, CallOutcome, VoiceProviderConfig, CallingNumber } from '../types/voice';
@@ -91,11 +91,16 @@ export function VoiceCallingView({
   // Calling Mode Tab State: 'MANUAL' (Default), 'HISTORY', 'ANALYTICS', 'CALLING_NUMBERS', 'FOLLOW_UPS', or 'AI_VOICE'
   const [callingMode, setCallingMode] = useState<'MANUAL' | 'HISTORY' | 'ANALYTICS' | 'CALLING_NUMBERS' | 'AI_VOICE' | 'FOLLOW_UPS'>('MANUAL');
 
+  // Calling Mode Preference (Phase 5/6 Dual Mode)
+  const [callingModePreference, setCallingModePreference] = useState<'NATIVE_DIALER' | 'PROVIDER_CALLING'>('NATIVE_DIALER');
+  const [isUpdatingMode, setIsUpdatingMode] = useState<boolean>(false);
+
   // Calling Numbers States (Phase 5)
   const [userCallingNumbers, setUserCallingNumbers] = useState<CallingNumber[]>([]);
   const [selectedCallingNumberId, setSelectedCallingNumberId] = useState<string>('');
 
   // Manual Phone Call States (Phase 4)
+  const [isDirectDial, setIsDirectDial] = useState<boolean>(false);
   const [showManualConfirmModal, setShowManualConfirmModal] = useState<boolean>(false);
   const [isInitiatingManualCall, setIsInitiatingManualCall] = useState<boolean>(false);
   const [activeManualActivity, setActiveManualActivity] = useState<any>(null);
@@ -105,6 +110,96 @@ export function VoiceCallingView({
   const [isSavingOutcome, setIsSavingOutcome] = useState<boolean>(false);
   const [manualCallHistory, setManualCallHistory] = useState<any[]>([]);
   const [manualCallNotice, setManualCallNotice] = useState<string | null>(null);
+
+  // Direct Dial States
+  const [manualTab, setManualTab] = useState<'LEAD' | 'DIRECT_DIAL'>('LEAD');
+  const [directNumberInput, setDirectNumberInput] = useState<string>('');
+  const [directCountryCode, setDirectCountryCode] = useState<string>('+91');
+  const [directContactName, setDirectContactName] = useState<string>('');
+  const [directCompanyName, setDirectCompanyName] = useState<string>('');
+  const [directNotes, setDirectNotes] = useState<string>('');
+  const [isDialingDirect, setIsDialingDirect] = useState<boolean>(false);
+  const [directDialDuration, setDirectDialDuration] = useState<number>(0);
+  const [isCancellingDirectDial, setIsCancellingDirectDial] = useState<boolean>(false);
+  const [dialerLaunchFailed, setDialerLaunchFailed] = useState<boolean>(false);
+
+  // Poll active direct dial call status when running
+  useEffect(() => {
+    let interval: any;
+    if (activeManualActivity && activeManualActivity.source === 'DIRECT_DIAL' && 
+        ['QUEUED', 'DIALING', 'RINGING', 'IN_PROGRESS'].includes(activeManualActivity.status)) {
+      interval = setInterval(async () => {
+        try {
+          const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+          const headers: Record<string, string> = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          const res = await fetch(`/api/v1/manual-calls/${activeManualActivity.id}/status`, { headers });
+          const data = await res.json();
+          if (data.success && data.activity) {
+            setActiveManualActivity(data.activity);
+            if (data.activity.status === 'IN_PROGRESS') {
+              setDirectDialDuration(prev => prev + 2);
+            }
+            if (['COMPLETED', 'FAILED', 'NO_ANSWER', 'BUSY', 'CANCELLED'].includes(data.activity.status)) {
+              fetchManualCallHistory();
+            }
+          }
+        } catch (err) {
+          console.error('Error polling direct dial call status:', err);
+        }
+      }, 2000);
+    } else if (!activeManualActivity || !['QUEUED', 'DIALING', 'RINGING', 'IN_PROGRESS'].includes(activeManualActivity?.status)) {
+      if (!activeManualActivity) setDirectDialDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [activeManualActivity]);
+
+  const handleCancelDirectDialCall = async (activityId: string) => {
+    setIsCancellingDirectDial(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const res = await fetch(`/api/v1/manual-calls/${activityId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      const data = await res.json();
+      if (data.success && data.activity) {
+        setActiveManualActivity(data.activity);
+        fetchManualCallHistory();
+      }
+    } catch (err) {
+      console.error('Error cancelling direct dial call:', err);
+    } finally {
+      setIsCancellingDirectDial(false);
+    }
+  };
+
+  const handleStartDirectDial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setManualCallNotice(null);
+    setDialerLaunchFailed(false);
+
+    if (!directNumberInput.trim()) {
+      setErrorMessage('Please enter a destination phone number.');
+      return;
+    }
+
+    if (callingModePreference === 'PROVIDER_CALLING') {
+      const verifiedCn = userCallingNumbers.find(cn => cn.isDefault && cn.isVerified) || userCallingNumbers.find(cn => cn.isVerified);
+      if (!verifiedCn) {
+        setErrorMessage('Connect and verify your personal calling number before placing calls.');
+        return;
+      }
+    }
+    
+    // Show confirmation modal
+    setIsDirectDial(true);
+    setShowManualConfirmModal(true);
+  };
 
   // Phase 6 follow-up states inside outcome logger
   const [scheduleFollowUpAfterCall, setScheduleFollowUpAfterCall] = useState<boolean>(true);
@@ -151,40 +246,136 @@ export function VoiceCallingView({
     }
   };
 
+  const fetchCallingMode = async () => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/v1/calling-mode', { headers });
+      const data = await res.json();
+      if (data.success) {
+        setCallingModePreference(data.callingMode);
+      }
+    } catch (err) {
+      console.error('Failed to fetch calling mode', err);
+    }
+  };
+
+  const updateCallingMode = async (mode: 'NATIVE_DIALER' | 'PROVIDER_CALLING') => {
+    setIsUpdatingMode(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      await fetch('/api/v1/calling-mode', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ callingMode: mode })
+      });
+      setCallingModePreference(mode);
+    } catch (err) {
+      console.error('Failed to update calling mode', err);
+    } finally {
+      setIsUpdatingMode(false);
+    }
+  };
+
   useEffect(() => {
     fetchManualCallHistory();
     fetchCallingNumbers();
+    fetchCallingMode();
   }, [selectedLeadId]);
 
   // Handle Initiating Manual Call
   const handleStartManualCall = async () => {
     setErrorMessage(null);
     setManualCallNotice(null);
+    setDialerLaunchFailed(false);
 
-    if (!selectedLead) {
-      setErrorMessage('Please select a lead first.');
-      return;
+    let destinationNumber = '';
+    let contactName = '';
+    let companyName = '';
+    let notes = '';
+
+    if (isDirectDial) {
+      if (!directNumberInput.trim()) {
+        setErrorMessage('Please enter a destination phone number.');
+        return;
+      }
+      destinationNumber = `${directCountryCode}${directNumberInput.replace(/\D/g, '')}`;
+      contactName = directContactName || 'Direct Dial Contact';
+      companyName = directCompanyName || 'N/A';
+      notes = directNotes || '';
+    } else {
+      if (!selectedLead) {
+        setErrorMessage('Please select a lead first.');
+        return;
+      }
+      if (!isValidPhone(selectedLead.phone)) {
+        setErrorMessage(`Lead "${selectedLead.name}" does not have a valid phone number.`);
+        return;
+      }
+      destinationNumber = selectedLead.phone;
+      contactName = selectedLead.name;
+      companyName = selectedLead.company || 'N/A';
+      notes = '';
     }
 
-    if (!isValidPhone(selectedLead.phone)) {
-      setErrorMessage(`Lead "${selectedLead.name}" does not have a valid phone number.`);
-      return;
+    const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+    
+    // 1. If NATIVE_DIALER mode, trigger tel: launch synchronously inside user click event
+    if (callingModePreference === 'NATIVE_DIALER') {
+      if (isIframe) {
+        setErrorMessage("Native dialing is unavailable in this preview. Open the deployed SalesPilot application in your normal browser/device to place the call.");
+      } else {
+        try {
+          const link = document.createElement("a");
+          link.href = `tel:${destinationNumber}`;
+          link.rel = "nofollow";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setManualCallNotice(`Native dialing requested for ${contactName} at ${destinationNumber}.`);
+        } catch (err) {
+          console.error("Failed to open native dialer:", err);
+          setDialerLaunchFailed(true);
+          setErrorMessage("Could not open your device dialer. Please make sure Windows Phone Link or another phone application is configured to handle phone links.");
+        }
+      }
     }
 
     setIsInitiatingManualCall(true);
+    setShowManualConfirmModal(false);
+
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/v1/manual-calls/initiate', {
+      let url = '/api/v1/manual-calls/initiate';
+      let payload: any = {
+        leadId: isDirectDial ? undefined : selectedLead?.id,
+        phoneNumber: destinationNumber,
+        callingNumberId: selectedCallingNumberId || undefined,
+        callingMode: callingModePreference
+      };
+
+      if (isDirectDial) {
+        url = '/api/v1/manual-calls/dial';
+        payload = {
+          destinationNumber,
+          contactName,
+          companyName,
+          notes,
+          callingNumberId: selectedCallingNumberId || undefined,
+          callingMode: callingModePreference
+        };
+      }
+
+      const res = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          leadId: selectedLead.id,
-          phoneNumber: selectedLead.phone,
-          callingNumberId: selectedCallingNumberId || undefined
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -192,21 +383,45 @@ export function VoiceCallingView({
         throw new Error(data.error || 'Failed to initiate manual call');
       }
 
-      setShowManualConfirmModal(false);
       setActiveManualActivity(data.activity);
       setShowManualOutcomeCard(true);
       setManualOutcome('Connected');
       setManualNotes('');
+      
       const callingFromNotice = data.callingNumberUsed ? ` (from ${data.callingNumberUsed})` : '';
-      setManualCallNotice(`Call initiated for ${data.lead.company || data.lead.name}${callingFromNotice}. Opening device dialer...`);
+      setManualCallNotice(`Call initiated for ${contactName}${callingFromNotice}. Opening device dialer...`);
 
-      // Open device dialer via tel: protocol
-      window.location.href = data.telUrl;
+      // Update manual call activity status to DIALER_LAUNCH_REQUESTED in database if we are using NATIVE_DIALER
+      if (callingModePreference === 'NATIVE_DIALER') {
+        try {
+          const updateRes = await fetch('/api/v1/manual-calls/outcome', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              activityId: data.activity.id,
+              leadId: isDirectDial ? undefined : (selectedLead?.id || data.activity.leadId),
+              outcome: 'DIALER_LAUNCH_REQUESTED',
+              notes: 'Successfully handed tel: URL to the browser for native device dialing.'
+            })
+          });
+          const updateData = await updateRes.json();
+          if (updateData.success && updateData.activity) {
+            setActiveManualActivity(updateData.activity);
+          }
+        } catch (err) {
+          console.warn("Could not update call activity status to DIALER_LAUNCH_REQUESTED", err);
+        }
+      }
 
       // Refresh activity log
       fetchManualCallHistory();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error launching manual call');
+      console.error("Backend logging failed:", err);
+      if (callingModePreference === 'PROVIDER_CALLING') {
+        setErrorMessage(err.message || 'Error launching provider call');
+      } else {
+        setErrorMessage(`Backend activity log failed: ${err.message || 'Server connection error'}. However, your device dialer was launched.`);
+      }
     } finally {
       setIsInitiatingManualCall(false);
     }
@@ -700,10 +915,45 @@ export function VoiceCallingView({
         <MyCallingNumbers />
       )}
 
-      {/* MANUAL PHONE CALL MODE (Phase 4) */}
+      {/* MANUAL PHONE CALL MODE (Phase 4 & Direct Dial) */}
       {callingMode === 'MANUAL' && (
         <div className="space-y-6">
           {/* Global Notice / Error Messages */}
+          {dialerLaunchFailed && (
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl space-y-3 text-xs text-amber-800 dark:text-amber-300">
+              <div className="flex items-start space-x-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-bold block">Could not open your device dialer</span>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                    Please make sure Windows Phone Link or another phone application is configured to handle phone links (tel:).
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    const num = isDirectDial ? `${directCountryCode}${directNumberInput.replace(/\D/g, '')}` : (selectedLead?.phone || '');
+                    navigator.clipboard.writeText(num);
+                    setManualCallNotice(`Copied number ${num} to clipboard!`);
+                  }}
+                  className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-200 font-bold rounded-lg transition"
+                >
+                  Copy Number
+                </button>
+                <button
+                  onClick={() => {
+                    setDialerLaunchFailed(false);
+                    handleStartManualCall();
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition"
+                >
+                  Try Dialer Again
+                </button>
+              </div>
+            </div>
+          )}
+
           {manualCallNotice && (
             <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
               <div className="flex items-center space-x-2">
@@ -719,7 +969,7 @@ export function VoiceCallingView({
           {errorMessage && (
             <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center justify-between text-xs text-rose-800 dark:text-rose-300">
               <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
               <button onClick={() => setErrorMessage(null)} className="text-rose-600 hover:text-rose-800">
@@ -728,8 +978,337 @@ export function VoiceCallingView({
             </div>
           )}
 
-          {/* Lead Selection & Manual Call Card */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          {/* Calling Mode Selector */}
+          <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-max">
+            <button
+              onClick={() => updateCallingMode('NATIVE_DIALER')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg ${callingModePreference === 'NATIVE_DIALER' ? 'bg-white dark:bg-slate-900 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}
+            >
+              Native Dialer — Free
+            </button>
+            <button
+              onClick={() => updateCallingMode('PROVIDER_CALLING')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg ${callingModePreference === 'PROVIDER_CALLING' ? 'bg-white dark:bg-slate-900 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}
+            >
+              Provider Calling — {providerConfig.configured ? 'Connected' : 'Not Configured'}
+            </button>
+          </div>
+
+          {/* Mode Selector: [ Call a Lead ] | [ Dial Number ] */}
+          <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <button
+              onClick={() => setManualTab('LEAD')}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-2 cursor-pointer ${
+                manualTab === 'LEAD'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              <Phone className="w-4 h-4" />
+              <span>Call a Lead</span>
+            </button>
+
+            <button
+              onClick={() => setManualTab('DIRECT_DIAL')}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-2 cursor-pointer ${
+                manualTab === 'DIRECT_DIAL'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Dial Number (Direct Dial)</span>
+            </button>
+          </div>
+
+          {manualTab === 'DIRECT_DIAL' ? (
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+              <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-blue-600" />
+                  Direct Number Dialing
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Enter any phone number for existing customers, referrals, cold contacts, or external numbers.
+                </p>
+              </div>
+
+              {/* Verified Calling Identity Status */}
+              {callingModePreference === 'NATIVE_DIALER' ? (
+                <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60 rounded-xl text-xs text-blue-900 dark:text-blue-200">
+                  <span className="font-semibold flex items-center gap-1.5">
+                    <Info className="w-4 h-4 text-blue-600" />
+                    Native Dialer Mode is active. Calls are placed using your device's native phone application. No telephony config or verified calling numbers are required.
+                  </span>
+                </div>
+              ) : (() => {
+                const verifiedCn = userCallingNumbers.find(cn => cn.isDefault && cn.isVerified) || userCallingNumbers.find(cn => cn.isVerified);
+                if (!verifiedCn) {
+                  return (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-300">
+                      <div className="space-y-1">
+                        <span className="font-bold">No Verified Calling Number</span>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                          Connect and verify your personal calling number before placing calls.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setCallingMode('CALLING_NUMBERS')}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition shrink-0 cursor-pointer"
+                      >
+                        Manage Numbers
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 rounded-xl flex items-center justify-between text-xs text-blue-900 dark:text-blue-200">
+                    <span className="font-semibold">
+                      Calling from (Your Verified Identity): <strong className="font-mono font-bold text-blue-600 dark:text-blue-400">{verifiedCn.phoneNumber}</strong>
+                    </span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">
+                      Verified
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {callingModePreference === 'PROVIDER_CALLING' && !providerConfig.configured && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start space-x-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold block">Telephony Provider Not Configured</span>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                      Edesy calling provider is not configured. Add EDESY_API_KEY in the server environment to place real calls.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleStartDirectDial} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Destination Phone Number *
+                  </label>
+                  <div className="flex space-x-2">
+                    <select
+                      value={directCountryCode}
+                      onChange={(e) => setDirectCountryCode(e.target.value)}
+                      className="p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="+91">🇮🇳 +91</option>
+                      <option value="+1">🇺🇸 +1</option>
+                      <option value="+44">🇬🇧 +44</option>
+                      <option value="+61">🇦🇺 +61</option>
+                      <option value="+49">🇩🇪 +49</option>
+                      <option value="+33">🇫🇷 +33</option>
+                      <option value="+81">🇯🇵 +81</option>
+                      <option value="+65">🇸🇬 +65</option>
+                      <option value="+971">🇦🇪 +971</option>
+                      <option value="+55">🇧🇷 +55</option>
+                    </select>
+
+                    <input
+                      type="tel"
+                      value={directNumberInput}
+                      onChange={(e) => setDirectNumberInput(e.target.value)}
+                      placeholder="7498630805"
+                      required
+                      className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    E.164 preview: <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{directCountryCode}{directNumberInput.replace(/\D/g, '') || 'XXXXXXXXXX'}</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Contact Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={directContactName}
+                      onChange={(e) => setDirectContactName(e.target.value)}
+                      placeholder="e.g. Jane Doe"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Company Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={directCompanyName}
+                      onChange={(e) => setDirectCompanyName(e.target.value)}
+                      placeholder="e.g. Acme Corp"
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Call Notes / Context (Optional)
+                  </label>
+                  <textarea
+                    value={directNotes}
+                    onChange={(e) => setDirectNotes(e.target.value)}
+                    placeholder="Add brief notes about this contact..."
+                    rows={3}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="pt-3 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isDialingDirect || !directNumberInput.trim()}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-sm transition flex items-center space-x-2 cursor-pointer"
+                  >
+                    {isDialingDirect ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Initiating Call...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="w-4 h-4" />
+                        <span>Dial Number & Call</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              {/* Direct Dial Live Call & Outcome Tracker Card */}
+              {showManualOutcomeCard && activeManualActivity && activeManualActivity.source === 'DIRECT_DIAL' && (
+                <div className="mt-6 p-5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                          <span>Outbound Direct Dial Call</span>
+                        </h4>
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold text-[10px] rounded-full">
+                          Direct Dial
+                        </span>
+                        {/* Live Call Status Badge */}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1 ${
+                          activeManualActivity.status === 'IN_PROGRESS'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            : activeManualActivity.status === 'RINGING'
+                            ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300'
+                            : ['QUEUED', 'DIALING'].includes(activeManualActivity.status)
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            : activeManualActivity.status === 'COMPLETED'
+                            ? 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300'
+                            : ['FAILED', 'BUSY', 'NO_ANSWER', 'CANCELLED'].includes(activeManualActivity.status)
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                        }`}>
+                          {['QUEUED', 'DIALING', 'RINGING', 'IN_PROGRESS'].includes(activeManualActivity.status) && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping mr-1" />
+                          )}
+                          <span>
+                            {activeManualActivity.status === 'IN_PROGRESS'
+                              ? 'In Progress (Connected)'
+                              : activeManualActivity.status === 'RINGING'
+                              ? 'Ringing...'
+                              : activeManualActivity.status === 'DIALING'
+                              ? 'Dialing...'
+                              : activeManualActivity.status === 'QUEUED'
+                              ? 'Queued'
+                              : activeManualActivity.status === 'COMPLETED'
+                              ? 'Completed'
+                              : activeManualActivity.status === 'FAILED'
+                              ? 'Failed'
+                              : activeManualActivity.status === 'BUSY'
+                              ? 'Busy'
+                              : activeManualActivity.status === 'NO_ANSWER'
+                              ? 'No Answer'
+                              : activeManualActivity.status === 'CANCELLED'
+                              ? 'Cancelled'
+                              : activeManualActivity.status}
+                          </span>
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-mono mt-1">
+                        Destination: <span className="font-bold text-slate-700 dark:text-slate-300">{activeManualActivity.destinationNumber}</span> ({activeManualActivity.contactName || 'Contact'}) • Caller ID: <span className="font-bold text-slate-700 dark:text-slate-300">{activeManualActivity.callingNumberSnapshot || activeManualActivity.callingNumber}</span>
+                      </p>
+                      {activeManualActivity.status === 'IN_PROGRESS' && (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 font-bold">
+                          Live Call Duration: {Math.floor(directDialDuration / 60)}:{(directDialDuration % 60).toString().padStart(2, '0')}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* End Call Button if call is active */}
+                    {['QUEUED', 'DIALING', 'RINGING', 'IN_PROGRESS'].includes(activeManualActivity.status) && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelDirectDialCall(activeManualActivity.id)}
+                        disabled={isCancellingDirectDial}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-xl shadow transition flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        {isCancellingDirectDial ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <PhoneOff className="w-3.5 h-3.5" />}
+                        <span>End Call</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Call Outcome
+                      </label>
+                      <select
+                        value={manualOutcome}
+                        onChange={(e) => setManualOutcome(e.target.value)}
+                        className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200"
+                      >
+                        <option value="Connected">Connected</option>
+                        <option value="No Answer">No Answer</option>
+                        <option value="Busy">Busy</option>
+                        <option value="Call Back Later">Call Back Later</option>
+                        <option value="Not Interested">Not Interested</option>
+                        <option value="Interested">Interested</option>
+                        <option value="Meeting Requested">Meeting Requested</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Outcome Notes
+                      </label>
+                      <textarea
+                        value={manualNotes}
+                        onChange={(e) => setManualNotes(e.target.value)}
+                        placeholder="Log notes about the conversation..."
+                        rows={2}
+                        className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-2">
+                      <button
+                        onClick={handleSaveManualOutcome}
+                        disabled={isSavingOutcome}
+                        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center space-x-2 cursor-pointer"
+                      >
+                        {isSavingOutcome && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                        <span>Save Call Outcome</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -742,7 +1321,7 @@ export function VoiceCallingView({
               </div>
 
               <button
-                onClick={() => setShowManualConfirmModal(true)}
+                onClick={() => { setIsDirectDial(false); setShowManualConfirmModal(true); }}
                 disabled={!selectedLead || !isValidPhone(selectedLead?.phone)}
                 className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white font-bold text-sm px-5 py-2.5 rounded-xl transition flex items-center space-x-2 shadow-sm"
               >
@@ -860,20 +1439,34 @@ export function VoiceCallingView({
                     </div>
 
                     {/* Warning Notice Box */}
-                    <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl flex items-start space-x-3 text-xs text-amber-800 dark:text-amber-300">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-semibold block text-amber-900 dark:text-amber-200">Device Phone App Execution</span>
-                        <p className="mt-0.5 text-amber-700 dark:text-amber-400">
-                          SalesPilot will open your device's phone app. The call will be placed from your phone.
-                        </p>
+                    {callingModePreference === 'NATIVE_DIALER' ? (
+                      <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60 rounded-xl flex items-start space-x-3 text-xs text-blue-800 dark:text-blue-300">
+                        <Smartphone className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold block text-blue-900 dark:text-blue-200">Native Dialer — Free</span>
+                          <p className="mt-0.5 text-blue-700 dark:text-blue-400">
+                            Calls are placed using your device's phone/dialer. No telephony provider is required.
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl flex items-start space-x-3 text-xs text-amber-800 dark:text-amber-300">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold block text-amber-900 dark:text-amber-200">Provider Calling Mode</span>
+                          <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                            {providerConfig.configured 
+                              ? `Calls are routed securely through ${providerConfig.providerName || 'Edesy'} calling provider.`
+                              : "Edesy telephony provider is not configured. Configure EDESY_API_KEY or switch to Native Dialer."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Action Button inside details card */}
                     <div className="pt-2 flex justify-end">
                       <button
-                        onClick={() => setShowManualConfirmModal(true)}
+                        onClick={() => { setIsDirectDial(false); setShowManualConfirmModal(true); }}
                         disabled={!isValidPhone(selectedLead.phone)}
                         className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center space-x-2"
                       >
@@ -890,6 +1483,7 @@ export function VoiceCallingView({
               </div>
             </div>
           </div>
+          )}
 
           {/* Log Call Outcome Card (Shown after call initiation or on request) */}
           {(showManualOutcomeCard || activeManualActivity) && selectedLead && (
@@ -1109,12 +1703,22 @@ export function VoiceCallingView({
       {callingMode === 'AI_VOICE' && (
         <div className="space-y-6">
           {/* Provider Diagnostic Banner */}
-          {providerConfig.configured ? (
+          {callingModePreference === 'PROVIDER_CALLING' && !providerConfig.configured ? (
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-start space-x-3">
+              <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <span className="font-semibold text-amber-800 dark:text-amber-300">Telephony Provider Not Configured</span>
+                <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
+                  Edesy calling provider is not configured. Add <code className="bg-amber-100 dark:bg-amber-900/60 px-1.5 py-0.5 rounded text-xs font-mono">EDESY_API_KEY</code> in server environment variables to place real calls.
+                </p>
+              </div>
+            </div>
+          ) : providerConfig.configured ? (
             <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl flex items-start space-x-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
               <div className="text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-emerald-900 dark:text-emerald-200">Production Diagnostic: Voice Provider Active ({providerConfig.providerName || 'Bland AI'})</span>
+                  <span className="font-bold text-emerald-900 dark:text-emerald-200">Production Diagnostic: Telephony Provider Active ({providerConfig.providerName || 'Edesy'})</span>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 text-[10px] font-mono font-bold">READY FOR CONTROLLED CALL</span>
                 </div>
                 <p className="text-emerald-700 dark:text-emerald-300 text-xs mt-1 font-mono">
@@ -1122,17 +1726,7 @@ export function VoiceCallingView({
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-start space-x-3">
-              <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <span className="font-semibold text-amber-800 dark:text-amber-300">Voice Provider Not Configured</span>
-                <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
-                  To place live AI voice calls, configure <code className="bg-amber-100 dark:bg-amber-900/60 px-1.5 py-0.5 rounded text-xs font-mono">BLAND_API_KEY</code> in server environment variables. Controlled single-call launch is disabled until credentials are detected.
-                </p>
-              </div>
-            </div>
-          )}
+          ) : null}
 
       {/* 2. Dashboard KPI Statistics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -1192,6 +1786,40 @@ export function VoiceCallingView({
             className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition flex items-center space-x-1.5"
           >
             <PhoneOff className="w-4 h-4" />
+            <span>End Call</span>
+          </button>
+        </div>
+      )}
+
+      {/* Active Direct Dial Call Floating Bar if call is running */}
+      {activeManualActivity && activeManualActivity.source === 'DIRECT_DIAL' && ['QUEUED', 'DIALING', 'RINGING', 'IN_PROGRESS'].includes(activeManualActivity.status) && (
+        <div className="bg-emerald-600 text-white p-4 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4 animate-pulse">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-white/20 rounded-full">
+              <Phone className="w-5 h-5 animate-spin" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-base">{activeManualActivity.contactName || activeManualActivity.destinationNumber}</span>
+                <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-mono font-semibold">
+                  {activeManualActivity.status}
+                </span>
+                <span className="bg-emerald-800/60 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                  Direct Dial
+                </span>
+              </div>
+              <p className="text-xs text-emerald-100 mt-0.5">
+                Calling {activeManualActivity.destinationNumber} • Caller ID: {activeManualActivity.callingNumberSnapshot || activeManualActivity.callingNumber} • Duration: {Math.floor(directDialDuration / 60)}:{(directDialDuration % 60).toString().padStart(2, '0')}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleCancelDirectDialCall(activeManualActivity.id)}
+            disabled={isCancellingDirectDial}
+            className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition flex items-center space-x-1.5 cursor-pointer"
+          >
+            {isCancellingDirectDial ? <RefreshCw className="w-4 h-4 animate-spin" /> : <PhoneOff className="w-4 h-4" />}
             <span>End Call</span>
           </button>
         </div>
@@ -1466,13 +2094,13 @@ export function VoiceCallingView({
   )}
 
   {/* Phase 4 Manual Call Confirmation Modal */}
-  {showManualConfirmModal && selectedLead && (
+  {showManualConfirmModal && (selectedLead || isDirectDial) && (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Phone className="w-5 h-5 text-emerald-600" />
-            Call {selectedLead.company || selectedLead.name}?
+            Call {isDirectDial ? (directContactName || 'Direct Contact') : (selectedLead?.company || selectedLead?.name)}?
           </h3>
           <button
             onClick={() => setShowManualConfirmModal(false)}
@@ -1486,15 +2114,21 @@ export function VoiceCallingView({
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-1.5 border border-slate-200 dark:border-slate-700">
             <div className="flex justify-between">
               <span className="text-slate-400">Target Lead:</span>
-              <span className="font-bold text-slate-900 dark:text-white">{selectedLead.name}</span>
+              <span className="font-bold text-slate-900 dark:text-white">
+                {isDirectDial ? (directContactName || 'Direct Dial Contact') : selectedLead?.name}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Company:</span>
-              <span className="font-semibold">{selectedLead.company || 'N/A'}</span>
+              <span className="font-semibold">
+                {isDirectDial ? (directCompanyName || 'N/A') : (selectedLead?.company || 'N/A')}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Lead Phone Number:</span>
-              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{selectedLead.phone}</span>
+              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                {isDirectDial ? `${directCountryCode}${directNumberInput.replace(/\D/g, '')}` : selectedLead?.phone}
+              </span>
             </div>
           </div>
 

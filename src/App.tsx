@@ -102,7 +102,7 @@ export default function App() {
       user.isFounder ||
       user.subscriptionStatus === 'LIFETIME' ||
       (user.email && (
-        user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
+        (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
         user.email.toLowerCase() === 'soham@gmail.com' ||
         user.email.toLowerCase().includes('founder') ||
         user.email.toLowerCase().includes('soham')

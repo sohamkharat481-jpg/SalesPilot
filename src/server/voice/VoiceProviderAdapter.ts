@@ -9,16 +9,18 @@ export class VoiceProviderAdapter implements VoiceProvider {
   }
 
   private detectProviderName(): string {
+    if (process.env.EDESY_API_KEY?.trim()) return 'Edesy';
     if (process.env.BLAND_API_KEY?.trim()) return 'Bland AI';
     if (process.env.VAPI_API_KEY?.trim()) return 'Vapi AI';
     if (process.env.TWILIO_ACCOUNT_SID?.trim() && process.env.TWILIO_AUTH_TOKEN?.trim()) return 'Twilio Voice';
     if (process.env.ELEVENLABS_API_KEY?.trim()) return 'ElevenLabs Voice';
     if (process.env.VOICE_PROVIDER_API_KEY?.trim()) return 'Generic Voice Provider';
-    return 'None';
+    return 'Edesy';
   }
 
   public isConfigured(): boolean {
-    const key = process.env.BLAND_API_KEY?.trim() ||
+    const key = process.env.EDESY_API_KEY?.trim() ||
+                process.env.BLAND_API_KEY?.trim() ||
                 process.env.VAPI_API_KEY?.trim() ||
                 process.env.TWILIO_ACCOUNT_SID?.trim() ||
                 process.env.ELEVENLABS_API_KEY?.trim() ||
@@ -30,11 +32,68 @@ export class VoiceProviderAdapter implements VoiceProvider {
     if (!this.isConfigured()) {
       return {
         success: false,
-        error: 'Voice provider not configured'
+        error: 'Edesy calling provider is not configured. Add EDESY_API_KEY in the server environment to place real calls.'
       };
     }
 
     try {
+      if (process.env.EDESY_API_KEY?.trim()) {
+        const apiKey = process.env.EDESY_API_KEY.trim();
+        const baseUrl = (process.env.EDESY_BASE_URL?.trim() || 'https://voice-agent.edesy.in/api/v1').replace(/\/$/, '');
+        const taskPrompt = `You are ${params.agentName || 'Astra AI SDR'}, an AI Growth & Revenue Assistant calling on behalf of SalesPilot / GrowCurve.
+RECIPIENT & CONTEXT:
+- Lead Name: ${params.leadName || 'Prospect'}
+- Company: ${params.company || 'Prospect Company'}
+- Job Title: ${params.jobTitle || 'Decision Maker'}
+- Company Context: ${params.companyContext || 'B2B enterprise prospect in active outreach campaign.'}
+- Lead Context: ${params.leadContext || 'Target lead for automated SDR qualification.'}
+
+OPENING MESSAGE:
+"${params.openingMessage}"
+
+PRIMARY CALL OBJECTIVE:
+${params.callObjective}
+${params.meetingBookingGoal ? 'If the recipient shows genuine interest, offer to schedule a brief 15-minute executive introduction and ask for their preferred day/time.' : 'Focus on answering their questions and qualifying their business needs.'}
+`;
+        const res = await fetch(`${baseUrl}/calls`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'X-API-Key': apiKey
+          },
+          body: JSON.stringify({
+            phone_number: params.phoneNumber,
+            to: params.phoneNumber,
+            from: params.fromNumber,
+            caller_id: params.fromNumber,
+            task: taskPrompt,
+            callbackUrl: params.webhookUrl,
+            webhook_url: params.webhookUrl,
+            metadata: {
+              callId: params.callId,
+              leadId: params.leadId,
+              organizationId: params.organizationId,
+              source: 'LEAD_CALL'
+            }
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data.call_id || data.id || data.callId || data.data?.id)) {
+          return {
+            success: true,
+            providerCallId: String(data.call_id || data.id || data.callId || data.data?.id),
+            status: 'QUEUED',
+            providerName: 'Edesy'
+          };
+        }
+        return {
+          success: false,
+          error: data.message || data.error || `Edesy API rejected call initiation (HTTP ${res.status})`
+        };
+      }
+
       if (process.env.BLAND_API_KEY?.trim()) {
         const taskPrompt = `You are ${params.agentName || 'Astra AI SDR'}, an AI Growth & Revenue Assistant calling on behalf of SalesPilot / GrowCurve.
 
@@ -114,10 +173,32 @@ BEHAVIORAL RULES:
 
   public async getCallStatus(providerCallId: string): Promise<{ status: CallStatus; durationSeconds?: number; error?: string }> {
     if (!this.isConfigured()) {
-      return { status: 'FAILED', error: 'Voice provider not configured' };
+      return { status: 'FAILED', error: 'Edesy calling provider is not configured. Add EDESY_API_KEY in the server environment to place real calls.' };
     }
 
     try {
+      if (process.env.EDESY_API_KEY?.trim()) {
+        const apiKey = process.env.EDESY_API_KEY.trim();
+        const baseUrl = (process.env.EDESY_BASE_URL?.trim() || 'https://voice-agent.edesy.in/api/v1').replace(/\/$/, '');
+        const res = await fetch(`${baseUrl}/calls/${providerCallId}`, {
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'X-API-Key': apiKey }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data) {
+          const rawStatus = (data.status || '').toLowerCase().replace(/[-_]/g, '');
+          let status: CallStatus = 'IN_PROGRESS';
+          if (['completed', 'ended', 'done', 'finished'].includes(rawStatus)) status = 'COMPLETED';
+          else if (['failed', 'error', 'rejected'].includes(rawStatus)) status = 'FAILED';
+          else if (['noanswer', 'unanswered', 'timeout'].includes(rawStatus)) status = 'NO_ANSWER';
+          else if (['busy'].includes(rawStatus)) status = 'BUSY';
+          else if (['ringing'].includes(rawStatus)) status = 'RINGING';
+          else if (['queued', 'initiated', 'scheduled', 'created'].includes(rawStatus)) status = 'QUEUED';
+          else if (['cancelled', 'canceled', 'stopped'].includes(rawStatus)) status = 'CANCELLED';
+          const dur = typeof data.duration === 'number' ? data.duration : (typeof data.duration_seconds === 'number' ? data.duration_seconds : 0);
+          return { status, durationSeconds: Math.max(0, Math.round(dur)) };
+        }
+      }
+
       if (process.env.BLAND_API_KEY?.trim()) {
         const res = await fetch(`https://api.bland.ai/v1/calls/${providerCallId}`, {
           headers: { authorization: process.env.BLAND_API_KEY.trim() }
@@ -141,10 +222,25 @@ BEHAVIORAL RULES:
 
   public async endCall(providerCallId: string): Promise<{ success: boolean; error?: string }> {
     if (!this.isConfigured()) {
-      return { success: false, error: 'Voice provider not configured' };
+      return { success: false, error: 'Edesy calling provider is not configured. Add EDESY_API_KEY in the server environment to place real calls.' };
     }
 
     try {
+      if (process.env.EDESY_API_KEY?.trim()) {
+        const apiKey = process.env.EDESY_API_KEY.trim();
+        const baseUrl = (process.env.EDESY_BASE_URL?.trim() || 'https://voice-agent.edesy.in/api/v1').replace(/\/$/, '');
+        const res = await fetch(`${baseUrl}/calls/${providerCallId}/cancel`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'X-API-Key': apiKey, 'Content-Type': 'application/json' }
+        });
+        if (res.ok) return { success: true };
+        const resStop = await fetch(`${baseUrl}/calls/${providerCallId}/stop`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'X-API-Key': apiKey, 'Content-Type': 'application/json' }
+        });
+        return { success: resStop.ok };
+      }
+
       if (process.env.BLAND_API_KEY?.trim()) {
         const res = await fetch(`https://api.bland.ai/v1/calls/${providerCallId}/stop`, {
           method: 'POST',
@@ -204,12 +300,13 @@ BEHAVIORAL RULES:
       return { error: 'Empty webhook payload' };
     }
 
-    // Secret Verification if BLAND_WEBHOOK_SECRET is set
-    const expectedSecret = process.env.BLAND_WEBHOOK_SECRET || process.env.VOICE_WEBHOOK_SECRET;
+    // Secret Verification if EDESY_WEBHOOK_SECRET or BLAND_WEBHOOK_SECRET is set
+    const expectedSecret = process.env.EDESY_WEBHOOK_SECRET?.trim() || process.env.BLAND_WEBHOOK_SECRET?.trim() || process.env.VOICE_WEBHOOK_SECRET?.trim();
     if (expectedSecret) {
-      const authHeader = headers['authorization'] || headers['x-webhook-secret'] || headers['x-bland-secret'];
-      const secretQuery = payload.secret;
-      if (authHeader !== expectedSecret && secretQuery !== expectedSecret) {
+      const authHeader = headers['authorization'] || headers['x-webhook-secret'] || headers['x-edesy-secret'] || headers['x-edesy-signature'] || headers['x-bland-secret'];
+      const secretQuery = payload?.secret;
+      const bearerSecret = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : authHeader;
+      if (authHeader !== expectedSecret && bearerSecret !== expectedSecret && secretQuery !== expectedSecret) {
         return { error: 'Webhook signature/secret verification failed' };
       }
     }

@@ -270,7 +270,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     user?.role === 'SUPER_ADMIN' ||
     user?.role === 'OWNER' ||
     (user?.email && (
-      user.email.toLowerCase() === 'sohamkharat481@gmail.com' ||
+      (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
       user.email.toLowerCase() === 'soham@gmail.com' ||
       user.email.toLowerCase().includes('founder') ||
       user.email.toLowerCase().includes('soham')

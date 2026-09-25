@@ -4,6 +4,8 @@ export interface CreateCallParams {
   callId: string;
   organizationId: string;
   phoneNumber: string;
+  fromNumber?: string;
+  leadId?: string;
   leadName?: string;
   company?: string;
   jobTitle?: string;

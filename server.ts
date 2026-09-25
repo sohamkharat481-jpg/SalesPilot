@@ -24,7 +24,8 @@ import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamic
 import { LeadGenWorker } from './src/backend/leadGenWorker';
 import { OutreachWorker } from './src/backend/outreachWorker';
 import { VoiceProviderAdapter } from './src/server/voice/VoiceProviderAdapter';
-import { VoiceCallRecord, CallStatus, CallOutcome, ManualCallActivity, ManualCallOutcome } from './src/types/voice';
+import { TelephonyProviderAdapter } from './src/server/voice/TelephonyProviderAdapter';
+import { VoiceCallRecord, CallStatus, CallOutcome, ManualCallActivity, ManualCallOutcome, CallingNumber } from './src/types/voice';
 import { normalizePhoneNumber } from './src/utils/phoneUtils';
 import { 
   OutreachCampaign, OutreachStep, OutreachQueueItem, 
@@ -172,6 +173,7 @@ const FOUNDER_EMAILS = new Set(
   [
     FOUNDER_EMAIL,
     'sohamkharat481@gmail.com',
+    'pordigyai@gmail.com',
     ...(process.env.FOUNDER_EMAILS || '').split(',')
   ]
     .map(email => email.trim().toLowerCase())
@@ -196,9 +198,9 @@ async function applyFounderPrivileges(userObj: any) {
   const isFounder = userObj.isFounder ||
                     userObj.subscriptionStatus === 'LIFETIME' ||
                     FOUNDER_EMAILS.has(emailLower) ||
-                    emailLower === 'soham@gmail.com' ||
+                    emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' ||
                     emailLower.includes('founder') ||
-                    emailLower.includes('soham') ||
+                    emailLower.includes('soham') || emailLower.includes('pordigy') ||
                     userObj.role === 'SUPER_ADMIN' ||
                     userObj.role === 'OWNER';
 
@@ -1521,7 +1523,7 @@ async function startServer() {
             let user = localDb.getUserById(sbUser.id) || localDb.getUserByEmail(sbUser.email || '');
             if (!user) {
               const emailLower = (sbUser.email || '').toLowerCase();
-              const isFounder = FOUNDER_EMAILS.has(emailLower) || emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower.includes('founder');
+              const isFounder = FOUNDER_EMAILS.has(emailLower) || emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' || emailLower.includes('founder');
               
               let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
               let resolvedOrgId: string | undefined = undefined;
@@ -14903,6 +14905,19 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // --- AI Voice Calling Phase 1 Module Routes ---
   const voiceProviderAdapter = new VoiceProviderAdapter();
+  const telephonyProviderAdapter = new TelephonyProviderAdapter();
+
+  // Telephony Provider Status
+  app.get('/api/v1/telephony/provider-status', (req, res) => {
+    const isConfigured = telephonyProviderAdapter.isConfigured();
+    res.json({
+      success: true,
+      provider: telephonyProviderAdapter.name || 'Edesy',
+      configured: isConfigured,
+      readyForRealCall: isConfigured,
+      providerName: telephonyProviderAdapter.name || 'Edesy'
+    });
+  });
 
   function calculateVoiceStats(calls: VoiceCallRecord[]) {
     return {
@@ -14919,16 +14934,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   app.get(['/api/v1/voice/provider/config', '/api/v1/voice/provider-status'], (req, res) => {
     try {
       const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-f4uv.vercel.app';
-      const isConfigured = voiceProviderAdapter.isConfigured();
+      const isConfigured = Boolean(process.env.EDESY_API_KEY?.trim()) || voiceProviderAdapter.isConfigured();
+      const providerName = process.env.EDESY_API_KEY?.trim() ? 'Edesy' : voiceProviderAdapter.name;
       res.json({
         success: true,
+        provider: providerName,
         configured: isConfigured,
+        readyForRealCall: isConfigured,
         apiKeyConfigured: isConfigured,
-        provider: isConfigured ? voiceProviderAdapter.name : 'None',
-        providerName: voiceProviderAdapter.name,
+        providerName: providerName,
         webhookUrl: `${baseUrl}/api/v1/voice/webhook`,
         environment: process.env.NODE_ENV || 'production',
-        readyForRealCall: isConfigured,
         supportedVoices: [
           { id: 'nat', name: 'Nat - Professional Female', gender: 'Female', language: 'en-US' },
           { id: 'dom', name: 'Dom - Confident Male', gender: 'Male', language: 'en-US' },
@@ -15251,13 +15267,55 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   app.post('/api/v1/voice/webhook', async (req, res) => {
     try {
       const parsed = await voiceProviderAdapter.handleWebhook(req.body, req.headers);
+      if (parsed.error) {
+        const isAuthError = parsed.error.toLowerCase().includes('secret') || parsed.error.toLowerCase().includes('signature');
+        return res.status(isAuthError ? 401 : 400).json({ success: false, error: parsed.error });
+      }
+
       if (!parsed.providerCallId) {
-        return res.status(200).json({ success: true, note: 'No providerCallId in payload' });
+        return res.status(400).json({ success: false, error: 'Missing providerCallId in webhook payload.' });
       }
 
       const call = localDb.getVoiceCallByProviderId(parsed.providerCallId);
       if (!call) {
-        return res.status(200).json({ success: true, note: 'Call record not found' });
+        // Check if this is a Direct Dial manual call activity
+        const manualActivity = localDb.getManualCallActivityByProviderId(parsed.providerCallId);
+        if (manualActivity) {
+          // Strictly verify tenant ownership server-side using stored record
+          if (!manualActivity.organizationId) {
+            return res.status(403).json({ success: false, error: 'Tenant isolation violation: Unknown organization.' });
+          }
+
+          const nextStatus = (parsed.status || manualActivity.status) as CallStatus;
+          const updates: Partial<ManualCallActivity> = {};
+          if (parsed.durationSeconds !== undefined && parsed.durationSeconds > 0) updates.durationSeconds = parsed.durationSeconds;
+          if (parsed.recordingUrl) updates.recordingUrl = parsed.recordingUrl;
+          if (parsed.transcript) updates.transcript = parsed.transcript;
+          if (['COMPLETED', 'FAILED', 'NO_ANSWER', 'BUSY', 'CANCELLED'].includes(nextStatus)) {
+            updates.endedAt = new Date().toISOString();
+          }
+          const updated = localDb.updateManualCallActivityStatus(manualActivity.id, nextStatus, manualActivity.organizationId, updates);
+
+          if (nextStatus === 'COMPLETED' && manualActivity.leadId) {
+            localDb.addLeadActivity({
+              id: 'act_' + Date.now(),
+              leadId: manualActivity.leadId,
+              organizationId: manualActivity.organizationId,
+              type: 'PHONE_CALL',
+              title: `Direct Dial Call Completed: ${manualActivity.destinationNumber || manualActivity.phoneNumber}`,
+              description: parsed.summary || `Direct dial call completed with duration ${parsed.durationSeconds || 0}s.`,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          return res.json({ success: true, activityId: manualActivity.id, status: nextStatus, call: updated });
+        }
+        return res.status(404).json({ success: false, error: 'Call record not found' });
+      }
+
+      // Verify tenant ownership server-side for voice call
+      if (!call.organizationId) {
+        return res.status(403).json({ success: false, error: 'Tenant isolation violation: Unknown organization.' });
       }
 
       const nextStatus = (parsed.status || call.status) as CallStatus;
@@ -15285,7 +15343,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       }
 
-      res.json({ success: true, callId: call.id, status: nextStatus });
+      return res.json({ success: true, callId: call.id, status: nextStatus });
     } catch (err: any) {
       console.error('[Voice Webhook Error]', err);
       res.status(500).json({ success: false, error: err.message });
@@ -15469,6 +15527,74 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   });
 
+  // --- CALLING MODE PREFERENCES (DUAL MODE: NATIVE DIALER FREE / PROVIDER CALLING) ---
+  app.get('/api/v1/calling-mode', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const isProviderConfigured = telephonyProviderAdapter.isConfigured();
+      let activeMode: 'NATIVE_DIALER' | 'PROVIDER_CALLING' = 'NATIVE_DIALER';
+      if (user.callingModePreference) {
+        activeMode = user.callingModePreference;
+      } else if (!isProviderConfigured) {
+        activeMode = 'NATIVE_DIALER';
+      }
+
+      return res.json({
+        success: true,
+        callingMode: activeMode,
+        isProviderConfigured,
+        providerName: telephonyProviderAdapter.name || 'Edesy',
+        supportedModes: [
+          {
+            id: 'NATIVE_DIALER',
+            label: 'Native Device Dialer — Free',
+            description: 'Free device-based phone dialer using your computer or phone app (tel:). No API keys or telephony charges required.'
+          },
+          {
+            id: 'PROVIDER_CALLING',
+            label: 'Provider Calling — Requires configured telephony provider',
+            description: 'Automated server-to-server outbound calling via Edesy Voice API.'
+          }
+        ]
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/calling-mode', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { callingMode } = req.body;
+      if (callingMode !== 'NATIVE_DIALER' && callingMode !== 'PROVIDER_CALLING') {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid calling mode. Must be either NATIVE_DIALER or PROVIDER_CALLING.' 
+        });
+      }
+
+      user.callingModePreference = callingMode;
+      localDb.updateUser(user.id, { callingModePreference: callingMode });
+
+      return res.json({
+        success: true,
+        callingMode,
+        isProviderConfigured: telephonyProviderAdapter.isConfigured(),
+        providerName: telephonyProviderAdapter.name || 'Edesy'
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // --- PHASE 4: MANUAL PHONE CALL INTEGRATION ---
 
   // 1. Initiate Manual Phone Call
@@ -15484,7 +15610,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation: Invalid organization context.' });
       }
 
-      const { leadId, phoneNumber: clientPhoneNumber, callingNumberId } = req.body;
+      const { leadId, phoneNumber: clientPhoneNumber, callingNumberId, callingMode: clientCallingMode } = req.body;
       if (!leadId) {
         return res.status(400).json({ success: false, error: 'Target leadId is required.' });
       }
@@ -15515,6 +15641,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         selectedCallingNumberObj = userNumbers.find(cn => cn.isDefault) || userNumbers[0];
       }
 
+      const activeCallingMode = clientCallingMode || user.callingModePreference || 'NATIVE_DIALER';
+
       // Create CRM Call Activity with status INITIATED_FROM_SALES_PILOT
       // Crucial: Do NOT mark as COMPLETED
       const activity: ManualCallActivity = {
@@ -15528,6 +15656,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         direction: 'OUTBOUND',
         activityType: 'PHONE_CALL',
         status: 'INITIATED_FROM_SALES_PILOT',
+        callingMode: activeCallingMode,
+        provider: activeCallingMode === 'PROVIDER_CALLING' ? (telephonyProviderAdapter.name || 'Edesy') : 'NATIVE_DIALER',
+        providerName: activeCallingMode === 'PROVIDER_CALLING' ? (telephonyProviderAdapter.name || 'Edesy') : 'Native Device Dialer',
         createdAt: new Date().toISOString()
       };
 
@@ -15557,10 +15688,296 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         },
         callingNumberUsed: selectedCallingNumberObj?.phoneNumber || null,
         normalizedPhoneNumber: normResult.normalized,
-        telUrl: `tel:${normResult.normalized}`
+        telUrl: activeCallingMode === 'NATIVE_DIALER' ? `tel:${normResult.normalized}` : null
       });
     } catch (err: any) {
       console.error('[Manual Call Initiate Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // --- DIRECT DIAL (NON-LEAD CALL) API ---
+  app.post('/api/v1/manual-calls/dial', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation: Invalid organization context.' });
+      }
+
+      const { destinationNumber, contactName, companyName, notes, callingNumberId, callingMode: clientCallingMode } = req.body;
+      if (!destinationNumber) {
+        return res.status(400).json({ success: false, error: 'Destination phone number is required.' });
+      }
+
+      const normResult = normalizePhoneNumber(destinationNumber);
+      if (!normResult.valid || !normResult.normalized) {
+        return res.status(400).json({
+          success: false,
+          error: normResult.error || 'Cannot dial number: Invalid or incomplete phone number format.'
+        });
+      }
+
+      // Determine effective calling mode
+      const isProviderConfigured = telephonyProviderAdapter.isConfigured();
+      let effectiveMode: 'NATIVE_DIALER' | 'PROVIDER_CALLING';
+      if (clientCallingMode === 'NATIVE_DIALER' || clientCallingMode === 'PROVIDER_CALLING') {
+        effectiveMode = clientCallingMode;
+      } else if (user.callingModePreference === 'NATIVE_DIALER' || user.callingModePreference === 'PROVIDER_CALLING') {
+        effectiveMode = user.callingModePreference;
+      } else {
+        // Default to Native Device Dialer when no telephony provider is configured
+        effectiveMode = isProviderConfigured ? 'PROVIDER_CALLING' : 'NATIVE_DIALER';
+      }
+
+      // 1. PRIMARY FREE MODE: Native Device Dialer
+      if (effectiveMode === 'NATIVE_DIALER') {
+        const userNumbers = localDb.getCallingNumbers(orgId, user.id);
+        let callingNumSnapshot = 'Native Device Dialer';
+        let callingNumId: string | undefined;
+        if (callingNumberId) {
+          const found = userNumbers.find(cn => cn.id === callingNumberId);
+          if (found) {
+            callingNumSnapshot = found.phoneNumber;
+            callingNumId = found.id;
+          }
+        } else {
+          const found = userNumbers.find(cn => cn.isDefault) || userNumbers[0];
+          if (found) {
+            callingNumSnapshot = found.phoneNumber;
+            callingNumId = found.id;
+          }
+        }
+
+        const callId = 'act_direct_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        const activity: ManualCallActivity = {
+          id: callId,
+          leadId: undefined,
+          source: 'DIRECT_DIAL',
+          organizationId: orgId,
+          userId: user.id,
+          callingNumberId: callingNumId,
+          callingNumber: callingNumSnapshot,
+          callingNumberSnapshot: callingNumSnapshot,
+          phoneNumber: normResult.normalized,
+          destinationNumber: normResult.normalized,
+          contactName: contactName || 'Direct Dial Contact',
+          companyName: companyName || 'N/A',
+          notes: notes || '',
+          direction: 'OUTBOUND',
+          activityType: 'PHONE_CALL',
+          status: 'INITIATED_FROM_SALES_PILOT',
+          callingMode: 'NATIVE_DIALER',
+          provider: 'NATIVE_DIALER',
+          providerName: 'Native Device Dialer',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        localDb.addManualCallActivity(activity);
+
+        return res.json({
+          success: true,
+          activity,
+          status: 'INITIATED_FROM_SALES_PILOT',
+          callingMode: 'NATIVE_DIALER',
+          callingNumberUsed: callingNumSnapshot,
+          destinationNumber: normResult.normalized,
+          telUrl: `tel:${normResult.normalized}`
+        });
+      }
+
+      // 2. OPTIONAL TELEPHONY MODE: Provider Calling (Edesy)
+      // Resolve user's verified calling number server-side
+      const userNumbers = localDb.getCallingNumbers(orgId, user.id);
+      const isCnVerified = (cn: CallingNumber) => cn.isVerified === true || String(cn.verificationStatus || '').trim().toUpperCase() === 'VERIFIED';
+      
+      let verifiedCallingNum: CallingNumber | undefined;
+      if (callingNumberId) {
+        const requestedCn = userNumbers.find(cn => cn.id === callingNumberId);
+        if (!requestedCn || !isCnVerified(requestedCn)) {
+          return res.status(403).json({
+            success: false,
+            error: 'Connect and verify your personal calling number before placing calls.'
+          });
+        }
+        verifiedCallingNum = requestedCn;
+      } else {
+        verifiedCallingNum = userNumbers.find(cn => cn.isDefault && isCnVerified(cn)) || userNumbers.find(cn => isCnVerified(cn));
+      }
+
+      if (!verifiedCallingNum) {
+        return res.status(403).json({
+          success: false,
+          error: 'Connect and verify your personal calling number before placing calls.'
+        });
+      }
+
+      // Check if telephony provider is configured
+      if (!isProviderConfigured) {
+        return res.status(400).json({
+          success: false,
+          error: 'Edesy calling provider is not configured. Add EDESY_API_KEY in the server environment to place real calls or switch to Native Device Dialer.',
+          providerConfigured: false
+        });
+      }
+
+      const callId = 'act_direct_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://salespilot.co';
+      const webhookUrl = `${baseUrl}/api/v1/voice/webhook`;
+
+      // Initiate outbound provider call using user's verified caller ID
+      const providerResult = await telephonyProviderAdapter.initiateCall({
+        callId,
+        organizationId: orgId,
+        userId: user.id,
+        destinationNumber: normResult.normalized,
+        callerId: verifiedCallingNum.phoneNumber,
+        contactName,
+        companyName,
+        notes,
+        webhookUrl
+      });
+
+      if (!providerResult.success || !providerResult.providerCallId) {
+        return res.status(400).json({
+          success: false,
+          error: providerResult.error || 'Telephony provider rejected call initiation.'
+        });
+      }
+
+      const activity: ManualCallActivity = {
+        id: callId,
+        leadId: undefined,
+        source: 'DIRECT_DIAL',
+        organizationId: orgId,
+        userId: user.id,
+        callingNumberId: verifiedCallingNum.id,
+        callingNumber: verifiedCallingNum.phoneNumber,
+        callingNumberSnapshot: verifiedCallingNum.phoneNumber,
+        phoneNumber: normResult.normalized,
+        destinationNumber: normResult.normalized,
+        contactName: contactName || 'Direct Dial Contact',
+        companyName: companyName || 'N/A',
+        notes: notes || '',
+        direction: 'OUTBOUND',
+        activityType: 'PHONE_CALL',
+        status: (providerResult.status || 'QUEUED') as CallStatus,
+        providerCallId: providerResult.providerCallId,
+        providerName: providerResult.providerName || telephonyProviderAdapter.name || 'Edesy',
+        provider: 'EDESY',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      localDb.addManualCallActivity(activity);
+
+      return res.json({
+        success: true,
+        activity,
+        status: activity.status,
+        providerCallId: providerResult.providerCallId,
+        callingNumberUsed: verifiedCallingNum.phoneNumber,
+        destinationNumber: normResult.normalized
+      });
+    } catch (err: any) {
+      console.error('[Direct Dial Error]', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Get live status of manual call activity
+  app.get('/api/v1/manual-calls/:id/status', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+
+      const activity = localDb.getManualCallActivityById(req.params.id, orgId);
+      if (!activity) return res.status(404).json({ success: false, error: 'Call activity not found.' });
+
+      if (activity.providerCallId && !['COMPLETED', 'FAILED', 'CANCELLED', 'NO_ANSWER', 'BUSY'].includes(activity.status)) {
+        const pStatus = await telephonyProviderAdapter.getCallStatus(activity.providerCallId);
+        if (pStatus && pStatus.status && pStatus.status !== activity.status) {
+          localDb.updateManualCallActivityStatus(activity.id, pStatus.status, orgId, {
+            durationSeconds: pStatus.durationSeconds
+          });
+          activity.status = pStatus.status;
+        }
+      }
+
+      return res.json({ success: true, activity, status: activity.status });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Cancel in-progress manual call
+  app.post('/api/v1/manual-calls/:id/cancel', async (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) return res.status(401).json({ success: false, error: 'Unauthorized: User authentication required.' });
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+
+      const activity = localDb.getManualCallActivityById(req.params.id, orgId);
+      if (!activity) return res.status(404).json({ success: false, error: 'Call activity not found.' });
+
+      if (activity.providerCallId) {
+        await telephonyProviderAdapter.cancelCall(activity.providerCallId);
+      }
+
+      const updated = localDb.updateManualCallActivityStatus(activity.id, 'CANCELLED', orgId, {
+        endedAt: new Date().toISOString()
+      });
+
+      return res.json({ success: true, activity: updated });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Link Direct Dial call to Lead
+  app.post('/api/v1/manual-calls/:id/link-lead', (req, res) => {
+    try {
+      const user = getAuthenticatedUser(req);
+      if (!user) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required.' });
+      }
+
+      const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+      if (error || !orgId) {
+        return res.status(status || 403).json({ success: false, error: error || 'Tenant isolation violation' });
+      }
+
+      const { id } = req.params;
+      const { leadId } = req.body;
+      if (!leadId) {
+        return res.status(400).json({ success: false, error: 'leadId is required to link call.' });
+      }
+
+      const lead = localDb.getLeadById(leadId, orgId);
+      if (!lead) {
+        return res.status(404).json({ success: false, error: 'Target lead not found in workspace.' });
+      }
+
+      const activity = localDb.getManualCallActivityById(id, orgId);
+      if (!activity) {
+        return res.status(404).json({ success: false, error: 'Call activity not found.' });
+      }
+
+      activity.leadId = lead.id;
+      activity.source = 'LEAD';
+      activity.updatedAt = new Date().toISOString();
+      localDb.save();
+
+      return res.json({ success: true, activity, lead });
+    } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
     }
   });
@@ -15606,21 +16023,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       }
 
       const targetLeadId = leadId || updatedActivity?.leadId;
-      if (!targetLeadId) {
-        return res.status(400).json({ success: false, error: 'Target leadId is required to log outcome.' });
-      }
-
-      // Verify lead belongs to authenticated tenant
-      const lead = localDb.getLeadById(targetLeadId, orgId);
-      if (!lead) {
+      const lead = targetLeadId ? localDb.getLeadById(targetLeadId, orgId) : null;
+      if (targetLeadId && !lead) {
         return res.status(403).json({ success: false, error: 'Access denied: Target lead not found in workspace.' });
       }
 
       if (!updatedActivity) {
-        const normPhone = normalizePhoneNumber(lead.phone).normalized || lead.phone || 'N/A';
+        const normPhone = targetLeadId && lead ? (normalizePhoneNumber(lead.phone).normalized || lead.phone || 'N/A') : (req.body.destinationNumber || 'N/A');
         updatedActivity = localDb.addManualCallActivity({
           id: 'act_manual_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-          leadId: lead.id,
+          leadId: lead ? lead.id : undefined,
+          source: lead ? 'LEAD' : 'DIRECT_DIAL',
           organizationId: orgId,
           userId: user.id,
           phoneNumber: normPhone,
@@ -15650,36 +16063,40 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       }
 
-      // Update lead CRM status based on outcome
-      if (outcome === 'Interested') {
-        localDb.updateLead(lead.id, { status: 'INTERESTED' as LeadStatus }, orgId);
-      } else if (outcome === 'Meeting Requested') {
-        localDb.updateLead(lead.id, { status: 'MEETING_BOOKED' as LeadStatus }, orgId);
-      } else if (outcome === 'Not Interested') {
-        localDb.updateLead(lead.id, { status: 'LOST' as LeadStatus }, orgId);
-      } else if (outcome === 'Call Back Later') {
-        localDb.updateLead(lead.id, { status: 'FOLLOW_UP_REQUIRED' as LeadStatus }, orgId);
-      } else if (['Connected', 'No Answer', 'Busy'].includes(outcome)) {
-        if (['NEW', 'OUTREACH'].includes(lead.status)) {
-          localDb.updateLead(lead.id, { status: 'CONTACTED' as LeadStatus }, orgId);
+      let leadStatus = null;
+      if (lead) {
+        // Update lead CRM status based on outcome
+        if (outcome === 'Interested') {
+          localDb.updateLead(lead.id, { status: 'INTERESTED' as LeadStatus }, orgId);
+        } else if (outcome === 'Meeting Requested') {
+          localDb.updateLead(lead.id, { status: 'MEETING_BOOKED' as LeadStatus }, orgId);
+        } else if (outcome === 'Not Interested') {
+          localDb.updateLead(lead.id, { status: 'LOST' as LeadStatus }, orgId);
+        } else if (outcome === 'Call Back Later') {
+          localDb.updateLead(lead.id, { status: 'FOLLOW_UP_REQUIRED' as LeadStatus }, orgId);
+        } else if (['Connected', 'No Answer', 'Busy'].includes(outcome)) {
+          if (['NEW', 'OUTREACH'].includes(lead.status)) {
+            localDb.updateLead(lead.id, { status: 'CONTACTED' as LeadStatus }, orgId);
+          }
         }
-      }
 
-      // Add CRM activity note
-      localDb.addLeadActivity({
-        id: 'act_' + Date.now(),
-        leadId: lead.id,
-        organizationId: orgId,
-        type: 'PHONE_CALL',
-        title: `Manual Call Outcome Recorded: ${outcome}`,
-        description: notes ? `Outcome: ${outcome}. Notes: ${notes}` : `Outcome: ${outcome}`,
-        timestamp: new Date().toISOString()
-      });
+        // Add CRM activity note
+        localDb.addLeadActivity({
+          id: 'act_' + Date.now(),
+          leadId: lead.id,
+          organizationId: orgId,
+          type: 'PHONE_CALL',
+          title: `Manual Call Outcome Recorded: ${outcome}`,
+          description: notes ? `Outcome: ${outcome}. Notes: ${notes}` : `Outcome: ${outcome}`,
+          timestamp: new Date().toISOString()
+        });
+        leadStatus = lead.status;
+      }
 
       return res.json({
         success: true,
         activity: updatedActivity,
-        leadStatus: lead.status
+        leadStatus
       });
     } catch (err: any) {
       console.error('[Manual Call Outcome Error]', err);
@@ -15711,6 +16128,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const outcome = req.query.outcome as string | undefined;
       const callingNumber = req.query.callingNumber as string | undefined;
       const search = req.query.search as string | undefined;
+      const sourceFilter = req.query.source as string | undefined;
 
       // Fetch all manual call activities for organization
       let activities = localDb.getManualCallActivities(orgId);
@@ -15724,13 +16142,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       // Enrich with Lead & User details for query filtering & view
       const enrichedHistory = activities.map(a => {
-        const lead = localDb.getLeadById(a.leadId, orgId);
+        const lead = a.leadId ? localDb.getLeadById(a.leadId, orgId) : null;
         const teamUser = a.userId ? localDb.getUserById(a.userId) : null;
+        const isDirect = a.source === 'DIRECT_DIAL' || !a.leadId;
         return {
           ...a,
-          leadName: lead ? (lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Lead') : 'Lead',
-          company: lead?.company || 'N/A',
-          leadPhone: lead?.phone || a.phoneNumber,
+          source: isDirect ? 'DIRECT_DIAL' : 'LEAD',
+          leadName: isDirect ? (a.contactName || 'Direct Dial Contact') : (lead ? (lead.name || `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Lead') : 'Lead'),
+          company: isDirect ? (a.companyName || 'N/A') : (lead?.company || 'N/A'),
+          leadPhone: isDirect ? (a.destinationNumber || a.phoneNumber) : (lead?.phone || a.phoneNumber),
           userName: teamUser?.fullName || (a.userId === user.id ? user.fullName : 'Sales Rep'),
           userEmail: teamUser?.email || (a.userId === user.id ? user.email : ''),
           duration: 'Not available' // Explicit requirement: do not fabricate duration
@@ -15739,6 +16159,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       // Apply Filter predicates
       let filtered = enrichedHistory;
+
+      if (sourceFilter) {
+        filtered = filtered.filter(a => a.source === sourceFilter);
+      }
 
       if (leadId) {
         filtered = filtered.filter(a => a.leadId === leadId);

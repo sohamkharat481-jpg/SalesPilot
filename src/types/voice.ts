@@ -100,6 +100,8 @@ export type ManualCallOutcome =
   | 'Interested'
   | 'Meeting Requested';
 
+export type CallingModePreference = 'NATIVE_DIALER' | 'PROVIDER_CALLING';
+
 export interface CallingNumber {
   id: string;
   userId: string;
@@ -108,6 +110,7 @@ export interface CallingNumber {
   countryCode: string; // (e.g., +91)
   isVerified: boolean;
   isDefault: boolean;
+  verificationStatus?: 'PENDING_VERIFICATION' | 'VERIFIED' | 'REVOKED' | string;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,19 +125,33 @@ export interface ManualCallAuditEntry {
 
 export interface ManualCallActivity {
   id: string;
-  leadId: string;
+  leadId?: string;
+  source?: 'LEAD' | 'DIRECT_DIAL';
   organizationId: string;
   userId?: string;
   callingNumberId?: string;
   callingNumber?: string; // safe historical snapshot of user's calling number
-  phoneNumber: string; // Target lead's phone number
+  callingNumberSnapshot?: string;
+  phoneNumber: string; // Target lead or destination phone number
+  destinationNumber?: string;
+  contactName?: string;
+  companyName?: string;
   direction: 'OUTBOUND';
   activityType: 'PHONE_CALL';
-  status: 'INITIATED_FROM_SALES_PILOT' | 'COMPLETED';
+  status: CallStatus | 'INITIATED_FROM_SALES_PILOT' | 'COMPLETED';
+  callingMode?: CallingModePreference;
+  provider?: string;
+  providerCallId?: string;
+  providerName?: string;
+  providerStatus?: string;
+  durationSeconds?: number;
+  recordingUrl?: string;
+  transcript?: CallTranscriptItem[];
   outcome?: ManualCallOutcome;
   notes?: string;
   auditHistory?: ManualCallAuditEntry[];
   createdAt: string;
   updatedAt?: string;
+  endedAt?: string;
 }
 

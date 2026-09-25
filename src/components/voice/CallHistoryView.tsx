@@ -18,6 +18,7 @@ export const CallHistoryView: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [selectedOutcome, setSelectedOutcome] = useState<string>('');
   const [selectedCallingNumber, setSelectedCallingNumber] = useState<string>('');
+  const [selectedSource, setSelectedSource] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Workspace team members and calling numbers options
@@ -43,6 +44,7 @@ export const CallHistoryView: React.FC = () => {
       if (selectedStatus) params.append('status', selectedStatus);
       if (selectedOutcome) params.append('outcome', selectedOutcome);
       if (selectedCallingNumber) params.append('callingNumber', selectedCallingNumber);
+      if (selectedSource) params.append('source', selectedSource);
       if (searchQuery) params.append('search', searchQuery);
 
       const res = await fetch(`/api/v1/manual-calls/history?${params.toString()}`, { headers });
@@ -79,7 +81,7 @@ export const CallHistoryView: React.FC = () => {
 
   useEffect(() => {
     fetchHistory();
-  }, [startDate, endDate, selectedUserId, selectedStatus, selectedOutcome, selectedCallingNumber]);
+  }, [startDate, endDate, selectedUserId, selectedStatus, selectedOutcome, selectedCallingNumber, selectedSource]);
 
   // Handle Search submit
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -95,6 +97,7 @@ export const CallHistoryView: React.FC = () => {
     setSelectedStatus('');
     setSelectedOutcome('');
     setSelectedCallingNumber('');
+    setSelectedSource('');
     setSearchQuery('');
   };
 
@@ -260,6 +263,20 @@ export const CallHistoryView: React.FC = () => {
             </select>
           </div>
 
+          {/* Call Source */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 block mb-1">Call Source</label>
+            <select
+              value={selectedSource}
+              onChange={e => setSelectedSource(e.target.value)}
+              className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Sources</option>
+              <option value="LEAD">Lead Calls</option>
+              <option value="DIRECT_DIAL">Direct Dial</option>
+            </select>
+          </div>
+
         </div>
       </div>
 
@@ -307,7 +324,18 @@ export const CallHistoryView: React.FC = () => {
                     </td>
 
                     <td className="p-3.5">
-                      <strong className="text-slate-900 dark:text-white font-semibold block">{item.leadName}</strong>
+                      <div className="flex items-center space-x-2">
+                        <strong className="text-slate-900 dark:text-white font-semibold">{item.leadName}</strong>
+                        {item.source === 'DIRECT_DIAL' ? (
+                          <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold text-[9px] rounded-full">
+                            Direct Dial
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[9px] rounded-full">
+                            Lead
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="p-3.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">

@@ -52,6 +52,7 @@ export interface WorkspaceUser {
   timezone?: string;
   language?: string;
   mfaEnabled?: boolean;
+  callingModePreference?: 'NATIVE_DIALER' | 'PROVIDER_CALLING';
   createdAt: string;
   isFounder?: boolean;
   subscriptionStatus?: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'CANCELLED' | 'LIFETIME' | 'TRIAL';

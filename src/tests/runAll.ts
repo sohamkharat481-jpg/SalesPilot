@@ -2,6 +2,9 @@ import { runNotificationsAutomationTestSuite } from './notificationsTaskAutomati
 import { runOutreachCampaignTestSuite } from './outreachCampaigns.test';
 import { runOutreachCronTestSuite } from './outreachCron.test';
 import { runDashboardTelemetryAuthTestSuite } from './dashboardTelemetryAuth.test';
+import { runPersonalCallingIdentityTestSuite } from './personalCallingIdentity.test';
+import { runDirectDialCallingTestSuite } from './directDialCalling.test';
+import { runEdesyTelephonyTestSuite } from './edesyTelephony.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -48,6 +51,36 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Dashboard Telemetry test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 5. Personal Calling Identity Suite
+  try {
+    const res = await runPersonalCallingIdentityTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Personal Calling Identity test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 6. Direct Dial Calling Suite
+  try {
+    const res = await runDirectDialCallingTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Direct Dial Calling test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 7. Edesy Telephony Suite
+  try {
+    const res = await runEdesyTelephonyTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Edesy Telephony test suite crashed:', err);
     totalFailed++;
   }
 
