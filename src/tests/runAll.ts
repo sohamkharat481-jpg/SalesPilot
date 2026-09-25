@@ -5,6 +5,7 @@ import { runDashboardTelemetryAuthTestSuite } from './dashboardTelemetryAuth.tes
 import { runPersonalCallingIdentityTestSuite } from './personalCallingIdentity.test';
 import { runDirectDialCallingTestSuite } from './directDialCalling.test';
 import { runEdesyTelephonyTestSuite } from './edesyTelephony.test';
+import { runFinalProductionVerificationTestSuite } from './finalProductionVerification.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -81,6 +82,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Edesy Telephony test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 8. Founder & Final Production Verification Suite
+  try {
+    const res = await runFinalProductionVerificationTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Final Production Verification test suite crashed:', err);
     totalFailed++;
   }
 

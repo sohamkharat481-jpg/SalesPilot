@@ -174,6 +174,7 @@ const FOUNDER_EMAILS = new Set(
     FOUNDER_EMAIL,
     'sohamkharat481@gmail.com',
     'pordigyai@gmail.com',
+    'ayesha.kashif13008@gmail.com',
     ...(process.env.FOUNDER_EMAILS || '').split(',')
   ]
     .map(email => email.trim().toLowerCase())

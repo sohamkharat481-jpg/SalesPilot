@@ -1087,3 +1087,25 @@ EXCEPTION
     WHEN OTHERS THEN
         NULL;
 END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = 'usr_ayesha_13008' OR email = 'ayesha.kashif13008@gmail.com') THEN
+        INSERT INTO public.users (id, email, full_name, role, tier, organization_id, is_verified, is_founder, subscription_status)
+        VALUES ('usr_ayesha_13008', 'ayesha.kashif13008@gmail.com', 'Ayesha Kashif', 'OWNER', 'ENTERPRISE', 'org_salespilot_lifetime', true, true, 'LIFETIME');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = 'usr_ayesha_13008' OR email = 'ayesha.kashif13008@gmail.com') THEN
+        INSERT INTO public.profiles (id, email, full_name, role, organization_id)
+        VALUES ('usr_ayesha_13008', 'ayesha.kashif13008@gmail.com', 'Ayesha Kashif', 'OWNER', 'org_salespilot_lifetime');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;

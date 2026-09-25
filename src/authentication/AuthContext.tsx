@@ -174,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const email = sessionUser.email || '';
     const emailLower = email.toLowerCase();
     const fullName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || email.split('@')[0] || 'User';
-    const isFounder = emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' || emailLower.includes('founder') || emailLower.includes('pordigy');
+    const isFounder = emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' || emailLower === 'ayesha.kashif13008@gmail.com' || emailLower.includes('founder') || emailLower.includes('pordigy');
 
     let authoritativeUser: WorkspaceUser | null = null;
     let authoritativeOrg: Organization | null = null;
@@ -349,6 +349,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const isFounder = parsedUser.isFounder || 
                             emailLower === 'sohamkharat481@gmail.com' || 
                             emailLower === 'soham@gmail.com' ||
+                            emailLower === 'ayesha.kashif13008@gmail.com' ||
                             emailLower.includes('founder') ||
                             parsedUser.role === 'OWNER';
 
@@ -448,7 +449,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Prevent Founder from seeing onboarding, setup, or billing screens
   useEffect(() => {
     const isFounderEmail = user && user.email && (
-      (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
+      (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
       user.email.toLowerCase() === 'soham@gmail.com' ||
       user.email.toLowerCase().includes('founder') ||
       user.email.toLowerCase().includes('soham')
@@ -496,7 +497,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (user && user.email && (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase().includes('pordigy'))) {
+    if (user && user.email && (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy'))) {
       if (authView !== 'authenticated') {
         console.log("Founder detected. Skipping onboarding.");
         setAuthView('authenticated');

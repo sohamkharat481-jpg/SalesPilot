@@ -342,6 +342,25 @@ export class LocalDB {
         createdAt: new Date().toISOString()
       },
       {
+        id: 'usr_ayesha_13008',
+        email: 'ayesha.kashif13008@gmail.com',
+        fullName: 'Ayesha Kashif',
+        companyName: 'SalesPilot',
+        industry: 'SaaS & Software',
+        tier: 'ENTERPRISE',
+        role: 'OWNER',
+        organizationId: 'org_salespilot_lifetime',
+        isVerified: true,
+        phone: '',
+        timezone: 'Asia/Kolkata',
+        language: 'English',
+        notificationPrefs: { email: true, push: true, weeklyReport: true },
+        passwordHash: defaultPasswordHash,
+        isFounder: true,
+        subscriptionStatus: 'LIFETIME',
+        createdAt: new Date().toISOString()
+      },
+      {
         id: 'usr_demo_101',
         email: 'soham@gmail.com',
         fullName: 'Soham Kharat',
@@ -1331,6 +1350,16 @@ export class LocalDB {
       sohamUser.subscriptionStatus = 'LIFETIME';
     }
 
+    // 1b. Ayesha Kashif workspace & membership
+    const ayeshaUser = this.db.users.find(u => u.email?.toLowerCase() === 'ayesha.kashif13008@gmail.com' || u.id === 'usr_ayesha_13008');
+    if (ayeshaUser) {
+      ayeshaUser.organizationId = 'org_salespilot_lifetime';
+      ayeshaUser.role = 'OWNER';
+      ayeshaUser.tier = 'ENTERPRISE';
+      ayeshaUser.isFounder = true;
+      ayeshaUser.subscriptionStatus = 'LIFETIME';
+    }
+
     let sohamOrg = this.getOrganizationById('org_salespilot_lifetime');
     if (!sohamOrg) {
       sohamOrg = {
@@ -1357,6 +1386,19 @@ export class LocalDB {
         id: `orgm_${sohamUserId}_org_salespilot_lifetime`,
         organizationId: 'org_salespilot_lifetime',
         userId: sohamUserId,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    const ayeshaUserId = ayeshaUser ? ayeshaUser.id : 'usr_ayesha_13008';
+    const ayeshaMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === ayeshaUserId && m.organizationId === 'org_salespilot_lifetime');
+    if (ayeshaMemberIdx === -1) {
+      this.db.organizationMembers.push({
+        id: `orgm_${ayeshaUserId}_org_salespilot_lifetime`,
+        organizationId: 'org_salespilot_lifetime',
+        userId: ayeshaUserId,
         role: 'OWNER',
         status: 'ACTIVE',
         createdAt: new Date().toISOString()
