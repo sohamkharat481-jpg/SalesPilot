@@ -103,7 +103,7 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
         }
 
         let token = localStorage.getItem('salespilot_token');
-        let workspaceId = localStorage.getItem('salespilot_workspace_id') || organization?.id || currentUser?.organizationId;
+        let workspaceId = currentUser?.organizationId || organization?.id || localStorage.getItem('salespilot_workspace_id');
 
         const supabase = getSupabaseClient();
         if (supabase) {
@@ -215,7 +215,7 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
 
       try {
         let token = localStorage.getItem('salespilot_token');
-        let workspaceId = localStorage.getItem('salespilot_workspace_id') || organization?.id || currentUser?.organizationId;
+        let workspaceId = currentUser?.organizationId || organization?.id || localStorage.getItem('salespilot_workspace_id');
 
         const supabase = getSupabaseClient();
         if (supabase) {
