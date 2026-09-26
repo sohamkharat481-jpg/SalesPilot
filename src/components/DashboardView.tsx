@@ -40,14 +40,14 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
     { month: 'Apr', revenue: Math.round(totalRevenue * 0.5), goal: 300000 },
     { month: 'May', revenue: Math.round(totalRevenue * 0.7), goal: 350000 },
     { month: 'Jun', revenue: Math.round(totalRevenue * 0.85), goal: 400000 },
-    { month: 'Jul', revenue: totalRevenue > 0 ? totalRevenue : 425000, goal: 450000 },
+    { month: 'Jul', revenue: totalRevenue, goal: 450000 },
   ];
 
   const leadSources = [
-    { name: 'Google Maps Spider', value: leads.filter(l => l.source === 'Google Maps').length || 45, color: '#3b82f6' },
-    { name: 'Manual Import', value: leads.filter(l => l.source === 'MANUAL').length || 20, color: '#10b981' },
-    { name: 'LinkedIn Finder', value: leads.filter(l => l.source === 'LINKEDIN').length || 25, color: '#8b5cf6' },
-    { name: 'Client Portal', value: leads.filter(l => l.source === 'PORTAL').length || 10, color: '#f59e0b' },
+    { name: 'Google Maps Spider', value: leads.filter(l => l.source === 'Google Maps' || l.source === 'Google Maps Spider').length, color: '#3b82f6' },
+    { name: 'Manual Import', value: leads.filter(l => l.source === 'MANUAL' || l.source === 'Manual').length, color: '#10b981' },
+    { name: 'LinkedIn Finder', value: leads.filter(l => l.source === 'LINKEDIN' || l.source === 'LinkedIn').length, color: '#8b5cf6' },
+    { name: 'Client Portal', value: leads.filter(l => l.source === 'PORTAL' || l.source === 'Portal').length, color: '#f59e0b' },
   ];
 
   const recentLeads = leads.slice(0, 5);
