@@ -231,6 +231,7 @@ export class LocalDB {
         if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
 
         this.ensureDefaultWorkspacesAndMemberships();
+        this.runSafeLegacyDataMigration();
 
         console.log(`[LocalDB] Loaded database with ${this.db.users?.length || 0} users and ${this.db.leads?.length || 0} leads.`);
       } catch (err) {
@@ -241,11 +242,99 @@ export class LocalDB {
       this.buildDefaultSchema();
     }
 
+    this.runSafeLegacyDataMigration();
+
     // 2. Synchronize existing google_accounts_store.json (backward-compatibility)
     this.syncGoogleAccountsStore();
 
     // 3. Initialize Supabase client and perform async auto-migration
     this.initSupabaseClientAndMigrate();
+  }
+
+  public runSafeLegacyDataMigration(): void {
+    console.log('[LEGACY MIGRATION] Running safe legacy-data migration check...');
+    const defaultOrgId = 'org_salespilot_lifetime';
+    let migrationLogs: any[] = [];
+
+    if (this.db.leads) {
+      for (const lead of this.db.leads) {
+        let oldOrg = (lead as any).organizationId;
+        let oldUser = (lead as any).userId || (lead as any).assignedToId;
+        let resolvedOrg = oldOrg;
+        let resolvedUser = oldUser;
+        let status = 'SUCCESS';
+        let reason = 'Already correctly scoped.';
+
+        if (!resolvedOrg) {
+          if (lead.campaignId) {
+            const camp = this.db.campaigns?.find(c => c.id === lead.campaignId);
+            if ((camp as any)?.organizationId) {
+              resolvedOrg = (camp as any).organizationId;
+              reason = 'Resolved organization from associated campaign.';
+            }
+          }
+          if (!resolvedOrg) {
+            resolvedOrg = defaultOrgId;
+            reason = 'Assigned to default lifetime organization.';
+          }
+        }
+
+        if (!resolvedUser) {
+          const orgUsers = this.db.users?.filter(u => u.organizationId === resolvedOrg);
+          if (orgUsers && orgUsers.length === 1) {
+            resolvedUser = orgUsers[0].id;
+            reason += ' Assigned sole organization user ownership.';
+          } else {
+            (lead as any).isShared = true;
+            status = 'RESOLVED_ORGANIZATION_ONLY';
+            reason += ' User ownership ambiguous; marked shared across organization without random assignment.';
+          }
+        }
+
+        (lead as any).organizationId = resolvedOrg;
+        if (resolvedUser) {
+          (lead as any).userId = resolvedUser;
+          (lead as any).assignedToId = resolvedUser;
+        }
+
+        migrationLogs.push({
+          recordType: 'LEAD',
+          recordId: lead.id,
+          oldOwnership: { organizationId: oldOrg, userId: oldUser },
+          resolvedUserId: resolvedUser || null,
+          resolvedOrganizationId: resolvedOrg,
+          migrationStatus: status,
+          reason
+        });
+      }
+    }
+
+    if (this.db.campaigns) {
+      for (const camp of this.db.campaigns) {
+        if (!(camp as any).organizationId) {
+          (camp as any).organizationId = defaultOrgId;
+        }
+      }
+    }
+    if (this.db.deals) {
+      for (const deal of this.db.deals) {
+        if (!(deal as any).organizationId) {
+          (deal as any).organizationId = defaultOrgId;
+        }
+      }
+    }
+    if (this.db.appointments) {
+      for (const apt of this.db.appointments) {
+        if (!(apt as any).organizationId) {
+          (apt as any).organizationId = defaultOrgId;
+        }
+      }
+    }
+
+    if (migrationLogs.length > 0) {
+      console.log(`[LEGACY MIGRATION] Completed safe migration for ${migrationLogs.length} records.`);
+    }
+    this.save();
   }
 
   private buildDefaultSchema(): void {

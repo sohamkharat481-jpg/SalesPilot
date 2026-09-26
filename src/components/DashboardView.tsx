@@ -56,102 +56,102 @@ export function DashboardView({ leads, campaigns, deals, appointments, setActive
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 animate-fade-in max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 pt-2 sm:pt-6 min-w-0">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white p-5 sm:p-8 shadow-xl shadow-blue-500/10">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white p-5 sm:p-8 shadow-xl shadow-blue-500/10 min-w-0">
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
-          <div className="space-y-2">
+        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-5 sm:gap-6">
+          <div className="space-y-2 min-w-0">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md text-[11px] sm:text-xs font-medium text-blue-100 max-w-full">
               <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span className="truncate">SalesPilot AI Intelligence Active • {activeWorkspaceName}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight truncate">
               Welcome back, {currentUser?.fullName || 'Sales Leader'}! 👋
             </h1>
             <p className="text-blue-100 text-xs sm:text-sm max-w-2xl leading-relaxed">
               Your autonomous sales pipeline is running smoothly. You have <strong className="text-white">{qualifiedLeads} qualified leads</strong> ready for outreach and <strong className="text-white">{bookedMeetings} meetings</strong> scheduled this week.
             </p>
           </div>
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap sm:flex-nowrap">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 shrink-0">
             <button
               onClick={() => setActiveTab('leads')}
-              className="flex-1 sm:flex-none justify-center px-4 sm:px-5 py-2.5 sm:py-3 bg-white text-blue-600 hover:bg-blue-50 font-bold text-xs rounded-xl sm:rounded-2xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+              className="justify-center px-4 sm:px-5 py-2.5 sm:py-3 bg-white text-blue-600 hover:bg-blue-50 font-bold text-xs rounded-xl sm:rounded-2xl shadow-lg transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" />
-              Add New Leads
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Add New Leads</span>
             </button>
             <button
               onClick={() => setActiveTab('campaigns')}
-              className="flex-1 sm:flex-none justify-center px-4 sm:px-5 py-2.5 sm:py-3 bg-blue-500/30 hover:bg-blue-500/40 border border-white/20 text-white font-bold text-xs rounded-xl sm:rounded-2xl backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer"
+              className="justify-center px-4 sm:px-5 py-2.5 sm:py-3 bg-blue-500/30 hover:bg-blue-500/40 border border-white/20 text-white font-bold text-xs rounded-xl sm:rounded-2xl backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
             >
-              <Send className="w-4 h-4" />
-              Launch Campaign
+              <Send className="w-4 h-4 shrink-0" />
+              <span>Launch Campaign</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Key Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5 min-w-0">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group min-w-0">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
               <Users className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full shrink-0">
               <TrendingUp className="w-3.5 h-3.5" /> +18.2%
             </span>
           </div>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Leads</p>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{totalLeads.toLocaleString()}</h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1">
-            <span className="font-semibold text-blue-600 dark:text-blue-400">{qualifiedLeads}</span> qualified ready for sequence
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Total Leads</p>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 truncate">{totalLeads.toLocaleString()}</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1 truncate">
+            <span className="font-semibold text-blue-600 dark:text-blue-400">{qualifiedLeads}</span> qualified ready
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group min-w-0">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
               <Target className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full shrink-0">
               <TrendingUp className="w-3.5 h-3.5" /> +24%
             </span>
           </div>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Campaigns</p>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{activeCampaigns}</h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1">
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{campaigns.length} total</span> outbound sequences
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Active Campaigns</p>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 truncate">{activeCampaigns}</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1 truncate">
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{campaigns.length} total</span> sequences
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group min-w-0">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-violet-50 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-violet-50 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
               <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400 text-xs font-bold bg-violet-50 dark:bg-violet-950/50 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400 text-xs font-bold bg-violet-50 dark:bg-violet-950/50 px-2.5 py-1 rounded-full shrink-0">
               <Clock className="w-3.5 h-3.5" /> This Week
             </span>
           </div>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Meetings Booked</p>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{bookedMeetings}</h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1">
-            Synced with Google Calendar
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Meetings Booked</p>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 truncate">{bookedMeetings}</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1 truncate">
+            Google Calendar Synced
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all group min-w-0">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
               <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1 rounded-full shrink-0">
               <TrendingUp className="w-3.5 h-3.5" /> Pipeline
             </span>
           </div>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pipeline Value</p>
-          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1">₹{pipelineValue.toLocaleString()}</h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Pipeline Value</p>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1 truncate">₹{pipelineValue.toLocaleString()}</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 flex items-center gap-1 truncate">
             Won: <span className="font-semibold text-emerald-600 dark:text-emerald-400">₹{totalRevenue.toLocaleString()}</span>
           </p>
         </div>

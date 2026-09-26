@@ -349,3 +349,16 @@ export async function persistAuthoritativeGoogleAccount(
     calendarId: `ga_${cleanUserId}_${cleanEmail}_calendar`
   };
 }
+
+export async function verifyGoogleCalendarConnection(
+  organizationId: string,
+  userId: string,
+  privilegedClient?: SupabaseClient
+): Promise<{ success: boolean; status: string }> {
+  const acct = await resolveAuthoritativeCalendarAccount({ organizationId, userId, privilegedClient });
+  if (!acct) {
+    return { success: false, status: 'DISCONNECTED' };
+  }
+  return { success: acct.status === 'CONNECTED', status: acct.status };
+}
+

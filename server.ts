@@ -16923,12 +16923,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     accessToken: string;
     refreshToken?: string;
     expiresAt: string; // ISO string
-    status: 'CONNECTED' | 'REAUTH_NEEDED' | 'DISCONNECTED';
+    status: 'CONNECTED' | 'REAUTH_NEEDED' | 'REAUTH_REQUIRED' | 'ERROR' | 'DISCONNECTED';
     sendingLimit: number;
     sentToday: number;
     bounceCount: number;
     retryCount: number;
     organizationId?: string;
+    userId?: string;
     createdAt: string;
   }
 
@@ -18024,8 +18025,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     accessToken: string;
     refreshToken?: string;
     expiresAt: string;
-    status: 'CONNECTED' | 'REAUTH_NEEDED';
+    status: 'CONNECTED' | 'REAUTH_NEEDED' | 'REAUTH_REQUIRED' | 'ERROR' | 'DISCONNECTED';
     organizationId?: string;
+    userId?: string;
     createdAt: string;
   }
 
