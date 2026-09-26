@@ -22,7 +22,7 @@ export interface OutreachWorkerContext {
   saveReply: (reply: OutreachReply) => Promise<void>;
   cancelPendingQueueItemsForLead: (leadId: string, campaignId: string, orgId: string, reason: string) => Promise<number>;
   logEvent: (event: OutreachEvent) => Promise<void>;
-  getGmailAccount: (orgId: string, senderEmail?: string) => Promise<any>;
+  getGmailAccount: (orgId: string, userId?: string, senderEmail?: string) => Promise<any>;
   sendGmailMessage: (account: any, recipientEmail: string, subject: string, body: string) => Promise<{ providerMessageId: string; threadId: string }>;
   sendOwnerNotificationEmail: (ownerEmail: string, subject: string, htmlBody: string) => Promise<boolean>;
   saveInAppNotification: (orgId: string, title: string, message: string, meta?: any) => Promise<void>;
@@ -129,12 +129,13 @@ export class OutreachWorker {
           continue;
         }
 
-        // 4. Retrieve connected Gmail account for sender
-        const gmailAcc = await this.context.getGmailAccount(claimed.organizationId);
-        if (!gmailAcc) {
+        // 4. Retrieve connected Gmail account for sender strictly scoped to user + org
+        const senderUserId = claimed.userId || campaign.userId || (campaign as any).createdById;
+        const gmailAcc = await this.context.getGmailAccount(claimed.organizationId, senderUserId);
+        if (!gmailAcc || !gmailAcc.email) {
           await this.context.updateQueueItem(claimed.id, { 
             status: 'FAILED', 
-            error: 'No authorized Gmail account connected to organization.',
+            error: 'Connect your Gmail account before sending outreach.',
             attempts: (claimed.attempts || 0) + 1
           }, claimed.organizationId);
           failed++;
@@ -164,15 +165,19 @@ export class OutreachWorker {
             error: undefined
           }, claimed.organizationId);
 
-          // Record Sent Outreach Message
+          // Record Sent Outreach Message with authoritative sender identity
           const msgRecord: OutreachMessage = {
             id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             organizationId: claimed.organizationId,
             campaignId: claimed.campaignId,
             leadId: claimed.leadId,
+            userId: senderUserId || gmailAcc.userId,
+            senderUserId: senderUserId || gmailAcc.userId,
+            senderGmailAccountId: gmailAcc.id || `ga_${gmailAcc.email}`,
+            senderEmailSnapshot: gmailAcc.email,
             queueId: claimed.id,
             stepNumber: claimed.stepNumber,
-            senderEmail: gmailAcc.email || 'sohamkharat481@gmail.com',
+            senderEmail: gmailAcc.email,
             recipientEmail: claimed.recipientEmail,
             subject: renderedSubject,
             body: renderedBody,

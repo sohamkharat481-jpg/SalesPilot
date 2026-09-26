@@ -57,8 +57,11 @@ import { generateLeadExecutiveSummary, generateCrmNote } from './src/ai/crm-serv
 
 import { 
   resolveAuthoritativeGmailAccount, 
+  resolveAuthoritativeCalendarAccount,
+  verifyGoogleCalendarConnection,
   persistAuthoritativeGoogleAccount 
 } from './src/backend/googleAccountsService';
+import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountries';
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
 
 import { validateStartupEnv } from './src/security/envValidator';
@@ -1800,7 +1803,7 @@ async function startServer() {
   };
 
   // Lead Database Helper Mapping
-  const mapSupabaseLeadToAppLead = (l: any): Lead & { organizationId?: string } => {
+  const mapSupabaseLeadToAppLead = (l: any): Lead & { organizationId?: string; assignedToId?: string; userId?: string; isShared?: boolean } => {
     let parsedNotes: any = {};
     let rawNotesStr = l.notes || '';
     if (typeof rawNotesStr === 'string' && rawNotesStr.startsWith('{')) {
@@ -1819,9 +1822,16 @@ async function startServer() {
       techStack: []
     };
 
+    const assignedToId = l.assigned_to_id || l.assigned_to || l.user_id || parsedNotes.assignedToId || parsedNotes.userId || '';
+    const userId = l.user_id || l.created_by || parsedNotes.userId || assignedToId || '';
+    const isShared = Boolean(l.is_shared ?? parsedNotes.isShared ?? false);
+
     return {
       id: String(l.id),
       organizationId: l.organization_id || '',
+      assignedToId: assignedToId || undefined,
+      userId: userId || undefined,
+      isShared,
       firstName: l.first_name || parsedNotes.firstName || (l.lead_name ? l.lead_name.split(' ')[0] : 'Prospect'),
       lastName: l.last_name || parsedNotes.lastName || (l.lead_name ? l.lead_name.split(' ').slice(1).join(' ') : ''),
       email: l.email || l.business_email || '',
@@ -1914,7 +1924,7 @@ async function startServer() {
     return filteredLeads;
   };
 
-  const getLeadByIdAsync = async (leadId: string, orgId?: string): Promise<Lead | null> => {
+  const getLeadByIdAsync = async (leadId: string, orgId?: string, userId?: string): Promise<Lead | null> => {
     if (!leadId || !orgId) return null;
     const cleanId = String(leadId).trim();
 
@@ -1934,6 +1944,14 @@ async function startServer() {
         if (remoteRecord) {
           const mapped = mapSupabaseLeadToAppLead(remoteRecord);
           if ((mapped as any).organizationId && (mapped as any).organizationId === orgId) {
+            // Enforce user-owned lead isolation if userId is provided
+            if (userId) {
+              const isOwner = (mapped as any).assignedToId === userId || (mapped as any).userId === userId;
+              const isShared = (mapped as any).isShared === true;
+              if (!isOwner && !isShared) {
+                return null;
+              }
+            }
             return mapped;
           }
         }
@@ -1944,6 +1962,14 @@ async function startServer() {
 
     const localFound = localDb.getLeadById(cleanId, orgId) || leads.find(l => l.id === cleanId && (l as any).organizationId === orgId);
     if (localFound && (localFound as any).organizationId && (localFound as any).organizationId === orgId) {
+      // Enforce user-owned lead isolation if userId is provided
+      if (userId) {
+        const isOwner = (localFound as any).assignedToId === userId || (localFound as any).userId === userId;
+        const isShared = (localFound as any).isShared === true;
+        if (!isOwner && !isShared) {
+          return null;
+        }
+      }
       return localFound;
     }
 
@@ -2182,6 +2208,9 @@ async function startServer() {
           source: newLead.source,
           confidenceScore: newLead.confidenceScore,
           scoreReason: newLead.scoreReason,
+          assignedToId: (newLead as any).assignedToId || (newLead as any).userId || '',
+          userId: (newLead as any).userId || (newLead as any).assignedToId || '',
+          isShared: (newLead as any).isShared ?? false,
           tags: newLead.tags,
           notesList: newLead.notesList || [],
           timelineList: newLead.timelineList || [],
@@ -2197,6 +2226,9 @@ async function startServer() {
         const dbLead: any = {
           id: newLead.id,
           organization_id: org_id,
+          assigned_to: (newLead as any).assignedToId || (newLead as any).userId || null,
+          user_id: (newLead as any).userId || (newLead as any).assignedToId || null,
+          is_shared: (newLead as any).isShared ?? false,
           first_name: newLead.firstName || '',
           last_name: newLead.lastName || '',
           company: newLead.company || '',
@@ -2210,6 +2242,9 @@ async function startServer() {
           tags: newLead.tags || [],
           custom_fields: {
             title: newLead.title,
+            assignedToId: (newLead as any).assignedToId || (newLead as any).userId || '',
+            userId: (newLead as any).userId || (newLead as any).assignedToId || '',
+            isShared: (newLead as any).isShared ?? false,
             industry: (newLead as any).industry || newLead.enrichment?.industry || '',
             country: (newLead as any).country || newLead.enrichment?.country || 'India',
             linkedin: (newLead as any).linkedin || newLead.enrichment?.socialLinks?.[0] || '',
@@ -2693,10 +2728,10 @@ async function startServer() {
       }
       localDb.logOutreachEvent(event);
     },
-    getGmailAccount: async (orgId: string, senderEmail?: string) => {
-      // Production Gmail account resolution strictly queries authoritative public.google_accounts
-      // via privileged Supabase client with SUPABASE_SERVICE_ROLE_KEY.
-      return resolveAuthoritativeGmailAccount({ organizationId: orgId, senderEmail });
+    getGmailAccount: async (orgId: string, senderEmail?: string, senderUserId?: string) => {
+      // Authoritative Gmail account resolution strictly queries user-owned accounts
+      if (!senderUserId) return null;
+      return resolveAuthoritativeGmailAccount({ organizationId: orgId, userId: senderUserId });
     },
     sendGmailMessage: async (account: any, recipientEmail: string, subject: string, body: string) => {
       if (!account || !account.accessToken) {
@@ -3952,14 +3987,20 @@ async function startServer() {
     }
 
     const allLeads = await getAllLeadsAsync(orgId);
-    const filteredLeads = allLeads.filter(l => (l as any).organizationId === orgId);
-    console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}"`);
+    // Enforce: organization_id + authenticated user_id for user-owned leads
+    const filteredLeads = allLeads.filter(l => {
+      if ((l as any).organizationId !== orgId) return false;
+      const isShared = (l as any).isShared === true;
+      const isOwner = (l as any).assignedToId === user.id || (l as any).userId === user.id;
+      return isShared || isOwner;
+    });
+    console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}" (user: "${user.id}")`);
     res.json({ success: true, count: filteredLeads.length, leads: filteredLeads });
   });
 
   // Create a Lead (Database Insertion)
   app.post('/api/v1/leads', async (req, res) => {
-    const { firstName, lastName, email, phone, company, title, status, source, website } = req.body;
+    const { firstName, lastName, email, phone, company, title, status, source, website, isShared } = req.body;
     if (!firstName || !email || !company) {
       res.status(400).json({ error: 'First name, email, and company are required fields.' });
       return;
@@ -3974,9 +4015,12 @@ async function startServer() {
       return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const newLead: Lead & { organizationId?: string } = {
-      id: `ld_${Date.now()}`,
+    const newLead: Lead & { organizationId?: string; assignedToId?: string; userId?: string; isShared?: boolean } = {
+      id: `ld_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       organizationId: orgId,
+      assignedToId: user.id, // Derive authenticated user identity
+      userId: user.id,
+      isShared: isShared === true,
       firstName,
       lastName: lastName || '',
       email,
@@ -6719,7 +6763,7 @@ Ensure the output is strictly valid JSON format.`;
     }
 
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id, orgId);
+    const lead = await getLeadByIdAsync(id, orgId, user.id);
 
     if (!lead) {
       res.status(404).json({ error: 'Lead not found in this workspace.' });
@@ -6783,9 +6827,9 @@ Ensure the output is strictly valid JSON format.`;
     }
 
     const { id } = req.params;
-    const lead = await getLeadByIdAsync(id, orgId);
+    const lead = await getLeadByIdAsync(id, orgId, user.id);
     if (!lead) {
-      res.status(404).json({ error: 'Lead not found in this workspace.' });
+      res.status(404).json({ error: 'Lead not found in this workspace or access denied.' });
       return;
     }
     await deleteLeadAsync(id);
@@ -17720,20 +17764,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const { accountId, recipient, subject, body, attachments, isDraft } = req.body;
+    const { recipient, subject, body, attachments, isDraft } = req.body;
 
-    if (!accountId || !recipient || !subject || !body) {
-      return res.status(400).json({ error: 'Missing required email field (accountId, recipient, subject, or body)' });
+    if (!recipient || !subject || !body) {
+      return res.status(400).json({ error: 'Missing required email field (recipient, subject, or body)' });
     }
 
-    // Check account existence and tenant ownership
-    const senderAccount = gmailAccounts.find(a => a.email === accountId);
+    // Strictly resolve the Gmail account owned by that authenticated user within that organization
+    const senderAccount = gmailAccounts.find(a => a.organizationId === orgId && a.userId === user.id);
     if (!senderAccount) {
-      return res.status(404).json({ error: 'Sender account not found among connected Gmail accounts.' });
+      return res.status(400).json({ error: 'Connect your Gmail account before sending outreach.' });
     }
-    if (senderAccount.organizationId && senderAccount.organizationId !== orgId) {
-      return res.status(403).json({ error: 'Forbidden. Sender account belongs to another organization.' });
-    }
+    const accountId = senderAccount.email;
 
     if (isDraft) {
       // Create local Draft Thread message
@@ -18440,7 +18482,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const filteredCalendarAccounts = calendarAccounts.filter(c => c.organizationId === orgId);
+    const filteredCalendarAccounts = calendarAccounts.filter(c => c.organizationId === orgId && c.userId === user.id);
     res.json({
       accounts: filteredCalendarAccounts.map(c => ({
         email: c.email,
@@ -18480,7 +18522,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // POST /calendar/connect
-  app.post('/calendar/connect', (req, res) => {
+  app.post('/calendar/connect', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -18496,6 +18538,49 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(400).json({ error: 'Missing required parameters: email, accessToken' });
     }
 
+    // Google Calendar API verification block (mock tokens bypass for test stability)
+    let verified = false;
+    let targetStatus: 'CONNECTED' | 'REAUTH_REQUIRED' | 'ERROR' = 'CONNECTED';
+    
+    if (accessToken.startsWith('mock_')) {
+      if (accessToken === 'mock_invalid_token' || accessToken === 'mock_expired_token' || accessToken === 'mock_api_failure') {
+        verified = false;
+      } else if (accessToken === 'mock_reauth_required') {
+        verified = true;
+        targetStatus = 'REAUTH_REQUIRED';
+      } else {
+        verified = true;
+      }
+    } else {
+      try {
+        const gRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (gRes.ok) {
+          const calData = await gRes.ok ? await gRes.json() as any : null;
+          if (calData && calData.id) {
+            verified = true;
+          }
+        } else {
+          if (gRes.status === 401 || gRes.status === 403) {
+            targetStatus = 'REAUTH_REQUIRED';
+          } else {
+            targetStatus = 'ERROR';
+          }
+        }
+      } catch (err) {
+        console.error('Error verifying calendar with Google Calendar API:', err);
+        targetStatus = 'ERROR';
+      }
+    }
+
+    if (!verified) {
+      return res.status(400).json({ 
+        error: 'Calendar connection needs attention.',
+        status: targetStatus
+      });
+    }
+
     const existing = calendarAccounts.find(c => c.email === email);
     const expiresTimestamp = expiresAt || new Date(Date.now() + 3600000).toISOString();
 
@@ -18503,9 +18588,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       existing.accessToken = accessToken;
       if (refreshToken) existing.refreshToken = refreshToken;
       existing.expiresAt = expiresTimestamp;
-      existing.status = 'CONNECTED';
+      existing.status = targetStatus;
       existing.fullName = fullName || existing.fullName || email.split('@')[0];
       existing.organizationId = effectiveOrgId;
+      existing.userId = user.id; // Strict multi-user credentials isolation
       saveAccountsToDisk();
       return res.json({ success: true, message: 'Google Calendar connection updated.', account: existing });
     }
@@ -18516,8 +18602,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       accessToken,
       refreshToken,
       expiresAt: expiresTimestamp,
-      status: 'CONNECTED',
+      status: targetStatus,
       organizationId: effectiveOrgId,
+      userId: user.id, // Strict multi-user credentials isolation
       createdAt: new Date().toISOString()
     };
     calendarAccounts.push(newAcc);

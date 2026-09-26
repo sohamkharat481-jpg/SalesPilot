@@ -4,19 +4,9 @@ import {
   AlertCircle, RefreshCw, X, Smartphone, Globe, Check, AlertTriangle
 } from 'lucide-react';
 import { CallingNumber } from '../../types/voice';
-
-const COUNTRY_CODES = [
-  { code: '+91', country: 'India', flag: '🇮🇳' },
-  { code: '+1', country: 'US / Canada', flag: '🇺🇸' },
-  { code: '+44', country: 'United Kingdom', flag: '🇬🇧' },
-  { code: '+61', country: 'Australia', flag: '🇦🇺' },
-  { code: '+49', country: 'Germany', flag: '🇩🇪' },
-  { code: '+33', country: 'France', flag: '🇫🇷' },
-  { code: '+81', country: 'Japan', flag: '🇯🇵' },
-  { code: '+65', country: 'Singapore', flag: '🇸🇬' },
-  { code: '+971', country: 'UAE', flag: '🇦🇪' },
-  { code: '+55', country: 'Brazil', flag: '🇧🇷' },
-];
+import { CountrySelector } from './CountrySelector';
+import { validateAndFormatPhoneNumber } from '../../utils/phoneUtils';
+import { Country } from '../../utils/countries';
 
 export function MyCallingNumbers() {
   const [callingNumbers, setCallingNumbers] = useState<CallingNumber[]>([]);
@@ -93,8 +83,9 @@ export function MyCallingNumbers() {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!phoneNumberInput.trim()) {
-      setErrorMessage('Please enter a valid phone number.');
+    const validation = validateAndFormatPhoneNumber(phoneNumberInput, countryCode);
+    if (!validation.valid) {
+      setErrorMessage(validation.error || 'Please enter a valid phone number.');
       return;
     }
 
@@ -109,7 +100,7 @@ export function MyCallingNumbers() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const fullNumber = `${countryCode}${phoneNumberInput.replace(/\D/g, '')}`;
+      const fullNumber = validation.e164!;
 
       const url = editingId ? `/api/v1/calling-numbers/${editingId}` : '/api/v1/calling-numbers';
       const method = editingId ? 'PUT' : 'POST';
@@ -376,23 +367,16 @@ export function MyCallingNumbers() {
                   Country Code & Phone Number
                 </label>
                 <div className="flex space-x-2">
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {COUNTRY_CODES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.flag} {c.code} ({c.country})
-                      </option>
-                    ))}
-                  </select>
+                  <CountrySelector
+                    selectedDialCode={countryCode}
+                    onSelect={(c: Country) => setCountryCode(c.dialCode)}
+                  />
 
                   <input
                     type="tel"
                     value={phoneNumberInput}
                     onChange={(e) => setPhoneNumberInput(e.target.value)}
-                    placeholder="7498630805"
+                    placeholder="9876543210"
                     required
                     className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />

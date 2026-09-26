@@ -4362,7 +4362,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     {/* Chronic message bubble feeds */}
                     <div className="flex-1 p-5 overflow-y-auto space-y-4 max-h-[320px] bg-slate-50/20">
                       {threadMessages.map((msg) => {
-                        const isSelf = msg.from === selectedGmailAccount || msg.from === 'sohamkharat481@gmail.com';
+                        const isSelf = msg.from === selectedGmailAccount || (user?.email && msg.from.toLowerCase() === user.email.toLowerCase());
                         return (
                           <div key={msg.id} className={`flex gap-3 max-w-[85%] ${isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-xs uppercase font-mono ${

@@ -60,12 +60,16 @@ export function SchedulerView({
   // Check backend connected accounts state on load
   const checkConnectionStatus = async () => {
     try {
-      const res = await fetch('/calendar/accounts');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const res = await fetch('/calendar/accounts', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.accounts && data.accounts.length > 0) {
           const acc = data.accounts[0];
-          setGoogleCalendarConnected(true);
+          const isConnected = acc.status === 'CONNECTED';
+          setGoogleCalendarConnected(isConnected);
           setGoogleCalendarEmail(acc.email);
           setGoogleCalendarStatus(acc.status || 'CONNECTED');
         } else {
@@ -651,42 +655,29 @@ export function SchedulerView({
 
       {/* Google Calendar Sync Hub */}
       <div className="p-4 bg-gradient-to-r from-blue-50 to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        {googleCalendarConnected ? (
+        {googleCalendarConnected && googleCalendarStatus === 'CONNECTED' ? (
           <>
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-lg text-white ${googleCalendarStatus === 'REAUTH_NEEDED' ? 'bg-rose-600' : 'bg-blue-600'}`}>
+              <div className="p-2.5 rounded-lg text-white bg-blue-600">
                 <CalendarIcon className="w-5 h-5" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   Google Calendar Sync Hub
-                  {googleCalendarStatus === 'REAUTH_NEEDED' ? (
-                    <span className="text-[10px] bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 animate-pulse">
-                      <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
-                      REAUTH NEEDED
-                    </span>
-                  ) : (
-                    <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                      CONNECTED
-                    </span>
-                  )}
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    CONNECTED
+                  </span>
                 </h4>
-                {googleCalendarStatus === 'REAUTH_NEEDED' ? (
-                  <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 font-semibold">
-                    ⚠️ Connection Expired: Your Google integration requires re-authentication. Please reconnect to restore sync.
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Secure OAuth 2.0 connected to <strong className="text-slate-700 dark:text-slate-200">{googleCalendarEmail}</strong>. Real-time Meet link injection & invite dispatches active.
-                  </p>
-                )}
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Secure OAuth 2.0 connected to <strong className="text-slate-700 dark:text-slate-200">{googleCalendarEmail}</strong>. Real-time Meet link injection & invite dispatches active.
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
               <button
                 onClick={handleRunE2ETest}
-                disabled={isRunningTest || googleCalendarStatus === 'REAUTH_NEEDED'}
+                disabled={isRunningTest}
                 className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/40 border border-blue-150 dark:border-blue-900/30 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isRunningTest ? 'animate-pulse' : ''}`} />
@@ -694,17 +685,46 @@ export function SchedulerView({
               </button>
               <button
                 onClick={handleSyncCalendar}
-                disabled={isSyncingCalendar || googleCalendarStatus === 'REAUTH_NEEDED'}
+                disabled={isSyncingCalendar}
                 className="px-3.5 py-1.5 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-250 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCalendar ? 'animate-spin' : ''}`} />
                 {isSyncingCalendar ? 'Syncing...' : 'Force Calendar Sync'}
               </button>
               <button
-                onClick={googleCalendarStatus === 'REAUTH_NEEDED' ? handleConnectCalendar : handleDisconnectCalendar}
+                onClick={handleDisconnectCalendar}
                 className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 border border-rose-150 dark:border-rose-900/30 text-xs font-semibold rounded-lg transition cursor-pointer"
               >
-                {googleCalendarStatus === 'REAUTH_NEEDED' ? 'Reconnect' : 'Disconnect'}
+                Disconnect
+              </button>
+            </div>
+          </>
+        ) : googleCalendarStatus === 'REAUTH_NEEDED' || googleCalendarStatus === 'REAUTH_REQUIRED' || googleCalendarStatus === 'ERROR' ? (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg text-white bg-rose-600">
+                <CalendarIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Calendar connection needs attention.
+                  <span className="text-[10px] bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 animate-pulse">
+                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                    ATTENTION REQUIRED
+                  </span>
+                </h4>
+                <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 font-semibold">
+                  ⚠️ Calendar connection needs attention. Google Calendar API verification failed or authorization has expired. Please reconnect to restore calendar access.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
+              <button
+                onClick={handleConnectCalendar}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Reconnect Google Calendar
               </button>
             </div>
           </>

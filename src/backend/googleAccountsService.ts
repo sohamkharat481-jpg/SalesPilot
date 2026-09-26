@@ -2,23 +2,47 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { getPrivilegedSupabaseServerClient } from '../lib/supabase.server';
 
 export interface AuthoritativeGmailAccount {
+  id?: string;
+  userId?: string;
   email: string;
   fullName: string;
   accessToken: string;
   refreshToken?: string;
   expiresAt: string;
-  status: 'CONNECTED' | 'REAUTH_REQUIRED' | 'REAUTH_NEEDED' | string;
+  status: 'CONNECTED' | 'REAUTH_REQUIRED' | 'REAUTH_NEEDED' | 'ERROR' | string;
   createdAt: string;
   scopes: string[];
   organizationId: string;
   accountType: 'gmail';
 }
 
+export interface AuthoritativeCalendarAccount {
+  id?: string;
+  userId?: string;
+  email: string;
+  fullName: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: string;
+  status: 'CONNECTED' | 'REAUTH_REQUIRED' | 'REAUTH_NEEDED' | 'ERROR' | 'DISCONNECTED' | string;
+  calendarAccessVerified?: boolean;
+  createdAt: string;
+  scopes: string[];
+  organizationId: string;
+  accountType: 'calendar';
+}
+
 export interface ResolveGmailAccountOptions {
   organizationId: string;
-  senderEmail?: string;
   userId?: string;
+  senderEmail?: string;
   xOrganizationId?: string;
+  privilegedClient?: SupabaseClient;
+}
+
+export interface ResolveCalendarAccountOptions {
+  organizationId: string;
+  userId: string;
   privilegedClient?: SupabaseClient;
 }
 
@@ -31,15 +55,14 @@ export interface PersistGoogleAccountParams {
   refreshToken?: string;
   scopes: string[];
   expiresAt: string;
+  calendarAccessVerified?: boolean;
   privilegedClient?: SupabaseClient;
 }
 
 /**
- * Resolves an authorized Gmail account for the verified tenant organization
- * strictly from authoritative public.google_accounts.
+ * Resolves an authorized Gmail account strictly scoped to the authenticated user + organization.
  *
- * Uses the privileged Supabase client with SUPABASE_SERVICE_ROLE_KEY.
- * Logs safe diagnostics and handles REAUTH_REQUIRED status correctly.
+ * Never falls back to a global account, founder account, or another user's account.
  */
 export async function resolveAuthoritativeGmailAccount(
   options: ResolveGmailAccountOptions
@@ -75,13 +98,18 @@ export async function resolveAuthoritativeGmailAccount(
     return null;
   }
 
-  // Query authoritative public.google_accounts with strict tenant isolation
+  // Query authoritative public.google_accounts with strict tenant and user isolation
   let query = client
     .from('google_accounts')
     .select('*', { count: 'exact' })
     .in('account_type', ['gmail', 'GMAIL'])
     .eq('organization_id', cleanOrgId)
     .not('access_token', 'is', null);
+
+  // If authenticated userId is provided, strictly enforce user ownership
+  if (userId && typeof userId === 'string' && userId.trim() !== '') {
+    query = query.eq('user_id', userId.trim());
+  }
 
   if (senderEmail && typeof senderEmail === 'string' && senderEmail.trim() !== '') {
     query = query.eq('email', senderEmail.trim().toLowerCase());
@@ -128,6 +156,12 @@ export async function resolveAuthoritativeGmailAccount(
     return null;
   }
 
+  // Double check user isolation: if userId was provided, ensure record strictly matches
+  if (userId && data.user_id && data.user_id !== userId.trim()) {
+    console.warn(`[OUTREACH GOOGLE ACCOUNT] User ID mismatch: record owned by ${data.user_id}, requested by ${userId}. Rejecting cross-user send.`);
+    return null;
+  }
+
   const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED';
 
   console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
@@ -148,6 +182,8 @@ export async function resolveAuthoritativeGmailAccount(
     : new Date(Date.now() + 3600000).toISOString();
 
   return {
+    id: data.id,
+    userId: data.user_id,
     email,
     fullName: email.split('@')[0],
     accessToken: data.access_token,
@@ -162,8 +198,68 @@ export async function resolveAuthoritativeGmailAccount(
 }
 
 /**
+ * Resolves an authorized Google Calendar account strictly scoped to authenticated user + organization.
+ */
+export async function resolveAuthoritativeCalendarAccount(
+  options: ResolveCalendarAccountOptions
+): Promise<AuthoritativeCalendarAccount | null> {
+  const { organizationId, userId, privilegedClient: customClient } = options;
+
+  if (!organizationId || !userId) {
+    return null;
+  }
+
+  const cleanOrgId = organizationId.trim();
+  const cleanUserId = userId.trim();
+
+  let client: SupabaseClient;
+  try {
+    client = customClient || getPrivilegedSupabaseServerClient();
+  } catch (err: any) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from('google_accounts')
+    .select('*')
+    .in('account_type', ['calendar', 'CALENDAR'])
+    .eq('organization_id', cleanOrgId)
+    .eq('user_id', cleanUserId)
+    .not('access_token', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data || !data.access_token) {
+    return null;
+  }
+
+  const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED';
+  const email = (data.email || '').toLowerCase().trim();
+  const expiresAt = data.expiry_date
+    ? (typeof data.expiry_date === 'number' ? new Date(data.expiry_date).toISOString() : String(data.expiry_date))
+    : new Date(Date.now() + 3600000).toISOString();
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email,
+    fullName: email.split('@')[0],
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || undefined,
+    expiresAt,
+    status: isReauthRequired ? 'REAUTH_REQUIRED' : (data.status || 'CONNECTED'),
+    calendarAccessVerified: data.status === 'CONNECTED',
+    createdAt: data.created_at || new Date().toISOString(),
+    scopes: Array.isArray(data.scopes) ? data.scopes : [],
+    organizationId: cleanOrgId,
+    accountType: 'calendar'
+  };
+}
+
+/**
  * Persists an authenticated Google account to public.google_accounts using the
- * privileged Supabase client. Normalizes account_type to lowercase "gmail".
+ * privileged Supabase client. Normalizes account_type to lowercase "gmail" / "calendar".
  */
 export async function persistAuthoritativeGoogleAccount(
   params: PersistGoogleAccountParams
@@ -177,6 +273,7 @@ export async function persistAuthoritativeGoogleAccount(
     refreshToken,
     scopes,
     expiresAt,
+    calendarAccessVerified = false,
     privilegedClient: customClient
   } = params;
 
@@ -186,12 +283,16 @@ export async function persistAuthoritativeGoogleAccount(
   if (!organizationId || organizationId.trim() === '') {
     throw new Error('Organization ID is required to persist Google account.');
   }
+  if (!userId || userId.trim() === '') {
+    throw new Error('User ID is required to persist Google account.');
+  }
   if (!accessToken || accessToken.startsWith('mock_')) {
     throw new Error('Valid, non-mock access token is required to persist Google account.');
   }
 
   const cleanEmail = email.toLowerCase().trim();
   const cleanOrgId = organizationId.trim();
+  const cleanUserId = userId.trim();
 
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
   if (!hasServiceRoleKey && !customClient) {
@@ -205,10 +306,12 @@ export async function persistAuthoritativeGoogleAccount(
   const client = customClient || getPrivilegedSupabaseServerClient();
   const now = new Date().toISOString();
 
+  const calendarStatus = calendarAccessVerified ? 'CONNECTED' : 'CONNECTING';
+
   const rows = [
     {
-      id: `ga_${cleanEmail}`,
-      user_id: userId || null,
+      id: `ga_${cleanUserId}_${cleanEmail}_calendar`,
+      user_id: cleanUserId,
       organization_id: cleanOrgId,
       email: cleanEmail,
       access_token: accessToken,
@@ -216,18 +319,20 @@ export async function persistAuthoritativeGoogleAccount(
       scopes: scopes || [],
       expiry_date: expiresAt,
       account_type: 'calendar',
+      status: calendarStatus,
       updated_at: now
     },
     {
-      id: `ga_${cleanEmail}_gmail`,
-      user_id: userId || null,
+      id: `ga_${cleanUserId}_${cleanEmail}_gmail`,
+      user_id: cleanUserId,
       organization_id: cleanOrgId,
       email: cleanEmail,
       access_token: accessToken,
       refresh_token: refreshToken || '',
       scopes: scopes || [],
       expiry_date: expiresAt,
-      account_type: 'gmail', // Normalized lowercase "gmail"
+      account_type: 'gmail',
+      status: 'CONNECTED',
       updated_at: now
     }
   ];
@@ -240,7 +345,7 @@ export async function persistAuthoritativeGoogleAccount(
 
   return {
     success: true,
-    gmailId: `ga_${cleanEmail}_gmail`,
-    calendarId: `ga_${cleanEmail}`
+    gmailId: `ga_${cleanUserId}_${cleanEmail}_gmail`,
+    calendarId: `ga_${cleanUserId}_${cleanEmail}_calendar`
   };
 }

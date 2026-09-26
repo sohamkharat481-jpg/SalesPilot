@@ -6,6 +6,7 @@ import { runPersonalCallingIdentityTestSuite } from './personalCallingIdentity.t
 import { runDirectDialCallingTestSuite } from './directDialCalling.test';
 import { runEdesyTelephonyTestSuite } from './edesyTelephony.test';
 import { runFinalProductionVerificationTestSuite } from './finalProductionVerification.test';
+import { runMultiUserIsolationIntegrationsTestSuite } from './multiUserIsolationIntegrations.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -92,6 +93,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Final Production Verification test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 9. Multi-User Isolation & Integrations Suite
+  try {
+    const res = await runMultiUserIsolationIntegrationsTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Multi-User Isolation test suite crashed:', err);
     totalFailed++;
   }
 

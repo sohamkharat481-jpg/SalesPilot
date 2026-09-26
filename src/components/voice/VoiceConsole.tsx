@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Pause, Play, 
   RotateCw, Sparkles, CheckSquare, Calendar, ShieldCheck, 
   User, Send, Bot, ShieldAlert, BadgeCheck, HelpCircle, Lightbulb
 } from 'lucide-react';
 import { Lead } from '../../types';
+import { CountrySelector } from './CountrySelector';
+import { Country } from '../../utils/countries';
+import { normalizePhoneNumber } from '../../utils/phoneUtils';
 
 interface VoiceConsoleProps {
   leads: Lead[];
@@ -60,6 +63,7 @@ export function VoiceConsole({
   waveHeight,
   hasDroppedVoicemail
 }: VoiceConsoleProps) {
+  const [activeDialCode, setActiveDialCode] = useState('+1');
   const selectedLead = leads.find(l => l.id === selectedLeadId);
 
   const formatTime = (secs: number) => {
@@ -104,15 +108,26 @@ export function VoiceConsole({
           {/* CUSTOM PHONE OVERRIDE */}
           <div>
             <label className="block text-[11px] font-bold text-slate-400 uppercase mb-2">
-              Or Enter Direct Phone Number
+              Or Enter Direct Phone Number (International E.164)
             </label>
-            <input
-              type="text"
-              placeholder="+91 99999 88888"
-              value={customPhoneNumber}
-              onChange={(e) => setCustomPhoneNumber(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-emerald-400 focus:ring-2 focus:ring-indigo-500"
-            />
+            <div className="flex gap-2">
+              <CountrySelector
+                selectedDialCode={activeDialCode}
+                onSelect={(c: Country) => {
+                  setActiveDialCode(c.dialCode);
+                  if (customPhoneNumber && !customPhoneNumber.startsWith('+')) {
+                    setCustomPhoneNumber(`${c.dialCode} ${customPhoneNumber}`);
+                  }
+                }}
+              />
+              <input
+                type="text"
+                placeholder="+1 415 555 2671"
+                value={customPhoneNumber}
+                onChange={(e) => setCustomPhoneNumber(e.target.value)}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
           </div>
 
           {/* SELECTED PROSPECT BRIEF SUMMARY */}

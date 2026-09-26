@@ -349,7 +349,7 @@ export class LocalDB {
         industry: 'SaaS & Software',
         tier: 'ENTERPRISE',
         role: 'OWNER',
-        organizationId: 'org_salespilot_lifetime',
+        organizationId: 'org_ayesha_lifetime',
         isVerified: true,
         phone: '',
         timezone: 'Asia/Kolkata',
@@ -388,6 +388,16 @@ export class LocalDB {
         name: 'SalesPilot',
         domain: 'salespilot.co',
         industry: 'SaaS & Software',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'org_ayesha_lifetime',
+        name: "Ayesha's Workspace",
+        domain: 'salespilot.co',
+        industry: 'SaaS & Software',
+        ownerId: 'usr_ayesha_13008',
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
         createdAt: new Date().toISOString()
       },
       {
@@ -1353,11 +1363,30 @@ export class LocalDB {
     // 1b. Ayesha Kashif workspace & membership
     const ayeshaUser = this.db.users.find(u => u.email?.toLowerCase() === 'ayesha.kashif13008@gmail.com' || u.id === 'usr_ayesha_13008');
     if (ayeshaUser) {
-      ayeshaUser.organizationId = 'org_salespilot_lifetime';
+      ayeshaUser.organizationId = 'org_ayesha_lifetime';
       ayeshaUser.role = 'OWNER';
       ayeshaUser.tier = 'ENTERPRISE';
       ayeshaUser.isFounder = true;
       ayeshaUser.subscriptionStatus = 'LIFETIME';
+    }
+
+    let ayeshaOrg = this.getOrganizationById('org_ayesha_lifetime');
+    if (!ayeshaOrg) {
+      ayeshaOrg = {
+        id: 'org_ayesha_lifetime',
+        name: "Ayesha's Workspace",
+        companyName: 'SalesPilot',
+        domain: 'salespilot.co',
+        industry: 'SaaS & Software',
+        ownerId: ayeshaUser ? ayeshaUser.id : 'usr_ayesha_13008',
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.organizations.push(ayeshaOrg);
+    } else {
+      ayeshaOrg.ownerId = ayeshaUser ? ayeshaUser.id : 'usr_ayesha_13008';
+      ayeshaOrg.subscriptionPlan = 'ENTERPRISE';
     }
 
     let sohamOrg = this.getOrganizationById('org_salespilot_lifetime');
@@ -1393,11 +1422,11 @@ export class LocalDB {
     }
 
     const ayeshaUserId = ayeshaUser ? ayeshaUser.id : 'usr_ayesha_13008';
-    const ayeshaMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === ayeshaUserId && m.organizationId === 'org_salespilot_lifetime');
+    const ayeshaMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === ayeshaUserId && m.organizationId === 'org_ayesha_lifetime');
     if (ayeshaMemberIdx === -1) {
       this.db.organizationMembers.push({
-        id: `orgm_${ayeshaUserId}_org_salespilot_lifetime`,
-        organizationId: 'org_salespilot_lifetime',
+        id: `orgm_${ayeshaUserId}_org_ayesha_lifetime`,
+        organizationId: 'org_ayesha_lifetime',
         userId: ayeshaUserId,
         role: 'OWNER',
         status: 'ACTIVE',
@@ -1500,24 +1529,36 @@ export class LocalDB {
     return false;
   }
 
-  // --- Leads Operations with Tenants isolation ---
-  public getLeads(organizationId: string | undefined): Lead[] {
+  // --- Leads Operations with Tenants & User isolation ---
+  public getLeads(organizationId: string | undefined, userId?: string): Lead[] {
     if (!organizationId) return [];
-    return this.db.leads.filter(l => Boolean((l as any).organizationId) && (l as any).organizationId === organizationId);
+    return this.db.leads.filter(l => {
+      const orgMatch = Boolean((l as any).organizationId) && (l as any).organizationId === organizationId;
+      if (!orgMatch) return false;
+      if (userId) {
+        const leadUser = (l as any).userId || (l as any).user_id || (l as any).createdBy || (l as any).assignedTo;
+        if (leadUser && leadUser !== userId) return false;
+      }
+      return true;
+    });
   }
 
   public getAllLeads(): Lead[] {
     return this.db.leads;
   }
 
-  public getLeadById(id: string, organizationId?: string): Lead | null {
+  public getLeadById(id: string, organizationId?: string, userId?: string): Lead | null {
     const lead = this.db.leads.find(l => l.id === id);
     if (!lead) return null;
     if (organizationId && (lead as any).organizationId !== organizationId) return null;
+    if (userId) {
+      const leadUser = (lead as any).userId || (lead as any).user_id || (lead as any).createdBy || (lead as any).assignedTo;
+      if (leadUser && leadUser !== userId) return null;
+    }
     return lead;
   }
 
-  public saveLead(lead: Lead & { organizationId?: string }): Lead {
+  public saveLead(lead: Lead & { organizationId?: string; userId?: string }): Lead {
     const idx = this.db.leads.findIndex(l => l.id === lead.id);
     if (idx >= 0) {
       this.db.leads[idx] = { ...this.db.leads[idx], ...lead };
@@ -1528,16 +1569,20 @@ export class LocalDB {
     return lead;
   }
 
-  public addLead(lead: Lead & { organizationId?: string }): void {
+  public addLead(lead: Lead & { organizationId?: string; userId?: string }): void {
     this.db.leads.push(lead);
     this.save();
   }
 
-  public updateLead(id: string, data: Partial<Lead>, organizationId?: string): boolean {
+  public updateLead(id: string, data: Partial<Lead>, organizationId?: string, userId?: string): boolean {
     const idx = this.db.leads.findIndex(l => l.id === id);
     if (idx !== -1) {
       if (organizationId && (this.db.leads[idx] as any).organizationId !== organizationId) {
         return false;
+      }
+      if (userId) {
+        const leadUser = (this.db.leads[idx] as any).userId || (this.db.leads[idx] as any).user_id || (this.db.leads[idx] as any).createdBy || (this.db.leads[idx] as any).assignedTo;
+        if (leadUser && leadUser !== userId) return false;
       }
       this.db.leads[idx] = { ...this.db.leads[idx], ...data };
       this.save();
@@ -1546,11 +1591,15 @@ export class LocalDB {
     return false;
   }
 
-  public deleteLead(id: string, organizationId?: string): boolean {
+  public deleteLead(id: string, organizationId?: string, userId?: string): boolean {
     const idx = this.db.leads.findIndex(l => l.id === id);
     if (idx !== -1) {
       if (organizationId && (this.db.leads[idx] as any).organizationId !== organizationId) {
         return false;
+      }
+      if (userId) {
+        const leadUser = (this.db.leads[idx] as any).userId || (this.db.leads[idx] as any).user_id || (this.db.leads[idx] as any).createdBy || (this.db.leads[idx] as any).assignedTo;
+        if (leadUser && leadUser !== userId) return false;
       }
       this.db.leads.splice(idx, 1);
       this.save();
@@ -1562,33 +1611,48 @@ export class LocalDB {
     return false;
   }
 
-  // --- Campaigns Operations with Tenant isolation ---
-  public getCampaigns(organizationId: string | undefined): Campaign[] {
+  // --- Campaigns Operations with Tenant & User isolation ---
+  public getCampaigns(organizationId: string | undefined, userId?: string): Campaign[] {
     if (!organizationId) return [];
-    return this.db.campaigns.filter(c => Boolean((c as any).organizationId) && (c as any).organizationId === organizationId);
+    return this.db.campaigns.filter(c => {
+      if ((c as any).organizationId !== organizationId) return false;
+      if (userId) {
+        const cUser = (c as any).userId || (c as any).user_id || (c as any).createdBy;
+        if (cUser && cUser !== userId) return false;
+      }
+      return true;
+    });
   }
 
   public getAllCampaigns(): Campaign[] {
     return this.db.campaigns;
   }
 
-  public getCampaignById(id: string, organizationId?: string): Campaign | null {
+  public getCampaignById(id: string, organizationId?: string, userId?: string): Campaign | null {
     const c = this.db.campaigns.find(camp => camp.id === id);
     if (!c) return null;
     if (organizationId && (c as any).organizationId !== organizationId) return null;
+    if (userId) {
+      const cUser = (c as any).userId || (c as any).user_id || (c as any).createdBy;
+      if (cUser && cUser !== userId) return null;
+    }
     return c;
   }
 
-  public addCampaign(campaign: Campaign & { organizationId?: string }): void {
+  public addCampaign(campaign: Campaign & { organizationId?: string; userId?: string }): void {
     this.db.campaigns.push(campaign);
     this.save();
   }
 
-  public updateCampaign(id: string, data: Partial<Campaign>, organizationId?: string): boolean {
+  public updateCampaign(id: string, data: Partial<Campaign>, organizationId?: string, userId?: string): boolean {
     const idx = this.db.campaigns.findIndex(c => c.id === id);
     if (idx !== -1) {
       if (organizationId && (this.db.campaigns[idx] as any).organizationId !== organizationId) {
         return false;
+      }
+      if (userId) {
+        const cUser = (this.db.campaigns[idx] as any).userId || (this.db.campaigns[idx] as any).user_id || (this.db.campaigns[idx] as any).createdBy;
+        if (cUser && cUser !== userId) return false;
       }
       this.db.campaigns[idx] = { ...this.db.campaigns[idx], ...data };
       this.save();
@@ -1597,11 +1661,15 @@ export class LocalDB {
     return false;
   }
 
-  public deleteCampaign(id: string, organizationId?: string): boolean {
+  public deleteCampaign(id: string, organizationId?: string, userId?: string): boolean {
     const idx = this.db.campaigns.findIndex(c => c.id === id);
     if (idx !== -1) {
       if (organizationId && (this.db.campaigns[idx] as any).organizationId !== organizationId) {
         return false;
+      }
+      if (userId) {
+        const cUser = (this.db.campaigns[idx] as any).userId || (this.db.campaigns[idx] as any).user_id || (this.db.campaigns[idx] as any).createdBy;
+        if (cUser && cUser !== userId) return false;
       }
       this.db.campaigns.splice(idx, 1);
       this.save();
@@ -1614,32 +1682,47 @@ export class LocalDB {
   }
 
   // --- Deals Operations ---
-  public getDeals(organizationId: string | undefined): Deal[] {
+  public getDeals(organizationId: string | undefined, userId?: string): Deal[] {
     if (!organizationId) return [];
-    return this.db.deals.filter(d => Boolean((d as any).organizationId) && (d as any).organizationId === organizationId);
+    return this.db.deals.filter(d => {
+      if ((d as any).organizationId !== organizationId) return false;
+      if (userId) {
+        const dUser = (d as any).userId || (d as any).user_id || (d as any).assignedTo;
+        if (dUser && dUser !== userId) return false;
+      }
+      return true;
+    });
   }
 
   public getAllDeals(): Deal[] {
     return this.db.deals;
   }
 
-  public getDealById(id: string, organizationId?: string): Deal | null {
+  public getDealById(id: string, organizationId?: string, userId?: string): Deal | null {
     const deal = this.db.deals.find(d => d.id === id);
     if (!deal) return null;
     if (organizationId && (deal as any).organizationId !== organizationId) return null;
+    if (userId) {
+      const dUser = (deal as any).userId || (deal as any).user_id || (deal as any).assignedTo;
+      if (dUser && dUser !== userId) return null;
+    }
     return deal;
   }
 
-  public addDeal(deal: Deal & { organizationId?: string }): void {
+  public addDeal(deal: Deal & { organizationId?: string; userId?: string }): void {
     this.db.deals.push(deal);
     this.save();
   }
 
-  public updateDeal(id: string, data: Partial<Deal>, organizationId?: string): boolean {
+  public updateDeal(id: string, data: Partial<Deal>, organizationId?: string, userId?: string): boolean {
     const idx = this.db.deals.findIndex(d => d.id === id);
     if (idx !== -1) {
       if (organizationId && (this.db.deals[idx] as any).organizationId !== organizationId) {
         return false;
+      }
+      if (userId) {
+        const dUser = (this.db.deals[idx] as any).userId || (this.db.deals[idx] as any).user_id || (this.db.deals[idx] as any).assignedTo;
+        if (dUser && dUser !== userId) return false;
       }
       this.db.deals[idx] = { ...this.db.deals[idx], ...data };
       this.save();
@@ -1648,11 +1731,15 @@ export class LocalDB {
     return false;
   }
 
-  public deleteDeal(id: string, organizationId?: string): boolean {
+  public deleteDeal(id: string, organizationId?: string, userId?: string): boolean {
     const idx = this.db.deals.findIndex(d => d.id === id);
     if (idx !== -1) {
       if (organizationId && (this.db.deals[idx] as any).organizationId !== organizationId) {
         return false;
+      }
+      if (userId) {
+        const dUser = (this.db.deals[idx] as any).userId || (this.db.deals[idx] as any).user_id || (this.db.deals[idx] as any).assignedTo;
+        if (dUser && dUser !== userId) return false;
       }
       this.db.deals.splice(idx, 1);
       this.save();
@@ -1662,19 +1749,30 @@ export class LocalDB {
   }
 
   // --- Appointments Operations ---
-  public getAppointments(organizationId: string | undefined): Appointment[] {
+  public getAppointments(organizationId: string | undefined, userId?: string): Appointment[] {
     if (!organizationId) return [];
-    return this.db.appointments.filter(a => Boolean((a as any).organizationId) && (a as any).organizationId === organizationId);
+    return this.db.appointments.filter(a => {
+      if ((a as any).organizationId !== organizationId) return false;
+      if (userId) {
+        const aUser = (a as any).userId || (a as any).user_id || (a as any).hostUserId;
+        if (aUser && aUser !== userId) return false;
+      }
+      return true;
+    });
   }
 
   public getAllAppointments(): Appointment[] {
     return this.db.appointments;
   }
 
-  public getAppointmentById(id: string, organizationId?: string): Appointment | null {
+  public getAppointmentById(id: string, organizationId?: string, userId?: string): Appointment | null {
     const apt = this.db.appointments.find(a => a.id === id);
     if (!apt) return null;
     if (organizationId && (apt as any).organizationId !== organizationId) return null;
+    if (userId) {
+      const aUser = (apt as any).userId || (apt as any).user_id || (apt as any).hostUserId;
+      if (aUser && aUser !== userId) return null;
+    }
     return apt;
   }
 
@@ -1803,12 +1901,23 @@ export class LocalDB {
   }
 
   // --- Google OAuth Integration Accounts Operations ---
-  public getCalendarAccounts(): any[] {
-    return this.db.calendarAccounts;
+  public getCalendarAccounts(organizationId?: string, userId?: string): any[] {
+    if (!this.db.calendarAccounts) this.db.calendarAccounts = [];
+    return this.db.calendarAccounts.filter(c => {
+      if (organizationId && c.organizationId && c.organizationId !== organizationId) return false;
+      if (userId && c.userId && c.userId !== userId) return false;
+      return true;
+    });
   }
 
   public saveCalendarAccount(account: any): void {
-    const idx = this.db.calendarAccounts.findIndex(existing => existing.email.toLowerCase() === account.email.toLowerCase());
+    if (!this.db.calendarAccounts) this.db.calendarAccounts = [];
+    const idx = this.db.calendarAccounts.findIndex(existing => {
+      if (account.userId && existing.userId) {
+        return existing.userId === account.userId && existing.email.toLowerCase() === account.email.toLowerCase();
+      }
+      return existing.email.toLowerCase() === account.email.toLowerCase();
+    });
     if (idx !== -1) {
       this.db.calendarAccounts[idx] = { ...this.db.calendarAccounts[idx], ...account };
     } else {
@@ -1817,12 +1926,23 @@ export class LocalDB {
     this.save();
   }
 
-  public getGmailAccounts(): any[] {
-    return this.db.gmailAccounts;
+  public getGmailAccounts(organizationId?: string, userId?: string): any[] {
+    if (!this.db.gmailAccounts) this.db.gmailAccounts = [];
+    return this.db.gmailAccounts.filter(g => {
+      if (organizationId && g.organizationId && g.organizationId !== organizationId) return false;
+      if (userId && g.userId && g.userId !== userId) return false;
+      return true;
+    });
   }
 
   public saveGmailAccount(account: any): void {
-    const idx = this.db.gmailAccounts.findIndex(existing => existing.email.toLowerCase() === account.email.toLowerCase());
+    if (!this.db.gmailAccounts) this.db.gmailAccounts = [];
+    const idx = this.db.gmailAccounts.findIndex(existing => {
+      if (account.userId && existing.userId) {
+        return existing.userId === account.userId && existing.email.toLowerCase() === account.email.toLowerCase();
+      }
+      return existing.email.toLowerCase() === account.email.toLowerCase();
+    });
     if (idx !== -1) {
       this.db.gmailAccounts[idx] = { ...this.db.gmailAccounts[idx], ...account };
     } else {
@@ -2627,14 +2747,28 @@ export class LocalDB {
   }
 
   // OUTREACH ENGINE HELPER METHODS
-  public getOutreachCampaigns(organizationId: string): OutreachCampaign[] {
+  public getOutreachCampaigns(organizationId: string, userId?: string): OutreachCampaign[] {
     if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
-    return this.db.outreachCampaigns.filter(c => c.organizationId === organizationId);
+    return this.db.outreachCampaigns.filter(c => {
+      if (c.organizationId !== organizationId) return false;
+      if (userId) {
+        const cUser = c.userId || (c as any).createdById || (c as any).createdBy;
+        if (cUser && cUser !== userId) return false;
+      }
+      return true;
+    });
   }
 
-  public getOutreachCampaignById(campaignId: string, organizationId: string): OutreachCampaign | null {
+  public getOutreachCampaignById(campaignId: string, organizationId: string, userId?: string): OutreachCampaign | null {
     if (!this.db.outreachCampaigns) this.db.outreachCampaigns = [];
-    const c = this.db.outreachCampaigns.find(camp => camp.id === campaignId && camp.organizationId === organizationId);
+    const c = this.db.outreachCampaigns.find(camp => {
+      if (camp.id !== campaignId || camp.organizationId !== organizationId) return false;
+      if (userId) {
+        const cUser = camp.userId || (camp as any).createdById || (camp as any).createdBy;
+        if (cUser && cUser !== userId) return false;
+      }
+      return true;
+    });
     return c || null;
   }
 
@@ -3156,14 +3290,22 @@ export class LocalDB {
     this.save();
   }
 
-  public getFollowUps(organizationId: string): any[] {
+  public getFollowUps(organizationId: string, userId?: string): any[] {
     if (!this.db.followUps) this.db.followUps = [];
-    return this.db.followUps.filter(f => f.organizationId === organizationId);
+    return this.db.followUps.filter(f => {
+      if (f.organizationId !== organizationId) return false;
+      if (userId && f.userId && f.userId !== userId) return false;
+      return true;
+    });
   }
 
-  public getFollowUpById(id: string, organizationId: string): any | null {
+  public getFollowUpById(id: string, organizationId: string, userId?: string): any | null {
     if (!this.db.followUps) this.db.followUps = [];
-    return this.db.followUps.find(f => f.id === id && f.organizationId === organizationId) || null;
+    return this.db.followUps.find(f => {
+      if (f.id !== id || f.organizationId !== organizationId) return false;
+      if (userId && f.userId && f.userId !== userId) return false;
+      return true;
+    }) || null;
   }
 
   public updateFollowUp(id: string, organizationId: string, updates: any): any | null {

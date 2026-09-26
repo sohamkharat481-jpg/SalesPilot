@@ -11,6 +11,9 @@ import { MyCallingNumbers } from './voice/MyCallingNumbers';
 import { CallHistoryView } from './voice/CallHistoryView';
 import { ManualCallingAnalyticsView } from './voice/ManualCallingAnalyticsView';
 import { FollowUpsView } from './voice/FollowUpsView';
+import { ISO_3166_1_COUNTRIES, validateAndNormalizeE164 } from '../utils/isoCountries';
+
+const ISO_COUNTRIES = ISO_3166_1_COUNTRIES;
 
 interface VoiceCallingViewProps {
   leads: Lead[];
@@ -115,6 +118,9 @@ export function VoiceCallingView({
   const [manualTab, setManualTab] = useState<'LEAD' | 'DIRECT_DIAL'>('LEAD');
   const [directNumberInput, setDirectNumberInput] = useState<string>('');
   const [directCountryCode, setDirectCountryCode] = useState<string>('+91');
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState<boolean>(false);
+  const [countrySearchQuery, setCountrySearchQuery] = useState<string>('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [directContactName, setDirectContactName] = useState<string>('');
   const [directCompanyName, setDirectCompanyName] = useState<string>('');
   const [directNotes, setDirectNotes] = useState<string>('');
@@ -188,6 +194,22 @@ export function VoiceCallingView({
       return;
     }
 
+    const selectedCountry = ISO_COUNTRIES.find(c => c.dialCode === directCountryCode);
+    if (!selectedCountry) {
+      setErrorMessage('Invalid country selected.');
+      return;
+    }
+
+    const norm = validateAndNormalizeE164(directNumberInput, { 
+      dialCode: directCountryCode,
+      countryCode: selectedCountry.code
+    });
+
+    if (!norm.valid || !norm.e164Number) {
+      setErrorMessage(norm.error || 'Invalid phone number format.');
+      return;
+    }
+
     if (callingModePreference === 'PROVIDER_CALLING') {
       const verifiedCn = userCallingNumbers.find(cn => cn.isDefault && cn.isVerified) || userCallingNumbers.find(cn => cn.isVerified);
       if (!verifiedCn) {
@@ -200,6 +222,19 @@ export function VoiceCallingView({
     setIsDirectDial(true);
     setShowManualConfirmModal(true);
   };
+
+  // Click outside to close country dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (isCountryDropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsCountryDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isCountryDropdownOpen]);
 
   // Phase 6 follow-up states inside outcome logger
   const [scheduleFollowUpAfterCall, setScheduleFollowUpAfterCall] = useState<boolean>(true);
@@ -298,11 +333,20 @@ export function VoiceCallingView({
     let notes = '';
 
     if (isDirectDial) {
-      if (!directNumberInput.trim()) {
-        setErrorMessage('Please enter a destination phone number.');
+      const selectedCountry = ISO_COUNTRIES.find(c => c.dialCode === directCountryCode);
+      if (!selectedCountry) {
+        setErrorMessage('Invalid country selected.');
         return;
       }
-      destinationNumber = `${directCountryCode}${directNumberInput.replace(/\D/g, '')}`;
+      const norm = validateAndNormalizeE164(directNumberInput, {
+        dialCode: directCountryCode,
+        countryCode: selectedCountry.code
+      });
+      if (!norm.valid || !norm.e164Number) {
+        setErrorMessage(norm.error || 'Invalid phone number format.');
+        return;
+      }
+      destinationNumber = norm.e164Number;
       contactName = directContactName || 'Direct Dial Contact';
       companyName = directCompanyName || 'N/A';
       notes = directNotes || '';
@@ -311,6 +355,12 @@ export function VoiceCallingView({
         setErrorMessage('Please select a lead first.');
         return;
       }
+      const norm = validateAndNormalizeE164(selectedLead.phone || '');
+      if (!norm.valid || !norm.e164Number) {
+        setErrorMessage(`Lead phone number invalid: ${norm.error || 'Malformed phone number'}`);
+        return;
+      }
+      destinationNumber = norm.e164Number;
       if (!isValidPhone(selectedLead.phone)) {
         setErrorMessage(`Lead "${selectedLead.name}" does not have a valid phone number.`);
         return;
@@ -1091,22 +1141,58 @@ export function VoiceCallingView({
                     Destination Phone Number *
                   </label>
                   <div className="flex space-x-2">
-                    <select
-                      value={directCountryCode}
-                      onChange={(e) => setDirectCountryCode(e.target.value)}
-                      className="p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="+91">🇮🇳 +91</option>
-                      <option value="+1">🇺🇸 +1</option>
-                      <option value="+44">🇬🇧 +44</option>
-                      <option value="+61">🇦🇺 +61</option>
-                      <option value="+49">🇩🇪 +49</option>
-                      <option value="+33">🇫🇷 +33</option>
-                      <option value="+81">🇯🇵 +81</option>
-                      <option value="+65">🇸🇬 +65</option>
-                      <option value="+971">🇦🇪 +971</option>
-                      <option value="+55">🇧🇷 +55</option>
-                    </select>
+                    <div className="relative shrink-0" ref={dropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                        className="p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1.5 min-w-[75px] h-full justify-between"
+                      >
+                        <span>
+                          {ISO_COUNTRIES.find(c => c.dialCode === directCountryCode)?.flag || '🌐'}{' '}
+                          {directCountryCode}
+                        </span>
+                        <span className="text-[10px] text-slate-400">▼</span>
+                      </button>
+
+                      {isCountryDropdownOpen && (
+                        <div className="absolute left-0 mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                            <input
+                              type="text"
+                              placeholder="Search country..."
+                              value={countrySearchQuery}
+                              onChange={e => setCountrySearchQuery(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-150 dark:border-slate-750 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white"
+                            />
+                          </div>
+                          <div className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
+                            {ISO_COUNTRIES.filter(c => 
+                              c.name.toLowerCase().includes(countrySearchQuery.toLowerCase()) || 
+                              c.dialCode.includes(countrySearchQuery) || 
+                              c.code.toLowerCase().includes(countrySearchQuery.toLowerCase())
+                            ).map(c => (
+                              <button
+                                key={`${c.code}-${c.dialCode}`}
+                                type="button"
+                                onClick={() => {
+                                  setDirectCountryCode(c.dialCode);
+                                  setIsCountryDropdownOpen(false);
+                                  setCountrySearchQuery('');
+                                }}
+                                className="w-full flex items-center justify-between p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold text-slate-750 dark:text-slate-250 text-left"
+                              >
+                                <span className="flex items-center gap-2 overflow-hidden truncate">
+                                  <span>{c.flag}</span>
+                                  <span className="truncate">{c.name}</span>
+                                </span>
+                                <span className="font-mono text-slate-400 shrink-0">{c.dialCode}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <input
                       type="tel"

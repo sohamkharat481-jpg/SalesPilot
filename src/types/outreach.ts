@@ -54,6 +54,8 @@ export interface OutreachStep {
 export interface OutreachCampaign {
   id: string;
   organizationId: string;
+  userId?: string;
+  createdById?: string;
   name: string;
   status: CampaignStatus;
   targetLeadIds: string[];
@@ -78,6 +80,7 @@ export interface OutreachCampaign {
 export interface OutreachQueueItem {
   id: string;
   organizationId: string;
+  userId?: string;
   campaignId: string;
   stepId?: string;
   stepNumber: number;
@@ -101,6 +104,10 @@ export interface OutreachQueueItem {
 export interface OutreachMessage {
   id: string;
   organizationId: string;
+  userId?: string;
+  senderUserId?: string;
+  senderGmailAccountId?: string;
+  senderEmailSnapshot?: string;
   campaignId: string;
   leadId: string;
   queueId?: string;
