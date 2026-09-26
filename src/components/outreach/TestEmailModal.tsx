@@ -101,27 +101,27 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+      <div className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 space-y-4 sm:space-y-5">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl">
+            <div className="p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl shrink-0">
               <Mail className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate">
                 Controlled Test Outreach
               </h3>
-              <p className="text-[11px] font-mono text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider">
+              <p className="text-[10px] sm:text-[11px] font-mono text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wider truncate">
                 TEST EMAIL — does not belong to a CRM lead
               </p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -155,17 +155,17 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
                 Test Email Sent Successfully
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Dispatched to <strong className="text-slate-800 dark:text-slate-200">{successResult.recipientEmail}</strong> via <span className="font-mono">{successResult.senderEmail}</span>.
+                Dispatched to <strong className="text-slate-800 dark:text-slate-200 break-all">{successResult.recipientEmail}</strong> via <span className="font-mono">{successResult.senderEmail}</span>.
               </p>
             </div>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left font-mono text-[11px] space-y-1 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left font-mono text-[11px] space-y-1 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 overflow-x-auto">
               <div><span className="text-slate-400">Provider Message ID:</span> {successResult.providerMessageId}</div>
               <div><span className="text-slate-400">Thread ID:</span> {successResult.threadId}</div>
               <div><span className="text-slate-400">Timestamp:</span> {successResult.timestamp}</div>
             </div>
             <button
               onClick={onClose}
-              className="px-5 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs rounded-xl hover:opacity-90 transition cursor-pointer"
+              className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs rounded-xl hover:opacity-90 transition cursor-pointer"
             >
               Done
             </button>
@@ -180,7 +180,7 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
               <input
                 type="email"
                 required
-                placeholder="Enter your secondary test email (e.g. test@example.com)"
+                placeholder="Enter test email (e.g. test@example.com)"
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -216,17 +216,17 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 Review Confirmation <ShieldCheck className="w-4 h-4" />
               </button>
@@ -235,22 +235,22 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
         ) : (
           /* Step 2: Confirmation Dialog */
           <div className="space-y-4">
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 text-xs">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+            <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700 gap-1">
                 <span className="text-slate-500 font-medium">Sender Account:</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{senderAccount}</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-slate-100 truncate">{senderAccount}</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700 gap-1">
                 <span className="text-slate-500 font-medium">Test Recipient:</span>
-                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{recipientEmail}</span>
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400 truncate">{recipientEmail}</span>
               </div>
               <div className="pb-2 border-b border-slate-200 dark:border-slate-700">
                 <span className="text-slate-500 font-medium block mb-0.5">Subject:</span>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">{subject}</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100 break-words">{subject}</span>
               </div>
               <div>
                 <span className="text-slate-500 font-medium block mb-1">Message Preview:</span>
-                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 font-mono text-[11px] whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 font-mono text-[11px] whitespace-pre-wrap text-slate-800 dark:text-slate-200 break-words max-h-40 overflow-y-auto">
                   {body}
                 </div>
               </div>
@@ -262,12 +262,12 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
               </span>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 disabled={sending}
                 onClick={() => setStep('compose')}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer text-center"
               >
                 Back to Edit
               </button>
@@ -275,7 +275,7 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
                 type="button"
                 disabled={sending}
                 onClick={handleSendTestEmail}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
               >
                 {sending ? (
                   <>

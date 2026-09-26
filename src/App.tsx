@@ -799,21 +799,21 @@ export default function App() {
       )}
       
       {/* Top Header bar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold font-display text-base shadow-sm">
+      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2.5 sm:py-4 h-14 sm:h-16 flex items-center justify-between gap-2 max-w-full">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-7 h-7 sm:w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold font-display text-sm sm:text-base shadow-sm shrink-0">
             SP
           </div>
-          <div>
-            <h1 className="text-sm font-display font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
-              SalesPilot <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 bg-slate-100 text-slate-600 border border-slate-200 rounded">v1.0</span>
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-display font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1 sm:gap-1.5 truncate">
+              SalesPilot <span className="text-[9px] sm:text-[10px] font-mono font-medium px-1 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded">v1.0</span>
             </h1>
-            <p className="text-[10px] text-slate-500 font-mono hidden sm:block">AI-Powered Sales Pipeline Engine</p>
+            <p className="text-[10px] text-slate-500 font-mono hidden sm:block truncate">AI-Powered Sales Pipeline Engine</p>
           </div>
         </div>
 
         {/* Search, Notifications, Dark Mode, Profile Dropdowns */}
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-1.5 sm:gap-3 text-xs shrink-0">
           {/* Instant Search Bar */}
           <div className="relative hidden lg:block w-72">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
@@ -828,7 +828,7 @@ export default function App() {
                 setShowSearch(true);
               }}
               onFocus={() => setShowSearch(true)}
-              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-slate-900 dark:text-white"
             />
             {searchQuery && (
               <button 
@@ -841,7 +841,7 @@ export default function App() {
 
             {/* Instant Search Dropdown Popover */}
             {showSearch && searchQuery && (
-              <div className="absolute top-10 left-0 right-0 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg shadow-xl p-3 z-50 max-h-64 overflow-y-auto space-y-3">
+              <div className="absolute top-10 left-0 right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl p-3 z-50 max-h-64 overflow-y-auto space-y-3">
                 {/* Match Leads */}
                 <div>
                   <div className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-1.5">Leads matched</div>
@@ -854,7 +854,7 @@ export default function App() {
                           setShowSearch(false);
                           setSearchQuery('');
                         }}
-                        className="w-full text-left p-1.5 hover:bg-slate-50 dark:hover:bg-slate-850 rounded flex items-center justify-between text-xs transition"
+                        className="w-full text-left p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded flex items-center justify-between text-xs transition"
                       >
                         <span className="font-semibold text-slate-900 dark:text-slate-100">{l.fullName}</span>
                         <span className="text-[10px] text-slate-500 font-mono">{l.companyName}</span>
@@ -877,7 +877,7 @@ export default function App() {
                           setShowSearch(false);
                           setSearchQuery('');
                         }}
-                        className="w-full text-left p-1.5 hover:bg-slate-50 dark:hover:bg-slate-850 rounded flex items-center justify-between text-xs transition"
+                        className="w-full text-left p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded flex items-center justify-between text-xs transition"
                       >
                         <span className="font-semibold text-slate-900 dark:text-slate-100">{c.name}</span>
                         <span className="text-[10px] text-slate-500 font-mono">{c.channels.join(', ')}</span>
@@ -901,11 +901,11 @@ export default function App() {
           {/* Help & Product Tour Hub button */}
           <button 
             onClick={() => setShowHelpCenter(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/15 text-blue-600 dark:text-blue-400 border border-blue-500/10 hover:bg-blue-600/25 rounded-lg font-bold text-[11px] transition cursor-pointer"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-blue-600/15 text-blue-600 dark:text-blue-400 border border-blue-500/10 hover:bg-blue-600/25 rounded-lg font-bold text-[10px] sm:text-[11px] transition cursor-pointer shrink-0"
             title="Launch Interactive Product Tour & Support Help Desk"
           >
             <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="hidden sm:inline">Help & Tour</span>
+            <span className="hidden md:inline">Help & Tour</span>
           </button>
 
           {/* System Status Page Button */}
@@ -931,36 +931,36 @@ export default function App() {
           {/* AI Assistant Button */}
           <button 
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
-            className={`p-2 border rounded-lg transition cursor-pointer relative ${rightPanelOpen ? 'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-300' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-850 border-slate-200 dark:border-slate-800'}`}
+            className={`p-1.5 sm:p-2 border rounded-lg transition cursor-pointer relative shrink-0 ${rightPanelOpen ? 'bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-300' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}
             title="Toggle Ask SalesPilot AI Strategist Panel"
           >
             <Bot className="w-4 h-4 animate-bounce" />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-purple-500 rounded-full" />
           </button>
 
           {/* Dark/Light Theme Toggle */}
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg transition cursor-pointer"
+            className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition cursor-pointer shrink-0"
             title="Toggle Visual Theme"
           >
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-600" />}
           </button>
 
           {/* Notifications Bell Control */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button 
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 setShowProfileDropdown(false);
                 setShowActivities(false);
               }}
-              className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg transition cursor-pointer relative"
+              className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition cursor-pointer relative"
               title="View system notices"
             >
               <Bell className="w-4 h-4" />
               {notifications.filter(n => !n.isRead).length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-bold font-mono text-[9px] rounded-full flex items-center justify-center animate-bounce">
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-rose-500 text-white font-bold font-mono text-[8px] sm:text-[9px] rounded-full flex items-center justify-center animate-bounce">
                   {notifications.filter(n => !n.isRead).length}
                 </span>
               )}
@@ -969,8 +969,8 @@ export default function App() {
             {showNotifications && (
               <>
                 <div className="fixed inset-0 z-45" onClick={() => setShowNotifications(false)} />
-                <div className="absolute right-0 top-10 w-80 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg shadow-xl p-4 z-50 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                <div className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-10 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 z-50 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                     <span className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                       <Bell className="w-3.5 h-3.5 text-blue-500" /> Active Alerts
                     </span>
@@ -1022,7 +1022,7 @@ export default function App() {
                             setActiveTab('notifications-inbox');
                           }
                         }}
-                        className={`p-2 rounded-lg text-xs leading-normal transition cursor-pointer ${n.isRead ? 'bg-slate-50/50 dark:bg-slate-850/10 text-slate-500' : 'bg-blue-50/40 dark:bg-blue-950/20 border-l-2 border-blue-500 text-slate-800 dark:text-slate-100'}`}
+                        className={`p-2 rounded-lg text-xs leading-normal transition cursor-pointer ${n.isRead ? 'bg-slate-50/50 dark:bg-slate-800/20 text-slate-500' : 'bg-blue-50/40 dark:bg-blue-950/20 border-l-2 border-blue-500 text-slate-800 dark:text-slate-100'}`}
                       >
                         <div className="font-bold text-[10px] text-slate-900 dark:text-white mb-0.5">{n.title}</div>
                         <div>{n.message}</div>
@@ -1037,12 +1037,12 @@ export default function App() {
                       </div>
                     ))}
                     {notifications.length === 0 && (
-                      <div className="p-4 text-center text-[10px] font-mono text-slate-450">
+                      <div className="p-4 text-center text-[10px] font-mono text-slate-400">
                         No active notices.
                       </div>
                     )}
                   </div>
-                  <div className="border-t border-slate-100 dark:border-slate-850 pt-2 text-center">
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-2 text-center">
                     <button
                       onClick={() => {
                         setActiveTab('notifications-inbox');
@@ -1059,14 +1059,14 @@ export default function App() {
           </div>
 
           {/* Recent Activities Drawer Trigger */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button 
               onClick={() => {
                 setShowActivities(!showActivities);
                 setShowNotifications(false);
                 setShowProfileDropdown(false);
               }}
-              className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg transition cursor-pointer"
+              className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition cursor-pointer"
               title="Recent Activities telemetry"
             >
               <Activity className="w-4 h-4 text-blue-500 animate-pulse" />
@@ -1075,8 +1075,8 @@ export default function App() {
             {showActivities && (
               <>
                 <div className="fixed inset-0 z-45" onClick={() => setShowActivities(false)} />
-                <div className="absolute right-0 top-10 w-80 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg shadow-xl p-4 z-50 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
+                <div className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-10 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 z-50 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                     <span className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                       <Activity className="w-3.5 h-3.5 text-blue-500" /> Recent Activities
                     </span>
@@ -1104,21 +1104,21 @@ export default function App() {
           </div>
 
           {/* Interactive User Profile & Role Switcher Dropdown */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button 
               onClick={() => {
                 setShowProfileDropdown(!showProfileDropdown);
                 setShowNotifications(false);
                 setShowActivities(false);
               }}
-              className="flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-800 shrink-0 text-left"
+              className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-3 border-l border-slate-200 dark:border-slate-800 shrink-0 text-left"
             >
               {user?.avatarUrl ? (
-                <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 shrink-0">
                   <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center font-bold text-xs text-blue-700 shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 flex items-center justify-center font-bold text-[10px] sm:text-xs text-blue-700 dark:text-blue-300 shrink-0">
                   {user?.fullName ? user.fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'SP'}
                 </div>
               )}
@@ -1135,10 +1135,10 @@ export default function App() {
             {showProfileDropdown && (
               <>
                 <div className="fixed inset-0 z-45" onClick={() => setShowProfileDropdown(false)} />
-                <div className="absolute right-0 top-10 w-56 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-lg shadow-xl p-4 z-50 space-y-3">
-                  <div className="border-b border-slate-100 dark:border-slate-850 pb-2 text-center sm:text-left">
+                <div className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-10 w-[calc(100vw-1rem)] sm:w-56 max-w-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 z-50 space-y-3">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-2 text-left">
                     <div className="font-bold text-xs text-slate-900 dark:text-slate-100">{user?.fullName}</div>
-                    <div className="text-[10px] text-slate-400 font-mono">{user?.companyName}</div>
+                    <div className="text-[10px] text-slate-400 font-mono truncate">{user?.companyName || user?.email}</div>
                     <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold mt-0.5">{user?.tier} Plan</div>
                   </div>
 
@@ -1167,7 +1167,7 @@ export default function App() {
                         className={`w-full text-left px-2.5 py-1.5 rounded text-xs font-mono font-medium flex items-center justify-between transition ${
                           user?.role === roleOption 
                             ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/10' 
-                            : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-850'
+                            : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
                         {roleOption}
@@ -1176,10 +1176,10 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="border-t border-slate-100 dark:border-slate-850 pt-2 flex justify-between items-center">
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-2 flex justify-between items-center">
                     <button 
                       onClick={() => logout()}
-                      className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/10 dark:hover:bg-red-900/20 font-bold text-[10px] rounded flex items-center justify-center gap-1 cursor-pointer transition"
+                      className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/20 dark:hover:bg-red-900/30 font-bold text-[10px] rounded-lg flex items-center justify-center gap-1 cursor-pointer transition"
                     >
                       <LogOut className="w-3.5 h-3.5" /> Sign Out Session
                     </button>
@@ -1188,65 +1188,146 @@ export default function App() {
               </>
             )}
           </div>
-        </div>
 
-        {/* Mobile menu triggers */}
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg ml-2 cursor-pointer"
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+          {/* Mobile menu trigger */}
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-1.5 sm:p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg ml-0.5 cursor-pointer shrink-0"
+            title="Open navigation menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Role-Based Workspace Access Status Alerts */}
       {user?.role === 'VIEWER' && (
-        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-[11px] text-amber-800 flex items-center gap-2 font-mono">
-          <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+        <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-amber-800 dark:text-amber-300 flex items-start sm:items-center gap-2 font-mono">
+          <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
           <span><strong>Read-Only Access:</strong> Viewer mode is active. You can monitor pipeline statistics and sequences, but all state-changing actions are disabled.</span>
         </div>
       )}
       {user?.role === 'SALES' && (
-        <div className="bg-blue-50 border-b border-blue-200 px-6 py-2 text-[11px] text-blue-800 flex items-center gap-2 font-mono">
-          <ShieldAlert className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+        <div className="bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-blue-800 dark:text-blue-300 flex items-start sm:items-center gap-2 font-mono">
+          <ShieldAlert className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
           <span><strong>Sales Outbound Access:</strong> You can manage leads, book demos, and move deal stages. Campaign sequence changes, Billing, and Settings are restricted.</span>
         </div>
       )}
       {user?.role === 'MANAGER' && (
-        <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 text-[11px] text-emerald-800 flex items-center gap-2 font-mono">
-          <ShieldAlert className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start sm:items-center gap-2 font-mono">
+          <ShieldAlert className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
           <span><strong>Manager Access:</strong> Full workspace sequence, campaign, scheduler, and pipeline boards active. Master integration settings and Billing plans are read-only.</span>
         </div>
       )}
       {user?.role === 'CLIENT' && (
-        <div className="bg-indigo-50 border-b border-indigo-200 px-6 py-2 text-[11px] text-indigo-800 flex items-center gap-2 font-mono">
-          <ShieldAlert className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+        <div className="bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-200 dark:border-indigo-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-indigo-800 dark:text-indigo-300 flex items-start sm:items-center gap-2 font-mono">
+          <ShieldAlert className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
           <span><strong>Client Portal Access:</strong> Active client simulation mode is enabled. Review outreach sequences, leads feed, book strategy sessions, and chat with Aero.</span>
         </div>
       )}
       {user?.role === 'SUPER_ADMIN' && (
-        <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 text-[11px] text-rose-800 flex items-center gap-2 font-mono">
-          <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+        <div className="bg-rose-50 dark:bg-rose-950/30 border-b border-rose-200 dark:border-rose-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-rose-800 dark:text-rose-300 flex items-start sm:items-center gap-2 font-mono">
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5 sm:mt-0" />
           <span><strong>Super Admin System Access:</strong> Real-time multitenant command center loaded. Execute root parameter adjustments, refund transactions, edit model weights, and override feature flags.</span>
         </div>
       )}
 
       {/* Main Container Layout */}
-      <div className="flex-1 flex flex-col md:flex-row relative">
+      <div className="flex-1 flex flex-col md:flex-row relative min-w-0 max-w-full">
         
-        {/* Left Sidebar Navigation */}
+        {/* Mobile Navigation Drawer Backdrop & Panel */}
+        {mobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <div 
+              className="w-72 max-w-[85vw] h-full bg-slate-950 border-r border-slate-800 p-4 flex flex-col justify-between shadow-2xl animate-slide-right overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold font-display text-sm shadow-sm">
+                      SP
+                    </div>
+                    <span className="font-display font-bold text-white text-sm">SalesPilot Menu</span>
+                  </div>
+                  <button 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest px-3 mb-2">
+                    Navigation Panel
+                  </span>
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-xs flex items-center justify-between transition-all ${
+                          isActive 
+                            ? 'bg-blue-600/15 text-blue-400 font-medium border border-blue-500/20' 
+                            : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-slate-900 border border-slate-800 text-slate-300 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Drawer Footer summary */}
+              <div className="space-y-3 pt-3 border-t border-slate-800 mt-6">
+                <div className="bg-slate-900/60 rounded-lg p-3 space-y-1 border border-slate-800/50">
+                  <div className="text-[10px] uppercase font-semibold text-slate-400">Pipeline Value</div>
+                  <div className="text-sm font-bold text-white font-mono">
+                    ₹{deals.reduce((sum, d) => d.stage !== 'CLOSED_LOST' ? sum + d.valueInr : sum, 0).toLocaleString('en-IN')}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full py-2 bg-red-950/20 hover:bg-red-900/30 text-red-400 border border-red-900/30 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Left Sidebar Navigation (Desktop) */}
         <aside 
           style={{ width: sidebarCollapsed ? '64px' : `${sidebarWidth}px` }}
-          className={`
-            fixed md:sticky top-[64px] bottom-0 left-0 bg-slate-950 border-r border-slate-800 p-4 flex flex-col justify-between z-30 transition-all duration-300 relative shrink-0
-            ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-          `}
+          className="hidden md:flex sticky top-[64px] bottom-0 left-0 bg-slate-950 border-r border-slate-800 p-4 flex-col justify-between z-30 transition-all duration-300 shrink-0 h-[calc(100vh-64px)] overflow-y-auto scrollbar-none"
         >
           {/* Resizing handlebar */}
           {!sidebarCollapsed && (
             <div 
               onMouseDown={() => setIsResizingSidebar(true)} 
-              className="hidden md:block absolute right-0 top-0 bottom-0 w-1 bg-slate-800/20 hover:bg-blue-500 cursor-col-resize transition z-50"
+              className="absolute right-0 top-0 bottom-0 w-1 bg-slate-800/20 hover:bg-blue-500 cursor-col-resize transition z-50"
             />
           )}
 
@@ -1317,7 +1398,7 @@ export default function App() {
         </aside>
 
         {/* Primary Content View Stage */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl w-full">
+        <main className="flex-1 p-3.5 sm:p-6 md:p-8 overflow-y-auto max-w-7xl w-full min-w-0 overflow-x-hidden">
           <ErrorBoundary>
           {activeTab === 'dashboard' && (
             <DashboardView 

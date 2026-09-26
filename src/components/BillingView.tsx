@@ -281,7 +281,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     return (
       <div id="billing_view_founder" className="space-y-6 animate-fade-in pb-12">
         {/* Beautiful display for founder */}
-        <div className="p-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/40 rounded-2xl shadow-xl text-white relative overflow-hidden">
+        <div className="p-4 sm:p-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/40 rounded-2xl shadow-xl text-white relative overflow-hidden">
           <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
           
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
@@ -289,7 +289,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-indigo-400 bg-indigo-900/50 px-3 py-1 rounded-full border border-indigo-500/20 inline-flex items-center gap-1.5 animate-pulse">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Executive Control Panel
               </span>
-              <h2 className="text-2xl font-bold tracking-tight text-white">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 Welcome back, {user?.fullName || 'Founder'}
               </h2>
               <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
@@ -297,8 +297,8 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
               </p>
             </div>
             
-            <div className="flex items-center gap-2.5 bg-slate-950/45 p-4 rounded-xl border border-slate-800 shrink-0">
-              <Server className="w-5 h-5 text-emerald-400" />
+            <div className="flex items-center gap-2.5 bg-slate-950/45 p-3.5 sm:p-4 rounded-xl border border-slate-800 shrink-0 w-full md:w-auto">
+              <Server className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
                 <span className="text-[9px] font-mono text-slate-500 uppercase block">Licence Tier</span>
                 <span className="text-xs font-bold text-white font-mono">LIFETIME ENTERPRISE APEX</span>
@@ -306,7 +306,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 pt-6 border-t border-indigo-900/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 border-t border-indigo-900/30">
             <div className="p-4 bg-slate-950/30 rounded-xl border border-slate-800 space-y-1">
               <span className="text-[9px] font-mono text-slate-500 uppercase block">Billing Status</span>
               <span className="text-xs font-bold text-emerald-400 font-mono">Exempt (No Billing Required)</span>

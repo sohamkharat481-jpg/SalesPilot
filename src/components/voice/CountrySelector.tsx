@@ -65,7 +65,7 @@ export function CountrySelector({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1.5 w-72 max-h-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in fade-in-50 zoom-in-95">
+        <div className="absolute top-full left-0 mt-1.5 w-72 max-w-[calc(100vw-2rem)] max-h-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in fade-in-50 zoom-in-95">
           {/* Search Bar */}
           <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
             <div className="relative">
