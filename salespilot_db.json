@@ -1169,6 +1169,202 @@
       "isFounder": false,
       "isVerified": true,
       "createdAt": "2026-09-27T07:44:57.576Z"
+    },
+    {
+      "id": "usr_ver_a",
+      "email": "usera@calling.com",
+      "fullName": "User A",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.552Z"
+    },
+    {
+      "id": "usr_ver_b",
+      "email": "userb@calling.com",
+      "fullName": "User B",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.552Z"
+    },
+    {
+      "id": "usr_ver_c",
+      "email": "userc@calling.com",
+      "fullName": "User C",
+      "companyName": "Company B",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_call_ver_2_1790495992552",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.552Z"
+    },
+    {
+      "id": "usr_dial_x",
+      "email": "userX@dial.com",
+      "fullName": "Dialer X",
+      "companyName": "Company X",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_dial_x_1790495992559",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.559Z"
+    },
+    {
+      "id": "usr_dial_y",
+      "email": "userY@dial.com",
+      "fullName": "Dialer Y",
+      "companyName": "Company Y",
+      "industry": "SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_dial_y_1790495992559",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.559Z"
+    },
+    {
+      "id": "usr_edesy_1",
+      "email": "user1@edesytest.com",
+      "fullName": "Alice Dialer",
+      "companyName": "Acme Sales",
+      "industry": "B2B SaaS",
+      "role": "OWNER",
+      "organizationId": "org_edesy_1_1790495992568",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.568Z"
+    },
+    {
+      "id": "usr_edesy_2",
+      "email": "user2@edesytest.com",
+      "fullName": "Bob Competitor",
+      "companyName": "Rival Corp",
+      "industry": "B2B SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_edesy_2_1790495992568",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T07:59:52.568Z"
+    },
+    {
+      "id": "usr_ver_a",
+      "email": "usera@calling.com",
+      "fullName": "User A",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.879Z"
+    },
+    {
+      "id": "usr_ver_b",
+      "email": "userb@calling.com",
+      "fullName": "User B",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.879Z"
+    },
+    {
+      "id": "usr_ver_c",
+      "email": "userc@calling.com",
+      "fullName": "User C",
+      "companyName": "Company B",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_call_ver_2_1790496195879",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.879Z"
+    },
+    {
+      "id": "usr_dial_x",
+      "email": "userX@dial.com",
+      "fullName": "Dialer X",
+      "companyName": "Company X",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_dial_x_1790496195887",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.887Z"
+    },
+    {
+      "id": "usr_dial_y",
+      "email": "userY@dial.com",
+      "fullName": "Dialer Y",
+      "companyName": "Company Y",
+      "industry": "SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_dial_y_1790496195887",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.887Z"
+    },
+    {
+      "id": "usr_edesy_1",
+      "email": "user1@edesytest.com",
+      "fullName": "Alice Dialer",
+      "companyName": "Acme Sales",
+      "industry": "B2B SaaS",
+      "role": "OWNER",
+      "organizationId": "org_edesy_1_1790496195897",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.897Z"
+    },
+    {
+      "id": "usr_edesy_2",
+      "email": "user2@edesytest.com",
+      "fullName": "Bob Competitor",
+      "companyName": "Rival Corp",
+      "industry": "B2B SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_edesy_2_1790496195897",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-09-27T08:03:15.897Z"
     }
   ],
   "organizations": [
@@ -1206,35 +1402,35 @@
   "leads": [
     {
       "id": "lead_a_1",
-      "organizationId": "org_test_a_1790495097514",
+      "organizationId": "org_test_a_1790496195824",
       "firstName": "Alice",
       "lastName": "Smith",
       "email": "alice@acme.com",
       "company": "Acme Corp",
       "status": "QUALIFIED",
-      "createdAt": "2026-09-27T07:44:57.514Z",
-      "updatedAt": "2026-09-27T07:44:57.514Z",
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "updatedAt": "2026-09-27T08:03:15.824Z",
       "isShared": true
     },
     {
-      "id": "lead_a_1790495097580",
-      "organizationId": "org_test_iso_1790495097580",
-      "userId": "usr_iso_a_1790495097580",
+      "id": "lead_a_1790496195901",
+      "organizationId": "org_test_iso_1790496195901",
+      "userId": "usr_iso_a_1790496195901",
       "name": "Alice Prospect",
       "email": "alice@prospect.com",
       "company": "Alice Co",
       "status": "NEW",
-      "createdAt": "2026-09-27T07:44:57.580Z"
+      "createdAt": "2026-09-27T08:03:15.901Z"
     },
     {
-      "id": "lead_b_1790495097581",
-      "organizationId": "org_test_iso_1790495097580",
-      "userId": "usr_iso_b_1790495097580",
+      "id": "lead_b_1790496195902",
+      "organizationId": "org_test_iso_1790496195901",
+      "userId": "usr_iso_b_1790496195901",
       "name": "Bob Prospect",
       "email": "bob@prospect.com",
       "company": "Bob Corp",
       "status": "NEW",
-      "createdAt": "2026-09-27T07:44:57.581Z"
+      "createdAt": "2026-09-27T08:03:15.902Z"
     }
   ],
   "campaigns": [
@@ -1867,6 +2063,132 @@
       "totalReplied": 0,
       "createdAt": "2026-09-27T07:44:57.518Z",
       "organizationId": "org_test_a_1790495097514"
+    },
+    {
+      "id": "camp_1790495992506",
+      "name": "Q3 Enterprise Outreach",
+      "targetAudience": "[\"lead_a_1\"]",
+      "status": "DRAFT",
+      "steps": [
+        {
+          "id": "step_1790495992506_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Hello {first_name}",
+          "bodyTemplate": "Hi {first_name}, check out Acme.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-09-27T07:59:52.506Z",
+      "organizationId": "org_test_a_1790495992506"
+    },
+    {
+      "id": "active_1790495992509",
+      "name": "Running Campaign",
+      "targetAudience": "[\"lead_a_1\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_1790495992506_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Hello {first_name}",
+          "bodyTemplate": "Hi {first_name}, check out Acme.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-09-27T07:59:52.509Z",
+      "organizationId": "org_test_a_1790495992506"
+    },
+    {
+      "id": "persist_1790495992511",
+      "name": "A quick idea for Kanishka Software",
+      "targetAudience": "[\"lead_a_1\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_1790495992506_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Hello {first_name}",
+          "bodyTemplate": "Hi {first_name}, check out Acme.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-09-27T07:59:52.511Z",
+      "organizationId": "org_test_a_1790495992506"
+    },
+    {
+      "id": "camp_1790496195824",
+      "name": "Q3 Enterprise Outreach",
+      "targetAudience": "[\"lead_a_1\"]",
+      "status": "DRAFT",
+      "steps": [
+        {
+          "id": "step_1790496195824_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Hello {first_name}",
+          "bodyTemplate": "Hi {first_name}, check out Acme.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "organizationId": "org_test_a_1790496195824"
+    },
+    {
+      "id": "active_1790496195827",
+      "name": "Running Campaign",
+      "targetAudience": "[\"lead_a_1\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_1790496195824_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Hello {first_name}",
+          "bodyTemplate": "Hi {first_name}, check out Acme.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-09-27T08:03:15.827Z",
+      "organizationId": "org_test_a_1790496195824"
+    },
+    {
+      "id": "persist_1790496195829",
+      "name": "A quick idea for Kanishka Software",
+      "targetAudience": "[\"lead_a_1\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_1790496195824_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Hello {first_name}",
+          "bodyTemplate": "Hi {first_name}, check out Acme.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-09-27T08:03:15.829Z",
+      "organizationId": "org_test_a_1790496195824"
     }
   ],
   "deals": [
@@ -2013,6 +2335,42 @@
       "value": 5000,
       "stage": "QUALIFICATION",
       "createdAt": "2026-09-27T07:44:57.583Z"
+    },
+    {
+      "id": "deal_a_1790495992575",
+      "organizationId": "org_deal_iso_1790495992575",
+      "userId": "usr_deal_a_1790495992575",
+      "title": "Enterprise Contract A",
+      "value": 50000,
+      "stage": "PROPOSAL",
+      "createdAt": "2026-09-27T07:59:52.575Z"
+    },
+    {
+      "id": "deal_b_1790495992576",
+      "organizationId": "org_deal_iso_1790495992575",
+      "userId": "usr_deal_b_1790495992575",
+      "title": "SMB Contract B",
+      "value": 5000,
+      "stage": "QUALIFICATION",
+      "createdAt": "2026-09-27T07:59:52.576Z"
+    },
+    {
+      "id": "deal_a_1790496195904",
+      "organizationId": "org_deal_iso_1790496195904",
+      "userId": "usr_deal_a_1790496195904",
+      "title": "Enterprise Contract A",
+      "value": 50000,
+      "stage": "PROPOSAL",
+      "createdAt": "2026-09-27T08:03:15.904Z"
+    },
+    {
+      "id": "deal_b_1790496195905",
+      "organizationId": "org_deal_iso_1790496195904",
+      "userId": "usr_deal_b_1790496195904",
+      "title": "SMB Contract B",
+      "value": 5000,
+      "stage": "QUALIFICATION",
+      "createdAt": "2026-09-27T08:03:15.905Z"
     }
   ],
   "appointments": [],
@@ -2526,6 +2884,78 @@
       "dailyLimit": 30,
       "createdAt": "2026-09-27T07:44:57.518Z",
       "updatedAt": "2026-09-27T07:44:57.518Z"
+    },
+    {
+      "id": "camp_1790495992506",
+      "organizationId": "org_test_a_1790495992506",
+      "name": "Q3 Enterprise Outreach",
+      "status": "DRAFT",
+      "targetLeadIds": [
+        "lead_a_1"
+      ],
+      "dailyLimit": 25,
+      "createdAt": "2026-09-27T07:59:52.506Z",
+      "updatedAt": "2026-09-27T07:59:52.506Z"
+    },
+    {
+      "id": "active_1790495992509",
+      "organizationId": "org_test_a_1790495992506",
+      "name": "Running Campaign",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "lead_a_1"
+      ],
+      "dailyLimit": 20,
+      "createdAt": "2026-09-27T07:59:52.509Z",
+      "updatedAt": "2026-09-27T07:59:52.509Z"
+    },
+    {
+      "id": "persist_1790495992511",
+      "organizationId": "org_test_a_1790495992506",
+      "name": "A quick idea for Kanishka Software",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "lead_a_1"
+      ],
+      "dailyLimit": 30,
+      "createdAt": "2026-09-27T07:59:52.511Z",
+      "updatedAt": "2026-09-27T07:59:52.511Z"
+    },
+    {
+      "id": "camp_1790496195824",
+      "organizationId": "org_test_a_1790496195824",
+      "name": "Q3 Enterprise Outreach",
+      "status": "DRAFT",
+      "targetLeadIds": [
+        "lead_a_1"
+      ],
+      "dailyLimit": 25,
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "updatedAt": "2026-09-27T08:03:15.824Z"
+    },
+    {
+      "id": "active_1790496195827",
+      "organizationId": "org_test_a_1790496195824",
+      "name": "Running Campaign",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "lead_a_1"
+      ],
+      "dailyLimit": 20,
+      "createdAt": "2026-09-27T08:03:15.827Z",
+      "updatedAt": "2026-09-27T08:03:15.827Z"
+    },
+    {
+      "id": "persist_1790496195829",
+      "organizationId": "org_test_a_1790496195824",
+      "name": "A quick idea for Kanishka Software",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "lead_a_1"
+      ],
+      "dailyLimit": 30,
+      "createdAt": "2026-09-27T08:03:15.829Z",
+      "updatedAt": "2026-09-27T08:03:15.829Z"
     }
   ],
   "outreachSteps": [
@@ -2968,6 +3398,94 @@
       "bodyTemplate": "Hi {first_name}, check out Acme.",
       "createdAt": "2026-09-27T07:44:57.514Z",
       "updatedAt": "2026-09-27T07:44:57.514Z"
+    },
+    {
+      "id": "step_1790495992506_1",
+      "organizationId": "org_test_a_1790495992506",
+      "campaignId": "camp_1790495992506",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T07:59:52.506Z",
+      "updatedAt": "2026-09-27T07:59:52.506Z"
+    },
+    {
+      "id": "step_1790495992506_1",
+      "organizationId": "org_test_a_1790495992506",
+      "campaignId": "camp_1790495992506",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T07:59:52.506Z",
+      "updatedAt": "2026-09-27T07:59:52.506Z"
+    },
+    {
+      "id": "step_1790495992506_1",
+      "organizationId": "org_test_a_1790495992506",
+      "campaignId": "camp_1790495992506",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T07:59:52.506Z",
+      "updatedAt": "2026-09-27T07:59:52.506Z"
+    },
+    {
+      "id": "step_1790495992506_1",
+      "organizationId": "org_test_a_1790495992506",
+      "campaignId": "camp_1790495992506",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T07:59:52.506Z",
+      "updatedAt": "2026-09-27T07:59:52.506Z"
+    },
+    {
+      "id": "step_1790496195824_1",
+      "organizationId": "org_test_a_1790496195824",
+      "campaignId": "camp_1790496195824",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "updatedAt": "2026-09-27T08:03:15.824Z"
+    },
+    {
+      "id": "step_1790496195824_1",
+      "organizationId": "org_test_a_1790496195824",
+      "campaignId": "camp_1790496195824",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "updatedAt": "2026-09-27T08:03:15.824Z"
+    },
+    {
+      "id": "step_1790496195824_1",
+      "organizationId": "org_test_a_1790496195824",
+      "campaignId": "camp_1790496195824",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "updatedAt": "2026-09-27T08:03:15.824Z"
+    },
+    {
+      "id": "step_1790496195824_1",
+      "organizationId": "org_test_a_1790496195824",
+      "campaignId": "camp_1790496195824",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Hello {first_name}",
+      "bodyTemplate": "Hi {first_name}, check out Acme.",
+      "createdAt": "2026-09-27T08:03:15.824Z",
+      "updatedAt": "2026-09-27T08:03:15.824Z"
     }
   ],
   "outreachQueue": [
@@ -3250,12 +3768,226 @@
       "attempts": 1,
       "createdAt": "2026-09-27T07:44:57.519Z",
       "updatedAt": "2026-09-27T07:44:57.519Z"
+    },
+    {
+      "id": "q_1790495992510",
+      "organizationId": "org_test_a_1790495992506",
+      "campaignId": "active_1790495992509",
+      "leadId": "lead_a_1",
+      "channel": "EMAIL",
+      "status": "SENT",
+      "scheduledFor": "2026-09-27T07:59:52.510Z",
+      "createdAt": "2026-09-27T07:59:52.510Z",
+      "updatedAt": "2026-09-27T07:59:52.510Z"
+    },
+    {
+      "id": "q_sent_1790495992512",
+      "organizationId": "org_test_a_1790495992506",
+      "campaignId": "persist_1790495992511",
+      "stepId": "step_1790495992506_1",
+      "stepNumber": 1,
+      "leadId": "lead_a_1",
+      "recipientEmail": "alice@acme.com",
+      "recipientName": "Alice Smith",
+      "subject": "Hello Alice",
+      "body": "Hi Alice",
+      "status": "SENT",
+      "scheduledAt": "2026-09-27T07:59:52.512Z",
+      "attempts": 1,
+      "createdAt": "2026-09-27T07:59:52.512Z",
+      "updatedAt": "2026-09-27T07:59:52.512Z"
+    },
+    {
+      "id": "q_1790496195828",
+      "organizationId": "org_test_a_1790496195824",
+      "campaignId": "active_1790496195827",
+      "leadId": "lead_a_1",
+      "channel": "EMAIL",
+      "status": "SENT",
+      "scheduledFor": "2026-09-27T08:03:15.828Z",
+      "createdAt": "2026-09-27T08:03:15.828Z",
+      "updatedAt": "2026-09-27T08:03:15.828Z"
+    },
+    {
+      "id": "q_sent_1790496195830",
+      "organizationId": "org_test_a_1790496195824",
+      "campaignId": "persist_1790496195829",
+      "stepId": "step_1790496195824_1",
+      "stepNumber": 1,
+      "leadId": "lead_a_1",
+      "recipientEmail": "alice@acme.com",
+      "recipientName": "Alice Smith",
+      "subject": "Hello Alice",
+      "body": "Hi Alice",
+      "status": "SENT",
+      "scheduledAt": "2026-09-27T08:03:15.830Z",
+      "attempts": 1,
+      "createdAt": "2026-09-27T08:03:15.830Z",
+      "updatedAt": "2026-09-27T08:03:15.830Z"
     }
   ],
   "outreachMessages": [],
   "outreachReplies": [],
   "outreachEvents": [],
   "callingNumbers": [
+    {
+      "id": "cn_1790496195897_1ylcp",
+      "userId": "usr_edesy_1",
+      "organizationId": "org_edesy_1_1790496195897",
+      "phoneNumber": "+15551234567",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T08:03:15.897Z",
+      "updatedAt": "2026-09-27T08:03:15.897Z"
+    },
+    {
+      "id": "cn_1790496195887_bkhfh",
+      "userId": "usr_dial_x",
+      "organizationId": "org_dial_x_1790496195887",
+      "phoneNumber": "+15550001111",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T08:03:15.887Z",
+      "updatedAt": "2026-09-27T08:03:15.887Z"
+    },
+    {
+      "id": "cn_1790496195884_sn2ad",
+      "userId": "usr_ver_b",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "phoneNumber": "+15559990000",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T08:03:15.884Z",
+      "updatedAt": "2026-09-27T08:03:15.885Z"
+    },
+    {
+      "id": "cn_1790496195883_3hu2t",
+      "userId": "usr_ver_b",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "phoneNumber": "+15557778888",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": false,
+      "createdAt": "2026-09-27T08:03:15.883Z",
+      "updatedAt": "2026-09-27T08:03:15.885Z"
+    },
+    {
+      "id": "cn_1790496195882_ziroh",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "phoneNumber": "+15555556666",
+      "countryCode": "+1",
+      "isVerified": false,
+      "isDefault": false,
+      "createdAt": "2026-09-27T08:03:15.882Z",
+      "updatedAt": "2026-09-27T08:03:15.882Z",
+      "verificationStatus": "REVOKED"
+    },
+    {
+      "id": "cn_1790496195881_i10mi",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "phoneNumber": "+15553334444",
+      "countryCode": "+1",
+      "isVerified": false,
+      "isDefault": false,
+      "createdAt": "2026-09-27T08:03:15.881Z",
+      "updatedAt": "2026-09-27T08:03:15.881Z",
+      "verificationStatus": "PENDING_VERIFICATION"
+    },
+    {
+      "id": "cn_1790496195880_2gwxv",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1790496195879",
+      "phoneNumber": "+15551112222",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T08:03:15.880Z",
+      "updatedAt": "2026-09-27T08:03:15.880Z"
+    },
+    {
+      "id": "cn_1790495992569_6yr0a",
+      "userId": "usr_edesy_1",
+      "organizationId": "org_edesy_1_1790495992568",
+      "phoneNumber": "+15551234567",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T07:59:52.569Z",
+      "updatedAt": "2026-09-27T07:59:52.569Z"
+    },
+    {
+      "id": "cn_1790495992559_31n37",
+      "userId": "usr_dial_x",
+      "organizationId": "org_dial_x_1790495992559",
+      "phoneNumber": "+15550001111",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T07:59:52.559Z",
+      "updatedAt": "2026-09-27T07:59:52.559Z"
+    },
+    {
+      "id": "cn_1790495992557_w7ixu",
+      "userId": "usr_ver_b",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "phoneNumber": "+15559990000",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T07:59:52.557Z",
+      "updatedAt": "2026-09-27T07:59:52.558Z"
+    },
+    {
+      "id": "cn_1790495992556_9496f",
+      "userId": "usr_ver_b",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "phoneNumber": "+15557778888",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": false,
+      "createdAt": "2026-09-27T07:59:52.556Z",
+      "updatedAt": "2026-09-27T07:59:52.558Z"
+    },
+    {
+      "id": "cn_1790495992555_11vu3",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "phoneNumber": "+15555556666",
+      "countryCode": "+1",
+      "isVerified": false,
+      "isDefault": false,
+      "createdAt": "2026-09-27T07:59:52.555Z",
+      "updatedAt": "2026-09-27T07:59:52.555Z",
+      "verificationStatus": "REVOKED"
+    },
+    {
+      "id": "cn_1790495992554_bqr69",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "phoneNumber": "+15553334444",
+      "countryCode": "+1",
+      "isVerified": false,
+      "isDefault": false,
+      "createdAt": "2026-09-27T07:59:52.554Z",
+      "updatedAt": "2026-09-27T07:59:52.554Z",
+      "verificationStatus": "PENDING_VERIFICATION"
+    },
+    {
+      "id": "cn_1790495992553_ybxu3",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1790495992552",
+      "phoneNumber": "+15551112222",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-09-27T07:59:52.553Z",
+      "updatedAt": "2026-09-27T07:59:52.553Z"
+    },
     {
       "id": "cn_1790495097576_uhqil",
       "userId": "usr_edesy_1",
@@ -4127,6 +4859,160 @@
     }
   ],
   "manualCallActivities": [
+    {
+      "id": "act_direct_edesy_1790496195898",
+      "source": "DIRECT_DIAL",
+      "organizationId": "org_edesy_1_1790496195897",
+      "userId": "usr_edesy_1",
+      "callingNumberId": "cn_1790496195897_1ylcp",
+      "callingNumber": "+15551234567",
+      "callingNumberSnapshot": "+15551234567",
+      "phoneNumber": "+15559876543",
+      "destinationNumber": "+15559876543",
+      "contactName": "Charlie Client",
+      "companyName": "Client Org",
+      "notes": "Initial intro call",
+      "direction": "OUTBOUND",
+      "activityType": "PHONE_CALL",
+      "status": "QUEUED",
+      "provider": "EDESY",
+      "providerCallId": "edesy_call_live_789456",
+      "providerName": "Edesy",
+      "createdAt": "2026-09-27T08:03:15.898Z",
+      "auditHistory": [
+        {
+          "timestamp": "2026-09-27T08:03:15.898Z",
+          "action": "INITIATED",
+          "actorId": "usr_edesy_1",
+          "details": "Call initiated from SalesPilot device dialer to +15559876543"
+        }
+      ]
+    },
+    {
+      "id": "act_direct_test_1790496195888",
+      "source": "DIRECT_DIAL",
+      "organizationId": "org_dial_x_1790496195887",
+      "userId": "usr_dial_x",
+      "callingNumberId": "cn_1790496195887_bkhfh",
+      "callingNumber": "+15550001111",
+      "callingNumberSnapshot": "+15550001111",
+      "phoneNumber": "+15559998888",
+      "destinationNumber": "+15559998888",
+      "contactName": "Alice Smith",
+      "companyName": "Acme Corp",
+      "notes": "Good chat",
+      "direction": "OUTBOUND",
+      "activityType": "PHONE_CALL",
+      "status": "COMPLETED",
+      "providerCallId": "prov_call_1790496195888",
+      "providerName": "Mock Telephony Gateway",
+      "createdAt": "2026-09-27T08:03:15.888Z",
+      "auditHistory": [
+        {
+          "timestamp": "2026-09-27T08:03:15.888Z",
+          "action": "INITIATED",
+          "actorId": "usr_dial_x",
+          "details": "Call initiated from SalesPilot device dialer to +15559998888"
+        },
+        {
+          "timestamp": "2026-09-27T08:03:15.891Z",
+          "action": "STATUS_UPDATED",
+          "details": "Call status transitioned to IN_PROGRESS"
+        },
+        {
+          "timestamp": "2026-09-27T08:03:15.894Z",
+          "action": "STATUS_UPDATED",
+          "details": "Call status transitioned to CANCELLED"
+        },
+        {
+          "timestamp": "2026-09-27T08:03:15.895Z",
+          "action": "OUTCOME_UPDATED",
+          "actorId": "usr_dial_x",
+          "details": "Outcome updated to Connected. Notes: Good chat"
+        }
+      ],
+      "updatedAt": "2026-09-27T08:03:15.895Z",
+      "durationSeconds": 42,
+      "endedAt": "2026-09-27T08:03:15.894Z",
+      "outcome": "Connected"
+    },
+    {
+      "id": "act_direct_edesy_1790495992570",
+      "source": "DIRECT_DIAL",
+      "organizationId": "org_edesy_1_1790495992568",
+      "userId": "usr_edesy_1",
+      "callingNumberId": "cn_1790495992569_6yr0a",
+      "callingNumber": "+15551234567",
+      "callingNumberSnapshot": "+15551234567",
+      "phoneNumber": "+15559876543",
+      "destinationNumber": "+15559876543",
+      "contactName": "Charlie Client",
+      "companyName": "Client Org",
+      "notes": "Initial intro call",
+      "direction": "OUTBOUND",
+      "activityType": "PHONE_CALL",
+      "status": "QUEUED",
+      "provider": "EDESY",
+      "providerCallId": "edesy_call_live_789456",
+      "providerName": "Edesy",
+      "createdAt": "2026-09-27T07:59:52.570Z",
+      "auditHistory": [
+        {
+          "timestamp": "2026-09-27T07:59:52.570Z",
+          "action": "INITIATED",
+          "actorId": "usr_edesy_1",
+          "details": "Call initiated from SalesPilot device dialer to +15559876543"
+        }
+      ]
+    },
+    {
+      "id": "act_direct_test_1790495992560",
+      "source": "DIRECT_DIAL",
+      "organizationId": "org_dial_x_1790495992559",
+      "userId": "usr_dial_x",
+      "callingNumberId": "cn_1790495992559_31n37",
+      "callingNumber": "+15550001111",
+      "callingNumberSnapshot": "+15550001111",
+      "phoneNumber": "+15559998888",
+      "destinationNumber": "+15559998888",
+      "contactName": "Alice Smith",
+      "companyName": "Acme Corp",
+      "notes": "Good chat",
+      "direction": "OUTBOUND",
+      "activityType": "PHONE_CALL",
+      "status": "COMPLETED",
+      "providerCallId": "prov_call_1790495992560",
+      "providerName": "Mock Telephony Gateway",
+      "createdAt": "2026-09-27T07:59:52.560Z",
+      "auditHistory": [
+        {
+          "timestamp": "2026-09-27T07:59:52.560Z",
+          "action": "INITIATED",
+          "actorId": "usr_dial_x",
+          "details": "Call initiated from SalesPilot device dialer to +15559998888"
+        },
+        {
+          "timestamp": "2026-09-27T07:59:52.563Z",
+          "action": "STATUS_UPDATED",
+          "details": "Call status transitioned to IN_PROGRESS"
+        },
+        {
+          "timestamp": "2026-09-27T07:59:52.565Z",
+          "action": "STATUS_UPDATED",
+          "details": "Call status transitioned to CANCELLED"
+        },
+        {
+          "timestamp": "2026-09-27T07:59:52.566Z",
+          "action": "OUTCOME_UPDATED",
+          "actorId": "usr_dial_x",
+          "details": "Outcome updated to Connected. Notes: Good chat"
+        }
+      ],
+      "updatedAt": "2026-09-27T07:59:52.566Z",
+      "durationSeconds": 42,
+      "endedAt": "2026-09-27T07:59:52.565Z",
+      "outcome": "Connected"
+    },
     {
       "id": "act_direct_edesy_1790495097577",
       "source": "DIRECT_DIAL",
@@ -5111,6 +5997,24 @@
       "userId": "user_notif_1_1790495097494",
       "title": "Follow-Up Urgent Client Call",
       "dueAt": "2026-09-27T06:44:57.501Z",
+      "status": "PENDING",
+      "priority": "URGENT"
+    },
+    {
+      "id": "fup_due_1",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "title": "Follow-Up Urgent Client Call",
+      "dueAt": "2026-09-27T06:59:52.493Z",
+      "status": "PENDING",
+      "priority": "URGENT"
+    },
+    {
+      "id": "fup_due_1",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "title": "Follow-Up Urgent Client Call",
+      "dueAt": "2026-09-27T07:03:15.808Z",
       "status": "PENDING",
       "priority": "URGENT"
     }
@@ -6295,6 +7199,242 @@
       "readAt": null,
       "metadata": {},
       "idempotencyKey": "p_key_4_1790495097507"
+    },
+    {
+      "id": "ntf_576fa8c4f96249cca9f24d14a387acd1",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "LEAD_ASSIGNED",
+      "title": "Lead Assigned To You",
+      "message": "You have been assigned Acme Lead.",
+      "entityType": "LEAD",
+      "entityId": "lead_test_123",
+      "priority": "MEDIUM",
+      "isRead": true,
+      "createdAt": "2026-09-27T07:59:52.487Z",
+      "readAt": "2026-09-27T07:59:52.491Z",
+      "metadata": {
+        "leadName": "Acme Corp"
+      },
+      "idempotencyKey": "org_notif_a_1790495992486_user_notif_1_1790495992486_LEAD_ASSIGNED_lead_test_123_v1"
+    },
+    {
+      "id": "ntf_4346e0f07a254fd7b5413af632cf1685",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "DEAL_WON",
+      "title": "Deal Won",
+      "message": "Deal has been closed successfully.",
+      "priority": "HIGH",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.492Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "idemp_key_1790495992492"
+    },
+    {
+      "id": "ntf_a50f0074e3d54091ac856d373db47b35",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "FOLLOW_UP_OVERDUE",
+      "title": "Follow-Up Overdue",
+      "message": "Your follow-up task \"Follow-Up Urgent Client Call\" is overdue.",
+      "entityType": "FOLLOW_UP",
+      "entityId": "fup_due_1",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.494Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "org_notif_a_1790495992486_user_notif_1_1790495992486_FOLLOW_UP_OVERDUE_fup_due_1_v1"
+    },
+    {
+      "id": "ntf_31cb16b26c3a4b4384f79c0310f6887b",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 0",
+      "message": "Lead msg 0",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.495Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_0_1790495992495"
+    },
+    {
+      "id": "ntf_de2d841b57894624b8952d8243098a0a",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 1",
+      "message": "Lead msg 1",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.496Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_1_1790495992496"
+    },
+    {
+      "id": "ntf_417d83c140b54733b9b740c73b8c14d6",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 2",
+      "message": "Lead msg 2",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.497Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_2_1790495992497"
+    },
+    {
+      "id": "ntf_119a5929fc2848ba8d9468445dcb048e",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 3",
+      "message": "Lead msg 3",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.498Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_3_1790495992498"
+    },
+    {
+      "id": "ntf_e9ae6bf7d01046b6b8edd349f28b2705",
+      "organizationId": "org_notif_a_1790495992486",
+      "userId": "user_notif_1_1790495992486",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 4",
+      "message": "Lead msg 4",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T07:59:52.499Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_4_1790495992499"
+    },
+    {
+      "id": "ntf_bf06d5d8f30f44f4ba1d222b955f97f7",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "LEAD_ASSIGNED",
+      "title": "Lead Assigned To You",
+      "message": "You have been assigned Acme Lead.",
+      "entityType": "LEAD",
+      "entityId": "lead_test_123",
+      "priority": "MEDIUM",
+      "isRead": true,
+      "createdAt": "2026-09-27T08:03:15.800Z",
+      "readAt": "2026-09-27T08:03:15.805Z",
+      "metadata": {
+        "leadName": "Acme Corp"
+      },
+      "idempotencyKey": "org_notif_a_1790496195800_user_notif_1_1790496195800_LEAD_ASSIGNED_lead_test_123_v1"
+    },
+    {
+      "id": "ntf_f5333e5970ae42d6bac68753358009ff",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "DEAL_WON",
+      "title": "Deal Won",
+      "message": "Deal has been closed successfully.",
+      "priority": "HIGH",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.807Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "idemp_key_1790496195807"
+    },
+    {
+      "id": "ntf_321003bdc21b4fd9b4c40bc83cfaf5b8",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "FOLLOW_UP_OVERDUE",
+      "title": "Follow-Up Overdue",
+      "message": "Your follow-up task \"Follow-Up Urgent Client Call\" is overdue.",
+      "entityType": "FOLLOW_UP",
+      "entityId": "fup_due_1",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.809Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "org_notif_a_1790496195800_user_notif_1_1790496195800_FOLLOW_UP_OVERDUE_fup_due_1_v1"
+    },
+    {
+      "id": "ntf_6c7bbd0588de4695a2880ff326b67eb2",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 0",
+      "message": "Lead msg 0",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.811Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_0_1790496195811"
+    },
+    {
+      "id": "ntf_54934b26ca3a4eca873f112b79d372cf",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 1",
+      "message": "Lead msg 1",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.812Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_1_1790496195812"
+    },
+    {
+      "id": "ntf_2b331d876a5244118a45f5401aef4719",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 2",
+      "message": "Lead msg 2",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.813Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_2_1790496195813"
+    },
+    {
+      "id": "ntf_b97371111fb345269a610a21babf9f5d",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 3",
+      "message": "Lead msg 3",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.814Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_3_1790496195814"
+    },
+    {
+      "id": "ntf_ebb090592b944eea8c045500b944d212",
+      "organizationId": "org_notif_a_1790496195800",
+      "userId": "user_notif_1_1790496195800",
+      "type": "NEW_LEAD",
+      "title": "Paginated Lead 4",
+      "message": "Lead msg 4",
+      "priority": "LOW",
+      "isRead": false,
+      "createdAt": "2026-09-27T08:03:15.815Z",
+      "readAt": null,
+      "metadata": {},
+      "idempotencyKey": "p_key_4_1790496195815"
     }
   ]
 }
