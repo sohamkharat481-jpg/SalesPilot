@@ -3987,11 +3987,12 @@ async function startServer() {
     }
 
     const allLeads = await getAllLeadsAsync(orgId);
-    // Enforce: organization_id + authenticated user_id for user-owned leads
+    // Enforce: organization_id + authenticated user scoping
     const filteredLeads = allLeads.filter(l => {
       if ((l as any).organizationId !== orgId) return false;
       const isShared = (l as any).isShared === true;
-      const isOwner = (l as any).assignedToId === user.id || (l as any).userId === user.id;
+      const leadUser = (l as any).assignedToId || (l as any).userId;
+      const isOwner = !leadUser || leadUser === user.id || user.role === 'OWNER' || user.role === 'ADMIN';
       return isShared || isOwner;
     });
     console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}" (user: "${user.id}")`);
@@ -7921,8 +7922,11 @@ Ensure the output is strictly valid JSON format.`;
             const dbLead: any = {
               id: persistentDbId,
               organization_id: targetOrgId,
-                first_name: newLead.firstName || 'Prospect',
-                last_name: newLead.lastName || '',
+              user_id: user.id,
+              assigned_to: user.id,
+              is_shared: false,
+              first_name: newLead.firstName || 'Prospect',
+              last_name: newLead.lastName || '',
                 company: newLead.company || 'Company',
                 email: newLead.email || '',
                 phone: newLead.phone || '',
