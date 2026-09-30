@@ -11,6 +11,8 @@ import { runGoogleCalendarWriteTestSuite } from './googleCalendarWrite.test';
 import { runExpiredTrialCheckoutTestSuite } from './expiredTrialCheckout.test';
 import { runUpiTestModeTestSuite } from './upiTestMode.test';
 import { runBillingAuditTestSuite } from './billingAudit.test';
+import { runAdminBillingAuthTestSuite } from './adminBillingAuth.test';
+import { runNoRoleSimulatorTestSuite } from './noRoleSimulator.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 
 async function runAllTests() {
@@ -141,7 +143,27 @@ async function runAllTests() {
     totalFailed++;
   }
 
-  // 13. Final Production Smoke Test Suite
+  // 13. Admin Billing Auth Suite
+  try {
+    const res = await runAdminBillingAuthTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Admin Billing Auth test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 14. No Role Simulator & RBAC Suite
+  try {
+    const res = await runNoRoleSimulatorTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('No Role Simulator test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 15. Final Production Smoke Test Suite
   try {
     const res = await runFinalProductionSmokeTestSuite();
     totalPassed += res.passed;

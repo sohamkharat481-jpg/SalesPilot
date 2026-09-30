@@ -12978,6 +12978,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(400).json({ error: 'Role value is required.' });
     }
 
+    const allowedTeamRoles = ['OWNER', 'ADMIN', 'MANAGER', 'SALES', 'VIEWER', 'CLIENT'];
+    if (!allowedTeamRoles.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role assignment.' });
+    }
+
     // Role Escalation Safety / RBAC Rules
     const currentTeammate = serverTeamMembers.find(t => t.email === user.email && (t as any).organizationId === verifiedOrgId);
     const currentUserRole = currentTeammate?.role || 'REP';

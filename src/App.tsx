@@ -1095,7 +1095,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Interactive User Profile & Role Switcher Dropdown */}
+          {/* User Profile Dropdown */}
           <div className="relative shrink-0">
             <button 
               onClick={() => {
@@ -1128,47 +1128,18 @@ export default function App() {
               <>
                 <div className="fixed inset-0 z-45" onClick={() => setShowProfileDropdown(false)} />
                 <div className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-10 w-[calc(100vw-1rem)] sm:w-56 max-w-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 z-50 space-y-3">
-                  <div className="border-b border-slate-100 dark:border-slate-800 pb-2 text-left">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-2 text-left space-y-1">
                     <div className="font-bold text-xs text-slate-900 dark:text-slate-100">{user?.fullName}</div>
                     <div className="text-[10px] text-slate-400 font-mono truncate">{user?.companyName || user?.email}</div>
-                    <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold mt-0.5">{user?.tier} Plan</div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">{user?.tier} Plan</span>
+                      <span className="text-[9px] font-mono font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700 uppercase">
+                        {user?.role}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Dynamic Role Switcher */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[9px] font-mono uppercase text-slate-400 font-bold mb-1">Role Simulator</label>
-                    {['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SALES', 'VIEWER', 'CLIENT'].map((roleOption) => (
-                      <button 
-                        key={roleOption}
-                        onClick={() => {
-                          if (user) {
-                            user.role = roleOption as any;
-                            if (roleOption === 'CLIENT') {
-                              setActiveTab('client-portal');
-                            } else if (roleOption === 'SUPER_ADMIN') {
-                              setActiveTab('super-admin');
-                            }
-                          }
-                          setShowProfileDropdown(false);
-                          alert(`Switched to role: ${roleOption}. ${
-                            roleOption === 'CLIENT' ? 'Client Portal workspace has loaded automatically.' :
-                            roleOption === 'SUPER_ADMIN' ? 'Super Admin Control Panel has loaded automatically.' :
-                            'Permissions and alert banners have adapted immediately.'
-                          }`);
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded text-xs font-mono font-medium flex items-center justify-between transition ${
-                          user?.role === roleOption 
-                            ? 'bg-blue-600/15 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/10' 
-                            : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        {roleOption}
-                        {user?.role === roleOption && <Check className="w-3 h-3 text-blue-500" />}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-slate-100 dark:border-slate-800 pt-2 flex justify-between items-center">
+                  <div className="pt-1 flex justify-between items-center">
                     <button 
                       onClick={() => logout()}
                       className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/20 dark:hover:bg-red-900/30 font-bold text-[10px] rounded-lg flex items-center justify-center gap-1 cursor-pointer transition"
