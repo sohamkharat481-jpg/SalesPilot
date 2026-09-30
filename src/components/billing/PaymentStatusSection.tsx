@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CreditCard, Check, ShieldCheck, Plus, Trash2, Clock, AlertCircle } from 'lucide-react';
+import { QrCode, Check, ShieldCheck, Clock, AlertCircle, Copy, CheckCircle2, IndianRupee } from 'lucide-react';
 import { WorkspaceUser } from '../../types';
 
 export interface AuditLog {
@@ -12,118 +12,108 @@ export interface AuditLog {
 
 interface PaymentStatusSectionProps {
   user?: WorkspaceUser | null;
-  cardDigits: string;
-  setCardDigits: (digits: string) => void;
-  cardExpiry: string;
-  setCardExpiry: (exp: string) => void;
-  cardCvv: string;
-  setCardCvv: (cvv: string) => void;
   auditLogs: AuditLog[];
   onLogMessage: (text: string, type: 'info' | 'success' | 'warn') => void;
+  upiId?: string;
+  businessName?: string;
 }
 
 export function PaymentStatusSection({
   user,
-  cardDigits,
-  setCardDigits,
-  cardExpiry,
-  setCardExpiry,
-  cardCvv,
-  setCardCvv,
   auditLogs,
-  onLogMessage
+  onLogMessage,
+  upiId = 'sohamkharat85@oksbi',
+  businessName = 'SalesPilot CRM Technologies'
 }: PaymentStatusSectionProps) {
-  const [showAddCardModal, setShowAddCardModal] = useState(false);
-  
-  // Local card state
-  const [inputDigits, setInputDigits] = useState('4532 7182 9381 2309');
-  const [inputExpiry, setInputExpiry] = useState('12/28');
-  const [inputCvv, setInputCvv] = useState('***');
+  const [copied, setCopied] = useState(false);
 
-  const handleSwapCard = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const cleanDigits = inputDigits.trim();
-    if (cleanDigits.length < 15) {
-      onLogMessage("Card number appears too short. Please type a valid credit card format.", "warn");
-      return;
-    }
-
-    setCardDigits(cleanDigits);
-    setCardExpiry(inputExpiry);
-    setCardCvv(inputCvv);
-    setShowAddCardModal(false);
-    onLogMessage(`Payment source credentials swapped successfully. Card Ending: ${cleanDigits.slice(-4)}.`, "success");
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(upiId);
+    setCopied(true);
+    onLogMessage(`Copied UPI ID: ${upiId}`, 'info');
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div id="payment_status_section" className="grid grid-cols-1 md:grid-cols-2 gap-6">
       
-      {/* Visual Credit Card */}
+      {/* Visual UPI Payment Profile */}
       <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex flex-col justify-between space-y-6">
         <div>
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">Payment Method</h3>
-            <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded">
-              Primary
+            <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded flex items-center gap-1">
+              <Check className="w-3 h-3" /> Direct UPI Scan & Pay
             </span>
           </div>
           
-          {/* Card Graphic */}
-          <div className="mt-5 p-5 bg-gradient-to-tr from-slate-950 to-blue-900 rounded-xl relative overflow-hidden text-white shadow-md select-none border border-zinc-800">
-            <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-blue-500/10 rounded-l-full blur-xl pointer-events-none" />
+          {/* UPI Badge Graphic */}
+          <div className="mt-5 p-5 bg-gradient-to-tr from-slate-950 via-slate-900 to-emerald-950 rounded-xl relative overflow-hidden text-white shadow-md select-none border border-slate-800">
+            <div className="absolute right-0 bottom-0 top-0 w-1/2 bg-emerald-500/10 rounded-l-full blur-xl pointer-events-none" />
             <div className="flex justify-between items-start">
-              <span className="text-[10px] font-mono font-bold tracking-widest text-zinc-350">SALESPILOT ENTERPRISE</span>
-              <span className="font-mono italic font-bold text-base text-zinc-200">Visa</span>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-300 block">DIRECT UPI GATEWAY</span>
+                  <span className="text-xs text-slate-300">{businessName}</span>
+                </div>
+              </div>
+              <span className="font-mono font-bold text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded border border-emerald-500/30">
+                0% Gateway Fee
+              </span>
             </div>
 
-            <div className="mt-8">
-              <span className="block text-sm font-mono tracking-widest text-zinc-100">{cardDigits}</span>
-            </div>
-
-            <div className="mt-6 flex justify-between items-center">
+            <div className="mt-6 flex items-center justify-between bg-black/40 px-3 py-2 rounded-lg border border-slate-700/60">
               <div>
-                <span className="block text-[8px] text-zinc-455 font-mono uppercase tracking-widest">Card Holder</span>
-                <span className="text-[10px] font-mono font-bold">{user?.companyName || user?.fullName || 'Workspace'}</span>
+                <span className="block text-[8px] text-slate-400 font-mono uppercase tracking-widest">Active UPI ID</span>
+                <span className="text-xs font-mono font-bold text-emerald-400">{upiId}</span>
               </div>
-              <div className="text-right">
-                <span className="block text-[8px] text-zinc-455 font-mono uppercase tracking-widest">Expires</span>
-                <span className="text-[10px] font-mono font-bold">{cardExpiry}</span>
-              </div>
+              <button
+                onClick={handleCopyUpi}
+                className="text-xs text-slate-300 hover:text-white px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition flex items-center gap-1"
+                title="Copy UPI ID"
+              >
+                {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span className="text-[10px]">{copied ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-between items-center text-[10px] text-slate-400">
+              <span>Supported: GPay, PhonePe, Paytm, BHIM, Cred</span>
+              <span className="font-mono text-emerald-400 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> NPCI Verified
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button
-            id="btn_swap_payment_card"
-            onClick={() => setShowAddCardModal(true)}
-            className="w-full py-2 bg-slate-950 dark:bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-900 dark:hover:bg-slate-700 transition cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <CreditCard className="w-3.5 h-3.5" /> Swap Payment Credentials
-          </button>
+        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-3">
+          <span>Settlement Destination:</span>
+          <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">Direct Verified Bank Account</span>
         </div>
       </div>
 
-      {/* Transaction Webhook logs list */}
+      {/* Transaction & Verification Audit Logs */}
       <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex flex-col justify-between space-y-4">
         <div>
           <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-blue-500" /> Cashfree Webhooks Audit Log
+            <Clock className="w-4 h-4 text-emerald-500" /> Payment & Verification Audit Trail
           </h3>
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-            Autonomous transaction state tracing generated by downstream e-mandate feedback loops.
+            Real-time audit log of payment submissions, UTR checks, and subscription lifecycle state changes.
           </p>
         </div>
 
         {/* Audit Log timeline list */}
-        <div className="flex-grow space-y-3.5 overflow-y-auto max-h-[180px] pr-2 scrollbar-thin">
+        <div className="flex-grow space-y-3 overflow-y-auto max-h-[180px] pr-2 scrollbar-thin">
           {auditLogs.map((log) => (
             <div key={log.id} className="flex gap-2.5 text-xs">
-              <span className="font-mono text-[10px] text-slate-450 dark:text-slate-500 w-16 shrink-0 pt-0.5">{log.timestamp}</span>
+              <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 w-16 shrink-0 pt-0.5">{log.timestamp}</span>
               <div className="space-y-0.5">
-                <span className={`font-semibold text-slate-800 dark:text-slate-250 flex items-center gap-1 ${
-                  log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : log.type === 'warn' ? 'text-amber-600 dark:text-amber-400' : ''
+                <span className={`font-semibold flex items-center gap-1 ${
+                  log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : log.type === 'warn' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'
                 }`}>
                   {log.event}
                 </span>
@@ -134,76 +124,9 @@ export function PaymentStatusSection({
         </div>
 
         <span className="block text-[9.5px] text-slate-400 font-mono border-t border-slate-100 dark:border-slate-800 pt-3">
-          Channel Sync Status: <strong className="text-emerald-600 dark:text-emerald-450">● ONLINE / SECURE (TLS 1.3)</strong>
+          Verification Pipeline: <strong className="text-emerald-600 dark:text-emerald-400">● SECURE / HUMAN VERIFIED</strong>
         </span>
       </div>
-
-      {/* Add Card Modal */}
-      {showAddCardModal && (
-        <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <CreditCard className="w-4.5 h-4.5 text-blue-600" /> Swap Billing Card
-            </h3>
-            <p className="text-xs text-slate-500">
-              Update credit card details used for subsequent recurring Cashfree subscription charges.
-            </p>
-
-            <form onSubmit={handleSwapCard} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-mono text-slate-450 dark:text-slate-500 uppercase">Card Number</label>
-                <input 
-                  type="text" 
-                  value={inputDigits}
-                  onChange={(e) => setInputDigits(e.target.value)}
-                  placeholder="4532 7182 9381 2309"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs px-3 py-2 rounded-lg font-mono text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono text-slate-450 dark:text-slate-500 uppercase">Expiry Date</label>
-                  <input 
-                    type="text" 
-                    value={inputExpiry}
-                    onChange={(e) => setInputExpiry(e.target.value)}
-                    placeholder="12/28"
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs px-3 py-2 rounded-lg font-mono text-slate-900 dark:text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono text-slate-450 dark:text-slate-500 uppercase">CVV</label>
-                  <input 
-                    type="password" 
-                    value={inputCvv}
-                    onChange={(e) => setInputCvv(e.target.value)}
-                    placeholder="***"
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs px-3 py-2 rounded-lg font-mono text-slate-900 dark:text-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddCardModal(false)}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-slate-850 border border-slate-250 dark:border-slate-700 rounded-lg cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer"
-                >
-                  Save Credit Card
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

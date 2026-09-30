@@ -623,63 +623,38 @@ export function OnboardingWizard({ user, onComplete }: OnboardingWizardProps) {
                 </div>
               )}
 
-              {/* STEP 6: CASHFREE INTEGRATION */}
+              {/* STEP 6: DIRECT UPI BILLING CONFIGURATION */}
               {currentStep === 6 && (
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Setup Cashfree INR Payment Gateway</h3>
+                    <h3 className="text-sm font-semibold text-white">Direct UPI Payment & Invoicing Settings</h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Enables seamless subscription management, license provisioning, automated GST compliant invoicing, and live client checkout in INR.
+                      Enables seamless subscription management, license provisioning, automated GST compliant invoicing, and live client checkout in INR via Direct UPI QR Scan & Pay.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-slate-400 font-medium mb-1.5 font-mono">Cashfree App ID</label>
-                      <input 
-                        type="text" 
-                        value={cashfreeAppId}
-                        onChange={(e) => setCashfreeAppId(e.target.value)}
-                        placeholder="TEST817293817..."
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500"
-                      />
+                  <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-slate-300">Registered UPI Gateway:</span>
+                      <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-800 px-2 py-0.5 rounded">
+                        Active NPCI Route
+                      </span>
                     </div>
-                    <div>
-                      <label className="block text-xs text-slate-400 font-medium mb-1.5 font-mono">Secret Key</label>
-                      <input 
-                        type="password" 
-                        value={cashfreeSecret}
-                        onChange={(e) => setCashfreeSecret(e.target.value)}
-                        placeholder="cf_secret_..."
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-mono block">Primary UPI Virtual Address</span>
+                        <span className="font-mono text-white font-semibold">sohamkharat85@oksbi</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-mono block">Business Entity</span>
+                        <span className="font-mono text-white font-semibold">SalesPilot CRM Technologies</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs text-slate-400 font-medium mb-1.5 font-mono">Gateway Environment</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="cfEnv" 
-                          checked={cashfreeEnv === 'TEST'} 
-                          onChange={() => setCashfreeEnv('TEST')}
-                          className="text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-slate-300 font-mono">Sandbox Test Environment</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="cfEnv" 
-                          checked={cashfreeEnv === 'PROD'} 
-                          onChange={() => setCashfreeEnv('PROD')}
-                          className="text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-slate-300 font-mono">Live Production</span>
-                      </label>
-                    </div>
+                  <div className="p-3 bg-blue-950/20 border border-blue-800/40 rounded-xl flex items-center gap-3 text-xs text-blue-300">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                    <span>Direct UPI checkout is ready for live subscription payments and automated GST invoice issuance.</span>
                   </div>
                 </div>
               )}

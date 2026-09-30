@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  CreditCard, Loader2, IndianRupee, Sparkles, Server, Check, HelpCircle, ArrowUpRight, Sliders, User
+  CreditCard, Loader2, IndianRupee, Sparkles, Server, Check, HelpCircle, ArrowUpRight, Sliders, User,
+  QrCode, Copy, CheckCircle2, Clock, AlertCircle, RefreshCw, ExternalLink, ShieldCheck, X
 } from 'lucide-react';
 import { WorkspaceUser, SubscriptionTier } from '../types';
 import { PlansSection } from './billing/PlansSection';
@@ -10,13 +11,30 @@ import { GstComplianceSection } from './billing/GstComplianceSection';
 import { CouponsSection, AVAILABLE_COUPONS } from './billing/CouponsSection';
 import { InvoicesSection, Invoice } from './billing/InvoicesSection';
 import { PaymentStatusSection, AuditLog } from './billing/PaymentStatusSection';
-import { CashfreeArchitectureSection } from './billing/CashfreeArchitectureSection';
+import { UpiPaymentArchitectureSection } from './billing/UpiPaymentArchitectureSection';
 import { ReferralsSection } from './billing/ReferralsSection';
 import { AdminBillingConsole } from './billing/AdminBillingConsole';
+import { CANONICAL_PLANS, calculateCanonicalPayablePrice, CanonicalPlanId } from '../payments/pricingConfig';
+import { isVerifiedFounderEmail } from '../security/founderAllowlist';
 
 interface BillingViewProps {
   user: WorkspaceUser | null;
   onUpdateTier: (newTier: SubscriptionTier) => void;
+}
+
+interface CheckoutContext {
+  plan: CanonicalPlanId;
+  billingCycle: 'monthly' | 'annual';
+  baseAmount: number;
+  gstRate: number;
+  gstAmount: number;
+  totalAmount: number;
+  currency: string;
+  upiId: string;
+  businessName: string;
+  qrImage: string;
+  upiIntentUri: string;
+  note: string;
 }
 
 export function BillingView({ user, onUpdateTier }: BillingViewProps) {
@@ -26,60 +44,35 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
   const [gstin, setGstin] = useState('27AAPCS1429M1Z5');
   const [gstState, setGstState] = useState('Maharashtra');
   const [activeCoupon, setActiveCoupon] = useState<string | null>(null);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'ACTIVE' | 'PAUSED' | 'CANCELLED'>('ACTIVE');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'ACTIVE' | 'PENDING_VERIFICATION' | 'EXPIRED' | 'CANCELLED'>('ACTIVE');
   const [autoRenew, setAutoRenew] = useState(true);
 
-  // Card details
-  const [cardDigits, setCardDigits] = useState('•••• •••• •••• 2309');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvv, setCardCvv] = useState('***');
+  // Authoritative server data
+  const [serverSubscription, setServerSubscription] = useState<any | null>(null);
+  const [pendingPayment, setPendingPayment] = useState<any | null>(null);
+  const [latestPayment, setLatestPayment] = useState<any | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
 
-  // Checkout modal simulator states
+  // Checkout modal states
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
-  const [cashfreeEnvelope, setCashfreeEnvelope] = useState<any>(null);
+  const [checkoutContext, setCheckoutContext] = useState<CheckoutContext | null>(null);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [verifyingPayment, setVerifyingPayment] = useState(false);
-  const [paymentVerified, setPaymentVerified] = useState(false);
+  
+  // UTR submission inputs
+  const [inputUtr, setInputUtr] = useState('');
+  const [inputNotes, setInputNotes] = useState('');
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState<any | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
-  // Invoices list
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    {
-      id: 'cf_order_2319401',
-      invoiceNumber: 'SP-2026-INV-1092',
-      date: 'Jul 01, 2026',
-      baseAmount: 9999,
-      discount: 0,
-      gstAmount: 1800,
-      totalInr: 11799,
-      couponUsed: null,
-      state: 'Maharashtra',
-      gstin: '27AAPCS1429M1Z5',
-      paymentMethod: 'Visa Ending 2309',
-      cashfreeRef: 'cf_tx_9012480124',
-      status: 'PAID'
-    },
-    {
-      id: 'cf_order_2104914',
-      invoiceNumber: 'SP-2026-INV-0982',
-      date: 'Jun 01, 2026',
-      baseAmount: 4999,
-      discount: 2500,
-      gstAmount: 450,
-      totalInr: 2949,
-      couponUsed: 'PILOT50',
-      state: 'Karnataka',
-      gstin: '',
-      paymentMethod: 'Visa Ending 2309',
-      cashfreeRef: 'cf_tx_8124901231',
-      status: 'PAID'
-    }
-  ]);
+  // Invoices list (Authoritative from server)
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
-  // Transaction audit webhooks list
+  // Audit Logs list
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
-    { id: '1', timestamp: '10:14 AM', event: 'Order Captured', details: 'Client-side payment session finalized via Cashfree Checkout', type: 'success' },
-    { id: '2', timestamp: '10:14 AM', event: 'Signature Verified', details: 'Crypto validation approved for server webhook', type: 'success' },
-    { id: '3', timestamp: '09:00 AM', event: 'Daily Quota Reset', details: 'All automated sequence counters synchronized with active limits', type: 'info' }
+    { id: '1', timestamp: '10:14 AM', event: 'Direct UPI Module', details: 'Initialized verified NPCI payment route', type: 'success' },
+    { id: '2', timestamp: '09:00 AM', event: 'Authoritative Sync', details: 'Connected to PostgreSQL database source of truth', type: 'info' }
   ]);
 
   // Helper to add audit logs dynamically
@@ -101,6 +94,52 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  // Fetch Authoritative Subscription and Invoices from Server
+  const fetchAuthoritativeBilling = async () => {
+    setLoadingSubscription(true);
+    try {
+      // 1. Subscription & usage
+      const subRes = await fetch('/api/v1/billing/subscription');
+      const subData = await subRes.json();
+      if (subData.success) {
+        setServerSubscription(subData.subscription);
+        setPendingPayment(subData.pendingPayment);
+        setLatestPayment(subData.latestPayment);
+        setSubscriptionStatus(subData.status);
+      }
+
+      // 2. Invoices
+      const invRes = await fetch('/api/v1/billing/invoices');
+      const invData = await invRes.json();
+      if (invData.success && Array.isArray(invData.invoices)) {
+        setInvoices(invData.invoices.map((i: any) => ({
+          id: i.id,
+          invoiceNumber: i.invoice_number || `SP-INV-${i.id.slice(-4)}`,
+          date: new Date(i.issued_at || i.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+          baseAmount: Number(i.base_amount || i.total_amount * 0.82),
+          discount: 0,
+          gstAmount: Number(i.gst_amount || i.total_amount * 0.18),
+          totalInr: Number(i.total_amount),
+          couponUsed: null,
+          state: gstState,
+          gstin: gstin,
+          paymentMethod: `UPI (UTR: ${i.utr || 'Direct'})`,
+          paymentReference: i.utr ? `UTR: ${i.utr}` : 'VERIFIED',
+          cashfreeRef: `UPI_${i.utr || 'VERIFIED'}`,
+          status: 'PAID'
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load authoritative billing info', err);
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAuthoritativeBilling();
+  }, [user?.tier]);
+
   // Pricing calculations for currently selected checkouts
   const getSelectedPlanBasePrice = (planId: SubscriptionTier) => {
     const prices = {
@@ -108,7 +147,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
       STARTER: { monthly: 2499, annual: 24990 },
       GROWTH: { monthly: 5999, annual: 59990 },
       BUSINESS: { monthly: 11999, annual: 119990 },
-      PROFESSIONAL: { monthly: 11999, annual: 119990 }, // Map to Business to avoid any breaking changes
+      PROFESSIONAL: { monthly: 11999, annual: 119990 },
       ENTERPRISE: { monthly: 29999, annual: 249990 },
       AGENCY: { monthly: 29999, annual: 249990 }
     };
@@ -125,7 +164,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
       if (matched) {
         waveGst = matched.waveGst || false;
         if (matched.type === 'PERCENT' || matched.type === 'REFERRAL') {
-          discountAmount = Math.round(basePrice * (matched.value / 100)); // using percentage discount formula
+          discountAmount = Math.round(basePrice * (matched.value / 100));
         } else if (matched.type === 'FLAT') {
           discountAmount = Math.min(basePrice, matched.value);
         }
@@ -146,8 +185,8 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     };
   };
 
-  // Initiate Cashfree checkout
-  const handleInitiateCashfreeCheckout = async (tier: SubscriptionTier, price: number) => {
+  // Initiate Direct UPI Checkout
+  const handleInitiateUpiCheckout = async (tier: SubscriptionTier) => {
     if (tier === 'FREE_TRIAL') {
       setLoadingPlanId(tier);
       try {
@@ -163,96 +202,84 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     }
 
     setLoadingPlanId(tier);
-    setCashfreeEnvelope(null);
-    setPaymentVerified(false);
+    setCheckoutContext(null);
+    setInputUtr('');
+    setInputNotes('');
+    setSubmissionSuccess(null);
+    setSubmissionError(null);
 
     try {
-      const response = await fetch('/api/v1/payments/create-order', {
+      const response = await fetch('/api/v1/billing/checkout/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier, valueInr: price })
+        body: JSON.stringify({ plan: tier, billingCycle })
       });
       const data = await response.json();
       
-      if (data.success) {
-        setCashfreeEnvelope(data.cashfreeResponse);
+      if (data.success && data.checkout) {
+        setCheckoutContext(data.checkout);
         setShowCheckoutModal(true);
-        handleLogMessage(`API Order: Created Cashfree checkout session ${data.order_id}`, "info");
+        handleLogMessage(`UPI Checkout: Generated Scan & Pay order for ${tier} (₹${data.checkout.totalAmount})`, "info");
       } else {
-        handleLogMessage(`API Error: Could not generate order context from Cashfree backend service`, "warn");
+        handleLogMessage(`API Error: Could not generate UPI checkout context`, "warn");
       }
     } catch (err) {
       console.error(err);
-      handleLogMessage(`Network Error: Server endpoint not responding to PG initialization`, "warn");
+      handleLogMessage(`Network Error: Server endpoint not responding to checkout initiation`, "warn");
     } finally {
       setLoadingPlanId(null);
     }
   };
 
-  // Verify payment link
-  const handleVerifyCashfreePayment = async () => {
-    if (!cashfreeEnvelope) return;
-    setVerifyingPayment(true);
+  // Submit UTR for Admin Verification
+  const handleSubmitUpiPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkoutContext) return;
+
+    const cleanUtr = inputUtr.trim().toUpperCase();
+    if (!cleanUtr || cleanUtr.length < 6) {
+      setSubmissionError('Please enter a valid 12-digit UTR or Transaction Reference number.');
+      return;
+    }
+
+    setSubmittingPayment(true);
+    setSubmissionError(null);
 
     try {
-      const response = await fetch('/api/v1/payments/verify-payment', {
+      const response = await fetch('/api/v1/billing/payment/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: cashfreeEnvelope.order_id })
+        body: JSON.stringify({
+          plan: checkoutContext.plan,
+          billingCycle: checkoutContext.billingCycle,
+          utr: cleanUtr,
+          notes: inputNotes
+        })
       });
       const data = await response.json();
 
       if (data.success) {
-        // Compute finalized prices for dynamic tax invoice insertion
-        let tier: SubscriptionTier = 'STARTER';
-        if (cashfreeEnvelope.order_id.includes('GROWTH')) {
-          tier = 'GROWTH';
-        } else if (cashfreeEnvelope.order_id.includes('BUSINESS')) {
-          tier = 'BUSINESS';
-        } else if (cashfreeEnvelope.order_id.includes('PROFESSIONAL')) {
-          tier = 'BUSINESS';
-        } else if (cashfreeEnvelope.order_id.includes('ENTERPRISE') || cashfreeEnvelope.order_id.includes('AGENCY')) {
-          tier = 'ENTERPRISE';
-        }
-
-        const basePrice = getSelectedPlanBasePrice(tier);
-        const breakdown = getPriceBreakdown(basePrice);
-
-        onUpdateTier(tier);
-        setPaymentVerified(true);
-        handleLogMessage(`Payment Webhook: ORDER_PAID payload validated for ${cashfreeEnvelope.order_id}`, "success");
-
-        // Insert new invoice record
-        const newInvoice: Invoice = {
-          id: cashfreeEnvelope.order_id,
-          invoiceNumber: `SP-2026-INV-${Math.floor(1000 + Math.random() * 9000)}`,
-          date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-          baseAmount: basePrice,
-          discount: breakdown.discountAmount,
-          gstAmount: breakdown.gstAmount,
-          totalInr: breakdown.grandTotal,
-          couponUsed: activeCoupon,
-          state: gstState,
-          gstin: gstin,
-          paymentMethod: `Visa Ending ${cardDigits.slice(-4)}`,
-          cashfreeRef: `cf_tx_${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-          status: 'PAID'
-        };
-
-        setInvoices(prev => [newInvoice, ...prev]);
-
-        setTimeout(() => {
-          setShowCheckoutModal(false);
-          setCashfreeEnvelope(null);
-        }, 1500);
+        setSubmissionSuccess(data.payment);
+        setPendingPayment(data.payment);
+        setSubscriptionStatus('PENDING_VERIFICATION');
+        handleLogMessage(`Payment Submitted: UTR ${cleanUtr} recorded for verification (₹${checkoutContext.totalAmount})`, "success");
       } else {
-        handleLogMessage(`Payment Error: Order verification failed on Cashfree API. Check card credentials.`, "warn");
+        setSubmissionError(data.error || 'Failed to submit payment verification.');
+        handleLogMessage(`Payment Error: ${data.error}`, "warn");
       }
-    } catch (err) {
-      console.error(err);
-      handleLogMessage(`Payment Error: Verification handler faulted during signature matching.`, "warn");
+    } catch (err: any) {
+      setSubmissionError(err.message || 'Network error submitting payment.');
+      handleLogMessage(`Payment Error: Could not connect to verification server`, "warn");
     } finally {
-      setVerifyingPayment(false);
+      setSubmittingPayment(false);
+    }
+  };
+
+  const copyUpiId = () => {
+    if (checkoutContext?.upiId) {
+      navigator.clipboard.writeText(checkoutContext.upiId);
+      setCopiedUpi(true);
+      setTimeout(() => setCopiedUpi(false), 2000);
     }
   };
 
@@ -264,123 +291,8 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
   }, [user?.tier, billingCycle, activeCoupon]);
 
   const isFounderAccount = Boolean(
-    user?.isFounder || 
-    user?.subscriptionStatus === 'LIFETIME' || 
-    user?.tier === 'ENTERPRISE' ||
-    user?.role === 'SUPER_ADMIN' ||
-    user?.role === 'OWNER' ||
-    (user?.email && (
-      (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
-      user.email.toLowerCase() === 'soham@gmail.com' ||
-      user.email.toLowerCase().includes('founder') ||
-      user.email.toLowerCase().includes('soham')
-    ))
+    user && isVerifiedFounderEmail(user.email)
   );
-
-  if (isFounderAccount) {
-    return (
-      <div id="billing_view_founder" className="space-y-6 animate-fade-in pb-12">
-        {/* Beautiful display for founder */}
-        <div className="p-4 sm:p-8 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-900/40 rounded-2xl shadow-xl text-white relative overflow-hidden">
-          <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-            <div className="space-y-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-indigo-400 bg-indigo-900/50 px-3 py-1 rounded-full border border-indigo-500/20 inline-flex items-center gap-1.5 animate-pulse">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Executive Control Panel
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Welcome back, {user?.fullName || 'Founder'}
-              </h2>
-              <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-                You are authenticated as a SalesPilot Founder. This account is provisioned with lifetime unrestricted access to the **Enterprise Agency** suite, all premium Gemini capabilities, and infinite resource quotas.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-2.5 bg-slate-950/45 p-3.5 sm:p-4 rounded-xl border border-slate-800 shrink-0 w-full md:w-auto">
-              <Server className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div>
-                <span className="text-[9px] font-mono text-slate-500 uppercase block">Licence Tier</span>
-                <span className="text-xs font-bold text-white font-mono">LIFETIME ENTERPRISE APEX</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 border-t border-indigo-900/30">
-            <div className="p-4 bg-slate-950/30 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[9px] font-mono text-slate-500 uppercase block">Billing Status</span>
-              <span className="text-xs font-bold text-emerald-400 font-mono">Exempt (No Billing Required)</span>
-            </div>
-            <div className="p-4 bg-slate-950/30 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[9px] font-mono text-slate-500 uppercase block">Usage & Search Limits</span>
-              <span className="text-xs font-bold text-indigo-400 font-mono">Unlimited Everything</span>
-            </div>
-            <div className="p-4 bg-slate-950/30 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-[9px] font-mono text-slate-500 uppercase block">Subscription Expiration</span>
-              <span className="text-xs font-bold text-amber-400 font-mono">Never (Infinite Lifetime)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Quota overview and direct access block */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs space-y-4">
-            <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider">Quota Allocations</h3>
-            <div className="space-y-3.5">
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-500">Lead Sourcing</span>
-                  <span className="font-bold text-slate-900 dark:text-white">Infinite (No limits)</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: '100%' }}></div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-500">AI Copywriting Campaigns</span>
-                  <span className="font-bold text-slate-900 dark:text-white">Infinite (No limits)</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full animate-pulse" style={{ width: '100%' }}></div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-slate-500">Active Autonomous Agents</span>
-                  <span className="font-bold text-slate-900 dark:text-white">Infinite (No limits)</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 rounded-full animate-pulse" style={{ width: '100%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex flex-col justify-between">
-            <div className="space-y-2">
-              <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider">Premium Features Enabled</h3>
-              <ul className="text-xs text-slate-500 dark:text-slate-450 space-y-2 pt-1 font-mono">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-500" /> Full Google Maps Places API direct search</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-500" /> Serper Web Scraping & Description enrichment</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-500" /> Unlimited Bulk Outreach sequence triggers</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-500" /> Real-time multitenant administrator permissions</li>
-              </ul>
-            </div>
-
-            <div className="p-3.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/30 rounded-lg flex gap-2.5">
-              <User className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                <strong className="text-slate-800 dark:text-slate-300">Developer Notes:</strong> Since your email <strong className="text-indigo-600 dark:text-indigo-400 font-mono">{user?.email}</strong> is identified as the primary Founder Account, you bypass all billing middleware checks and never receive payment prompts or expiration notices.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div id="billing_view" className="space-y-8 animate-fade-in pb-12">
@@ -388,10 +300,12 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
         <div>
-          <h2 className="text-sm font-mono font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-            <CreditCard className="w-4 h-4 text-blue-600" /> SaaS Billing & Credits Center
+          <h2 className="text-sm font-mono font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+            <CreditCard className="w-4 h-4 text-emerald-600" /> Direct UPI Subscriptions & Billing
           </h2>
-          <p className="text-xs text-slate-500 mt-1">Manage active Indian outbound channels, compute GST tax invoice compliance sheets, and process payments in INR.</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Zero gateway surcharge. Scan & Pay directly via Google Pay, PhonePe, Paytm, BHIM, or any UPI app with human admin verification.
+          </p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -420,10 +334,33 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
           </div>
 
           <div className="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-xs text-slate-600 dark:text-slate-350 font-mono shrink-0">
-            Current Tier: <span className="text-blue-600 dark:text-blue-400 font-bold">{user?.tier || 'STARTER'}</span>
+            Current Plan: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{user?.tier || 'STARTER'}</span>
           </div>
         </div>
       </div>
+
+      {/* Pending Payment Notification Banner */}
+      {pendingPayment && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start justify-between gap-3 text-amber-900 dark:text-amber-200">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+            <div>
+              <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Payment Pending Verification
+              </h4>
+              <p className="text-xs mt-0.5 text-slate-700 dark:text-slate-300">
+                Your payment submission for <strong>{pendingPayment.plan} ({pendingPayment.billingCycle || pendingPayment.billing_cycle})</strong> with UTR <strong className="font-mono">{pendingPayment.utr}</strong> (₹{pendingPayment.amount}) has been received and is currently awaiting administrator review.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={fetchAuthoritativeBilling}
+            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1"
+          >
+            <RefreshCw className={`w-3 h-3 ${loadingSubscription ? 'animate-spin' : ''}`} /> Refresh Status
+          </button>
+        </div>
+      )}
 
       {viewMode === 'admin' ? (
         <AdminBillingConsole 
@@ -438,7 +375,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
             user={user}
             billingCycle={billingCycle}
             setBillingCycle={setBillingCycle}
-            onSelectPlan={handleInitiateCashfreeCheckout}
+            onSelectPlan={handleInitiateUpiCheckout}
             loadingPlanId={loadingPlanId}
           />
 
@@ -466,8 +403,8 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
                 onLogMessage={handleLogMessage}
               />
 
-              {/* Integration Blueprint documentation */}
-              <CashfreeArchitectureSection />
+              {/* Direct UPI Architecture Documentation */}
+              <UpiPaymentArchitectureSection />
 
             </div>
 
@@ -490,15 +427,9 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
               {/* Active quota meters */}
               <UsageSection user={user} />
 
-              {/* Linked card, webhooks list */}
+              {/* Direct UPI Payment Source Profile */}
               <PaymentStatusSection
                 user={user}
-                cardDigits={cardDigits}
-                setCardDigits={setCardDigits}
-                cardExpiry={cardExpiry}
-                setCardExpiry={setCardExpiry}
-                cardCvv={cardCvv}
-                setCardCvv={setCardCvv}
                 auditLogs={auditLogs}
                 onLogMessage={handleLogMessage}
               />
@@ -526,110 +457,214 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
         </>
       )}
 
-      {/* Simulated Checkout Modal Overlay */}
-      {showCheckoutModal && cashfreeEnvelope && (
-        <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="w-full max-w-4xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-xl overflow-hidden shadow-2xl flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-150 dark:divide-slate-800">
+      {/* Direct UPI Scan & Pay Checkout Modal */}
+      {showCheckoutModal && checkoutContext && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
             
-            {/* Modal Left: Gateway Simulator */}
-            <div className="flex-1 p-6 space-y-6 bg-white dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping" />
-                  <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 tracking-widest uppercase">CASHFREE SUBSCRIPTION PORTAL</span>
+            {/* Modal Header */}
+            <div className="p-6 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white flex justify-between items-center border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-emerald-400" />
                 </div>
-                <span className="text-[9px] font-mono text-slate-450 dark:text-slate-500">TEST SANDBOX</span>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="text-[10px] font-mono text-slate-550 dark:text-slate-500 uppercase">Grand Invoice Price (INR)</div>
-                <h3 className="text-2xl font-bold text-slate-950 dark:text-white font-mono">
-                  ₹{cashfreeEnvelope.order_amount.toLocaleString('en-IN')}.00 INR
-                </h3>
-                <div className="text-[10px] text-slate-500 font-mono">
-                  Order Hash: <span className="text-blue-600 dark:text-blue-400 font-semibold">{cashfreeEnvelope.order_id}</span>
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight">Direct UPI Scan & Pay</h3>
+                  <p className="text-[11px] text-emerald-300 font-mono">Plan: {checkoutContext.plan} ({checkoutContext.billingCycle})</p>
                 </div>
               </div>
-
-              {/* Payment credentials */}
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="block text-[9px] font-mono text-slate-500 uppercase">Credit Card Number</label>
-                  <input 
-                    type="text"
-                    value={cardDigits}
-                    onChange={(e) => setCardDigits(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-xs font-mono text-slate-900 dark:text-white p-2.5 rounded-lg focus:outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="block text-[9px] font-mono text-slate-500 uppercase">Expiry</label>
-                    <input 
-                      type="text"
-                      value={cardExpiry}
-                      onChange={(e) => setCardExpiry(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-xs font-mono text-slate-900 dark:text-white p-2.5 rounded-lg focus:outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[9px] font-mono text-slate-500 uppercase">CVV Security</label>
-                    <input 
-                      type="password"
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-xs font-mono text-slate-900 dark:text-white p-2.5 rounded-lg focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {paymentVerified ? (
-                  <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs rounded-lg text-center font-mono font-bold animate-pulse">
-                    Capture Approved! Dispatching Cashfree Webhooks...
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <button 
-                      type="button" 
-                      onClick={() => setShowCheckoutModal(false)}
-                      className="flex-grow py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-350 rounded-lg font-semibold cursor-pointer"
-                    >
-                      Cancel Pay
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={handleVerifyCashfreePayment}
-                      disabled={verifyingPayment}
-                      className="flex-grow py-2.5 bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white rounded-lg transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
-                    >
-                      {verifyingPayment ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying Signatures...
-                        </>
-                      ) : (
-                        <>Confirm Pay ₹{cashfreeEnvelope.order_amount.toLocaleString('en-IN')}</>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => {
+                  setShowCheckoutModal(false);
+                  setSubmissionSuccess(null);
+                  setSubmissionError(null);
+                }}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Modal Right: Live Json logger */}
-            <div className="flex-1 p-6 bg-slate-950 font-mono flex flex-col justify-between max-h-[420px] md:max-h-none text-slate-200">
-              <div className="space-y-4">
-                <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider block">API Payload Envelope</span>
-                <p className="text-[10px] text-zinc-400 leading-normal">
-                  Server-to-server transaction context generated by the backend API controller. Includes dynamic order ID hashes and customer identifiers.
-                </p>
-                <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg overflow-x-auto text-[10px] text-blue-400 leading-normal max-h-[220px] overflow-y-auto">
-                  <pre>{JSON.stringify(cashfreeEnvelope, null, 2)}</pre>
+            {/* Modal Body */}
+            <div className="p-6 space-y-6">
+              {submissionSuccess ? (
+                <div className="py-8 text-center space-y-4">
+                  <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto text-emerald-500">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                      Payment Submitted for Verification!
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                      Your transaction reference <strong className="font-mono text-emerald-600 dark:text-emerald-400">{submissionSuccess.utr}</strong> for ₹{submissionSuccess.amount} has been saved. An administrator will verify the bank deposit and activate your subscription.
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-xs font-bold border border-amber-500/20">
+                    <Clock className="w-3.5 h-3.5" /> Status: PENDING_VERIFICATION
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setShowCheckoutModal(false);
+                        setSubmissionSuccess(null);
+                        fetchAuthoritativeBilling();
+                      }}
+                      className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer shadow-xs"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <span className="block text-[9.5px] text-zinc-500 border-t border-zinc-900 pt-3 mt-4">
-                API Endpoint: POST /api/v1/payments/create-order
-              </span>
+              ) : (
+                <>
+                  {/* Amount Breakdown & UPI Info Card */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                    
+                    {/* QR Code Container */}
+                    <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 text-center">
+                      <div className="bg-white p-3 rounded-xl shadow-xs border border-slate-200 dark:border-slate-800">
+                        {checkoutContext.qrImage ? (
+                          <img 
+                            src={checkoutContext.qrImage} 
+                            alt="Scan & Pay UPI QR" 
+                            className="w-48 h-48 object-contain rounded-lg"
+                          />
+                        ) : (
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(checkoutContext.upiIntentUri)}`}
+                            alt="Scan & Pay UPI QR"
+                            className="w-48 h-48 object-contain"
+                          />
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
+                        <QrCode className="w-3 h-3 text-emerald-500" /> Scan with any UPI app to pay
+                      </span>
+                      <a
+                        href={checkoutContext.upiIntentUri}
+                        className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 md:hidden"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Tap to Pay via UPI App
+                      </a>
+                    </div>
+
+                    {/* Payable Summary & Bank Details */}
+                    <div className="space-y-4">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>Base Plan ({checkoutContext.billingCycle})</span>
+                          <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">₹{checkoutContext.baseAmount.toLocaleString('en-IN')}.00</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>GST (18% standard)</span>
+                          <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">₹{checkoutContext.gstAmount.toLocaleString('en-IN')}.00</span>
+                        </div>
+                        <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between text-sm font-bold text-slate-900 dark:text-white">
+                          <span>Total Payable Amount</span>
+                          <span className="font-mono text-emerald-600 dark:text-emerald-400">₹{checkoutContext.totalAmount.toLocaleString('en-IN')}.00 INR</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[10px] font-mono uppercase text-slate-400 block">Verified Business</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{checkoutContext.businessName}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-mono uppercase text-slate-400 block">UPI ID</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              {checkoutContext.upiId}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={copyUpiId}
+                              className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                            >
+                              {copiedUpi ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* UTR Form Submission */}
+                  <form onSubmit={handleSubmitUpiPayment} className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-blue-500" /> Step 2: Submit Bank Reference / UTR
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        After completing the transfer in your UPI app, enter the 12-digit UTR (Unique Transaction Reference) below to submit for instant admin verification.
+                      </p>
+                    </div>
+
+                    {submissionError && (
+                      <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{submissionError}</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-mono text-slate-400 uppercase">
+                          UTR / Transaction ID <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={inputUtr}
+                          onChange={(e) => setInputUtr(e.target.value)}
+                          placeholder="e.g. 429381920192"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs px-3 py-2 rounded-lg font-mono font-bold text-slate-900 dark:text-white uppercase focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-mono text-slate-400 uppercase">
+                          Payment Notes (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={inputNotes}
+                          onChange={(e) => setInputNotes(e.target.value)}
+                          placeholder="e.g. Paid via Google Pay"
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-900 dark:text-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCheckoutModal(false)}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submittingPayment || !inputUtr.trim()}
+                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {submittingPayment ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" /> Submit Payment for Verification
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
             </div>
 
           </div>

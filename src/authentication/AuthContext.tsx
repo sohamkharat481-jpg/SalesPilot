@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { WorkspaceUser, UserRole, SubscriptionTier, Organization, TeamMember } from '../types';
 import { getSupabaseClient, isSupabaseConfigured, getSupabaseDiagnostics, SUPABASE_URL } from '../lib/supabase';
 
+import { isVerifiedFounderEmail } from '../security/founderAllowlist';
+
 interface AuthContextType {
   user: WorkspaceUser | null;
   organization: Organization | null;
@@ -174,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const email = sessionUser.email || '';
     const emailLower = email.toLowerCase();
     const fullName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || email.split('@')[0] || 'User';
-    const isFounder = emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' || emailLower === 'ayesha.kashif13008@gmail.com' || emailLower.includes('founder') || emailLower.includes('pordigy');
+    const isFounder = isVerifiedFounderEmail(emailLower);
 
     let authoritativeUser: WorkspaceUser | null = null;
     let authoritativeOrg: Organization | null = null;
@@ -345,21 +347,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const emailLower = (parsedUser.email || '').toLowerCase();
-          const isFounder = parsedUser.isFounder || 
-                            emailLower === 'sohamkharat481@gmail.com' || 
-                            emailLower === 'soham@gmail.com' ||
-                            emailLower === 'ayesha.kashif13008@gmail.com' ||
-                            emailLower.includes('founder') ||
-                            parsedUser.role === 'OWNER';
+          const emailLower = String(parsedUser.email || '').trim().toLowerCase();
+          const isFounder = isVerifiedFounderEmail(emailLower);
 
           if (isFounder) {
             parsedUser.organizationId = 'org_salespilot_lifetime';
             parsedUser.isFounder = true;
             parsedUser.role = 'OWNER';
             parsedUser.tier = 'ENTERPRISE';
+            parsedUser.subscriptionStatus = 'LIFETIME';
             parsedUser.companyName = 'SalesPilot';
             localStorage.setItem('salespilot_user', JSON.stringify(parsedUser));
+          } else {
+            parsedUser.isFounder = false;
+            if (parsedUser.subscriptionStatus === 'LIFETIME') {
+              parsedUser.subscriptionStatus = 'ACTIVE';
+            }
           }
 
           setUser(parsedUser);
@@ -446,21 +449,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  // Prevent Founder from seeing onboarding, setup, or billing screens
+  // Prevent Verified Founder from seeing onboarding, setup, or billing screens
   useEffect(() => {
-    const isFounderEmail = user && user.email && (
-      (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
-      user.email.toLowerCase() === 'soham@gmail.com' ||
-      user.email.toLowerCase().includes('founder') ||
-      user.email.toLowerCase().includes('soham')
-    );
-    if (user && (user.isFounder || user.subscriptionStatus === 'LIFETIME' || isFounderEmail || user.role === 'SUPER_ADMIN' || user.role === 'OWNER')) {
+    const isFounder = isVerifiedFounderEmail(user?.email);
+    if (user && isFounder) {
       const needsUpdate = !user.isFounder || 
                           user.subscriptionStatus !== 'LIFETIME' || 
                           user.tier !== 'ENTERPRISE' || 
                           !user.isVerified;
       if (needsUpdate) {
-        console.log("Founder detected in AuthContext. Enforcing Lifetime access.");
+        console.log("Verified founder detected in AuthContext. Enforcing Lifetime access.");
         const updatedUser: WorkspaceUser = {
           ...user,
           isFounder: true,
@@ -483,7 +481,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: 'org_salespilot_lifetime',
           name: 'SalesPilot',
           companyName: 'SalesPilot',
-          industry: prev?.industry || 'SaaS & Software',
+          industry: 'SaaS & Software',
+          tier: 'ENTERPRISE',
+          plan: 'ENTERPRISE',
+          role: 'OWNER',
           website: prev?.website || 'salespilot.co',
           country: prev?.country || 'India',
           currency: prev?.currency || 'INR',
@@ -493,13 +494,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: prev?.createdAt || new Date().toISOString()
         }));
       }
+    } else if (user && !isFounder) {
+      // Ensure normal customer OWNER cannot spoof or retain isFounder / LIFETIME status
+      if (user.isFounder || user.subscriptionStatus === 'LIFETIME') {
+        const cleanedUser: WorkspaceUser = {
+          ...user,
+          isFounder: false,
+          subscriptionStatus: 'ACTIVE'
+        };
+        setUser(cleanedUser);
+        try {
+          localStorage.setItem('salespilot_user', JSON.stringify(cleanedUser));
+        } catch (_) {}
+      }
     }
   }, [user]);
 
   useEffect(() => {
-    if (user && user.email && (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy'))) {
+    if (user && isVerifiedFounderEmail(user.email)) {
       if (authView !== 'authenticated') {
-        console.log("Founder detected. Skipping onboarding.");
+        console.log("Verified founder detected. Skipping onboarding.");
         setAuthView('authenticated');
       }
     }

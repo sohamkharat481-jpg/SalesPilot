@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, ShieldAlert, Zap, Layers, RefreshCw, Users, Folder, MessageSquare, Database, Globe, Calendar, CheckCircle2 } from 'lucide-react';
 import { WorkspaceUser } from '../../types';
+import { isVerifiedFounderEmail } from '../../security/founderAllowlist';
 
 interface UsageSectionProps {
   user: WorkspaceUser | null;
@@ -8,8 +9,6 @@ interface UsageSectionProps {
 
 export function UsageSection({ user }: UsageSectionProps) {
   const currentTier = user?.tier || 'STARTER';
-  const [simulationBlocked, setSimulationBlocked] = useState(false);
-  const [customLimitsSim, setCustomLimitsSim] = useState<Record<string, number>>({});
 
   // 10 requested metrics across all plans
   const planLimits: Record<string, Record<string, { limit: number | string; label: string; icon: any; unit: string }>> = {
@@ -107,9 +106,6 @@ export function UsageSection({ user }: UsageSectionProps) {
   };
 
   const getUsed = (key: string) => {
-    if (customLimitsSim[key] !== undefined) {
-      return customLimitsSim[key];
-    }
     return staticUsage[key] || 0;
   };
 
@@ -134,37 +130,10 @@ export function UsageSection({ user }: UsageSectionProps) {
     return 'bg-indigo-600';
   };
 
-  const triggerExceedSimulation = (key: string) => {
-    const { limit } = getLimitObj(key);
-    if (typeof limit === 'number') {
-      // Set value to exceed limit
-      setCustomLimitsSim(prev => ({
-        ...prev,
-        [key]: limit + 1
-      }));
-      setSimulationBlocked(true);
-    }
-  };
-
-  const resetSimulation = () => {
-    setCustomLimitsSim({});
-    setSimulationBlocked(false);
-  };
-
   const metricsKeys = ['searches', 'ai_requests', 'ai_tokens', 'emails_sent', 'meetings', 'campaigns', 'organizations', 'users', 'storage', 'api_requests'];
 
   const isFounderUser = Boolean(
-    user?.isFounder || 
-    user?.subscriptionStatus === 'LIFETIME' || 
-    user?.tier === 'ENTERPRISE' ||
-    user?.role === 'SUPER_ADMIN' ||
-    user?.role === 'OWNER' ||
-    (user?.email && (
-      (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
-      user.email.toLowerCase() === 'soham@gmail.com' ||
-      user.email.toLowerCase().includes('founder') ||
-      user.email.toLowerCase().includes('soham')
-    ))
+    user && isVerifiedFounderEmail(user.email)
   );
 
   // Check if any of the key limits are currently exceeded (Bypassed for Founder accounts)
@@ -183,14 +152,10 @@ export function UsageSection({ user }: UsageSectionProps) {
           <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest">REAL-TIME USAGE & LIMIT MANAGEMENT</h3>
           <p className="text-xs text-slate-500 mt-1">Live execution tracking of 10 primary workspace resource bounds.</p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={resetSimulation}
-            className="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-350 rounded font-mono font-semibold flex items-center gap-1 cursor-pointer"
-          >
-            <RefreshCw className="w-3 h-3" /> Reset Limits
-          </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-850">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Quota Sync
+          </span>
         </div>
       </div>
 
@@ -247,14 +212,6 @@ export function UsageSection({ user }: UsageSectionProps) {
                   {label}
                 </span>
                 
-                {!isUnlimited && !isOverLimit && (
-                  <button 
-                    onClick={() => triggerExceedSimulation(key)}
-                    className="text-[9px] text-indigo-600 dark:text-indigo-400 hover:underline font-mono"
-                  >
-                    Simulate Block
-                  </button>
-                )}
                 {isOverLimit && (
                   <span className="text-[9.5px] px-1.5 py-0.5 bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 rounded-md font-bold font-mono uppercase">
                     Blocked

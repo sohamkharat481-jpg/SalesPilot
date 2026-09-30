@@ -38,6 +38,7 @@ import { LaunchHelpCenter } from './components/LaunchHelpCenter';
 import { AiSalesCopilotWidget } from './components/copilot/AiSalesCopilotWidget';
 import { VoiceCallingView } from './components/VoiceCallingView';
 import { MobileHubView } from './components/MobileHubView';
+import { isVerifiedFounderEmail } from './security/founderAllowlist';
 import { WhiteLabelView } from './components/WhiteLabelView';
 import { EnterpriseSecurityView } from './components/EnterpriseSecurityView';
 import { RevenueIntelligenceView } from './components/RevenueIntelligenceView';
@@ -98,16 +99,7 @@ export default function App() {
   const workspaceId = user?.organizationId || organization?.id || '';
 
   const isFounderUser = Boolean(
-    user && (
-      user.isFounder ||
-      user.subscriptionStatus === 'LIFETIME' ||
-      (user.email && (
-        (user.email.toLowerCase() === 'sohamkharat481@gmail.com' || user.email.toLowerCase() === 'pordigyai@gmail.com' || user.email.toLowerCase() === 'ayesha.kashif13008@gmail.com' || user.email.toLowerCase().includes('pordigy')) ||
-        user.email.toLowerCase() === 'soham@gmail.com' ||
-        user.email.toLowerCase().includes('founder') ||
-        user.email.toLowerCase().includes('soham')
-      ))
-    )
+    user && isVerifiedFounderEmail(user.email)
   );
 
   const isEnterpriseUser = Boolean(
@@ -784,7 +776,7 @@ export default function App() {
               <div className="flex items-center gap-2 font-mono">
                 <ShieldAlert className="w-4 h-4 text-red-200 animate-bounce shrink-0" />
                 <span>
-                  <strong>Your 1-Day Free Trial has expired!</strong> Workspace features are locked. Secure a Subscription Plan via Cashfree gateway to resume campaign scheduling.
+                  <strong>Your 1-Day Free Trial has expired!</strong> Workspace features are locked. Secure a Subscription Plan via Direct UPI Scan & Pay to resume campaign scheduling.
                 </span>
               </div>
               <button 

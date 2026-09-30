@@ -63,6 +63,9 @@ import {
 } from './src/backend/googleAccountsService';
 import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountries';
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
+import { UpiPaymentService } from './src/payments/upiPaymentService';
+import { getUpiBillingConfig, generateUpiIntentUri } from './src/payments/upiConfig';
+import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId } from './src/payments/pricingConfig';
 
 import { validateStartupEnv } from './src/security/envValidator';
 import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
@@ -224,20 +227,11 @@ let serverLoginHistory = localDb.getLoginHistory();
 let serverActivityLogs = localDb.getActivityLogs();
 
 let serverSessions: Record<string, { user: any; expiresAt: number }> = {};
+import { isVerifiedFounderEmail, VERIFIED_FOUNDER_EMAILS } from './src/security/founderAllowlist';
+
 let failedLoginAttempts: Record<string, { count: number; lockedUntil?: number }> = {};
 
-const FOUNDER_EMAIL = process.env.FOUNDER_EMAIL || 'sohamkharat481@gmail.com';
-const FOUNDER_EMAILS = new Set(
-  [
-    FOUNDER_EMAIL,
-    'sohamkharat481@gmail.com',
-    'pordigyai@gmail.com',
-    'ayesha.kashif13008@gmail.com',
-    ...(process.env.FOUNDER_EMAILS || '').split(',')
-  ]
-    .map(email => email.trim().toLowerCase())
-    .filter(Boolean)
-);
+const FOUNDER_EMAILS = VERIFIED_FOUNDER_EMAILS;
 const FREE_ACCESS_EMAILS = new Set(
   (process.env.FREE_ACCESS_EMAILS || '')
     .split(',')
@@ -253,15 +247,10 @@ const hasFreeAccess = (userObj: any): boolean => {
 async function applyFounderPrivileges(userObj: any) {
   if (!userObj) return;
 
-  const emailLower = (userObj.email || '').toLowerCase();
-  const isFounder = userObj.isFounder ||
-                    userObj.subscriptionStatus === 'LIFETIME' ||
-                    FOUNDER_EMAILS.has(emailLower) ||
-                    emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' ||
-                    emailLower.includes('founder') ||
-                    emailLower.includes('soham') || emailLower.includes('pordigy') ||
-                    userObj.role === 'SUPER_ADMIN' ||
-                    userObj.role === 'OWNER';
+  const emailLower = String(userObj.email || '').trim().toLowerCase();
+  // ONLY grant lifetime Enterprise to verified founder email identities from the strict allowlist.
+  // NEVER grant based on role === 'OWNER', substring matching, or unverified frontend flags.
+  const isFounder = isVerifiedFounderEmail(emailLower);
 
   if (!isFounder && hasFreeAccess(userObj)) {
     userObj.tier = 'ENTERPRISE';
@@ -272,23 +261,27 @@ async function applyFounderPrivileges(userObj: any) {
   }
 
   if (!isFounder) {
+    userObj.isFounder = false;
+    if (userObj.subscriptionStatus === 'LIFETIME') {
+      userObj.subscriptionStatus = 'ACTIVE';
+    }
     if (userObj && !userObj.subscriptionStatus) {
       userObj.subscriptionStatus = userObj.tier !== 'STARTER' ? 'ACTIVE' : 'INACTIVE';
     }
     return;
   }
 
-  console.log(`Founder detected for ${emailLower}. Enforcing Lifetime Enterprise access.`);
+  console.log(`Verified founder detected for ${emailLower}. Enforcing Lifetime Enterprise access.`);
 
   // Set unlimited variables & founder privileges
   userObj.tier = 'ENTERPRISE';
   userObj.isFounder = true;
   userObj.subscriptionStatus = 'LIFETIME';
   userObj.role = 'OWNER';
-  userObj.isVerified = true; // Auto-verify founder
-  userObj.onboardingCompleted = true; // Auto-complete onboarding for founder
+  userObj.isVerified = true;
+  userObj.onboardingCompleted = true;
   
-  // Extra properties for the founder to have all unlimited features
+  // Extra properties for the verified founder
   userObj.unlimitedFeatures = true;
   userObj.unlimitedOrganizations = true;
   userObj.unlimitedUsers = true;
@@ -1590,7 +1583,7 @@ async function startServer() {
             let user = localDb.getUserById(sbUser.id) || localDb.getUserByEmail(sbUser.email || '');
             if (!user) {
               const emailLower = (sbUser.email || '').toLowerCase();
-              const isFounder = FOUNDER_EMAILS.has(emailLower) || emailLower === 'sohamkharat481@gmail.com' || emailLower === 'soham@gmail.com' || emailLower === 'pordigyai@gmail.com' || emailLower.includes('founder');
+              const isFounder = isVerifiedFounderEmail(emailLower);
               
               let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
               let resolvedOrgId: string | undefined = undefined;
@@ -13659,7 +13652,31 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // PHASE 15: BILLING & LIMITS MANAGEMENT ENDPOINTS
   // =========================================================================
 
-  app.get('/api/v1/billing/subscription', (req, res) => {
+  // =========================================================================
+  // PHASE 15: DIRECT UPI BILLING, SUBSCRIPTIONS & VERIFICATION ENDPOINTS
+  // =========================================================================
+
+  const isBillingAdmin = (user: any): boolean => {
+    if (!user) return false;
+    const email = String(user.email || '').trim().toLowerCase();
+    // Only verified platform founders from the strict allowlist and platform super admins can verify customer payments
+    if (isVerifiedFounderEmail(email)) return true;
+    if (user.role === 'SUPER_ADMIN') return true;
+    return false;
+  };
+
+  // 1. Centralized UPI Configuration & Canonical Plans
+  app.get('/api/v1/billing/config', (_req, res) => {
+    const config = getUpiBillingConfig();
+    res.json({
+      success: true,
+      config,
+      plans: CANONICAL_PLANS
+    });
+  });
+
+  // 2. Authoritative Subscription & Limits Status
+  app.get('/api/v1/billing/subscription', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -13669,242 +13686,305 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const currentTier = user.tier || 'FREE';
+    const { subscription, pendingPayment, latestPayment } = await UpiPaymentService.getSubscription(orgId);
 
-    // Current usages
+    // Entitlement resolution strictly from verified founder email or persistent database subscription
+    const isFounder = isVerifiedFounderEmail(user?.email);
+    const activeTier = isFounder 
+      ? 'ENTERPRISE' 
+      : (subscription?.status === 'ACTIVE' ? subscription.plan : (user.tier && user.tier !== 'ENTERPRISE' ? user.tier : 'STARTER'));
+    const canonicalPlanId = normalizePlanId(activeTier);
+    const planConfig = CANONICAL_PLANS[canonicalPlanId] || CANONICAL_PLANS.FREE_TRIAL;
+
+    // Real-time usage counts
     const currentLeadsCount = leads.filter(l => l.organizationId === orgId).length;
     const currentCampaignsCount = localDb.getOutreachCampaigns(orgId).length;
     const currentTeamMembersCount = serverTeamMembers.filter(m => (m as any).organizationId === orgId).length;
     const currentMeetingsCount = appointments.filter(a => (a as any).organizationId === orgId).length;
     const currentCallsCount = localDb.getManualCallActivities(orgId).length;
 
-    // Plan limits mapping
-    const planLimits = {
-      FREE: { leads: 10, campaigns: 1, teamMembers: 2, meetings: 2, calls: 5 },
-      STARTER: { leads: 100, campaigns: 3, teamMembers: 5, meetings: 20, calls: 50 },
-      GROWTH: { leads: 1000, campaigns: 10, teamMembers: 15, meetings: 100, calls: 500 },
-      ENTERPRISE: { leads: 999999, campaigns: 999999, teamMembers: 999999, meetings: 999999, calls: 999999 }
-    };
-
-    const limits = planLimits[currentTier as keyof typeof planLimits] || planLimits.FREE;
-
-    const paymentHistory = Array.from(pendingOrders.values())
-      .filter(o => o.userId === user.id && o.status === 'SUCCESS')
-      .map((o, idx) => ({
-        id: `inv_sp_${idx}_${Date.now()}`,
-        date: new Date().toLocaleDateString(),
-        amount: `Rs. ${o.valueInr} INR`,
-        plan: o.tier,
-        status: 'PAID'
-      }));
+    // Subscription status
+    let currentStatus: 'ACTIVE' | 'PENDING_VERIFICATION' | 'EXPIRED' | 'CANCELLED' = 'ACTIVE';
+    if (isFounder) {
+      currentStatus = 'ACTIVE';
+    } else if (pendingPayment) {
+      currentStatus = 'PENDING_VERIFICATION';
+    } else if (subscription) {
+      currentStatus = subscription.status;
+    } else {
+      currentStatus = user.tier && user.tier !== 'FREE_TRIAL' ? 'ACTIVE' : 'ACTIVE';
+    }
 
     res.json({
       success: true,
-      currentTier,
-      status: 'ACTIVE',
-      renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      usage: {
-        leads: { current: currentLeadsCount, max: limits.leads },
-        campaigns: { current: currentCampaignsCount, max: limits.campaigns },
-        teamMembers: { current: currentTeamMembersCount, max: limits.teamMembers },
-        meetings: { current: currentMeetingsCount, max: limits.meetings },
-        calls: { current: currentCallsCount, max: limits.calls }
+      currentTier: canonicalPlanId,
+      status: currentStatus,
+      isFounder,
+      subscription: subscription || {
+        plan: canonicalPlanId,
+        billing_cycle: 'monthly',
+        status: currentStatus,
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       },
-      paymentHistory
+      pendingPayment: pendingPayment ? {
+        id: pendingPayment.id,
+        plan: pendingPayment.plan,
+        billingCycle: pendingPayment.billing_cycle,
+        amount: pendingPayment.amount,
+        utr: pendingPayment.utr,
+        submittedAt: pendingPayment.submitted_at,
+        paymentStatus: pendingPayment.payment_status
+      } : null,
+      latestPayment,
+      renewalDate: subscription?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      usage: {
+        leads: { current: currentLeadsCount, max: planConfig.limits.leads },
+        campaigns: { current: currentCampaignsCount, max: planConfig.limits.campaigns },
+        teamMembers: { current: currentTeamMembersCount, max: planConfig.limits.teamMembers },
+        meetings: { current: currentMeetingsCount, max: planConfig.limits.meetings },
+        calls: { current: currentCallsCount, max: planConfig.limits.calls },
+        aiOutreach: { current: 0, max: planConfig.limits.aiOutreach }
+      }
     });
   });
 
+  // 3. Initiate Checkout: Server calculates canonical amount & generates UPI intent
+  app.post('/api/v1/billing/checkout/initiate', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { plan, billingCycle } = req.body;
+    if (!plan) {
+      return res.status(400).json({ error: 'Plan is required.' });
+    }
+
+    // Server-authoritative price calculation (Never trust client amount)
+    const pricing = calculateCanonicalPayablePrice(plan, billingCycle);
+    const upiConfig = getUpiBillingConfig();
+    const paymentNote = `SalesPilot ${pricing.planId} (${pricing.billingCycle})`;
+
+    const upiIntentUri = generateUpiIntentUri({
+      upiId: upiConfig.upiId,
+      businessName: upiConfig.businessName,
+      amount: pricing.totalAmount,
+      note: paymentNote
+    });
+
+    res.json({
+      success: true,
+      checkout: {
+        plan: pricing.planId,
+        billingCycle: pricing.billingCycle,
+        baseAmount: pricing.baseAmount,
+        gstRate: pricing.gstRate,
+        gstAmount: pricing.gstAmount,
+        totalAmount: pricing.totalAmount,
+        currency: 'INR',
+        upiId: upiConfig.upiId,
+        businessName: upiConfig.businessName,
+        qrImage: upiConfig.qrImage,
+        upiIntentUri,
+        note: paymentNote
+      }
+    });
+  });
+
+  // 4. Submit Payment with UTR for Verification
+  app.post('/api/v1/billing/payment/submit', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const { plan, billingCycle, utr, paymentDateTime, notes } = req.body;
+    if (!utr) {
+      return res.status(400).json({ error: 'UTR / Transaction Reference ID is required.' });
+    }
+
+    const org = localDb.getOrganizationById(orgId);
+
+    const submissionResult = await UpiPaymentService.submitPayment({
+      organizationId: orgId,
+      userId: user.id,
+      plan: plan || 'STARTER',
+      billingCycle: billingCycle || 'monthly',
+      utr,
+      paymentDateTime,
+      notes,
+      customerName: user.fullName || user.email || 'Customer',
+      customerEmail: user.email || ''
+    });
+
+    if (!submissionResult.success) {
+      return res.status(400).json({ error: submissionResult.error });
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment submitted successfully for verification. An administrator will review your UTR.',
+      payment: submissionResult.payment
+    });
+  });
+
+  // 5. Customer Payments List (Strictly organization-scoped)
+  app.get('/api/v1/billing/payments', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const payments = await UpiPaymentService.getPaymentsForOrg(orgId);
+    res.json({ success: true, payments });
+  });
+
+  // 6. Customer Invoices List (Strictly organization-scoped)
+  app.get('/api/v1/billing/invoices', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const invoices = await UpiPaymentService.getInvoices(orgId);
+    res.json({ success: true, invoices });
+  });
+
+  // 7. Cancel Subscription
   app.post('/api/v1/billing/cancel', (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
+    const { orgId } = resolveVerifiedOrganizationId(req, user);
 
     const targetUser = serverUsers.find(u => u.id === user.id) || localDb.getUserById(user.id) || user;
-    targetUser.tier = 'FREE';
+    targetUser.tier = 'FREE_TRIAL';
     try { localDb.saveUser(targetUser as any); } catch (_) {}
+
+    if (orgId) {
+      const sub = localDb.getSubscriptionByOrgId(orgId);
+      if (sub) {
+        sub.status = 'CANCELLED';
+        localDb.saveSubscription(sub);
+      }
+    }
 
     saveDb();
     res.json({
       success: true,
-      message: 'Subscription successfully cancelled. Your account tier has been set back to Free.',
+      message: 'Subscription successfully cancelled. Your account tier has been reset.',
       updated_user: targetUser
     });
   });
 
-  app.post('/api/v1/billing/upgrade', (req, res) => {
+  // 8. Admin: Get all Pending Payments
+  app.get('/api/v1/billing/admin/pending-payments', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
-
-    const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
-    if (isProductionRuntime) {
-      return res.status(403).json({ error: 'Forbidden. Direct subscription upgrades are disabled in production. Please complete the secure checkout flow.' });
+    if (!isBillingAdmin(user)) {
+      return res.status(403).json({ error: 'Forbidden. Admin privileges required.' });
     }
 
-    const { tier } = req.body;
-    if (!tier) {
-      return res.status(400).json({ error: 'Target tier name is required.' });
+    const pending = await UpiPaymentService.getAllPendingPayments();
+    // Enrich with customer details
+    const enriched = pending.map(p => {
+      const org = localDb.getOrganizationById(p.organization_id);
+      const usr = localDb.getUserById(p.user_id);
+      return {
+        ...p,
+        organizationName: org?.name || p.organization_name || p.organization_id,
+        customerName: usr?.fullName || p.customer_name || 'Customer',
+        customerEmail: usr?.email || p.customer_email || ''
+      };
+    });
+
+    res.json({ success: true, pendingPayments: enriched });
+  });
+
+  // 9. Admin: Approve Payment
+  app.post('/api/v1/billing/admin/payment/verify', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    if (!isBillingAdmin(user)) {
+      return res.status(403).json({ error: 'Forbidden. Admin privileges required to verify payments.' });
     }
 
-    const targetUser = serverUsers.find(u => u.id === user.id) || localDb.getUserById(user.id) || user;
-    targetUser.tier = tier;
-    try { localDb.saveUser(targetUser as any); } catch (_) {}
+    const { paymentId } = req.body;
+    if (!paymentId) {
+      return res.status(400).json({ error: 'paymentId is required.' });
+    }
+
+    const result = await UpiPaymentService.approvePayment(paymentId, user.id);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
 
     saveDb();
     res.json({
       success: true,
-      message: `Your workspace subscription has been upgraded to ${tier}!`,
-      updated_user: targetUser
+      message: 'Payment verified successfully and workspace subscription activated.',
+      payment: result.payment,
+      subscription: result.subscription,
+      invoice: result.invoice
     });
   });
 
-  // Cashfree INR Billing Simulation & Production Architecture Setup
-  // In-memory mapping of orders to avoid relying on frontend status
-  const pendingOrders = new Map<string, { userId: string; tier: SubscriptionTier; valueInr: number; status: string }>();
-
-  app.post('/api/v1/payments/create-order', (req, res) => {
+  // 10. Admin: Reject Payment
+  app.post('/api/v1/billing/admin/reject-payment', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
-
-    const { tier, valueInr } = req.body;
-    if (!tier || !valueInr) {
-      res.status(400).json({ error: 'Tier name and amount are required.' });
-      return;
+    if (!isBillingAdmin(user)) {
+      return res.status(403).json({ error: 'Forbidden. Admin privileges required.' });
     }
 
-    const orderId = `order_sp_${tier}_${Date.now()}`;
-    
-    // In Cashfree API, we post to: https://api.cashfree.com/pg/orders
-    // and receive a response containing session_id and payment_link.
-    const cashfreeEnvelope = {
-      cf_order_id: Math.floor(Math.random() * 1000000),
-      order_id: orderId,
-      order_amount: valueInr,
-      order_currency: 'INR',
-      order_status: 'ACTIVE',
-      payment_session_id: `session_cf_sp_${Math.random().toString(36).substring(7)}`,
-      payment_link: `https://test.cashfree.com/billpay/checkout/link/${Math.random().toString(36).substring(5)}`,
-      customer_details: {
-        customer_id: user.id,
-        customer_name: user.fullName || 'Workspace User',
-        customer_email: user.email,
-        customer_phone: user.phone || '+919999999999'
-      },
-      order_meta: {
-        return_url: `${req.headers.origin || 'http://localhost:3000'}/billing?order_id={order_id}`,
-        notify_url: `${req.headers.origin || 'http://localhost:3000'}/api/v1/payments/webhook`
-      },
-      created_at: new Date().toISOString()
-    };
+    const { paymentId, rejectionReason } = req.body;
+    if (!paymentId) {
+      return res.status(400).json({ error: 'paymentId is required.' });
+    }
 
-    // Store in backend pending orders list
-    pendingOrders.set(orderId, { userId: user.id, tier: tier as SubscriptionTier, valueInr, status: 'PENDING' });
+    const result = await UpiPaymentService.rejectPayment(paymentId, user.id, rejectionReason);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
 
-    console.log(`[PAYMENT] [Cashfree PG] Generated order ${orderId} for Rs.${valueInr} INR (Tier: ${tier})`);
+    saveDb();
     res.json({
       success: true,
-      message: 'Cashfree order session successfully provisioned.',
-      order_id: orderId,
-      cashfreeResponse: cashfreeEnvelope
+      message: 'Payment has been rejected.',
+      payment: result.payment
     });
   });
 
-  app.post('/api/v1/payments/verify-payment', (req, res) => {
-    const user = getAuthenticatedUser(req);
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
-    }
-
-    const { order_id } = req.body;
-    if (!order_id) {
-      res.status(400).json({ error: 'order_id is required' });
-      return;
-    }
-
-    // Retrieve order details securely from backend pendingOrders
-    const order = pendingOrders.get(order_id);
-    if (!order) {
-      res.status(404).json({ error: 'Order context not found on server.' });
-      return;
-    }
-
-    // Update system user tier securely based on checked order details
-    const finalTier = order.tier;
-    const targetUser = serverUsers.find(u => u.id === order.userId) || localDb.getUserById(order.userId) || user;
-    targetUser.tier = finalTier;
-    try { localDb.saveUser(targetUser as any); } catch (_) {}
-    order.status = 'SUCCESS';
-
-    console.log(`[SECURE] [Cashfree PG Verification] Securely verified payment for order ${order_id}. Upgraded to tier ${finalTier}`);
-
-    res.json({
-      success: true,
-      order_id,
-      payment_status: 'SUCCESS',
-      transaction_id: `tx_sp_verified_${Date.now()}`,
-      updated_user: targetUser
+  // 11. Deprecated Cashfree Endpoints
+  app.all(['/api/v1/payments/create-order', '/api/v1/payments/verify-payment', '/api/v1/payments/webhook'], (_req, res) => {
+    res.status(410).json({
+      error: 'Gone. Cashfree payment gateway integration has been deprecated and replaced with Direct UPI QR Scan & Pay.',
+      checkoutEndpoint: '/api/v1/billing/checkout/initiate',
+      submitEndpoint: '/api/v1/billing/payment/submit'
     });
-  });
-
-  // Real-time production webhook handler
-  app.post('/api/v1/payments/webhook', (req, res) => {
-    const signature = req.headers['x-webhook-signature'] || req.headers['x-signature'] || req.body.signature;
-    const secretKey = process.env.CASHFREE_SECRET_KEY || 'salespilot_cf_dev_secret_key';
-    
-    // Support either standard nested format or flat format
-    const payload = req.body;
-    let orderId = payload.data?.order?.order_id || payload.order_id || payload.orderId;
-    let paymentStatus = payload.data?.payment?.payment_status || payload.payment_status || payload.tx_status || 'SUCCESS';
-    let transactionId = payload.data?.payment?.cf_payment_id || payload.referenceId || `cf_tx_web_${Date.now()}`;
-    
-    console.log(`[INBOX] [Cashfree Webhook Received] Order: ${orderId}, Status: ${paymentStatus}`);
-
-    // Signature Verification (Never trust frontend status!)
-    if (signature) {
-      const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
-      const computed = crypto
-        .createHmac('sha256', secretKey)
-        .update(payloadString)
-        .digest('base64');
-      
-      if (computed !== signature) {
-        console.warn(`[ERROR] [Cashfree Webhook Security Alert] Webhook signature mismatch! Rejecting.`);
-        res.status(400).json({ error: 'Signature mismatch' });
-        return;
-      }
-      console.log(`[SECURE] [Cashfree Webhook Security] Signature verified successfully.`);
-    } else {
-      console.log(`[WARN] [Cashfree Webhook Demo] Signature header omitted. Proceeding under sandbox/demo mode.`);
-    }
-
-    if (!orderId) {
-      res.status(400).json({ error: 'order_id missing in webhook payload' });
-      return;
-    }
-
-    // Securely update status based on webhook payment state
-    const order = pendingOrders.get(orderId);
-    if (order) {
-      order.status = paymentStatus;
-      if (paymentStatus === 'SUCCESS') {
-        const targetUser = serverUsers.find(u => u.id === order.userId) || localDb.getUserById(order.userId);
-        if (targetUser) {
-          targetUser.tier = order.tier;
-          try { localDb.saveUser(targetUser as any); } catch (_) {}
-        }
-        console.log(`[FAST] [Cashfree Webhook Success] Activated tier ${order.tier} for workspace.`);
-      } else {
-        console.log(`[WARN] [Cashfree Webhook Status] Transaction updated to status: ${paymentStatus}`);
-      }
-    } else {
-      console.warn(`[WARN] [Cashfree Webhook Warning] Webhook received for untracked order ${orderId}. Defaulting update.`);
-    }
-
-    res.json({ status: 'ACCEPTED', order_id: orderId });
   });
 
   // Save Credentials (Supabase, Gemini, n8n webhook) & Plugin states
@@ -13918,13 +13998,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   app.post('/api/v1/integrations', (req, res) => {
-    const { supabaseUrl, supabaseAnonKey, geminiApiKey, n8nWebhookUrl, cashfreeAppId } = req.body;
+    const { supabaseUrl, supabaseAnonKey, geminiApiKey, n8nWebhookUrl } = req.body;
     
     if (supabaseUrl !== undefined) integrations.supabaseUrl = supabaseUrl;
     if (supabaseAnonKey !== undefined) integrations.supabaseAnonKey = supabaseAnonKey;
     if (geminiApiKey !== undefined) integrations.geminiApiKey = geminiApiKey;
     if (n8nWebhookUrl !== undefined) integrations.n8nWebhookUrl = n8nWebhookUrl;
-    if (cashfreeAppId !== undefined) integrations.cashfreeAppId = cashfreeAppId;
 
     // Keep plugin credentials in sync too
     if (geminiApiKey !== undefined) {
@@ -13936,11 +14015,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       if (!pluginCredentials.n8n) pluginCredentials.n8n = {};
       pluginCredentials.n8n.webhookRootUrl = n8nWebhookUrl;
       integrationStatuses.n8n.status = n8nWebhookUrl ? 'CONNECTED' : 'DISCONNECTED';
-    }
-    if (cashfreeAppId !== undefined) {
-      if (!pluginCredentials.cashfree) pluginCredentials.cashfree = {};
-      pluginCredentials.cashfree.appId = cashfreeAppId;
-      integrationStatuses.cashfree.status = cashfreeAppId ? 'SANDBOX' : 'DISCONNECTED';
     }
 
     res.json({ success: true, integrations, pluginCredentials, integrationStatuses: Object.values(integrationStatuses) });

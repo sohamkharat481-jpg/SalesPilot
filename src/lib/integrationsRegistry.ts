@@ -419,38 +419,38 @@ export const INTEGRATION_PLUGINS: IntegrationPlugin[] = [
 
   // --- PAYMENTS ---
   {
-    id: 'cashfree',
-    name: 'Cashfree Payments',
+    id: 'upi',
+    name: 'Direct UPI QR Payments',
     category: 'Payments',
-    description: 'GST-compliant Indian checkout gateway. Collect subscription fees in Indian Rupees (INR) with ease.',
-    iconName: 'CreditCard',
+    description: 'Direct Scan & Pay UPI payment pipeline. Collect subscription payments in INR directly into your verified bank account.',
+    iconName: 'QrCode',
     authType: 'API_KEY',
     authFields: [
       {
-        key: 'appId',
-        label: 'Cashfree App ID (Merchant Identifier)',
+        key: 'upiId',
+        label: 'Business UPI ID / VPA',
         type: 'text',
-        placeholder: 'TEST817293817a92...',
+        placeholder: 'sohamkharat85@oksbi',
         required: true,
-        helpText: 'Acquire App ID from Cashfree Merchant Dashboard under API Keys.'
+        helpText: 'Primary Virtual Payment Address (VPA) for receiving direct customer payments.'
       },
       {
-        key: 'secretKey',
-        label: 'Cashfree Secret Key',
-        type: 'password',
-        placeholder: 'cf_secret_xxxxxxxxxxxxxxxxxxxxxxxx',
+        key: 'businessName',
+        label: 'Registered Business / Merchant Name',
+        type: 'text',
+        placeholder: 'SalesPilot CRM Technologies',
         required: true
       },
       {
-        key: 'environment',
-        label: 'Environment (TEST or PROD)',
+        key: 'qrImage',
+        label: 'Custom QR Code Image URL (Optional)',
         type: 'text',
-        placeholder: 'TEST',
-        required: true,
-        helpText: 'Specify TEST for Sandbox debugging, or PROD for active credit card payments.'
+        placeholder: 'https://...',
+        required: false,
+        helpText: 'Leave empty to automatically generate dynamic NPCI-compliant QR codes for each transaction.'
       }
     ],
-    defaultUsageLimit: 100000,
+    defaultUsageLimit: 1000000,
     usageUnit: 'INR Volume'
   },
 

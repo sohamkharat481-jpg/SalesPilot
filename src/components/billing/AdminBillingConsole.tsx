@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   TrendingUp, Users, CreditCard, ShieldCheck, Plus, Trash2, Edit2, 
   Check, X, RefreshCw, Sparkles, Receipt, Database, Download, Mail, 
-  Search, Sliders, Play, Pause, AlertTriangle, ArrowUpRight, Percent, Calendar
+  Search, Sliders, Play, Pause, AlertTriangle, ArrowUpRight, Percent, Calendar,
+  QrCode, Copy, CheckCircle2, Clock
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -39,7 +40,86 @@ interface ClientSubscription {
 }
 
 export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: AdminBillingConsoleProps) {
-  const [activeTab, setActiveTab] = useState<'metrics' | 'plans' | 'coupons' | 'subscriptions' | 'invoices'>('metrics');
+  const [activeTab, setActiveTab] = useState<'pending-payments' | 'metrics' | 'plans' | 'coupons' | 'subscriptions' | 'invoices'>('pending-payments');
+
+  // Pending Payments from customers awaiting verification
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Fetch pending payments
+  const fetchPendingPayments = async () => {
+    setLoadingPayments(true);
+    try {
+      const res = await fetch('/api/v1/billing/admin/pending-payments');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.pendingPayments)) {
+        setPendingPayments(data.pendingPayments);
+      }
+    } catch (err) {
+      console.error('Failed to load pending payments', err);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingPayments();
+  }, [activeTab]);
+
+  // Approve Payment
+  const handleApprovePayment = async (paymentId: string) => {
+    setActionLoadingId(paymentId);
+    try {
+      const res = await fetch('/api/v1/billing/admin/payment/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
+        onLogMessage(`Payment Verified: Approved payment ${paymentId} (${data.payment?.plan}). Subscription active!`, 'success');
+        if (data.invoice) {
+          setInvoices(prev => [data.invoice, ...prev]);
+        }
+      } else {
+        onLogMessage(`Approval Failed: ${data.error}`, 'warn');
+      }
+    } catch (err: any) {
+      onLogMessage(`Network error during approval: ${err.message}`, 'warn');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Reject Payment
+  const handleRejectPayment = async () => {
+    if (!rejectModalPayment) return;
+    setActionLoadingId(rejectModalPayment.id);
+    try {
+      const res = await fetch('/api/v1/billing/admin/reject-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId: rejectModalPayment.id, rejectionReason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPendingPayments(prev => prev.filter(p => p.id !== rejectModalPayment.id));
+        onLogMessage(`Payment Rejected: Payment ${rejectModalPayment.id} marked as rejected.`, 'info');
+        setRejectModalPayment(null);
+        setRejectionReason('');
+      } else {
+        onLogMessage(`Rejection Failed: ${data.error}`, 'warn');
+      }
+    } catch (err: any) {
+      onLogMessage(`Network error during rejection: ${err.message}`, 'warn');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   // Local Admin Plans State
   const [plans, setPlans] = useState<AdminPlan[]>([
@@ -77,32 +157,35 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
   // Search filter
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 1. Core Revenue Calculations
+  // 1. Core Revenue Calculations (Authoritative)
   const metrics = useMemo(() => {
-    // Basic summation of MRR based on active tiers
+    // This now relies on authoritative subscription and payment data fetched via API
+    // Placeholder to indicate metric loading or real-time sync with backend
+    
+    // As the console is Admin-facing and intended for real-time production view,
+    // we would ideally fetch this via a new endpoint GET /api/v1/billing/admin/revenue-metrics
+    // For now, we will perform a safe client-side calculation from authoritative payment records
+    
+    const activePaidSubscriptions = clients.filter(c => c.status === 'ACTIVE' && c.tier !== 'FREE_TRIAL');
+    
     let mrrSum = 0;
-    let inactiveCount = 1240;
-    let activeCount = 845;
-    let cancelledCount = 142;
-
-    clients.forEach(c => {
-      if (c.status === 'ACTIVE') {
-        const plan = plans.find(p => p.id === c.tier);
-        if (plan) {
-          const monthlyEquivalent = c.billingCycle === 'annual' ? plan.annualPrice / 12 : plan.monthlyPrice;
-          mrrSum += monthlyEquivalent;
-        }
+    activePaidSubscriptions.forEach(c => {
+      const plan = plans.find(p => p.id === c.tier);
+      if (plan) {
+        const monthlyEquivalent = c.billingCycle === 'annual' ? plan.annualPrice / 12 : plan.monthlyPrice;
+        mrrSum += monthlyEquivalent;
       }
     });
 
-    const calculatedMrr = mrrSum + 245000; // adding baseline dummy MRR for high-fidelity values
-    const arr = calculatedMrr * 12;
-    const churn = 2.4;
-
+    const arr = mrrSum * 12;
+    const activeCount = activePaidSubscriptions.length;
+    const inactiveCount = clients.filter(c => c.status !== 'ACTIVE').length;
+    const cancelledCount = clients.filter(c => c.status === 'CANCELLED').length;
+    
     return {
-      mrr: calculatedMrr,
+      mrr: mrrSum,
       arr,
-      churn,
+      churn: 'N/A — insufficient historical data',
       inactiveCount,
       activeCount,
       cancelledCount
@@ -111,12 +194,12 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
 
   // Chart data
   const revenueTrendData = [
-    { month: 'Jan', MRR: 420000, ARR: 5040000 },
-    { month: 'Feb', MRR: 460000, ARR: 5520000 },
-    { month: 'Mar', MRR: 510000, ARR: 6120000 },
-    { month: 'Apr', MRR: 535000, ARR: 6420000 },
-    { month: 'May', MRR: 560000, ARR: 6720000 },
-    { month: 'Jun', MRR: 584000, ARR: 7008000 }
+    { month: 'Jan', MRR: 0, ARR: 0 },
+    { month: 'Feb', MRR: 0, ARR: 0 },
+    { month: 'Mar', MRR: 0, ARR: 0 },
+    { month: 'Apr', MRR: 0, ARR: 0 },
+    { month: 'May', MRR: 0, ARR: 0 },
+    { month: 'Jun', MRR: metrics.mrr, ARR: metrics.arr }
   ];
 
   const userDistributionData = [
@@ -265,6 +348,7 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
 
         <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
           {[
+            { id: 'pending-payments', label: 'Pending Payments', badge: pendingPayments.length },
             { id: 'metrics', label: 'Revenue Hub' },
             { id: 'plans', label: 'Manage Plans' },
             { id: 'coupons', label: 'Coupons' },
@@ -274,17 +358,194 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === tab.id 
                   ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs' 
                   : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-350'
               }`}
             >
               {tab.label}
+              {typeof tab.badge === 'number' && tab.badge > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500 text-white font-bold animate-pulse">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
+
+      {/* PENDING PAYMENTS TAB */}
+      {activeTab === 'pending-payments' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" /> Pending UPI Customer Submissions
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Verify customer-submitted 12-digit UTR references against your bank credits. Approving instantly activates plan entitlements.
+              </p>
+            </div>
+            <button
+              onClick={fetchPendingPayments}
+              disabled={loadingPayments}
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold text-slate-700 dark:text-slate-300 rounded-lg flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingPayments ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+
+          {loadingPayments ? (
+            <div className="p-12 text-center text-xs text-slate-500 flex flex-col items-center gap-2">
+              <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
+              <span>Loading payment verification queue...</span>
+            </div>
+          ) : pendingPayments.length === 0 ? (
+            <div className="p-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">No Pending Payments</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                All customer UPI submissions have been verified. New Scan & Pay transactions with UTR references will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 dark:bg-slate-950 text-slate-400 font-mono uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="py-3 px-4">Customer & Org</th>
+                      <th className="py-3 px-4">Plan & Cycle</th>
+                      <th className="py-3 px-4">Amount (Incl. GST)</th>
+                      <th className="py-3 px-4">GST</th>
+                      <th className="py-3 px-4">UTR / Ref ID</th>
+                      <th className="py-3 px-4">Payment Time</th>
+                      <th className="py-3 px-4">Submitted At</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                    {pendingPayments.map(p => {
+                      const planConfig = plans.find(plan => plan.id === p.plan);
+                      const baseAmount = planConfig ? (p.billing_cycle === 'annual' ? planConfig.annualPrice : planConfig.monthlyPrice) : 0;
+                      const gstAmount = Math.round(baseAmount * 0.18);
+                      
+                      return (
+                      <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900 dark:text-white">{p.customerName || 'Customer'}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">{p.customerEmail || p.organizationName || p.organization_id}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{p.plan}</span>
+                          <span className="text-[10px] text-slate-400 block capitalize">{p.billing_cycle || p.billingCycle || 'monthly'}</span>
+                        </td>
+                        <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                          ₹{Number(p.amount).toLocaleString('en-IN')}.00
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-400">
+                          ₹{gstAmount.toLocaleString('en-IN')}.00
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5 font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 w-fit">
+                            <span>{p.utr}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(p.utr);
+                                onLogMessage(`Copied UTR: ${p.utr}`, 'info');
+                              }}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                              title="Copy UTR"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                          {p.notes && <div className="text-[10px] text-slate-400 mt-1 italic max-w-xs">{p.notes}</div>}
+                        </td>
+                        <td className="py-3 px-4 text-[11px] text-slate-500 font-mono">
+                          {p.payment_datetime ? new Date(p.payment_datetime).toLocaleString() : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-[11px] text-slate-500 font-mono">
+                          {p.submitted_at ? new Date(p.submitted_at).toLocaleString() : 'Just now'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800/40">
+                            {p.payment_status || 'PENDING_VERIFICATION'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => handleApprovePayment(p.id)}
+                              disabled={actionLoadingId === p.id}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Approve
+                            </button>
+                            <button
+                              onClick={() => setRejectModalPayment(p)}
+                              disabled={actionLoadingId === p.id}
+                              className="px-2.5 py-1.5 bg-rose-600/10 hover:bg-rose-600 text-rose-600 hover:text-white rounded-lg font-semibold text-xs transition flex items-center gap-1 cursor-pointer disabled:opacity-50 border border-rose-500/20"
+                            >
+                              <X className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Rejection Modal */}
+          {rejectModalPayment && (
+            <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+              <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4 shadow-xl">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" /> Reject Payment Submission
+                  </h3>
+                  <button onClick={() => setRejectModalPayment(null)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Rejecting will notify the customer and leave their current subscription unchanged.
+                </p>
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-mono text-slate-400 uppercase">Reason for Rejection</label>
+                  <input
+                    type="text"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="e.g. UTR not found in bank statement, amount mismatch"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-900 dark:text-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => setRejectModalPayment(null)}
+                    className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRejectPayment}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                  >
+                    Confirm Rejection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* METRICS VIEW */}
       {activeTab === 'metrics' && (
@@ -308,7 +569,7 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
 
             <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1 shadow-xs">
               <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">CHURN RATE</span>
-              <p className="text-xl font-mono font-bold text-rose-500">2.4%</p>
+              <p className="text-xl font-mono font-bold text-rose-500">{metrics.churn}</p>
               <span className="text-[9px] text-slate-400 block font-mono">B2B Standard Target &lt; 3%</span>
             </div>
 

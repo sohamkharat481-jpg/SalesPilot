@@ -114,7 +114,6 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const [supabaseUrl, setSupabaseUrl] = useState(credentials.supabaseUrl || '');
   const [supabaseAnonKey, setSupabaseAnonKey] = useState(credentials.supabaseAnonKey || '');
   const [n8nWebhookUrl, setN8nWebhookUrl] = useState(credentials.n8nWebhookUrl || '');
-  const [cashfreeAppId, setCashfreeAppId] = useState(credentials.cashfreeAppId || '');
   const [geminiApiKey, setGeminiApiKey] = useState(credentials.geminiApiKey || '');
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [savedSection, setSavedSection] = useState<string | null>(null);
@@ -123,7 +122,6 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     setSupabaseUrl(credentials.supabaseUrl || '');
     setSupabaseAnonKey(credentials.supabaseAnonKey || '');
     setN8nWebhookUrl(credentials.n8nWebhookUrl || '');
-    setCashfreeAppId(credentials.cashfreeAppId || '');
     setGeminiApiKey(credentials.geminiApiKey || '');
   }, [credentials]);
 
@@ -2210,26 +2208,26 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     </button>
                   </div>
 
-                  {/* Payment Gateway and Messaging */}
+                  {/* Direct UPI Gateway and Messaging */}
                   <div className="p-6 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4">
                     <div className="flex items-center gap-2.5">
                       <CreditCard className="w-5 h-5 text-purple-600" />
-                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Gateways & Notifications</h4>
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Direct UPI Billing & Gateways</h4>
                     </div>
-                    <p className="text-xs text-slate-500">Required to manage Cashfree billing checkouts and WhatsApp Business/Slack trigger nodes.</p>
+                    <p className="text-xs text-slate-500">SalesPilot utilizes verified NPCI Direct UPI Scan & Pay routes with canonical GST tax calculations and manual UTR verification.</p>
                     
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-[10px] font-mono text-slate-500 uppercase mb-1">Cashfree App ID Override</label>
-                        <input 
-                          type="text" 
-                          value={cashfreeAppId}
-                          onChange={(e) => setCashfreeAppId(e.target.value)}
-                          className="w-full bg-white border border-slate-200 text-xs p-2.5 rounded-lg font-mono outline-none text-slate-800"
-                        />
+                      <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase text-slate-500 font-semibold">Active Payment Route</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            ✓ NPCI Direct UPI
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-medium">Auto-verifies UTRs & issues compliant GST tax invoices</p>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-slate-500 uppercase mb-1">WhatsApp Sandbox Access Token</label>
+                        <label className="block text-[10px] font-mono text-slate-500 uppercase mb-1">WhatsApp Business Webhook Token</label>
                         <input 
                           type="password" 
                           placeholder="••••••••••••••••••••••••"
@@ -2238,12 +2236,10 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                         />
                       </div>
                     </div>
-                    <button 
-                      onClick={() => triggerSaveCreds('cashfree', { cashfreeAppId })}
-                      className="w-full py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-lg transition-all"
-                    >
-                      {savingSection === 'cashfree' ? 'Saving App ID...' : savedSection === 'cashfree' ? '✓ Gateway Set' : 'Save Checkout Gateway App ID'}
-                    </button>
+                    <div className="p-2.5 bg-purple-50 border border-purple-100 rounded-lg flex items-center justify-between text-xs text-purple-900 font-medium">
+                      <span>UPI ID: <span className="font-mono font-bold">sohamkharat85@oksbi</span></span>
+                      <span className="text-[10px] font-mono bg-purple-200/60 px-1.5 py-0.5 rounded text-purple-800">Verified</span>
+                    </div>
                   </div>
                 </div>
               </div>

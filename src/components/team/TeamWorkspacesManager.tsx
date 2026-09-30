@@ -16,6 +16,7 @@ import {
   Lock
 } from 'lucide-react';
 import { WorkspaceMember, WorkspaceRole } from '../../types/team-collaboration';
+import { isVerifiedFounderEmail } from '../../security/founderAllowlist';
 
 interface TeamWorkspacesManagerProps {
   user: any;
@@ -53,10 +54,7 @@ export const TeamWorkspacesManager: React.FC<TeamWorkspacesManagerProps> = ({
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   const isFounder = Boolean(
-    user?.isFounder || 
-    user?.role === 'SUPER_ADMIN' || 
-    user?.role === 'OWNER' ||
-    user?.email?.toLowerCase().includes('soham')
+    user && isVerifiedFounderEmail(user.email)
   );
 
   const handleOrgSubmit = (e: React.FormEvent) => {

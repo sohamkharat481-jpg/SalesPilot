@@ -14,7 +14,8 @@ export interface Invoice {
   state: string;
   gstin: string;
   paymentMethod: string;
-  cashfreeRef: string;
+  paymentReference: string;
+  cashfreeRef?: string;
   status: 'PAID' | 'REFUNDED' | 'FAILED';
 }
 
@@ -44,7 +45,7 @@ export function InvoicesSection({
     csv += `"Invoice Number","${inv.invoiceNumber}"\n`;
     csv += `"Billing Date","${inv.date}"\n`;
     csv += `"Payment Method","${inv.paymentMethod}"\n`;
-    csv += `"Cashfree Transaction ID","${inv.cashfreeRef}"\n`;
+    csv += `"Transaction Reference / UTR","${inv.paymentReference || inv.cashfreeRef || 'VERIFIED'}"\n`;
     csv += `"Taxable Base Amount","₹${inv.baseAmount.toLocaleString('en-IN')}"\n`;
     csv += `"Discounts Applied","₹${inv.discount.toLocaleString('en-IN')}"\n`;
     csv += `"GST (18% On Taxable)","₹${inv.gstAmount.toLocaleString('en-IN')}"\n`;
@@ -205,9 +206,9 @@ export function InvoicesSection({
                 <div className="space-y-1.5 text-right">
                   <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest block">PAYMENT REFERENCE:</span>
                   <p className="text-slate-500">
-                    SaaS Gateway Channel: <strong>Cashfree PG Subscriptions</strong><br />
-                    PG Order reference: <span className="font-mono text-slate-800">{selectedInvoice.id}</span><br />
-                    Payment Reference hash: <span className="font-mono text-slate-600 text-[10px]">{selectedInvoice.cashfreeRef}</span>
+                    SaaS Gateway Channel: <strong>Direct UPI QR Transfer</strong><br />
+                    Payment Method: <span className="font-mono text-slate-800">{selectedInvoice.paymentMethod}</span><br />
+                    Bank Reference / UTR: <span className="font-mono text-slate-600 text-[10px]">{selectedInvoice.paymentReference || selectedInvoice.cashfreeRef || 'VERIFIED'}</span>
                   </p>
                 </div>
               </div>
@@ -282,8 +283,8 @@ export function InvoicesSection({
                   <p className="text-slate-500 uppercase leading-normal">COMPLIANT WITH THE INTEGRATED GOODS AND SERVICES TAX ACT, 2017</p>
                 </div>
                 <div className="text-right flex flex-col items-end">
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded">SECURE PAYMENT RECEIVED</span>
-                  <span className="mt-1">Generated via Cashfree Subscriptions API</span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded">SECURE PAYMENT VERIFIED</span>
+                  <span className="mt-1">Generated via SalesPilot Verified Direct UPI Subscriptions</span>
                 </div>
               </div>
 

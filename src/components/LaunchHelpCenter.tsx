@@ -60,8 +60,8 @@ export function LaunchHelpCenter({
       a: 'The 1-Day Free Trial provides full, unrestricted premium access to the Lead Engine, AI SDR agent writer, campaign sequences, and Google workspace integrations. No credit card or billing configuration is required to test-drive the full automation flow.'
     },
     {
-      q: 'What is Cashfree Payments and how do I authenticate?',
-      a: 'Cashfree is India\'s leading payment gateway provider. SalesPilot integrates seamlessly with Cashfree to manage subscription checkouts, custom invoices, GST reporting, and automatic plan upgrades. You can authenticate using your Cashfree App ID and secret key in the integrations menu.'
+      q: 'How do payments and plan upgrades work?',
+      a: 'SalesPilot supports direct Scan & Pay UPI transactions across Google Pay, PhonePe, Paytm, BHIM, and all bank UPI apps. Select your desired plan and billing cycle, scan the dynamic NPCI QR code to transfer the exact canonical amount, and submit your 12-digit UTR/transaction reference for instant administrative verification.'
     },
     {
       q: 'How does Astra or Vesper SDR compile prospects?',
@@ -100,8 +100,8 @@ export function LaunchHelpCenter({
       actionText: 'Next: Plan Limits & Upgrades'
     },
     {
-      title: 'Instant Cashfree Payments',
-      desc: 'Upgrade from Free Trial to Starter, Growth, or Business tiers. SalesPilot integrates directly with Cashfree to support instant, GST-compliant INR checkouts and automated monthly/yearly subscription renewing.',
+      title: 'Direct UPI QR Payments & Invoices',
+      desc: 'Upgrade from Free Trial to Starter, Growth, or Business tiers. SalesPilot supports instant, GST-compliant INR Direct UPI Scan & Pay checkouts, UTR submission, and formal tax invoice generation.',
       highlightTab: 'billing',
       actionText: 'Finish & Explore'
     }
@@ -587,7 +587,7 @@ export function LaunchHelpCenter({
                             className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
                           >
                             <option value="technical">Lead Scraper Spider</option>
-                            <option value="billing">Cashfree Checkout</option>
+                            <option value="billing">Direct UPI & Billing</option>
                             <option value="gmail">Gmail OAuth Token</option>
                             <option value="agents">AI SDR Orchestration</option>
                           </select>

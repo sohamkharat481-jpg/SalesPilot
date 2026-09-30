@@ -178,7 +178,7 @@ export function SubscriptionsSection({
               <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
               <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <span className="font-semibold text-slate-800 dark:text-slate-300 block">INR Compliance Guarantee</span>
-                <p className="leading-relaxed">Renewals comply with RBI mandated e-mandate directives for Cashfree subscriptions. You will receive notification mailers 24 hours prior to each debit charge.</p>
+                <p className="leading-relaxed">All subscriptions are powered by direct NPCI-compliant UPI payments and human verified settlements. You will receive renewal alerts before each cycle expiration.</p>
               </div>
             </div>
           </div>

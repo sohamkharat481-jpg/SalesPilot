@@ -3,7 +3,7 @@
  * Represents the domain entities for the SaaS sales automation system.
  */
 
-export type SubscriptionTier = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY';
+export type SubscriptionTier = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY' | 'TEST_PAYMENT';
 export type UserRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'SALES' | 'VIEWER' | 'SUPER_ADMIN' | 'CLIENT';
 
 export interface Organization {

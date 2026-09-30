@@ -14,6 +14,7 @@ import {
   RefreshCw 
 } from 'lucide-react';
 import { WorkspaceMember, WorkspaceRole } from '../../types/team-collaboration';
+import { isVerifiedFounderEmail } from '../../security/founderAllowlist';
 
 interface RoleAndPermissionsMatrixProps {
   user: any;
@@ -42,10 +43,7 @@ export const RoleAndPermissionsMatrix: React.FC<RoleAndPermissionsMatrixProps> =
   const categories = ['ALL', 'CRM', 'CAMPAIGN', 'WORKFLOW', 'TEAM', 'SETTINGS'];
 
   const isFounder = Boolean(
-    user?.isFounder || 
-    user?.role === 'SUPER_ADMIN' || 
-    user?.role === 'OWNER' ||
-    user?.email?.toLowerCase().includes('soham')
+    user && isVerifiedFounderEmail(user.email)
   );
 
   const filteredPermissions = permissionsList.filter(p => {

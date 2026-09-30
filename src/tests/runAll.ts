@@ -8,6 +8,9 @@ import { runEdesyTelephonyTestSuite } from './edesyTelephony.test';
 import { runFinalProductionVerificationTestSuite } from './finalProductionVerification.test';
 import { runMultiUserIsolationIntegrationsTestSuite } from './multiUserIsolationIntegrations.test';
 import { runGoogleCalendarWriteTestSuite } from './googleCalendarWrite.test';
+import { runUpiTestModeTestSuite } from './upiTestMode.test';
+import { runBillingAuditTestSuite } from './billingAudit.test';
+import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -114,6 +117,36 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Google Calendar Write test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 11. Phase 15: Billing & Subscription Audit Suite
+  try {
+    const res = await runBillingAuditTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Billing Audit test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 12. UPI Test Mode Suite
+  try {
+    const res = await runUpiTestModeTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('UPI Test Mode test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 13. Final Production Smoke Test Suite
+  try {
+    const res = await runFinalProductionSmokeTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Final Production Smoke test suite crashed:', err);
     totalFailed++;
   }
 

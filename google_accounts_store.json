@@ -1,4 +1,410 @@
 {
-  "calendarAccounts": [],
+  "calendarAccounts": [
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T12:51:09.860Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790769069860",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T11:51:09.860Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T11:51:09.860Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T12:51:09.860Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790769069860",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T11:51:09.860Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T12:52:43.811Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790769163811",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T11:52:43.811Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T11:52:43.811Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T12:52:43.811Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790769163811",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T11:52:43.811Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T12:58:28.393Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790769508393",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T11:58:28.393Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T11:58:28.393Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T12:58:28.393Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790769508393",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T11:58:28.393Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T12:59:32.445Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790769572445",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T11:59:32.445Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T11:59:32.445Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T12:59:32.446Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790769572445",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T11:59:32.446Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:05:40.976Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790769940976",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:05:40.976Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:05:40.976Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:05:40.976Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790769940976",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:05:40.976Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:15:49.896Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790770549896",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:15:49.896Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:15:49.896Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:15:49.896Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790770549896",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:15:49.896Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:21:55.059Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790770915059",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:21:55.059Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:21:55.059Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:21:55.059Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790770915059",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:21:55.059Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:26:05.341Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790771165341",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:26:05.341Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:26:05.341Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:26:05.341Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790771165341",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:26:05.341Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:30:08.504Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790771408503",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:30:08.504Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:30:08.504Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:30:08.504Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790771408503",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:30:08.504Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:32:18.069Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790771538069",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:32:18.069Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:32:18.069Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:32:18.070Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790771538069",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:32:18.070Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:38:02.727Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790771882727",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:38:02.727Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:38:02.727Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:38:02.727Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790771882727",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:38:02.727Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:43:16.423Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790772196423",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:43:16.423Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:43:16.423Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:43:16.423Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790772196423",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:43:16.423Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:43:21.328Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790772201328",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:43:21.328Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:43:21.328Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:43:21.328Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790772201328",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:43:21.328Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:43:41.548Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790772221548",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:43:41.548Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:43:41.548Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:43:41.548Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790772221548",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:43:41.548Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T13:48:50.975Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790772530975",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T12:48:50.975Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T12:48:50.975Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T13:48:50.975Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790772530975",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T12:48:50.975Z"
+    }
+  ],
   "gmailAccounts": []
 }

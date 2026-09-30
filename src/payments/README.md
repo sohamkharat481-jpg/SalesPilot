@@ -1,15 +1,17 @@
-# 💳 Payments Module
+# 💳 Direct UPI Payments & Subscriptions Module
 
-Coordinates Cashfree checkout integrations, order tokens generation, signature verification hashes, and webhook validation algorithms.
+Coordinates direct Scan & Pay UPI transactions, UTR submission, admin verification, and authoritative subscription entitlement management.
 
-## 📁 Directory Architecture
+## 📁 Architecture
 ```
 payments/
-├── providers/           # Billing provider wrappers (Cashfree PG)
-└── cashfree-client.ts   # Core client session initializer
+├── upiConfig.ts         # Centralized UPI ID, QR, Business Name configuration
+├── pricingConfig.ts     # Canonical server-authoritative plans, prices, limits & tax
+└── upiPaymentService.ts # Persistent database service (Supabase/PostgreSQL & LocalDB)
 ```
 
-## 🛠 Scalable Enterprise Guidelines
-- **Idempotent Webhooks**: Guard against double webhook triggers from Cashfree.
-- **Crypto Signatures**: Always verify HMAC signatures using your merchant keys before upgrading.
-- **INR Compliance**: Fully comply with Indian financial transaction flow protocols.
+## 🔐 Security & Entitlement Model
+1. **Server-Side Canonical Pricing**: Client amounts are NEVER trusted. Server resolves amount from canonical plan and billing cycle.
+2. **Direct UPI QR Flow**: Customer scans QR code or clicks UPI intent link (`upi://pay?pa=...`) and enters payment UTR.
+3. **Pending Verification**: Submissions are held in `PENDING_VERIFICATION` status until verified by an authorized admin. Subscriptions are NEVER auto-activated by user input.
+4. **Admin Approval & Activation**: Only authorized billing administrators can approve or reject payments, activating subscriptions and issuing invoices.

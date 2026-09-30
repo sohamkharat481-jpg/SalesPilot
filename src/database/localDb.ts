@@ -80,6 +80,9 @@ export interface DBStructure {
   callingNumbers?: CallingNumber[];
   followUps?: any[];
   salesPilotNotifications?: SalesPilotNotification[];
+  payments?: any[];
+  subscriptions?: any[];
+  invoices?: any[];
 }
 
 export function isValidCallStateTransition(from: CallStatus, to: CallStatus): boolean {
@@ -157,7 +160,10 @@ export class LocalDB {
     outreachMessages: [],
     outreachEvents: [],
     outreachReplies: [],
-    followUps: []
+    followUps: [],
+    payments: [],
+    subscriptions: [],
+    invoices: []
   };
 
   private supabase: SupabaseClient | null = null;
@@ -237,6 +243,9 @@ export class LocalDB {
         if (!this.db.callingNumbers) this.db.callingNumbers = [];
         if (!this.db.followUps) this.db.followUps = [];
         if (!this.db.salesPilotNotifications) this.db.salesPilotNotifications = [];
+        if (!this.db.payments) this.db.payments = [];
+        if (!this.db.subscriptions) this.db.subscriptions = [];
+        if (!this.db.invoices) this.db.invoices = [];
 
         this.ensureDefaultWorkspacesAndMemberships();
         this.runSafeLegacyDataMigration();
@@ -3586,4 +3595,75 @@ export class LocalDB {
       this.save();
     }
   }
+
+  // =========================================================================
+  // PAYMENTS, SUBSCRIPTIONS & INVOICES
+  // =========================================================================
+  public getPayments(): any[] {
+    if (!this.db.payments) this.db.payments = [];
+    return this.db.payments;
+  }
+
+  public getPaymentById(id: string): any | null {
+    return this.getPayments().find(p => p.id === id) || null;
+  }
+
+  public addPayment(payment: any): void {
+    if (!this.db.payments) this.db.payments = [];
+    const idx = this.db.payments.findIndex(p => p.id === payment.id);
+    if (idx >= 0) {
+      this.db.payments[idx] = payment;
+    } else {
+      this.db.payments.unshift(payment);
+    }
+    this.save();
+  }
+
+  public updatePayment(id: string, updates: any): any | null {
+    if (!this.db.payments) this.db.payments = [];
+    const idx = this.db.payments.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      this.db.payments[idx] = { ...this.db.payments[idx], ...updates };
+      this.save();
+      return this.db.payments[idx];
+    }
+    return null;
+  }
+
+  public getSubscriptions(): any[] {
+    if (!this.db.subscriptions) this.db.subscriptions = [];
+    return this.db.subscriptions;
+  }
+
+  public getSubscriptionByOrgId(orgId: string): any | null {
+    return this.getSubscriptions().find(s => s.organization_id === orgId) || null;
+  }
+
+  public saveSubscription(sub: any): void {
+    if (!this.db.subscriptions) this.db.subscriptions = [];
+    const idx = this.db.subscriptions.findIndex(s => s.organization_id === sub.organization_id);
+    if (idx >= 0) {
+      this.db.subscriptions[idx] = sub;
+    } else {
+      this.db.subscriptions.push(sub);
+    }
+    this.save();
+  }
+
+  public getInvoices(): any[] {
+    if (!this.db.invoices) this.db.invoices = [];
+    return this.db.invoices;
+  }
+
+  public addInvoice(invoice: any): void {
+    if (!this.db.invoices) this.db.invoices = [];
+    const idx = this.db.invoices.findIndex(i => i.id === invoice.id);
+    if (idx >= 0) {
+      this.db.invoices[idx] = invoice;
+    } else {
+      this.db.invoices.unshift(invoice);
+    }
+    this.save();
+  }
 }
+

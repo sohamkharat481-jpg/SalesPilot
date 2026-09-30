@@ -604,7 +604,7 @@ ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS created_by TEXT;
 ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- =========================================================================
--- 18. BILLING, SUBSCRIPTIONS & API KEYS
+-- 18. BILLING, SUBSCRIPTIONS, PAYMENTS & INVOICES
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS public.billing (
     id TEXT PRIMARY KEY,
@@ -626,17 +626,109 @@ ALTER TABLE public.billing ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAU
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id TEXT PRIMARY KEY,
     organization_id TEXT REFERENCES public.organizations(id) ON DELETE CASCADE,
-    stripe_subscription_id TEXT,
-    status TEXT NOT NULL DEFAULT 'ACTIVE',
+    user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    plan TEXT NOT NULL DEFAULT 'STARTER',
+    billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+    status TEXT NOT NULL DEFAULT 'PENDING_VERIFICATION',
+    current_period_start TIMESTAMPTZ DEFAULT NOW(),
     current_period_end TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS organization_id TEXT;
-ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
-ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'STARTER';
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT DEFAULT 'monthly';
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PENDING_VERIFICATION';
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ;
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Direct UPI Payments Table (Canonical source of truth for payment submissions and admin verification)
+CREATE TABLE IF NOT EXISTS public.payments (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT REFERENCES public.organizations(id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    plan TEXT NOT NULL,
+    billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+    amount NUMERIC NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'INR',
+    upi_id TEXT NOT NULL,
+    utr TEXT NOT NULL UNIQUE,
+    payment_status TEXT NOT NULL DEFAULT 'PENDING_VERIFICATION', -- 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED'
+    payment_datetime TIMESTAMPTZ DEFAULT NOW(),
+    submitted_at TIMESTAMPTZ DEFAULT NOW(),
+    verified_at TIMESTAMPTZ,
+    verified_by TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    subscription_id TEXT,
+    rejection_reason TEXT,
+    notes TEXT,
+    customer_name TEXT,
+    customer_email TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS organization_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS plan TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS billing_cycle TEXT DEFAULT 'monthly';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS amount NUMERIC;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'INR';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS upi_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS utr TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'PENDING_VERIFICATION';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_datetime TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS verified_by TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS subscription_id TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS customer_name TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS customer_email TEXT;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Authoritative Invoices Table (Generated only upon verified payments)
+CREATE TABLE IF NOT EXISTS public.invoices (
+    id TEXT PRIMARY KEY,
+    invoice_number TEXT UNIQUE NOT NULL,
+    organization_id TEXT REFERENCES public.organizations(id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    payment_id TEXT REFERENCES public.payments(id) ON DELETE CASCADE,
+    plan TEXT NOT NULL,
+    billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+    base_amount NUMERIC NOT NULL,
+    gst_amount NUMERIC NOT NULL,
+    total_amount NUMERIC NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'INR',
+    status TEXT NOT NULL DEFAULT 'PAID',
+    issued_at TIMESTAMPTZ DEFAULT NOW(),
+    paid_at TIMESTAMPTZ DEFAULT NOW(),
+    payment_method TEXT NOT NULL DEFAULT 'UPI',
+    utr TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS invoice_number TEXT;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS organization_id TEXT;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS payment_id TEXT;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS plan TEXT;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS billing_cycle TEXT DEFAULT 'monthly';
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS base_amount NUMERIC;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS gst_amount NUMERIC;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS total_amount NUMERIC;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'INR';
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PAID';
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS issued_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'UPI';
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS utr TEXT;
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 CREATE TABLE IF NOT EXISTS public.api_keys (
     id TEXT PRIMARY KEY,

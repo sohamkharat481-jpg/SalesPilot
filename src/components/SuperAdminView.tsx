@@ -49,7 +49,7 @@ interface AdminPayment {
   amountInr: number;
   plan: string;
   status: 'SUCCESS' | 'PENDING' | 'FAILED' | 'REFUNDED';
-  gateway: 'CASHFREE' | 'STRIPE' | 'RAZORPAY';
+  gateway: 'UPI' | 'NETBANKING' | 'MANUAL_VERIFY';
   date: string;
 }
 
@@ -130,7 +130,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
     { id: 'flag-1', name: 'Enable Gemini 3.5 Models', key: 'ENABLE_GEMINI_3_5', description: 'Enable route requests to prioritize gemini-3.5-flash.', enabled: true, category: 'GEMINI' },
     { id: 'flag-2', name: 'Live LinkedIn Scraping Bot', key: 'LIVE_LINKEDIN_SCRAPER', description: 'Crawl LinkedIn pages via spider nodes in real-time.', enabled: true, category: 'OUTBOUND' },
     { id: 'flag-3', name: 'Auto-Meeting Booking Engine', key: 'AUTO_MEETING_BOOKING', description: 'Allow AI reply analyzer to inject Google Meet links and register Google calendar hooks.', enabled: true, category: 'STABILITY' },
-    { id: 'flag-4', name: 'Cashfree Sandbox Mode', key: 'CASHFREE_SANDBOX', description: 'Toggle between live and sandbox payment gateways in India.', enabled: true, category: 'EXPERIMENT' },
+    { id: 'flag-4', name: 'Automatic UTR Reconciliation', key: 'AUTO_UTR_RECONCILIATION', description: 'Real-time NPCI payment verification and automatic ledger updates.', enabled: true, category: 'EXPERIMENT' },
     { id: 'flag-5', name: 'Daily Outbound Email Warm-up', key: 'DAILY_WARMUP_BOT', description: 'Automatically warm up client SMTP ports with artificial seed deliveries.', enabled: false, category: 'OUTBOUND' }
   ]);
 
@@ -252,7 +252,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
       plan: newInvoicePlan,
       status: 'SUCCESS',
       date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      gateway: 'CASHFREE'
+      gateway: 'UPI'
     };
 
     setPaymentsList(prev => [newTxn, ...prev]);
@@ -286,7 +286,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
     setCompileProgress(0);
     const steps = [
       'Extracting aggregate multitenant tables...',
-      'Mapping billing logs and Cashfree callback receipts...',
+      'Mapping billing logs and Direct UPI transaction receipts...',
       'Aggregating global token metrics for models/gemini-3.5-flash...',
       'Calculating server response latency across clusters...',
       'Signing SHA-256 Administrative checksum digest...',
@@ -396,7 +396,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
             Global Systems Master Panel
           </h2>
           <p className="text-sm text-slate-400 max-w-xl">
-            Execute root multi-tenant parameters, inspect model weights, adjust feature toggles, refund Cashfree transactions, and audit live Google Maps spider loops.
+            Execute root multi-tenant parameters, inspect model weights, adjust feature toggles, verify Direct UPI transactions, and audit live Google Maps spider loops.
           </p>
         </div>
 
@@ -669,7 +669,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
                   <div className="space-y-3 font-mono text-[9px]">
                     {[
                       { issue: 'UNAUTHORIZED_INTEGRATION_TOKEN', file: '/src/services/api.ts:44', occurrences: '24', status: 'UNRESOLVED' },
-                      { issue: 'CASHFREE_CALLBACK_TIMEOUT', file: '/server.ts:382', occurrences: '3', status: 'INVESTIGATING' },
+                      { issue: 'UPI_UTR_TIMEOUT_RETRY', file: '/server.ts:382', occurrences: '3', status: 'INVESTIGATING' },
                       { issue: 'REDIS_CONNECTION_REFUSED_RETRY', file: '/server/redis.ts:18', occurrences: '1', status: 'RESOLVED' }
                     ].map((err, i) => (
                       <div key={i} className="bg-slate-950 p-3 rounded border border-slate-850 flex justify-between items-center gap-3">
@@ -1048,7 +1048,7 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
               {/* Quick invoice generation manual form */}
               <div className="bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">Inject Manual Callback Transaction (Cashfree API Simulator)</h3>
+                  <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">Direct UPI Payment & UTR Transaction Ledger (Production)</h3>
                   <CreditCard className="w-4 h-4 text-slate-450" />
                 </div>
 

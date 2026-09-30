@@ -170,8 +170,8 @@ export function PlansSection({
       a: "Absolutely. Upgrades process instantly. Any remaining days on your existing billing cycle are computed as pro-rata credits and deducted from your new invoice automatically. Downgrades take effect at the end of your current cycle."
     },
     {
-      q: "What payment gateways are supported?",
-      a: "Through our production integration with Cashfree, we securely support UPI transactions (Google Pay, PhonePe, Paytm, BHIM), all major Credit/Debit cards (Visa, Mastercard, RuPay, Diners Club), Net Banking (65+ Indian Banks), and popular Digital Wallets."
+      q: "What payment methods are supported?",
+      a: "We support direct Scan & Pay UPI transactions across all major UPI applications (Google Pay, PhonePe, Paytm, BHIM, Cred, and bank UPI apps). Simply scan the QR code, transfer directly to our verified UPI ID, and submit your UTR / Transaction ID for admin verification."
     },
     {
       q: "What happens when I exceed my lead search or AI email limits?",
@@ -351,7 +351,19 @@ export function PlansSection({
                     <>Downgrade to {plan.name}</>
                   )}
                 </button>
-              </div>
+                {/* DEV-ONLY TEST MODE */}
+              {import.meta.env.DEV && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-[10px] text-slate-400 font-mono mb-2 uppercase">Development Only</p>
+                  <button
+                    onClick={() => onSelectPlan('TEST_PAYMENT', 1)}
+                    className="w-full py-2.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    ₹1 Test Payment
+                  </button>
+                </div>
+              )}
+            </div>
             );
           })}
         </div>

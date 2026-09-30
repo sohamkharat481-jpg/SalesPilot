@@ -2,6 +2,7 @@ import { authenticateUser, AuthenticatedRequest } from '../security/authMiddlewa
 import { OutreachWorker, OutreachWorkerContext } from '../backend/outreachWorker';
 import { OutreachQueueItem, OutreachEvent } from '../types/outreach';
 import { WorkspaceUser, UserRole } from '../types';
+import { isVerifiedFounderEmail } from '../security/founderAllowlist';
 
 declare const describe: any;
 declare const it: any;
@@ -289,16 +290,7 @@ if (typeof describe === 'function') {
   describe('5. Founder/Lifetime Enterprise Access System Verification', () => {
     it('automatically grants LIFETIME / ENTERPRISE / OWNER / unlimited access to ayesha.kashif13008@gmail.com', () => {
       const email = 'ayesha.kashif13008@gmail.com';
-      const emailLower = email.toLowerCase();
-      
-      // Simulate isFounder check
-      const isFounder = emailLower === 'sohamkharat481@gmail.com' || 
-                        emailLower === 'soham@gmail.com' || 
-                        emailLower === 'pordigyai@gmail.com' || 
-                        emailLower === 'ayesha.kashif13008@gmail.com' || 
-                        emailLower.includes('founder') || 
-                        emailLower.includes('pordigy');
-                        
+      const isFounder = isVerifiedFounderEmail(email);
       expect(isFounder).toBe(true);
 
       // Simulate user object enrichment for founder
@@ -341,15 +333,7 @@ export async function runFinalProductionVerificationTestSuite() {
 
   try {
     const email = 'ayesha.kashif13008@gmail.com';
-    const emailLower = email.toLowerCase();
-    
-    const isFounder = emailLower === 'sohamkharat481@gmail.com' || 
-                      emailLower === 'soham@gmail.com' || 
-                      emailLower === 'pordigyai@gmail.com' || 
-                      emailLower === 'ayesha.kashif13008@gmail.com' || 
-                      emailLower.includes('founder') || 
-                      emailLower.includes('pordigy');
-                      
+    const isFounder = isVerifiedFounderEmail(email);
     assert(isFounder === true, 'ayesha.kashif13008@gmail.com is recognized as founder');
 
     const userObj = {
