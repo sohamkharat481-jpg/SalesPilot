@@ -161,12 +161,23 @@ export function SchedulerView({
       const workspaceId = localStorage.getItem('salespilot_workspace_id');
       if (workspaceId) authHeaders['x-organization-id'] = workspaceId;
       const res = await fetch('/api/auth/google/url', { headers: authHeaders });
-      if (!res.ok) {
-        const errData = await res.json();
-        console.error(`[GOOGLE OAUTH] Server returned error fetching auth URL:`, errData);
-        throw new Error(errData.error || 'Failed to fetch Google Auth URL.');
+      const rawText = await res.text();
+      const contentType = res.headers.get('content-type') || 'unknown';
+      console.log(`[GOOGLE OAUTH] Raw response status: ${res.status}, Content-Type: ${contentType}`);
+      console.log(`[GOOGLE OAUTH] Raw response body (first 500 chars):`, rawText.slice(0, 500));
+
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch (jsonErr) {
+        console.error(`[GOOGLE OAUTH] Server returned non-JSON response (${res.status}):`, rawText);
+        throw new Error(`Endpoint returned non-JSON (${res.status} ${res.statusText}): ${rawText.slice(0, 200)}`);
       }
-      const data = await res.json();
+
+      if (!res.ok) {
+        console.error(`[GOOGLE OAUTH] Server returned error fetching auth URL:`, data);
+        throw new Error(data?.error || `Failed to fetch Google Auth URL (${res.status}).`);
+      }
       console.log(`[GOOGLE OAUTH] Successfully fetched auth URL:`, data.url);
       
       const width = 550;

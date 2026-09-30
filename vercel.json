@@ -8,36 +8,28 @@
   ],
   "rewrites": [
     {
-      "source": "/api/v1/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/api/v1/:path*"
-    },
-    {
-      "source": "/api/debug/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/api/debug/:path*"
-    },
-    {
-      "source": "/api/auth/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/api/auth/:path*"
+      "source": "/api/:path*",
+      "destination": "/api?path=/api/:path*"
     },
     {
       "source": "/auth/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/auth/:path*"
+      "destination": "/api?path=/auth/:path*"
     },
     {
       "source": "/gmail/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/gmail/:path*"
+      "destination": "/api?path=/gmail/:path*"
     },
     {
       "source": "/calendar/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/calendar/:path*"
+      "destination": "/api?path=/calendar/:path*"
     },
     {
       "source": "/organization/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/organization/:path*"
+      "destination": "/api?path=/organization/:path*"
     },
     {
       "source": "/team/:path*",
-      "destination": "https://ais-dev-ugqj7litatcjdhtb5soe5h-1068642749697.asia-southeast1.run.app/team/:path*"
+      "destination": "/api?path=/team/:path*"
     },
     {
       "source": "/((?!api/|auth/|gmail/|calendar/|organization/|team/|assets/|static/|favicon.ico|_next|vite.svg|.*\\..*$).*)",

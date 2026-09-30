@@ -1489,6 +1489,14 @@ async function startServer() {
       }
     }
     
+    // Additional fallback: x-matched-path header from Vercel edge proxy
+    if (!originalPath && req.headers['x-matched-path']) {
+      const matched = String(req.headers['x-matched-path']);
+      if (matched && matched !== '/api' && matched !== '/api/index' && !matched.startsWith('/index')) {
+        originalPath = matched;
+      }
+    }
+    
     if (originalPath) {
       console.log(`[ROUTING] Found Vercel rewritten path: ${originalPath}`);
       
@@ -17679,7 +17687,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           accessToken: access_token,
           refreshToken: refresh_token || '',
           scopes: scopesArr,
-          expiresAt
+          expiresAt,
+          calendarAccessVerified: true
         });
         console.log('[GOOGLE CALLBACK FLOW] Authoritative Supabase persistence succeeded.');
       } catch (pErr: any) {
@@ -18569,7 +18578,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }
 
   // GET /calendar/accounts
-  app.get('/calendar/accounts', (req, res) => {
+  app.get('/calendar/accounts', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -18577,6 +18586,53 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) {
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    try {
+      // 1. Authoritative primary source: Supabase public.google_accounts
+      const authoritativeAccount = await resolveAuthoritativeCalendarAccount({
+        organizationId: orgId,
+        userId: user.id
+      });
+
+      if (authoritativeAccount) {
+        // Sync in-memory cache
+        const existing = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
+        if (existing) {
+          existing.accessToken = authoritativeAccount.accessToken;
+          existing.refreshToken = authoritativeAccount.refreshToken || existing.refreshToken;
+          existing.expiresAt = authoritativeAccount.expiresAt;
+          existing.status = (authoritativeAccount.status === 'CONNECTED' ? 'CONNECTED' : (authoritativeAccount.status as any));
+          existing.fullName = authoritativeAccount.fullName;
+        } else {
+          calendarAccounts.push({
+            email: authoritativeAccount.email,
+            fullName: authoritativeAccount.fullName,
+            accessToken: authoritativeAccount.accessToken,
+            refreshToken: authoritativeAccount.refreshToken,
+            expiresAt: authoritativeAccount.expiresAt,
+            status: (authoritativeAccount.status === 'CONNECTED' ? 'CONNECTED' : (authoritativeAccount.status as any)),
+            createdAt: authoritativeAccount.createdAt,
+            scopes: authoritativeAccount.scopes,
+            organizationId: orgId,
+            userId: user.id
+          });
+        }
+
+        return res.json({
+          accounts: [
+            {
+              email: authoritativeAccount.email,
+              fullName: authoritativeAccount.fullName,
+              status: authoritativeAccount.status,
+              isReal: !authoritativeAccount.accessToken.startsWith('mock_'),
+              createdAt: authoritativeAccount.createdAt
+            }
+          ]
+        });
+      }
+    } catch (dbErr: any) {
+      console.warn('[CALENDAR ACCOUNTS] Supabase query notice, falling back to cache:', dbErr?.message || dbErr);
     }
 
     loadAccountsFromDisk();
@@ -18630,7 +18686,32 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.', status: 'DISCONNECTED', connected: false });
     }
 
-    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
+    let activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
+
+    // If not found in-memory, query authoritative Supabase database
+    if (!activeAcc) {
+      try {
+        const dbAcc = await resolveAuthoritativeCalendarAccount({ organizationId: orgId, userId: user.id });
+        if (dbAcc) {
+          activeAcc = {
+            email: dbAcc.email,
+            fullName: dbAcc.fullName,
+            accessToken: dbAcc.accessToken,
+            refreshToken: dbAcc.refreshToken,
+            expiresAt: dbAcc.expiresAt,
+            status: (dbAcc.status === 'CONNECTED' ? 'CONNECTED' : (dbAcc.status as any)),
+            createdAt: dbAcc.createdAt,
+            scopes: dbAcc.scopes,
+            organizationId: orgId,
+            userId: user.id
+          };
+          calendarAccounts.push(activeAcc);
+        }
+      } catch (dbErr: any) {
+        console.warn('[CALENDAR STATUS] Supabase query notice:', dbErr?.message || dbErr);
+      }
+    }
+
     if (!activeAcc) {
       return res.json({ connected: false, status: 'DISCONNECTED', message: 'No Google Calendar account connected for this user.' });
     }
@@ -18855,8 +18936,31 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const eventDescription = notes || 'SalesPilot CRM Scheduled Meeting';
 
     // Get active account owned strictly by this authenticated user and organization
-    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id) || 
-                      calendarAccounts.find(c => c.organizationId === orgId && (!c.userId || c.userId === user.id));
+    let activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id) || 
+                    calendarAccounts.find(c => c.organizationId === orgId && (!c.userId || c.userId === user.id));
+
+    if (!activeAcc) {
+      try {
+        const dbAcc = await resolveAuthoritativeCalendarAccount({ organizationId: orgId, userId: user.id });
+        if (dbAcc) {
+          activeAcc = {
+            email: dbAcc.email,
+            fullName: dbAcc.fullName,
+            accessToken: dbAcc.accessToken,
+            refreshToken: dbAcc.refreshToken,
+            expiresAt: dbAcc.expiresAt,
+            status: (dbAcc.status === 'CONNECTED' ? 'CONNECTED' : (dbAcc.status as any)),
+            createdAt: dbAcc.createdAt,
+            scopes: dbAcc.scopes,
+            organizationId: orgId,
+            userId: user.id
+          };
+          calendarAccounts.push(activeAcc);
+        }
+      } catch (dbErr: any) {
+        console.warn('[CALENDAR CREATE] Supabase account resolution notice:', dbErr?.message || dbErr);
+      }
+    }
 
     if (!activeAcc) {
       return res.status(400).json({ 
