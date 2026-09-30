@@ -73,6 +73,61 @@ import { centralizedErrorHandler } from './src/security/errorHandler';
 
 validateStartupEnv();
 
+// Timezone conversion helper: Converts local wall-clock date/time string + IANA timezone into absolute UTC Date instant
+export function parseLocalDateTimeToUtc(dateTimeStr: string, timeZone: string): Date {
+  if (!dateTimeStr) return new Date();
+  if (dateTimeStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(dateTimeStr)) {
+    return new Date(dateTimeStr);
+  }
+
+  const cleanStr = dateTimeStr.replace('Z', '');
+  const [datePart, timePart = '00:00:00'] = cleanStr.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute, second = 0] = timePart.split(':').map(Number);
+
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+  
+  try {
+    const d = new Date(utcMs);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    const tzParts: Record<string, number> = {};
+    for (const p of parts) {
+      if (p.type !== 'literal') {
+        tzParts[p.type] = parseInt(p.value, 10);
+      }
+    }
+    if (tzParts.hour === 24) tzParts.hour = 0;
+
+    const tzAsUtcMs = Date.UTC(
+      tzParts.year,
+      tzParts.month - 1,
+      tzParts.day,
+      tzParts.hour,
+      tzParts.minute,
+      tzParts.second || 0
+    );
+
+    const offsetMs = tzAsUtcMs - utcMs;
+    const correctedUtcMs = utcMs - offsetMs;
+    return new Date(correctedUtcMs);
+  } catch (err) {
+    if (timeZone === 'Asia/Kolkata' || timeZone === 'Asia/Calcutta') {
+      return new Date(utcMs - (5 * 3600 + 30 * 60) * 1000);
+    }
+    return new Date(utcMs);
+  }
+}
+
 let geminiCooldownExpiry = 0;
 
 async function generateContentWithFallback(
@@ -11770,7 +11825,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       console.log(`[GOOGLE CALENDAR API REQUEST] Preparing to create event. Attendee email: ${cleanLeadEmail || 'None'}`);
 
       const tz = timezone || 'Asia/Kolkata';
-      const startDateTime = new Date(dateTime || Date.now() + 24 * 60 * 60 * 1000);
+      const startDateTime = parseLocalDateTimeToUtc(dateTime || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), tz);
       const endDateTime = new Date(startDateTime.getTime() + (durationMins || 30) * 60 * 1000);
       const eventSummary = `SalesPilot Demo: ${lead.firstName} ${lead.lastName}`;
       const eventDescription = notes || 'Introductory SalesPilot demo chat.';
@@ -18783,7 +18838,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     console.log(`[GOOGLE CALENDAR API REQUEST] Preparing to create event. Attendee emails: ${validatedEmails.join(', ')}`);
 
     const eventTimezone = timezone || 'Asia/Kolkata';
-    const startDateTime = new Date(dateTime || Date.now());
+    const startDateTime = parseLocalDateTimeToUtc(dateTime || new Date().toISOString(), eventTimezone);
     const endDateTime = new Date(startDateTime.getTime() + (durationMins || 30) * 60 * 1000);
     const eventSummary = summary || `SalesPilot Demo: ${lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect Meeting'}`;
     const eventDescription = notes || 'SalesPilot CRM Scheduled Meeting';

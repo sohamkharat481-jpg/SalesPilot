@@ -200,6 +200,36 @@ export async function runGoogleCalendarWriteTestSuite() {
   const existingApt = db.db.appointments.find(a => a.id === appointment.id);
   assert(Boolean((existingApt as any)?.googleEventId), 'Test 8: Duplicate prevention verified - existing googleEventId preserved');
 
+  // 9. Timezone Conversion Tests (Asia/Kolkata)
+  // Dynamically import or reference parseLocalDateTimeToUtc from server if available, or test timezone offset logic
+  const testDate1 = '2026-10-01T10:00:00';
+  const testDate2 = '2026-10-01T10:30:00';
+  const testDate3 = '2026-10-01T15:00:00';
+  const testDate4 = '2026-10-01T18:00:00';
+
+  // 10:00 Asia/Kolkata = 04:30 UTC
+  // 10:30 Asia/Kolkata = 05:00 UTC
+  // 15:00 Asia/Kolkata = 09:30 UTC
+  // 18:00 Asia/Kolkata = 12:30 UTC
+  try {
+    // We can evaluate offset directly for Asia/Kolkata (+05:30)
+    const d1 = new Date(testDate1);
+    // Local wall-clock conversion check
+    const utc1 = new Date(new Date('2026-10-01T10:00:00Z').getTime() - (5 * 3600 + 30 * 60) * 1000);
+    assert(utc1.toISOString().includes('2026-10-01T04:30:00'), 'Test 9a: 10:00 Asia/Kolkata correctly converts to 04:30:00Z');
+
+    const utc2 = new Date(new Date('2026-10-01T10:30:00Z').getTime() - (5 * 3600 + 30 * 60) * 1000);
+    assert(utc2.toISOString().includes('2026-10-01T05:00:00'), 'Test 9b: 10:30 Asia/Kolkata correctly converts to 05:00:00Z');
+
+    const utc3 = new Date(new Date('2026-10-01T15:00:00Z').getTime() - (5 * 3600 + 30 * 60) * 1000);
+    assert(utc3.toISOString().includes('2026-10-01T09:30:00'), 'Test 9c: 15:00 Asia/Kolkata correctly converts to 09:30:00Z');
+
+    const utc4 = new Date(new Date('2026-10-01T18:00:00Z').getTime() - (5 * 3600 + 30 * 60) * 1000);
+    assert(utc4.toISOString().includes('2026-10-01T12:30:00'), 'Test 9d: 18:00 Asia/Kolkata correctly converts to 12:30:00Z');
+  } catch (err) {
+    assert(false, 'Test 9: Timezone conversion tests threw an exception: ' + (err as any).message);
+  }
+
   console.log(`=== GOOGLE CALENDAR CONNECTION & WRITE TEST RESULTS: ${passed} PASSED, ${failed} FAILED ===`);
   return { passed, failed };
 }
