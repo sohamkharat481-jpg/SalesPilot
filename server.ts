@@ -17270,7 +17270,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   const getGoogleRedirectUri = (req: any): string => {
     const canonicalProductionOrigin = 'https://sales-pilot-f4uv.vercel.app';
     const requestHost = String(req?.headers?.host || '').split(':')[0].toLowerCase();
-    if (process.env.VERCEL_ENV === 'production' || requestHost === 'sales-pilot-f4uv.vercel.app') {
+    const forwardedHost = String(req?.headers?.['x-forwarded-host'] || '').split(':')[0].toLowerCase();
+    const origin = String(req?.headers?.origin || '').toLowerCase();
+    const referer = String(req?.headers?.referer || '').toLowerCase();
+
+    if (
+      process.env.VERCEL_ENV === 'production' || 
+      requestHost === 'sales-pilot-f4uv.vercel.app' ||
+      forwardedHost === 'sales-pilot-f4uv.vercel.app' ||
+      origin.includes('sales-pilot-f4uv.vercel.app') ||
+      referer.includes('sales-pilot-f4uv.vercel.app')
+    ) {
       return `${canonicalProductionOrigin}/api/auth/google/callback`;
     }
     let baseUrl = '';
@@ -18569,6 +18579,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
+    loadAccountsFromDisk();
     const filteredCalendarAccounts = calendarAccounts.filter(c => c.organizationId === orgId && c.userId === user.id);
     res.json({
       accounts: filteredCalendarAccounts.map(c => ({
