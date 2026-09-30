@@ -8,6 +8,7 @@ import { runEdesyTelephonyTestSuite } from './edesyTelephony.test';
 import { runFinalProductionVerificationTestSuite } from './finalProductionVerification.test';
 import { runMultiUserIsolationIntegrationsTestSuite } from './multiUserIsolationIntegrations.test';
 import { runGoogleCalendarWriteTestSuite } from './googleCalendarWrite.test';
+import { runExpiredTrialCheckoutTestSuite } from './expiredTrialCheckout.test';
 import { runUpiTestModeTestSuite } from './upiTestMode.test';
 import { runBillingAuditTestSuite } from './billingAudit.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';

@@ -2961,7 +2961,7 @@ async function startServer() {
       industry: '',
       organizationId: userOrgId,
       tier: isFounderUser ? 'ENTERPRISE' : 'STARTER',
-      role: isFounderUser ? 'OWNER' : (role || 'ADMIN'),
+      role: isFounderUser ? 'OWNER' : 'MEMBER',
       createdAt: new Date().toISOString(),
       isVerified: isFounderUser ? true : false,
       phone: '',
@@ -3903,6 +3903,12 @@ async function startServer() {
     const { id, role, status } = req.body;
     if (!id) {
       return res.status(400).json({ error: 'Team member ID is required.' });
+    }
+    
+    // Server-side RBAC: Only allowed roles
+    const allowedRoles = ['OWNER', 'ADMIN', 'MANAGER', 'SALES', 'VIEWER', 'CLIENT'];
+    if (role && !allowedRoles.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role assignment.' });
     }
 
     const member = serverTeamMembers.find(m => m.id === id && ((m as any).organizationId === verifiedOrgId || !(m as any).organizationId));
@@ -13807,6 +13813,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const { plan, billingCycle, utr, paymentDateTime, notes } = req.body;
+    if (plan === 'TEST_PAYMENT' && process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'Test payment mode is unavailable in production.' });
+    }
     if (!utr) {
       return res.status(400).json({ error: 'UTR / Transaction Reference ID is required.' });
     }
