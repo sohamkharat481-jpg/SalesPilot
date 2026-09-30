@@ -11775,9 +11775,35 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       const eventSummary = `SalesPilot Demo: ${lead.firstName} ${lead.lastName}`;
       const eventDescription = notes || 'Introductory SalesPilot demo chat.';
 
-      // Check if Google Calendar connected
-      const activeAcc = calendarAccounts[0];
+      // Get active account owned strictly by this authenticated user and organization
+      const activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id) || 
+                        calendarAccounts.find(c => c.organizationId === orgId && (!c.userId || c.userId === user.id));
+
+      if (!activeAcc) {
+        res.status(400).json({ error: 'No connected Google Calendar account for this user and organization. Please connect Google Calendar before booking a meeting.', syncStatus: 'REAUTH_REQUIRED' });
+        return;
+      }
+
+      if (activeAcc.status === 'REAUTH_REQUIRED') {
+        res.status(401).json({ error: 'Google Calendar reauthorization required for connected account.', syncStatus: 'REAUTH_REQUIRED' });
+        return;
+      }
+
       const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+      const calendarId = (activeAcc as any).calendarId || 'primary';
+      const tokenExpiryStatus = new Date(activeAcc.expiresAt).getTime() > Date.now() ? 'VALID' : 'EXPIRED';
+
+      // Safe diagnostics logging ONLY (never logging tokens)
+      const safeDiagnosticInfo = {
+        userIdMasked: user.id ? `${user.id.substring(0, 4)}***` : 'unknown',
+        orgIdMasked: orgId ? `${orgId.substring(0, 4)}***` : 'unknown',
+        googleAccountIdMasked: activeAcc.email ? `${activeAcc.email.substring(0, 3)}***@***` : 'unknown',
+        calendarId,
+        tokenPresence: Boolean(activeAcc.accessToken) ? 'YES' : 'NO',
+        tokenExpiryStatus,
+        scopes: (activeAcc as any).scopes || ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events']
+      };
+      console.log(`[GOOGLE CALENDAR DIAGNOSTIC - PRE-INSERT]:`, JSON.stringify(safeDiagnosticInfo, null, 2));
 
       let googleEventId = '';
       let meetingLink = '';
@@ -11816,7 +11842,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             };
           }
 
-          const gRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
+          const gRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -18979,7 +19005,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(404).json({ error: 'Appointment not found in local CRM state' });
     }
 
-    const gEventId = eventId || (apt as any).googleEventId || `mock_event_${apt.id}`;
+    const gEventId = eventId || (apt as any).googleEventId;
+    if (!gEventId || String(gEventId).startsWith('mock_')) {
+      return res.status(400).json({ error: 'Valid Google Event ID required. Legacy mock event IDs cannot be synchronized directly.', syncStatus: 'PENDING_SYNC' });
+    }
     const startDateTime = dateTime ? new Date(dateTime) : new Date(apt.dateTime);
     const endDateTime = new Date(startDateTime.getTime() + (durationMins || apt.durationMins || 30) * 60 * 1000);
     const eventSummary = summary || (apt.leadName ? `SalesPilot: ${apt.leadName}` : 'Updated Event');

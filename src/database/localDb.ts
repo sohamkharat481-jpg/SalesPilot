@@ -182,7 +182,15 @@ export class LocalDB {
         this.db = JSON.parse(data);
         
         // Ensure new AI collections exist to avoid undefined crashes
-        if (!this.db.aiCompanyResearch) this.db.aiCompanyResearch = [];
+        if (this.db.appointments) {
+          this.db.appointments.forEach(a => {
+            if ((a as any).googleEventId && String((a as any).googleEventId).startsWith('mock_')) {
+              (a as any).googleEventId = '';
+              a.googleSynced = false;
+              (a as any).syncStatus = 'PENDING_SYNC';
+            }
+          });
+        }
         if (!this.db.aiContactProfiles) this.db.aiContactProfiles = [];
         if (!this.db.aiEmailGenerations) this.db.aiEmailGenerations = [];
         if (!this.db.aiFollowups) this.db.aiFollowups = [];
@@ -1055,24 +1063,32 @@ export class LocalDB {
 
       const { data: apts } = await this.supabase.from('appointments').select('*');
       if (apts && apts.length > 0) {
-        this.db.appointments = apts.map(a => ({
-          id: a.id,
-          leadId: a.lead_id,
-          leadName: a.lead_name,
-          company: a.company,
-          email: a.email || '',
-          dateTime: a.time,
-          durationMins: a.duration_mins,
-          status: a.status,
-          meetingLink: a.meeting_link || '',
-          notes: a.notes || '',
-          timezone: a.timezone || 'Asia/Kolkata',
-          googleSynced: !!a.google_synced,
-          googleEventId: a.google_event_id || '',
-          gmailMessageId: a.gmail_message_id || '',
-          reminderSent: !!a.reminder_sent,
-          timelineList: a.timeline || []
-        }));
+        this.db.appointments = apts.map(a => {
+          let gEventId = a.google_event_id || '';
+          let synced = !!a.google_synced;
+          if (gEventId.startsWith('mock_')) {
+            gEventId = '';
+            synced = false;
+          }
+          return {
+            id: a.id,
+            leadId: a.lead_id,
+            leadName: a.lead_name,
+            company: a.company,
+            email: a.email || '',
+            dateTime: a.time,
+            durationMins: a.duration_mins,
+            status: a.status,
+            meetingLink: a.meeting_link || '',
+            notes: a.notes || '',
+            timezone: a.timezone || 'Asia/Kolkata',
+            googleSynced: synced,
+            googleEventId: gEventId,
+            gmailMessageId: a.gmail_message_id || '',
+            reminderSent: !!a.reminder_sent,
+            timelineList: a.timeline || []
+          };
+        });
       }
 
       // Sync local file
