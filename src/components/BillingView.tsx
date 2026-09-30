@@ -94,12 +94,33 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  // Helper to attach authenticated session headers to server requests
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    const token = localStorage.getItem('salespilot_token') || 
+                  localStorage.getItem('sb_session_token') || 
+                  localStorage.getItem('sb_auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (user?.id) {
+      headers['x-user-id'] = user.id;
+    }
+    if (user?.organizationId) {
+      headers['x-organization-id'] = user.organizationId;
+    }
+    return headers;
+  };
+
   // Fetch Authoritative Subscription and Invoices from Server
   const fetchAuthoritativeBilling = async () => {
     setLoadingSubscription(true);
     try {
+      const headers = getAuthHeaders();
       // 1. Subscription & usage
-      const subRes = await fetch('/api/v1/billing/subscription');
+      const subRes = await fetch('/api/v1/billing/subscription', { headers });
       const subData = await subRes.json();
       if (subData.success) {
         setServerSubscription(subData.subscription);
@@ -109,7 +130,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
       }
 
       // 2. Invoices
-      const invRes = await fetch('/api/v1/billing/invoices');
+      const invRes = await fetch('/api/v1/billing/invoices', { headers });
       const invData = await invRes.json();
       if (invData.success && Array.isArray(invData.invoices)) {
         setInvoices(invData.invoices.map((i: any) => ({
@@ -211,7 +232,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     try {
       const response = await fetch('/api/v1/billing/checkout/initiate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ plan: tier, billingCycle })
       });
       const data = await response.json();
@@ -221,11 +242,14 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
         setShowCheckoutModal(true);
         handleLogMessage(`UPI Checkout: Generated Scan & Pay order for ${tier} (₹${data.checkout.totalAmount})`, "info");
       } else {
-        handleLogMessage(`API Error: Could not generate UPI checkout context`, "warn");
+        const errorMsg = data.error || 'Could not generate UPI checkout context';
+        handleLogMessage(`API Error: ${errorMsg}`, "warn");
+        alert(`Checkout Initiation Failed: ${errorMsg}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      handleLogMessage(`Network Error: Server endpoint not responding to checkout initiation`, "warn");
+      handleLogMessage(`Network Error: ${err.message || String(err)}`, "warn");
+      alert(`Network Error: ${err.message || 'Server endpoint not responding to checkout initiation'}`);
     } finally {
       setLoadingPlanId(null);
     }
@@ -248,7 +272,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     try {
       const response = await fetch('/api/v1/billing/payment/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           plan: checkoutContext.plan,
           billingCycle: checkoutContext.billingCycle,

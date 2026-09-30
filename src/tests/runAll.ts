@@ -13,6 +13,7 @@ import { runUpiTestModeTestSuite } from './upiTestMode.test';
 import { runBillingAuditTestSuite } from './billingAudit.test';
 import { runAdminBillingAuthTestSuite } from './adminBillingAuth.test';
 import { runNoRoleSimulatorTestSuite } from './noRoleSimulator.test';
+import { runProductionBillingCheckoutTestSuite } from './productionBillingCheckout.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 
 async function runAllTests() {
@@ -163,7 +164,17 @@ async function runAllTests() {
     totalFailed++;
   }
 
-  // 15. Final Production Smoke Test Suite
+  // 15. Production Billing Checkout Suite
+  try {
+    const res = await runProductionBillingCheckoutTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Production Billing Checkout test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 16. Final Production Smoke Test Suite
   try {
     const res = await runFinalProductionSmokeTestSuite();
     totalPassed += res.passed;

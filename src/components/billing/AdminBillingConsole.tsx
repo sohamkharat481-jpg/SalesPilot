@@ -49,11 +49,24 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    const token = localStorage.getItem('salespilot_token') || 
+                  localStorage.getItem('sb_session_token') || 
+                  localStorage.getItem('sb_auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
   // Fetch pending payments
   const fetchPendingPayments = async () => {
     setLoadingPayments(true);
     try {
-      const res = await fetch('/api/v1/billing/admin/pending-payments');
+      const res = await fetch('/api/v1/billing/admin/pending-payments', { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success && Array.isArray(data.pendingPayments)) {
         setPendingPayments(data.pendingPayments);
@@ -75,7 +88,7 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
     try {
       const res = await fetch('/api/v1/billing/admin/payment/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ paymentId })
       });
       const data = await res.json();
@@ -102,7 +115,7 @@ export function AdminBillingConsole({ onLogMessage, invoices, setInvoices }: Adm
     try {
       const res = await fetch('/api/v1/billing/admin/reject-payment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ paymentId: rejectModalPayment.id, rejectionReason })
       });
       const data = await res.json();

@@ -458,6 +458,60 @@
       "organizationId": "org_gcal_conn_test_1790791563433",
       "userId": "usr_invalid",
       "createdAt": "2026-09-30T18:06:03.434Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T19:23:11.241Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790792591241",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T18:23:11.241Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T18:23:11.241Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T19:23:11.241Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790792591241",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T18:23:11.241Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-09-30T19:23:42.206Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790792622206",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-09-30T18:23:42.206Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-09-30T18:23:42.206Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-09-30T19:23:42.206Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790792622206",
+      "userId": "usr_invalid",
+      "createdAt": "2026-09-30T18:23:42.206Z"
     }
   ],
   "gmailAccounts": []
