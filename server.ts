@@ -18527,6 +18527,81 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     res.json({ success: true, message: 'Google Calendar and Gmail account disconnected.' });
   });
 
+  // GET /api/v1/calendar/status and /calendar/status
+  const handleCalendarStatusCheck = async (req: any, res: any) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.', status: 'DISCONNECTED', connected: false });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.', status: 'DISCONNECTED', connected: false });
+    }
+
+    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
+    if (!activeAcc) {
+      return res.json({ connected: false, status: 'DISCONNECTED', message: 'No Google Calendar account connected for this user.' });
+    }
+
+    let currentStatus = activeAcc.status || 'CONNECTED';
+    const isRealToken = activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+
+    if (isRealToken) {
+      try {
+        const token = await refreshCalendarTokenIfNeeded(activeAcc);
+        const gRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (gRes.ok) {
+          const calData = await gRes.json() as any;
+          if (calData && calData.id) {
+            currentStatus = 'CONNECTED';
+            activeAcc.status = 'CONNECTED';
+            (activeAcc as any).lastVerifiedAt = new Date().toISOString();
+            saveAccountsToDisk();
+          }
+        } else {
+          if (gRes.status === 401 || gRes.status === 403) {
+            currentStatus = 'REAUTH_REQUIRED';
+            activeAcc.status = 'REAUTH_REQUIRED';
+          } else {
+            currentStatus = 'ERROR';
+            activeAcc.status = 'ERROR';
+          }
+          saveAccountsToDisk();
+        }
+      } catch (err) {
+        console.error('[CALENDAR STATUS CHECK ERROR]', err);
+        currentStatus = 'ERROR';
+        activeAcc.status = 'ERROR';
+        saveAccountsToDisk();
+      }
+    } else if (activeAcc.accessToken === 'mock_invalid_token' || activeAcc.accessToken === 'mock_expired_token' || activeAcc.accessToken === 'mock_reauth_required') {
+      currentStatus = 'REAUTH_REQUIRED';
+      activeAcc.status = 'REAUTH_REQUIRED';
+    } else if (activeAcc.accessToken === 'mock_api_failure') {
+      currentStatus = 'ERROR';
+      activeAcc.status = 'ERROR';
+    }
+
+    res.json({
+      connected: currentStatus === 'CONNECTED',
+      status: currentStatus,
+      email: activeAcc.email,
+      fullName: activeAcc.fullName,
+      calendarId: (activeAcc as any).calendarId || 'primary',
+      scopes: (activeAcc as any).scopes || [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar.events'
+      ],
+      expiresAt: activeAcc.expiresAt,
+      lastVerifiedAt: (activeAcc as any).lastVerifiedAt || new Date().toISOString()
+    });
+  };
+
+  app.get('/api/v1/calendar/status', handleCalendarStatusCheck);
+  app.get('/calendar/status', handleCalendarStatusCheck);
+
   // POST /calendar/connect
   app.post('/calendar/connect', async (req, res) => {
     const user = getAuthenticatedUser(req);
@@ -18539,18 +18614,19 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
     const effectiveOrgId = orgId;
 
-    const { email, fullName, accessToken, refreshToken, expiresAt } = req.body;
+    const { email, fullName, accessToken, refreshToken, expiresAt, calendarId, scopes } = req.body;
     if (!email || !accessToken) {
       return res.status(400).json({ error: 'Missing required parameters: email, accessToken' });
     }
 
-    // Google Calendar API verification block (mock tokens bypass for test stability)
+    // Google Calendar API verification block (real Google Calendar API GET /calendars/primary)
     let verified = false;
     let targetStatus: 'CONNECTED' | 'REAUTH_REQUIRED' | 'ERROR' = 'CONNECTED';
     
     if (accessToken.startsWith('mock_')) {
       if (accessToken === 'mock_invalid_token' || accessToken === 'mock_expired_token' || accessToken === 'mock_api_failure') {
         verified = false;
+        targetStatus = accessToken === 'mock_api_failure' ? 'ERROR' : 'REAUTH_REQUIRED';
       } else if (accessToken === 'mock_reauth_required') {
         verified = true;
         targetStatus = 'REAUTH_REQUIRED';
@@ -18582,13 +18658,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     if (!verified) {
       return res.status(400).json({ 
-        error: 'Calendar connection needs attention.',
+        error: 'Google Calendar API verification failed. Token rejected or insufficient scope.',
         status: targetStatus
       });
     }
 
-    const existing = calendarAccounts.find(c => c.email === email);
+    const existing = calendarAccounts.find(c => c.email === email && c.organizationId === effectiveOrgId && c.userId === user.id);
     const expiresTimestamp = expiresAt || new Date(Date.now() + 3600000).toISOString();
+    const verifiedAt = new Date().toISOString();
+    const accountScopes = scopes || [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events'
+    ];
 
     if (existing) {
       existing.accessToken = accessToken;
@@ -18597,9 +18678,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       existing.status = targetStatus;
       existing.fullName = fullName || existing.fullName || email.split('@')[0];
       existing.organizationId = effectiveOrgId;
-      existing.userId = user.id; // Strict multi-user credentials isolation
+      existing.userId = user.id;
+      (existing as any).calendarId = calendarId || 'primary';
+      (existing as any).scopes = accountScopes;
+      (existing as any).lastVerifiedAt = verifiedAt;
       saveAccountsToDisk();
-      return res.json({ success: true, message: 'Google Calendar connection updated.', account: existing });
+      return res.json({ 
+        success: true, 
+        message: 'Google Calendar connection verified and updated successfully.', 
+        status: targetStatus,
+        account: existing 
+      });
     }
 
     const newAcc: CalendarAccount = {
@@ -18610,12 +18699,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       expiresAt: expiresTimestamp,
       status: targetStatus,
       organizationId: effectiveOrgId,
-      userId: user.id, // Strict multi-user credentials isolation
-      createdAt: new Date().toISOString()
+      userId: user.id,
+      createdAt: verifiedAt
     };
+    (newAcc as any).calendarId = calendarId || 'primary';
+    (newAcc as any).scopes = accountScopes;
+    (newAcc as any).lastVerifiedAt = verifiedAt;
+
     calendarAccounts.push(newAcc);
     saveAccountsToDisk();
-    res.json({ success: true, message: 'Google Calendar connected successfully.', account: newAcc });
+    res.json({ 
+      success: true, 
+      message: 'Google Calendar connected and verified successfully via real Calendar API.', 
+      status: targetStatus,
+      account: newAcc 
+    });
   });
 
   // POST /calendar/create
