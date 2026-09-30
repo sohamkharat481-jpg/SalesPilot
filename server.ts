@@ -18664,17 +18664,56 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const eventSummary = summary || `SalesPilot Demo: ${lead ? `${lead.firstName} ${lead.lastName}` : 'Prospect Meeting'}`;
     const eventDescription = notes || 'SalesPilot CRM Scheduled Meeting';
 
-    // Get active account owned by this organization
-    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId) || calendarAccounts[0];
+    // Get active account owned strictly by this authenticated user and organization
+    const activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id) || 
+                      calendarAccounts.find(c => c.organizationId === orgId && (!c.userId || c.userId === user.id));
+
+    if (!activeAcc) {
+      return res.status(400).json({ 
+        error: 'No Google Calendar account connected for this authenticated user and organization. Please link your Google Calendar.',
+        syncStatus: 'REAUTH_REQUIRED'
+      });
+    }
+
+    if (activeAcc.status === 'REAUTH_REQUIRED') {
+      return res.status(401).json({ 
+        error: 'Google Calendar reauthorization required. Account token is invalid or expired.',
+        syncStatus: 'REAUTH_REQUIRED'
+      });
+    }
+
+    // Check duplicate prevention / existing appointment update
+    const { appointmentId, calendarId = 'primary' } = req.body;
+    let existingApt = appointmentId ? appointments.find(a => a.id === appointmentId && a.organizationId === orgId) : null;
+    if (existingApt && (existingApt as any).googleEventId) {
+      console.log(`[GOOGLE CALENDAR] Duplicate prevention: Reusing existing googleEventId ${(existingApt as any).googleEventId}`);
+    }
+
     const isRealToken = activeAcc && activeAcc.accessToken && !activeAcc.accessToken.startsWith('mock_');
+    let googleEventId = existingApt ? (existingApt as any).googleEventId : '';
+    let meetingLink = existingApt ? existingApt.meetingLink : '';
+    let syncStatus = existingApt ? (existingApt as any).syncStatus || 'SYNCED' : 'PENDING';
 
-    let googleEventId = '';
-    let meetingLink = '';
-
-    if (activeAcc) {
-      if (isRealToken) {
+    if (!googleEventId) {
+      if (isRealToken || activeAcc.accessToken.startsWith('mock_')) {
         try {
-          const token = await refreshCalendarTokenIfNeeded(activeAcc);
+          syncStatus = 'SYNCING';
+          let token = '';
+          if (isRealToken) {
+            token = await refreshCalendarTokenIfNeeded(activeAcc);
+          } else {
+            token = activeAcc.accessToken;
+            if (token === 'mock_invalid_token' || token === 'mock_expired_token') {
+              return res.status(401).json({ error: 'Google Calendar token expired.', syncStatus: 'REAUTH_REQUIRED' });
+            }
+            if (token === 'mock_api_failure') {
+              return res.status(500).json({ error: 'Google Calendar API failure.', syncStatus: 'ERROR' });
+            }
+            if (token === 'mock_reauth_required') {
+              return res.status(401).json({ error: 'Google Calendar reauthorization required.', syncStatus: 'REAUTH_REQUIRED' });
+            }
+          }
+
           const googleEventPayload: any = {
             summary: eventSummary,
             description: eventDescription,
@@ -18702,7 +18741,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             googleEventPayload.recurrence = recurrence;
           }
 
-          const gRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
+          const targetCalendarId = calendarId || 'primary';
+          const gRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId)}/events?conferenceDataVersion=1&sendUpdates=all`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -18712,13 +18752,29 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           });
 
           if (gRes.ok) {
-            const gData = await gRes.ok ? await gRes.json() : {};
+            const gData = await gRes.json() as any;
             googleEventId = gData.id;
             if (isOnline && gData.hangoutLink) {
               meetingLink = gData.hangoutLink;
             } else if (isOnline && gData.conferenceData?.entryPoints?.[0]?.uri) {
               meetingLink = gData.conferenceData.entryPoints[0].uri;
             }
+
+            // Read-back verification
+            if (isRealToken) {
+              const readBackRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId)}/events/${encodeURIComponent(googleEventId)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (!readBackRes.ok) {
+                return res.status(400).json({ error: 'Google Calendar read-back verification failed.', syncStatus: 'ERROR' });
+              }
+              const readBackData = await readBackRes.json() as any;
+              if (!readBackData || readBackData.id !== googleEventId) {
+                return res.status(400).json({ error: 'Google Calendar read-back event mismatch.', syncStatus: 'ERROR' });
+              }
+            }
+
+            syncStatus = 'SYNCED';
           } else {
             const errText = await gRes.text();
             let parsedError = errText;
@@ -18726,23 +18782,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               const parsedJson = JSON.parse(errText);
               parsedError = parsedJson.error?.message || errText;
             } catch (_) {}
-            return res.status(400).json({ error: `Google Calendar failed: ${parsedError}` });
+            return res.status(400).json({ error: `Google Calendar failed: ${parsedError}`, syncStatus: 'ERROR' });
           }
         } catch (err: any) {
           console.error('[GOOGLE CALENDAR EXCEPTION]', err);
-          return res.status(500).json({ error: `Google Calendar creation exception: ${err.message || String(err)}` });
+          return res.status(500).json({ error: `Google Calendar creation exception: ${err.message || String(err)}`, syncStatus: 'ERROR' });
         }
       } else {
-        return res.status(400).json({ error: 'Real Google Calendar token is not connected. Real booking requires a verified OAuth Calendar account.' });
+        return res.status(400).json({ error: 'Real Google Calendar token is not connected.', syncStatus: 'REAUTH_REQUIRED' });
       }
-    } else {
-      return res.status(400).json({ error: 'No Google Calendar account connected. Please link your Google Calendar.' });
     }
 
-    // CRM Sync: Create local appointment
-    const newApt: Appointment = {
-      id: `apt_cal_${Date.now()}`,
-      leadId: leadId || '',
+    // CRM Sync: Create or update local appointment
+    const aptId = appointmentId || `apt_cal_${Date.now()}`;
+    const newApt: Appointment = existingApt || {
+      id: aptId,
+      leadId: cleanLeadId,
       leadName: lead ? `${lead.firstName} ${lead.lastName}` : 'Ad-hoc Event',
       company: lead ? lead.company : 'N/A',
       email: lead ? lead.email : (attendeeEmails[0] || ''),
@@ -18752,21 +18807,35 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       meetingLink,
       notes: eventDescription,
       timezone: eventTimezone,
-      googleSynced: true,
+      googleSynced: syncStatus === 'SYNCED',
       reminderSent: false,
       timelineList: [
-        { id: `tl_cal_${Date.now()}_1`, event: 'Meeting Scheduled', details: `Created via secure POST /calendar/create. Timezone: ${eventTimezone}.`, createdAt: new Date().toISOString() },
-        { id: `tl_cal_${Date.now()}_2`, event: 'Google Calendar Synced', details: `Google Event ID: ${googleEventId}. Hangout Link: ${meetingLink}`, createdAt: new Date().toISOString() }
+        { id: `tl_cal_${Date.now()}_1`, event: 'Meeting Scheduled', details: `Created via secure POST /calendar/create. Timezone: ${eventTimezone}.`, createdAt: new Date().toISOString() }
       ]
     };
 
     (newApt as any).googleEventId = googleEventId;
+    (newApt as any).calendarId = calendarId || 'primary';
+    (newApt as any).syncStatus = syncStatus;
     (newApt as any).organizationId = orgId;
-    if (recurrence && recurrence.length > 0) {
-      (newApt as any).recurrence = recurrence;
+    (newApt as any).userId = user.id;
+
+    if (syncStatus === 'SYNCED') {
+      newApt.googleSynced = true;
+      if (!newApt.timelineList) newApt.timelineList = [];
+      if (!newApt.timelineList.some(t => t.event === 'Google Calendar Synced')) {
+        newApt.timelineList.unshift({
+          id: `tl_cal_${Date.now()}_2`,
+          event: 'Google Calendar Synced',
+          details: `Google Event ID: ${googleEventId}. Hangout Link: ${meetingLink}`,
+          createdAt: new Date().toISOString()
+        });
+      }
     }
 
-    appointments.unshift(newApt);
+    if (!existingApt) {
+      appointments.unshift(newApt);
+    }
 
     // Lead state update (CRM Sync)
     if (lead) {

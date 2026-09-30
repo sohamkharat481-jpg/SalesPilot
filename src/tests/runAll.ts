@@ -7,6 +7,7 @@ import { runDirectDialCallingTestSuite } from './directDialCalling.test';
 import { runEdesyTelephonyTestSuite } from './edesyTelephony.test';
 import { runFinalProductionVerificationTestSuite } from './finalProductionVerification.test';
 import { runMultiUserIsolationIntegrationsTestSuite } from './multiUserIsolationIntegrations.test';
+import { runGoogleCalendarWriteTestSuite } from './googleCalendarWrite.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -103,6 +104,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Multi-User Isolation test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 10. Google Calendar Write & Sync Suite
+  try {
+    const res = await runGoogleCalendarWriteTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Google Calendar Write test suite crashed:', err);
     totalFailed++;
   }
 
