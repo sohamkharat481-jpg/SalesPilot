@@ -456,6 +456,148 @@ describe('Production Gmail OAuth & Authoritative Account Store', () => {
     const gmailRow = upsertedRows.find(r => r.account_type === 'gmail');
     expect(gmailRow.access_token).toBe('ya29.token_v2_reconnected');
     expect(gmailRow.refresh_token).toBe('1//refresh_v2_reconnected');
-    expect(gmailRow.id).toBe('ga_soham@company.com_gmail'); // deterministic ID prevents duplicates
+    expect(gmailRow.id).toBe('ga_usr_1_soham@company.com_gmail'); // deterministic user+email ID prevents duplicates
+  });
+
+  // 12. queryAuthoritativeGmailAccounts strips access and refresh tokens
+  it('12. queryAuthoritativeGmailAccounts reads database state and never exposes access or refresh tokens', async () => {
+    const mockDbAccounts = [
+      {
+        id: 'ga_usr_81927391_sohamkharat481@gmail.com_gmail',
+        user_id: 'usr_81927391',
+        organization_id: 'org_salespilot_lifetime',
+        email: 'sohamkharat481@gmail.com',
+        scopes: ['https://www.googleapis.com/auth/gmail.send'],
+        status: 'CONNECTED',
+        account_type: 'gmail',
+        created_at: '2026-10-01T12:00:00.000Z',
+        access_token: 'SECRET_ACCESS_TOKEN_SHOULD_NEVER_LEAK',
+        refresh_token: 'SECRET_REFRESH_TOKEN_SHOULD_NEVER_LEAK'
+      }
+    ];
+
+    const mockPrivilegedClient: any = {
+      from: (table: string) => {
+        expect(table).toBe('google_accounts');
+        return {
+          select: () => ({
+            in: (field: string, values: string[]) => ({
+              eq: (orgField: string, orgVal: string) => ({
+                not: () => ({
+                  eq: (userField: string, userVal: string) => ({
+                    order: () => Promise.resolve({
+                      data: mockDbAccounts.filter(
+                        a => a.organization_id === orgVal && a.user_id === userVal && values.includes(a.account_type)
+                      ),
+                      error: null
+                    })
+                  }),
+                  order: () => Promise.resolve({
+                    data: mockDbAccounts.filter(
+                      a => a.organization_id === orgVal && values.includes(a.account_type)
+                    ),
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+        };
+      }
+    };
+
+    const { queryAuthoritativeGmailAccounts } = await import('../backend/googleAccountsService');
+    const accounts = await queryAuthoritativeGmailAccounts({
+      organizationId: 'org_salespilot_lifetime',
+      userId: 'usr_81927391',
+      privilegedClient: mockPrivilegedClient
+    });
+
+    expect(accounts.length).toBe(1);
+    expect(accounts[0].email).toBe('sohamkharat481@gmail.com');
+    expect(accounts[0].status).toBe('CONNECTED');
+    expect(accounts[0].organizationId).toBe('org_salespilot_lifetime');
+    expect(accounts[0].userId).toBe('usr_81927391');
+
+    // Security Assertions: Access and refresh tokens MUST NOT be present
+    expect((accounts[0] as any).accessToken).toBeUndefined();
+    expect((accounts[0] as any).access_token).toBeUndefined();
+    expect((accounts[0] as any).refreshToken).toBeUndefined();
+    expect((accounts[0] as any).refresh_token).toBeUndefined();
+  });
+
+  // 13. Tenant isolation: Account A cannot read Account B Google accounts from database
+  it('13. Tenant isolation: Account A cannot read Account B Google accounts from database', async () => {
+    const mockDbAccounts = [
+      {
+        id: 'ga_usr_81927391_sohamkharat481@gmail.com_gmail',
+        user_id: 'usr_81927391',
+        organization_id: 'org_salespilot_lifetime',
+        email: 'sohamkharat481@gmail.com',
+        scopes: ['https://www.googleapis.com/auth/gmail.send'],
+        status: 'CONNECTED',
+        account_type: 'gmail',
+        created_at: '2026-10-01T12:00:00.000Z'
+      },
+      {
+        id: 'ga_usr_customer_acme_01_customer.test@company.com_gmail',
+        user_id: 'usr_customer_acme_01',
+        organization_id: 'org_customer_acme',
+        email: 'customer.test@company.com',
+        scopes: ['https://www.googleapis.com/auth/gmail.send'],
+        status: 'CONNECTED',
+        account_type: 'gmail',
+        created_at: '2026-10-01T12:00:00.000Z'
+      }
+    ];
+
+    const mockPrivilegedClient: any = {
+      from: (table: string) => ({
+        select: () => ({
+          in: (field: string, values: string[]) => ({
+            eq: (orgField: string, orgVal: string) => ({
+              not: () => ({
+                eq: (userField: string, userVal: string) => ({
+                  order: () => Promise.resolve({
+                    data: mockDbAccounts.filter(
+                      a => a.organization_id === orgVal && a.user_id === userVal && values.includes(a.account_type)
+                    ),
+                    error: null
+                  })
+                }),
+                order: () => Promise.resolve({
+                  data: mockDbAccounts.filter(
+                    a => a.organization_id === orgVal && values.includes(a.account_type)
+                  ),
+                  error: null
+                })
+              })
+            })
+          })
+        })
+      })
+    };
+
+    const { queryAuthoritativeGmailAccounts } = await import('../backend/googleAccountsService');
+
+    // Query for Account A
+    const accountsA = await queryAuthoritativeGmailAccounts({
+      organizationId: 'org_salespilot_lifetime',
+      userId: 'usr_81927391',
+      privilegedClient: mockPrivilegedClient
+    });
+    expect(accountsA.length).toBe(1);
+    expect(accountsA[0].email).toBe('sohamkharat481@gmail.com');
+    expect(accountsA.some(a => a.email === 'customer.test@company.com')).toBe(false);
+
+    // Query for Account B
+    const accountsB = await queryAuthoritativeGmailAccounts({
+      organizationId: 'org_customer_acme',
+      userId: 'usr_customer_acme_01',
+      privilegedClient: mockPrivilegedClient
+    });
+    expect(accountsB.length).toBe(1);
+    expect(accountsB[0].email).toBe('customer.test@company.com');
+    expect(accountsB.some(a => a.email === 'sohamkharat481@gmail.com')).toBe(false);
   });
 });

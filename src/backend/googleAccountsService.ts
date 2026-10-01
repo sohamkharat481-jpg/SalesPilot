@@ -350,6 +350,78 @@ export async function persistAuthoritativeGoogleAccount(
   };
 }
 
+export interface SafeAuthoritativeGmailAccountSummary {
+  id?: string;
+  userId?: string;
+  email: string;
+  fullName: string;
+  status: string;
+  createdAt: string;
+  scopes: string[];
+  organizationId: string;
+  accountType: 'gmail';
+  sendingLimit: number;
+  sentToday: number;
+  bounceCount: number;
+  retryCount: number;
+}
+
+/**
+ * Queries authoritative public.google_accounts records for an organization and optional user.
+ * Strips all sensitive credentials (access_token, refresh_token) before returning.
+ */
+export async function queryAuthoritativeGmailAccounts(options: {
+  organizationId: string;
+  userId?: string;
+  privilegedClient?: SupabaseClient;
+}): Promise<SafeAuthoritativeGmailAccountSummary[]> {
+  const { organizationId, userId, privilegedClient: customClient } = options;
+  if (!organizationId || typeof organizationId !== 'string' || organizationId.trim() === '') {
+    return [];
+  }
+  const cleanOrgId = organizationId.trim();
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
+
+  if (hasServiceRoleKey || customClient) {
+    try {
+      const client = customClient || getPrivilegedSupabaseServerClient();
+      let query = client
+        .from('google_accounts')
+        .select('id, user_id, organization_id, email, scopes, status, account_type, created_at, updated_at')
+        .in('account_type', ['gmail', 'GMAIL'])
+        .eq('organization_id', cleanOrgId)
+        .not('access_token', 'is', null);
+
+      if (userId && typeof userId === 'string' && userId.trim() !== '') {
+        query = query.eq('user_id', userId.trim());
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        return data.map(d => ({
+          id: d.id,
+          userId: d.user_id,
+          email: d.email,
+          fullName: d.email ? d.email.split('@')[0] : '',
+          status: d.status || 'CONNECTED',
+          createdAt: d.created_at || new Date().toISOString(),
+          scopes: Array.isArray(d.scopes) ? d.scopes : [],
+          organizationId: d.organization_id || cleanOrgId,
+          accountType: 'gmail',
+          sendingLimit: 500,
+          sentToday: 0,
+          bounceCount: 0,
+          retryCount: 0
+        }));
+      }
+    } catch (err: any) {
+      console.warn('[OUTREACH GOOGLE ACCOUNT] Database query on google_accounts failed:', err.message);
+    }
+  }
+
+  return [];
+}
+
 export async function verifyGoogleCalendarConnection(
   organizationId: string,
   userId: string,

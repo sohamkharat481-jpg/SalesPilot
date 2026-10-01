@@ -1456,10 +1456,6 @@ export class LocalDB {
   }
 
   public ensureDefaultWorkspacesAndMemberships(): void {
-    if (process.env.NODE_ENV === 'production') {
-      return;
-    }
-
     if (!this.db.organizationMembers) this.db.organizationMembers = [];
     if (!this.db.organizations) this.db.organizations = [];
     if (!this.db.users) this.db.users = [];
@@ -1606,6 +1602,67 @@ export class LocalDB {
         organizationId: 'org_pordigy_enterprise',
         userId: pordigyUser.id,
         role: 'OWNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    // 3. Customer Test Acme workspace & membership
+    let customerUser = this.db.users.find(u => u.email?.toLowerCase() === 'customer.test@company.com' || u.id === 'usr_customer_acme_01');
+    if (!customerUser) {
+      const salt = bcrypt.genSaltSync(10);
+      customerUser = {
+        id: 'usr_customer_acme_01',
+        email: 'customer.test@company.com',
+        fullName: 'Acme Test Customer',
+        companyName: 'Acme Corp',
+        industry: 'General Software',
+        tier: 'STARTER',
+        role: 'VIEWER',
+        organizationId: 'org_customer_acme',
+        isVerified: true,
+        phone: '',
+        timezone: 'Asia/Kolkata',
+        language: 'English',
+        notificationPrefs: { email: true, push: true, weeklyReport: true },
+        passwordHash: bcrypt.hashSync('Customer2026!', salt),
+        isFounder: false,
+        subscriptionStatus: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.users.push(customerUser);
+    } else {
+      customerUser.organizationId = 'org_customer_acme';
+      customerUser.role = 'VIEWER';
+      customerUser.tier = 'STARTER';
+      customerUser.isFounder = false;
+    }
+
+    let customerOrg = this.getOrganizationById('org_customer_acme');
+    if (!customerOrg) {
+      customerOrg = {
+        id: 'org_customer_acme',
+        name: 'Acme Corp',
+        companyName: 'Acme Corp',
+        domain: 'acme.test',
+        industry: 'General Software',
+        ownerId: customerUser.id,
+        subscriptionPlan: 'STARTER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.organizations.push(customerOrg);
+    } else {
+      customerOrg.name = customerOrg.name || 'Acme Corp';
+    }
+
+    const customerMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === customerUser.id && m.organizationId === 'org_customer_acme');
+    if (customerMemberIdx === -1) {
+      this.db.organizationMembers.push({
+        id: `orgm_${customerUser.id}_org_customer_acme`,
+        organizationId: 'org_customer_acme',
+        userId: customerUser.id,
+        role: 'VIEWER',
         status: 'ACTIVE',
         createdAt: new Date().toISOString()
       });

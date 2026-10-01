@@ -5,14 +5,7 @@
  * Client-submitted prices are NEVER trusted.
  */
 
-/**
- * Temporary Founder-Only ₹1 UPI Test Mode Flag
- * Set to true to enable founder ₹1 connectivity test mode on production.
- * Set to false to disable immediately.
- */
-export const ENABLE_FOUNDER_TEST_MODE = true;
-
-export type CanonicalPlanId = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'TEST_PAYMENT';
+export type CanonicalPlanId = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE';
 export type BillingCycle = 'monthly' | 'annual';
 
 export interface PlanPricing {
@@ -153,23 +146,6 @@ export const CANONICAL_PLANS: Record<CanonicalPlanId, PlanPricing> = {
       calls: 999999,
       aiOutreach: 999999
     }
-  },
-  TEST_PAYMENT: {
-    id: 'TEST_PAYMENT',
-    name: '₹1 Test Payment',
-    monthlyPrice: 1,
-    annualPrice: 1,
-    currency: 'INR',
-    description: 'Development-only test payment.',
-    features: ['Test payment flow verification'],
-    limits: {
-      leads: 0,
-      campaigns: 0,
-      teamMembers: 0,
-      meetings: 0,
-      calls: 0,
-      aiOutreach: 0
-    }
   }
 };
 
@@ -200,18 +176,6 @@ export function calculateCanonicalPayablePrice(plan: string, cycle: string): {
 } {
   const planId = normalizePlanId(plan);
   const billingCycle: 'monthly' | 'annual' = (cycle || '').toLowerCase() === 'annual' ? 'annual' : 'monthly';
-
-  if (planId === 'TEST_PAYMENT') {
-    return {
-      planId: 'TEST_PAYMENT',
-      billingCycle,
-      baseAmount: 1,
-      gstRate: 0,
-      gstAmount: 0,
-      totalAmount: 1,
-      currency: 'INR'
-    };
-  }
 
   const planConfig = CANONICAL_PLANS[planId];
   const baseAmount = billingCycle === 'annual' ? planConfig.annualPrice : planConfig.monthlyPrice;
