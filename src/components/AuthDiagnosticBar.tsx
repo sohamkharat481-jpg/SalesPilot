@@ -118,6 +118,14 @@ export const AuthDiagnosticBar: React.FC<AuthDiagnosticBarProps> = ({ user }) =>
           <span>Sync Diagnostics</span>
         </button>
       </div>
+
+      <div className="max-w-7xl mx-auto mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+          <span><strong>Multi-Account Testing Notice:</strong> To test multiple SalesPilot accounts simultaneously, use separate browser profiles or Incognito windows.</span>
+        </span>
+        <span className="text-slate-500 font-mono text-[9px]">Supabase localStorage Session Persistence Active</span>
+      </div>
     </div>
   );
 };

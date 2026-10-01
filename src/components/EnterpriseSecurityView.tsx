@@ -295,6 +295,20 @@ export function EnterpriseSecurityView() {
                 </div>
               </div>
 
+              {/* Multi-Account Isolation Architecture Notice */}
+              <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex items-start gap-3">
+                <Info className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-indigo-950 space-y-1">
+                  <p className="font-bold text-indigo-900">Multi-Account Browser Profile Isolation</p>
+                  <p className="text-indigo-800 text-[11px] leading-relaxed">
+                    SalesPilot uses secure Supabase <code className="bg-indigo-100 px-1 py-0.5 rounded text-indigo-900 font-mono text-[10px]">localStorage</code> session persistence with PostgreSQL server-authoritative role verification. In accordance with web browser origin standards, tabs in the same browser profile share this authenticated origin session.
+                  </p>
+                  <p className="text-indigo-700 font-semibold text-[11px]">
+                    To test multiple SalesPilot accounts simultaneously, use separate browser profiles or Incognito windows.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 block">IP Range Allowlist (Comma-separated CIDRs)</label>
                 <input 
