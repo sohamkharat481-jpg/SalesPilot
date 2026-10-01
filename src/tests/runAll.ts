@@ -15,6 +15,7 @@ import { runAdminBillingAuthTestSuite } from './adminBillingAuth.test';
 import { runNoRoleSimulatorTestSuite } from './noRoleSimulator.test';
 import { runProductionBillingCheckoutTestSuite } from './productionBillingCheckout.test';
 import { runHeaderImpersonationSecurityTestSuite } from './headerImpersonationSecurity.test';
+import { runNoRoleCrossoverTestSuite } from './noRoleCrossover.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 
 async function runAllTests() {
@@ -182,6 +183,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Header Impersonation Security test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 17. Multi-Tenant Role Crossover Regression Suite
+  try {
+    const res = await runNoRoleCrossoverTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Multi-Tenant Role Crossover test suite crashed:', err);
     totalFailed++;
   }
 

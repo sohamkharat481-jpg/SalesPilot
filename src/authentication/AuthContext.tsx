@@ -4,6 +4,39 @@ import { getSupabaseClient, isSupabaseConfigured, getSupabaseDiagnostics, SUPABA
 
 import { isVerifiedFounderEmail } from '../security/founderAllowlist';
 
+export function clearUserClientState() {
+  const keysToRemove = [
+    'salespilot_user',
+    'salespilot_org',
+    'salespilot_team',
+    'salespilot_token',
+    'sb_session_token',
+    'sb_auth_token',
+    'sb_access_token',
+    'current_user',
+    'user_role',
+    'selected_org_id',
+    'activity_logs',
+    'login_history'
+  ];
+  keysToRemove.forEach(k => {
+    try { localStorage.removeItem(k); } catch (_) {}
+    try { sessionStorage.removeItem(k); } catch (_) {}
+  });
+  try {
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('salespilot_') || key.startsWith('pref_') || key.startsWith('user:')) {
+        localStorage.removeItem(key);
+      }
+    });
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.startsWith('salespilot_') || key.startsWith('pref_') || key.startsWith('user:')) {
+        sessionStorage.removeItem(key);
+      }
+    });
+  } catch (_) {}
+}
+
 interface AuthContextType {
   user: WorkspaceUser | null;
   organization: Organization | null;
@@ -317,93 +350,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Check fallback stored session in localStorage
+      // Check stored session token via authoritative backend API call
       const token = localStorage.getItem('salespilot_token');
-      const storedUser = localStorage.getItem('salespilot_user');
-      const storedOrg = localStorage.getItem('salespilot_org');
-      const storedTeam = localStorage.getItem('salespilot_team');
-
-      if (token && storedUser) {
-        // Enforce cleanup of any mock or invalid developer identity:
+      if (token) {
         try {
-          const parsedUser = JSON.parse(storedUser);
-          if (
-            !token ||
-            parsedUser.fullName === 'Local Developer' ||
-            parsedUser.email === 'developer@salespilot.dev' ||
-            parsedUser.email === 'dev@salespilot.dev' ||
-            parsedUser.email?.endsWith('.local') ||
-            parsedUser.isDemo
-          ) {
-            localStorage.removeItem('salespilot_token');
-            localStorage.removeItem('salespilot_user');
-            localStorage.removeItem('salespilot_org');
-            localStorage.removeItem('salespilot_team');
-            setUser(null);
-            setOrganization(null);
-            setTeamMembers([]);
-            setAuthView('login');
-            setIsLoading(false);
-            return;
-          }
-
-          const emailLower = String(parsedUser.email || '').trim().toLowerCase();
-          const isFounder = isVerifiedFounderEmail(emailLower);
-
-          if (isFounder) {
-            parsedUser.organizationId = 'org_salespilot_lifetime';
-            parsedUser.isFounder = true;
-            parsedUser.role = 'OWNER';
-            parsedUser.tier = 'ENTERPRISE';
-            parsedUser.subscriptionStatus = 'LIFETIME';
-            parsedUser.companyName = 'SalesPilot';
-            localStorage.setItem('salespilot_user', JSON.stringify(parsedUser));
-          } else {
-            parsedUser.isFounder = false;
-            if (parsedUser.subscriptionStatus === 'LIFETIME') {
-              parsedUser.subscriptionStatus = 'ACTIVE';
+          const res = await fetch('/api/v1/auth/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.user) {
+              setUser(data.user);
+              if (data.organization) setOrganization(data.organization);
+              if (data.teamMembers) setTeamMembers(data.teamMembers);
+              setAuthView('authenticated');
+              localStorage.setItem('salespilot_user', JSON.stringify(data.user));
+              if (data.organization) localStorage.setItem('salespilot_org', JSON.stringify(data.organization));
+              setIsLoading(false);
+              return;
             }
           }
-
-          setUser(parsedUser);
-          setAuthView('authenticated');
-          if (storedOrg) {
-            const parsedOrg = JSON.parse(storedOrg);
-            if (isFounder) {
-              parsedOrg.id = 'org_salespilot_lifetime';
-              parsedOrg.name = 'SalesPilot';
-              parsedOrg.companyName = 'SalesPilot';
-              localStorage.setItem('salespilot_org', JSON.stringify(parsedOrg));
-            }
-            setOrganization(parsedOrg);
-          } else if (isFounder) {
-            const founderOrg: Organization = {
-              id: 'org_salespilot_lifetime',
-              name: 'SalesPilot',
-              companyName: 'SalesPilot',
-              industry: 'SaaS & Software',
-              domain: 'salespilot.co',
-              createdAt: new Date().toISOString()
-            };
-            setOrganization(founderOrg);
-            localStorage.setItem('salespilot_org', JSON.stringify(founderOrg));
-          }
-          if (storedTeam) setTeamMembers(JSON.parse(storedTeam));
-          setIsLoading(false);
-          return;
-        } catch (err) {
-          console.warn('[LOCAL STORAGE SESSION ERROR]', err);
+        } catch (pErr) {
+          console.warn('[PROFILE VERIFICATION ERROR]', pErr);
         }
       }
 
-      // Unauthenticated state
+      // Unauthenticated / expired token state
+      clearUserClientState();
       setUser(null);
       setOrganization(null);
       setTeamMembers([]);
-      localStorage.removeItem('salespilot_token');
-      localStorage.removeItem('salespilot_user');
-      localStorage.removeItem('salespilot_org');
-      localStorage.removeItem('salespilot_team');
       setAuthView('login');
       setIsLoading(false);
     }
@@ -1065,13 +1044,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('[LOGOUT EXCEPTION]', err);
     } finally {
+      clearUserClientState();
       setUser(null);
       setOrganization(null);
       setTeamMembers([]);
-      localStorage.removeItem('salespilot_user');
-      localStorage.removeItem('salespilot_org');
-      localStorage.removeItem('salespilot_team');
-      localStorage.removeItem('salespilot_token');
       setAuthView('login');
       setIsLoading(false);
     }

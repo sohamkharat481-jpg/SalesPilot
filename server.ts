@@ -1580,57 +1580,58 @@ async function startServer() {
         try {
           const { data: { user: sbUser }, error } = await supabase.auth.getUser(token);
           if (!error && sbUser) {
-            let user = localDb.getUserById(sbUser.id) || localDb.getUserByEmail(sbUser.email || '');
+            const emailLower = (sbUser.email || '').toLowerCase();
+            const isFounder = isVerifiedFounderEmail(emailLower);
+            
+            let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
+            let resolvedOrgId: string | undefined = undefined;
+            let resolvedCompanyName = sbUser.user_metadata?.company_name || 'Workspace';
+
+            // Always query authoritative Supabase/PostgreSQL database for profile & workspace membership
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', sbUser.id)
+                .maybeSingle();
+
+              const { data: tm } = await supabase
+                .from('team_members')
+                .select('*, organizations(*)')
+                .eq('user_id', sbUser.id)
+                .maybeSingle();
+
+              if (profile?.role) {
+                const r = String(profile.role).toUpperCase();
+                if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER' || r === 'MANAGER' || r === 'SUPER_ADMIN') {
+                  resolvedRole = r as UserRole;
+                }
+              } else if (tm?.role) {
+                const r = String(tm.role).toUpperCase();
+                if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER' || r === 'MANAGER' || r === 'SUPER_ADMIN') {
+                  resolvedRole = r as UserRole;
+                }
+              }
+
+              if (tm?.organizations?.id) {
+                resolvedOrgId = tm.organizations.id;
+                resolvedCompanyName = tm.organizations.name || resolvedCompanyName;
+              } else if (profile?.organization_id) {
+                resolvedOrgId = profile.organization_id;
+              }
+            } catch (qErr) {
+              console.warn('[AUTH] Error resolving profile from Supabase tables:', qErr);
+            }
+
+            if (isFounder) {
+              resolvedRole = 'OWNER';
+            }
+
+            let user = localDb.getUserById(sbUser.id);
+            const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(sbUser.id);
+            const orgId = resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || `org_${sbUser.id.substring(0, 8)}`));
+
             if (!user) {
-              const emailLower = (sbUser.email || '').toLowerCase();
-              const isFounder = isVerifiedFounderEmail(emailLower);
-              
-              let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
-              let resolvedOrgId: string | undefined = undefined;
-              let resolvedCompanyName = sbUser.user_metadata?.company_name || 'Workspace';
-
-              try {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('id', sbUser.id)
-                  .maybeSingle();
-
-                const { data: tm } = await supabase
-                  .from('team_members')
-                  .select('*, organizations(*)')
-                  .eq('user_id', sbUser.id)
-                  .maybeSingle();
-
-                if (profile?.role) {
-                  const r = String(profile.role).toUpperCase();
-                  if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER') {
-                    resolvedRole = r as UserRole;
-                  }
-                } else if (tm?.role) {
-                  const r = String(tm.role).toUpperCase();
-                  if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER') {
-                    resolvedRole = r as UserRole;
-                  }
-                }
-
-                if (tm?.organizations?.id) {
-                  resolvedOrgId = tm.organizations.id;
-                  resolvedCompanyName = tm.organizations.name || resolvedCompanyName;
-                } else if (profile?.organization_id) {
-                  resolvedOrgId = profile.organization_id;
-                }
-              } catch (qErr) {
-                console.warn('[AUTH] Error resolving profile from Supabase tables:', qErr);
-              }
-
-              if (isFounder) {
-                resolvedRole = 'OWNER';
-              }
-
-              const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(sbUser.id);
-              const orgId = resolvedOrgId || (userOrg ? userOrg.id : `org_${sbUser.id.substring(0, 8)}`);
-
               user = {
                 id: sbUser.id,
                 email: sbUser.email || '',
@@ -1649,7 +1650,17 @@ async function startServer() {
                 createdAt: new Date().toISOString()
               };
               localDb.addUser(user);
+            } else {
+              // Keep role & organization synchronized with authoritative Supabase record
+              user.role = resolvedRole;
+              user.organizationId = orgId;
+              if (resolvedCompanyName && resolvedCompanyName !== 'Workspace') {
+                user.companyName = resolvedCompanyName;
+              }
+              user.isFounder = isFounder;
+              try { localDb.saveUser(user); } catch (_) {}
             }
+
             tokenVerificationCache.set(token, { user, expiresAt: Date.now() + 5 * 60 * 1000 });
             req.authenticatedUser = user;
             return next();
@@ -1750,6 +1761,10 @@ async function startServer() {
   // Auth resolver helper (Deny by default)
   const getAuthenticatedUser = (req: any): WorkspaceUser | null => {
     if (req.authenticatedUser) {
+      const freshUser = localDb.getUserById(req.authenticatedUser.id);
+      if (freshUser) {
+        req.authenticatedUser = freshUser;
+      }
       return req.authenticatedUser;
     }
     const authHeader = req.headers?.authorization;
@@ -1765,6 +1780,10 @@ async function startServer() {
       }
       const cached = tokenVerificationCache.get(token);
       if (cached && cached.expiresAt > Date.now()) {
+        const freshUser = localDb.getUserById(cached.user.id);
+        if (freshUser) {
+          cached.user = freshUser;
+        }
         return cached.user;
       }
       const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
@@ -1772,10 +1791,6 @@ async function startServer() {
         const founderUser = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com');
         if (founderUser) return founderUser;
       }
-    }
-    const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
-    if (!isProductionRuntime) {
-      return localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com') || localDb.getUsers()[0] || null;
     }
     return null;
   };
