@@ -21085,4 +21085,4 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   }
 }
 
-startServer();
+export const serverInitPromise = startServer();

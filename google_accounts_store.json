@@ -674,6 +674,33 @@
       "organizationId": "org_gcal_conn_test_1790855158693",
       "userId": "usr_invalid",
       "createdAt": "2026-10-01T11:45:58.693Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-01T12:56:10.471Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790855770471",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-01T11:56:10.471Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-01T11:56:10.471Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-01T12:56:10.471Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790855770471",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-01T11:56:10.471Z"
     }
   ],
   "gmailAccounts": []
