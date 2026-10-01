@@ -128,7 +128,7 @@ export function PlansSection({
   onSelectPlan,
   loadingPlanId
 }: PlansSectionProps) {
-  const currentTier = user?.tier || 'STARTER';
+  const currentTier = user?.tier || 'FREE_TRIAL';
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   const getPrice = (plan: Plan) => {

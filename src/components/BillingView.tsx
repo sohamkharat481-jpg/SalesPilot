@@ -309,7 +309,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
 
   // Compute active plan renewal prices
   const activePlanPriceBreakdown = useMemo(() => {
-    const currentTier = user?.tier || 'STARTER';
+    const currentTier = user?.tier || 'FREE_TRIAL';
     const base = getSelectedPlanBasePrice(currentTier);
     return getPriceBreakdown(base);
   }, [user?.tier, billingCycle, activeCoupon]);
@@ -358,7 +358,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
           </div>
 
           <div className="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-xs text-slate-600 dark:text-slate-350 font-mono shrink-0">
-            Current Plan: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{user?.tier || 'STARTER'}</span>
+            Current Plan: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{user?.tier || 'FREE_TRIAL'}</span>
           </div>
         </div>
       </div>
@@ -411,7 +411,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
               
               {/* Coupons apply */}
               <CouponsSection
-                basePrice={getSelectedPlanBasePrice(user?.tier || 'STARTER')}
+                basePrice={getSelectedPlanBasePrice(user?.tier || 'FREE_TRIAL')}
                 activeCoupon={activeCoupon}
                 setActiveCoupon={setActiveCoupon}
                 gstRate={0.18}

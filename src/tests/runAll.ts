@@ -14,6 +14,7 @@ import { runBillingAuditTestSuite } from './billingAudit.test';
 import { runAdminBillingAuthTestSuite } from './adminBillingAuth.test';
 import { runNoRoleSimulatorTestSuite } from './noRoleSimulator.test';
 import { runProductionBillingCheckoutTestSuite } from './productionBillingCheckout.test';
+import { runHeaderImpersonationSecurityTestSuite } from './headerImpersonationSecurity.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 
 async function runAllTests() {
@@ -174,7 +175,17 @@ async function runAllTests() {
     totalFailed++;
   }
 
-  // 16. Final Production Smoke Test Suite
+  // 16. Header Impersonation Security Suite
+  try {
+    const res = await runHeaderImpersonationSecurityTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Header Impersonation Security test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 17. Final Production Smoke Test Suite
   try {
     const res = await runFinalProductionSmokeTestSuite();
     totalPassed += res.passed;

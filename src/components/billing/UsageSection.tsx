@@ -8,7 +8,7 @@ interface UsageSectionProps {
 }
 
 export function UsageSection({ user }: UsageSectionProps) {
-  const currentTier = user?.tier || 'STARTER';
+  const currentTier = user?.tier || 'FREE_TRIAL';
 
   // 10 requested metrics across all plans
   const planLimits: Record<string, Record<string, { limit: number | string; label: string; icon: any; unit: string }>> = {
