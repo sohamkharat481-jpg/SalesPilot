@@ -38,6 +38,7 @@ import { LaunchHelpCenter } from './components/LaunchHelpCenter';
 import { AiSalesCopilotWidget } from './components/copilot/AiSalesCopilotWidget';
 import { VoiceCallingView } from './components/VoiceCallingView';
 import { MobileHubView } from './components/MobileHubView';
+import { AuthDiagnosticBar } from './components/AuthDiagnosticBar';
 import { isVerifiedFounderEmail } from './security/founderAllowlist';
 import { WhiteLabelView } from './components/WhiteLabelView';
 import { EnterpriseSecurityView } from './components/EnterpriseSecurityView';
@@ -733,6 +734,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
+      <AuthDiagnosticBar user={user} />
       
       {/* 1-Day Trial Status Banner Alert - Bypassed for Founder Accounts */}
       {!isFounderUser && (

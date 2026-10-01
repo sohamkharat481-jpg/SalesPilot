@@ -1556,25 +1556,7 @@ async function startServer() {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
 
-      // 1. Check local session
-      const session = localDb.getSession(token);
-      if (session) {
-        const user = localDb.getUserById(session.userId);
-        if (user) {
-          session.expiresAt = Math.max(session.expiresAt || 0, Date.now() + 30 * 24 * 3600 * 1000);
-          req.authenticatedUser = user;
-          return next();
-        }
-      }
-
-      // 2. Check token verification cache
-      const cached = tokenVerificationCache.get(token);
-      if (cached && cached.expiresAt > Date.now()) {
-        req.authenticatedUser = cached.user;
-        return next();
-      }
-
-      // 3. Supabase Auth token validation
+      // 1. Supabase Auth token validation & PostgreSQL Direct Table Lookup
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
@@ -1661,12 +1643,22 @@ async function startServer() {
               try { localDb.saveUser(user); } catch (_) {}
             }
 
-            tokenVerificationCache.set(token, { user, expiresAt: Date.now() + 5 * 60 * 1000 });
             req.authenticatedUser = user;
             return next();
           }
         } catch (sbErr) {
           console.warn('[AUTH] Supabase token verification failed:', sbErr);
+        }
+      }
+
+      // 2. Local Session Fallback for non-Supabase local developer testing
+      const session = localDb.getSession(token);
+      if (session) {
+        const user = localDb.getUserById(session.userId);
+        if (user) {
+          session.expiresAt = Math.max(session.expiresAt || 0, Date.now() + 30 * 24 * 3600 * 1000);
+          req.authenticatedUser = user;
+          return next();
         }
       }
 
@@ -1777,19 +1769,6 @@ async function startServer() {
           session.expiresAt = Math.max(session.expiresAt || 0, Date.now() + 30 * 24 * 3600 * 1000);
           return user;
         }
-      }
-      const cached = tokenVerificationCache.get(token);
-      if (cached && cached.expiresAt > Date.now()) {
-        const freshUser = localDb.getUserById(cached.user.id);
-        if (freshUser) {
-          cached.user = freshUser;
-        }
-        return cached.user;
-      }
-      const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
-      if (!isProductionRuntime && (token === 'sb_access_token_sandbox_valid' || token.startsWith('sandbox_'))) {
-        const founderUser = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com');
-        if (founderUser) return founderUser;
       }
     }
     return null;
@@ -3395,6 +3374,64 @@ async function startServer() {
   };
   app.get('/auth/profile', handleGetProfile);
   app.get('/api/v1/auth/profile', handleGetProfile);
+
+  // AUTH API: Production Diagnostic Endpoint for Safe Identity & Role Verification
+  app.get('/api/v1/auth/diagnostics', async (req: any, res: any) => {
+    const authHeader = req.headers?.authorization;
+    let token = '';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1].trim();
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized. Bearer token required.' });
+    }
+
+    const supabase = getSupabaseClient();
+    let sbUser: any = null;
+    let profileData: any = null;
+    let tmData: any = null;
+
+    if (supabase) {
+      try {
+        const { data } = await supabase.auth.getUser(token);
+        sbUser = data?.user || null;
+      } catch (_) {}
+
+      if (sbUser) {
+        try {
+          const { data: p } = await supabase.from('profiles').select('*').eq('id', sbUser.id).maybeSingle();
+          profileData = p;
+        } catch (_) {}
+
+        try {
+          const { data: tm } = await supabase.from('team_members').select('*, organizations(*)').eq('user_id', sbUser.id).maybeSingle();
+          tmData = tm;
+        } catch (_) {}
+      }
+    }
+
+    const serverUser = getAuthenticatedUser(req);
+
+    res.json({
+      success: true,
+      diagnostics: {
+        authenticatedSupabaseUserId: sbUser?.id || null,
+        authenticatedEmail: sbUser?.email || null,
+        serverUserId: serverUser?.id || null,
+        serverEmail: serverUser?.email || null,
+        serverOrgId: serverUser?.organizationId || null,
+        serverRole: serverUser?.role || null,
+        profileRole: profileData?.role || null,
+        profileOrgId: profileData?.organization_id || null,
+        teamMembersRole: tmData?.role || null,
+        teamMembersOrgId: tmData?.organization_id || null,
+        sourceOfRole: profileData?.role ? 'public.profiles' : (tmData?.role ? 'public.team_members' : 'server_default'),
+        sourceOfOrg: tmData?.organizations?.id ? 'public.team_members -> organizations' : (profileData?.organization_id ? 'public.profiles' : 'server_default'),
+        sessionUserId: sbUser?.id || serverUser?.id || null
+      }
+    });
+  });
 
   // AUTH API: Update Profile Settings
   const handleUpdateProfile = async (req: any, res: any) => {
