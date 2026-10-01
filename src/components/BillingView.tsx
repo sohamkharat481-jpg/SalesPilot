@@ -170,7 +170,8 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
       BUSINESS: { monthly: 11999, annual: 119990 },
       PROFESSIONAL: { monthly: 11999, annual: 119990 },
       ENTERPRISE: { monthly: 29999, annual: 249990 },
-      AGENCY: { monthly: 29999, annual: 249990 }
+      AGENCY: { monthly: 29999, annual: 249990 },
+      TEST_PAYMENT: { monthly: 1, annual: 1 }
     };
     const tierPrice = prices[planId] || prices.STARTER;
     return billingCycle === 'annual' ? tierPrice.annual : tierPrice.monthly;

@@ -200,7 +200,7 @@ export function PlansSection({
     <div id="plans_section_wrapper" className="space-y-12">
 
       {/* Founder-Only ₹1 UPI Connectivity Test Mode Banner */}
-      {ENABLE_FOUNDER_TEST_MODE && isVerifiedFounderEmail(user?.email) && (
+      {ENABLE_FOUNDER_TEST_MODE && (isVerifiedFounderEmail(user?.email) || user?.isFounder) && (
         <div id="banner_founder_test_payment" className="p-5 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-500/40 rounded-xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mt-0.5">
@@ -393,15 +393,15 @@ export function PlansSection({
                     <>Downgrade to {plan.name}</>
                   )}
                 </button>
-                {/* DEV-ONLY TEST MODE */}
-              {import.meta.env.DEV && (
+                {/* FOUNDER TEST MODE (Production & Dev for Verified Founders) */}
+              {ENABLE_FOUNDER_TEST_MODE && (isVerifiedFounderEmail(user?.email) || user?.isFounder) && (
                 <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-mono mb-2 uppercase">Development Only</p>
+                  <p className="text-[10px] text-emerald-500 font-mono mb-2 uppercase font-bold">Verified Founder Test</p>
                   <button
                     onClick={() => onSelectPlan('TEST_PAYMENT', 1)}
-                    className="w-full py-2.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                   >
-                    ₹1 Test Payment
+                    <Sparkles className="w-3.5 h-3.5" /> ₹1 Test Payment
                   </button>
                 </div>
               )}

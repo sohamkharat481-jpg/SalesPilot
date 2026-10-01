@@ -288,34 +288,38 @@ export class UpiPaymentService {
       };
     }
 
-    // Calculate invoice amounts
-    const pricing = calculateCanonicalPayablePrice(payment.plan, payment.billing_cycle);
-    const invoiceNumber = `SP-${now.getFullYear()}-INV-${Math.floor(1000 + Math.random() * 9000)}`;
-    const invoice: InvoiceRecord = {
-      id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      invoice_number: invoiceNumber,
-      organization_id: payment.organization_id,
-      user_id: payment.user_id,
-      payment_id: payment.id,
-      plan: payment.plan,
-      billing_cycle: payment.billing_cycle,
-      base_amount: pricing.baseAmount,
-      gst_amount: pricing.gstAmount,
-      total_amount: payment.amount,
-      currency: 'INR',
-      status: 'PAID',
-      issued_at: periodStart,
-      paid_at: periodStart,
-      payment_method: 'UPI',
-      utr: payment.utr
-    };
+    // Calculate invoice amounts (Skip for TEST_PAYMENT: No GST / commercial invoice issued)
+    let invoice: InvoiceRecord | null = null;
+    let invoiceNumber = 'N/A (TEST_PAYMENT)';
+    if (payment.plan !== 'TEST_PAYMENT') {
+      const pricing = calculateCanonicalPayablePrice(payment.plan, payment.billing_cycle);
+      invoiceNumber = `SP-${now.getFullYear()}-INV-${Math.floor(1000 + Math.random() * 9000)}`;
+      invoice = {
+        id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        invoice_number: invoiceNumber,
+        organization_id: payment.organization_id,
+        user_id: payment.user_id,
+        payment_id: payment.id,
+        plan: payment.plan,
+        billing_cycle: payment.billing_cycle,
+        base_amount: pricing.baseAmount,
+        gst_amount: pricing.gstAmount,
+        total_amount: payment.amount,
+        currency: 'INR',
+        status: 'PAID',
+        issued_at: periodStart,
+        paid_at: periodStart,
+        payment_method: 'UPI',
+        utr: payment.utr
+      };
+    }
 
     // Persist to Supabase if configured
     if (client) {
       try {
         await client.from('payments').upsert(payment);
         if (subscription) await client.from('subscriptions').upsert(subscription);
-        await client.from('invoices').upsert(invoice);
+        if (invoice) await client.from('invoices').upsert(invoice);
         // Update organizations and users tier
         if (subscription) {
             await client.from('organizations').update({ plan: payment.plan, tier: payment.plan }).eq('id', payment.organization_id);
@@ -329,7 +333,7 @@ export class UpiPaymentService {
     // Persist to LocalDB
     localDb.updatePayment(payment.id, payment);
     if (subscription) localDb.saveSubscription(subscription);
-    localDb.addInvoice(invoice);
+    if (invoice) localDb.addInvoice(invoice);
 
     // Update local user and organization
     if (subscription) {

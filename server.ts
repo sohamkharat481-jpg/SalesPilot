@@ -65,7 +65,7 @@ import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountrie
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
 import { UpiPaymentService } from './src/payments/upiPaymentService';
 import { getUpiBillingConfig, generateUpiIntentUri } from './src/payments/upiConfig';
-import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId } from './src/payments/pricingConfig';
+import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId, ENABLE_FOUNDER_TEST_MODE } from './src/payments/pricingConfig';
 
 import { validateStartupEnv } from './src/security/envValidator';
 import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
