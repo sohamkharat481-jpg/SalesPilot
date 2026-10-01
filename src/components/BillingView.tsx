@@ -318,6 +318,10 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
     user && isVerifiedFounderEmail(user.email)
   );
 
+  const isBillingAdminUser = Boolean(
+    user && (isVerifiedFounderEmail(user.email) || user.role === 'SUPER_ADMIN')
+  );
+
   return (
     <div id="billing_view" className="space-y-8 animate-fade-in pb-12">
       
@@ -333,29 +337,31 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
-            <button
-              onClick={() => setViewMode('customer')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'customer' 
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200 dark:border-slate-700/50' 
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-400'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" /> Subscriber View
-            </button>
-            <button
-              id="tab_admin_billing"
-              onClick={() => setViewMode('admin')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                viewMode === 'admin' 
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200 dark:border-slate-700/50' 
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-400'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5 text-indigo-500" /> Admin Console
-            </button>
-          </div>
+          {isBillingAdminUser && (
+            <div className="flex gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shrink-0">
+              <button
+                onClick={() => setViewMode('customer')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'customer' 
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200 dark:border-slate-700/50' 
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-400'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" /> Subscriber View
+              </button>
+              <button
+                id="tab_admin_billing"
+                onClick={() => setViewMode('admin')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'admin' 
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200 dark:border-slate-700/50' 
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-400'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5 text-indigo-500" /> Admin Console
+              </button>
+            </div>
+          )}
 
           <div className="px-3.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md text-xs text-slate-600 dark:text-slate-350 font-mono shrink-0">
             Current Plan: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{user?.tier || 'FREE_TRIAL'}</span>
@@ -386,7 +392,7 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
         </div>
       )}
 
-      {viewMode === 'admin' ? (
+      {viewMode === 'admin' && isBillingAdminUser ? (
         <AdminBillingConsole 
           onLogMessage={handleLogMessage} 
           invoices={invoices} 
