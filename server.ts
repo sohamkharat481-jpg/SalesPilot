@@ -13775,10 +13775,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(400).json({ error: 'Plan is required.' });
     }
 
+    if (plan === 'TEST_PAYMENT') {
+      if (!ENABLE_FOUNDER_TEST_MODE) {
+        return res.status(403).json({ error: 'Founder test payment mode is currently disabled.' });
+      }
+      if (!isVerifiedFounderEmail(user.email)) {
+        return res.status(403).json({ error: 'Forbidden. ₹1 Test Payment mode is restricted to verified platform founders only.' });
+      }
+    }
+
     // Server-authoritative price calculation (Never trust client amount)
     const pricing = calculateCanonicalPayablePrice(plan, billingCycle);
     const upiConfig = getUpiBillingConfig();
-    const paymentNote = `SalesPilot ${pricing.planId} (${pricing.billingCycle})`;
+    const paymentNote = plan === 'TEST_PAYMENT'
+      ? `SalesPilot Founder ₹1 Test Payment (${user.email || 'Founder'})`
+      : `SalesPilot ${pricing.planId} (${pricing.billingCycle})`;
 
     const upiIntentUri = generateUpiIntentUri({
       upiId: upiConfig.upiId,
@@ -13818,8 +13829,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const { plan, billingCycle, utr, paymentDateTime, notes } = req.body;
-    if (plan === 'TEST_PAYMENT' && process.env.NODE_ENV === 'production') {
-      return res.status(403).json({ error: 'Test payment mode is unavailable in production.' });
+    if (plan === 'TEST_PAYMENT') {
+      if (!ENABLE_FOUNDER_TEST_MODE) {
+        return res.status(403).json({ error: 'Founder test payment mode is currently disabled.' });
+      }
+      if (!isVerifiedFounderEmail(user.email)) {
+        return res.status(403).json({ error: 'Forbidden. ₹1 Test Payment mode is restricted to verified platform founders only.' });
+      }
     }
     if (!utr) {
       return res.status(400).json({ error: 'UTR / Transaction Reference ID is required.' });

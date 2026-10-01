@@ -5,6 +5,13 @@
  * Client-submitted prices are NEVER trusted.
  */
 
+/**
+ * Temporary Founder-Only ₹1 UPI Test Mode Flag
+ * Set to true to enable founder ₹1 connectivity test mode on production.
+ * Set to false to disable immediately.
+ */
+export const ENABLE_FOUNDER_TEST_MODE = true;
+
 export type CanonicalPlanId = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'TEST_PAYMENT';
 export type BillingCycle = 'monthly' | 'annual';
 
@@ -193,6 +200,19 @@ export function calculateCanonicalPayablePrice(plan: string, cycle: string): {
 } {
   const planId = normalizePlanId(plan);
   const billingCycle: 'monthly' | 'annual' = (cycle || '').toLowerCase() === 'annual' ? 'annual' : 'monthly';
+
+  if (planId === 'TEST_PAYMENT') {
+    return {
+      planId: 'TEST_PAYMENT',
+      billingCycle,
+      baseAmount: 1,
+      gstRate: 0,
+      gstAmount: 0,
+      totalAmount: 1,
+      currency: 'INR'
+    };
+  }
+
   const planConfig = CANONICAL_PLANS[planId];
   const baseAmount = billingCycle === 'annual' ? planConfig.annualPrice : planConfig.monthlyPrice;
   const gstRate = 0.18; // 18% GST standard Indian rate

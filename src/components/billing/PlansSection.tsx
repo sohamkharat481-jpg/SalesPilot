@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Check, Sparkles, Loader2, Award, Info, HelpCircle, Star, Quote } from 'lucide-react';
 import { SubscriptionTier, WorkspaceUser } from '../../types';
+import { isVerifiedFounderEmail } from '../../security/founderAllowlist';
+import { ENABLE_FOUNDER_TEST_MODE } from '../../payments/pricingConfig';
 
 export interface Plan {
   id: SubscriptionTier;
@@ -196,6 +198,46 @@ export function PlansSection({
 
   return (
     <div id="plans_section_wrapper" className="space-y-12">
+
+      {/* Founder-Only ₹1 UPI Connectivity Test Mode Banner */}
+      {ENABLE_FOUNDER_TEST_MODE && isVerifiedFounderEmail(user?.email) && (
+        <div id="banner_founder_test_payment" className="p-5 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-500/40 rounded-xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+                  FOUNDER ₹1 UPI CONNECTIVITY TEST MODE
+                </h4>
+                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-semibold rounded border border-emerald-500/30">
+                  EXACT FOUNDER ALLOWLIST ONLY
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                Perform a live ₹1.00 production UPI intent test routed directly to <strong className="font-mono text-emerald-400">sohamkharat85@oksbi</strong>. Opens dynamic NPCI UPI Scan & Pay QR for live bank verification. Persistent record saved as <strong className="font-mono text-emerald-400">TEST_PAYMENT</strong> (excluded from MRR/ARR/GST invoices).
+              </p>
+            </div>
+          </div>
+          <button
+            id="btn_select_plan_test_payment"
+            onClick={() => onSelectPlan('TEST_PAYMENT', 1)}
+            disabled={loadingPlanId === 'TEST_PAYMENT'}
+            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-md"
+          >
+            {loadingPlanId === 'TEST_PAYMENT' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Generating ₹1 QR...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" /> Initiate ₹1.00 Test Checkout
+              </>
+            )}
+          </button>
+        </div>
+      )}
       
       {/* Primary Plans Segment */}
       <div className="space-y-6">
