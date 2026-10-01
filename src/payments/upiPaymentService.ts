@@ -285,7 +285,7 @@ export class UpiPaymentService {
       updated_at: periodStart
     };
 
-    // Calculate canonical invoice amounts & formal GST compliance
+    // Calculate invoice amounts with standard GST tax invoice
     const pricing = calculateCanonicalPayablePrice(payment.plan, payment.billing_cycle);
     const invoiceNumber = `SP-${now.getFullYear()}-INV-${Math.floor(1000 + Math.random() * 9000)}`;
     const invoice: InvoiceRecord = {
@@ -311,11 +311,13 @@ export class UpiPaymentService {
     if (client) {
       try {
         await client.from('payments').upsert(payment);
-        await client.from('subscriptions').upsert(subscription);
-        await client.from('invoices').upsert(invoice);
+        if (subscription) await client.from('subscriptions').upsert(subscription);
+        if (invoice) await client.from('invoices').upsert(invoice);
         // Update organizations and users tier
-        await client.from('organizations').update({ plan: payment.plan, tier: payment.plan }).eq('id', payment.organization_id);
-        await client.from('users').update({ tier: payment.plan, subscription_status: 'ACTIVE' }).eq('id', payment.user_id);
+        if (subscription) {
+            await client.from('organizations').update({ plan: payment.plan, tier: payment.plan }).eq('id', payment.organization_id);
+            await client.from('users').update({ tier: payment.plan, subscription_status: 'ACTIVE' }).eq('id', payment.user_id);
+        }
       } catch (err) {
         console.warn('[UPI BILLING] Supabase approval sync notice:', err);
       }
@@ -323,21 +325,23 @@ export class UpiPaymentService {
 
     // Persist to LocalDB
     localDb.updatePayment(payment.id, payment);
-    localDb.saveSubscription(subscription);
-    localDb.addInvoice(invoice);
+    if (subscription) localDb.saveSubscription(subscription);
+    if (invoice) localDb.addInvoice(invoice);
 
     // Update local user and organization
-    const org = localDb.getOrganizationById(payment.organization_id);
-    if (org) {
-      (org as any).tier = payment.plan;
-      (org as any).plan = payment.plan;
-      try { localDb.save(); } catch (_) {}
-    }
-    const usr = localDb.getUserById(payment.user_id);
-    if (usr) {
-      usr.tier = payment.plan as any;
-      (usr as any).subscriptionStatus = 'ACTIVE';
-      try { localDb.save(); } catch (_) {}
+    if (subscription) {
+      const org = localDb.getOrganizationById(payment.organization_id);
+      if (org) {
+        (org as any).tier = payment.plan;
+        (org as any).plan = payment.plan;
+        try { localDb.save(); } catch (_) {}
+      }
+      const usr = localDb.getUserById(payment.user_id);
+      if (usr) {
+        usr.tier = payment.plan as any;
+        (usr as any).subscriptionStatus = 'ACTIVE';
+        try { localDb.save(); } catch (_) {}
+      }
     }
 
     console.log(`[UPI BILLING] [APPROVED] Payment ${paymentId} verified by admin ${adminUserId}. Subscription activated for org ${payment.organization_id} with tier ${payment.plan}. Invoice ${invoiceNumber} issued.`);

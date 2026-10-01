@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Sparkles, Loader2, Award, Info, HelpCircle, Star, Quote } from 'lucide-react';
 import { SubscriptionTier, WorkspaceUser } from '../../types';
+import { isVerifiedFounderEmail } from '../../security/founderAllowlist';
 
 export interface Plan {
   id: SubscriptionTier;
@@ -196,7 +197,7 @@ export function PlansSection({
 
   return (
     <div id="plans_section_wrapper" className="space-y-12">
-
+      
       {/* Primary Plans Segment */}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">

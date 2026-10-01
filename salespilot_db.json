@@ -7587,12 +7587,12 @@
       "companyName": "Company A",
       "industry": "SaaS",
       "role": "OWNER",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.641Z"
+      "createdAt": "2026-10-01T19:21:26.466Z"
     },
     {
       "id": "usr_ver_b",
@@ -7601,12 +7601,12 @@
       "companyName": "Company A",
       "industry": "SaaS",
       "role": "MEMBER",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.641Z"
+      "createdAt": "2026-10-01T19:21:26.466Z"
     },
     {
       "id": "usr_ver_c",
@@ -7615,12 +7615,12 @@
       "companyName": "Company B",
       "industry": "SaaS",
       "role": "OWNER",
-      "organizationId": "org_call_ver_2_1790880044641",
+      "organizationId": "org_call_ver_2_1790882486466",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.641Z"
+      "createdAt": "2026-10-01T19:21:26.466Z"
     },
     {
       "id": "usr_dial_x",
@@ -7629,12 +7629,12 @@
       "companyName": "Company X",
       "industry": "SaaS",
       "role": "OWNER",
-      "organizationId": "org_dial_x_1790880044759",
+      "organizationId": "org_dial_x_1790882486585",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.759Z"
+      "createdAt": "2026-10-01T19:21:26.585Z"
     },
     {
       "id": "usr_dial_y",
@@ -7643,12 +7643,12 @@
       "companyName": "Company Y",
       "industry": "SaaS",
       "role": "MEMBER",
-      "organizationId": "org_dial_y_1790880044759",
+      "organizationId": "org_dial_y_1790882486585",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.759Z"
+      "createdAt": "2026-10-01T19:21:26.585Z"
     },
     {
       "id": "usr_edesy_1",
@@ -7657,12 +7657,12 @@
       "companyName": "Acme Sales",
       "industry": "B2B SaaS",
       "role": "OWNER",
-      "organizationId": "org_edesy_1_1790880044860",
+      "organizationId": "org_edesy_1_1790882486693",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.860Z"
+      "createdAt": "2026-10-01T19:21:26.693Z"
     },
     {
       "id": "usr_edesy_2",
@@ -7671,12 +7671,12 @@
       "companyName": "Rival Corp",
       "industry": "B2B SaaS",
       "role": "MEMBER",
-      "organizationId": "org_edesy_2_1790880044860",
+      "organizationId": "org_edesy_2_1790882486693",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.860Z"
+      "createdAt": "2026-10-01T19:21:26.693Z"
     },
     {
       "id": "usr_gcal_conn_a",
@@ -7685,12 +7685,12 @@
       "companyName": "Company A",
       "industry": "SaaS",
       "role": "OWNER",
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.982Z"
+      "createdAt": "2026-10-01T19:21:26.826Z"
     },
     {
       "id": "usr_gcal_conn_b",
@@ -7698,49 +7698,50 @@
       "fullName": "User B Calendar",
       "companyName": "Company A",
       "industry": "MEMBER",
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "tier": "ENTERPRISE",
       "subscriptionStatus": "ACTIVE",
       "isFounder": false,
       "isVerified": true,
-      "createdAt": "2026-10-01T18:40:44.982Z"
+      "createdAt": "2026-10-01T19:21:26.826Z"
     },
     {
-      "id": "usr_test_mode_1790880046356",
-      "email": "sohamkharat481@gmail.com",
-      "organizationId": "org_test_mode_1790880046356",
-      "tier": "FREE_TRIAL",
-      "role": "OWNER"
+      "id": "usr_billing_test_1790882488569",
+      "email": "customer@company.com",
+      "organizationId": "org_billing_test_1790882488569",
+      "tier": "GROWTH",
+      "role": "OWNER",
+      "subscriptionStatus": "ACTIVE"
     },
     {
-      "id": "usr_cust_1790880046530",
+      "id": "usr_cust_1790882488862",
       "email": "customer@test.com",
-      "organizationId": "org_admin_test_1790880046530",
+      "organizationId": "org_admin_test_1790882488862",
       "role": "MEMBER",
       "tier": "GROWTH",
       "subscriptionStatus": "ACTIVE"
     },
     {
-      "id": "usr_expired_trial_1790880046839",
+      "id": "usr_expired_trial_1790882489157",
       "email": "expired.trial@example.com",
-      "organizationId": "org_expired_trial_1790880046839",
+      "organizationId": "org_expired_trial_1790882489157",
       "tier": "GROWTH",
       "role": "MEMBER",
       "subscriptionStatus": "ACTIVE"
     },
     {
-      "id": "usr_alpha_1790880047146",
-      "email": "alpha.owner.1790880047146@alpha.com",
+      "id": "usr_alpha_1790882489483",
+      "email": "alpha.owner.1790882489483@alpha.com",
       "fullName": "Alpha Owner",
-      "organizationId": "org_test_alpha_1790880047146",
+      "organizationId": "org_test_alpha_1790882489483",
       "role": "OWNER",
       "tier": "STARTER"
     },
     {
-      "id": "usr_beta_1790880047146",
-      "email": "beta.viewer.1790880047146@beta.com",
+      "id": "usr_beta_1790882489483",
+      "email": "beta.viewer.1790882489483@beta.com",
       "fullName": "Beta Viewer",
-      "organizationId": "org_test_beta_1790880047146",
+      "organizationId": "org_test_beta_1790882489483",
       "role": "VIEWER",
       "tier": "GROWTH"
     }
@@ -8219,18 +8220,19 @@
       "tier": "GROWTH"
     },
     {
-      "id": "org_test_mode_1790880046356",
-      "name": "Founder Test Org",
-      "tier": "FREE_TRIAL"
+      "id": "org_billing_test_1790882488569",
+      "name": "Canonical Billing Org",
+      "tier": "GROWTH",
+      "plan": "GROWTH"
     },
     {
-      "id": "org_admin_test_1790880046530",
+      "id": "org_admin_test_1790882488862",
       "name": "Test Payment Org",
       "tier": "GROWTH",
       "plan": "GROWTH"
     },
     {
-      "id": "org_expired_trial_1790880046839",
+      "id": "org_expired_trial_1790882489157",
       "name": "Expired Trial Org",
       "tier": "GROWTH",
       "plan": "GROWTH"
@@ -8241,12 +8243,12 @@
       "ownerId": "usr_multi_org_123"
     },
     {
-      "id": "org_test_alpha_1790880047146",
+      "id": "org_test_alpha_1790882489483",
       "name": "Alpha Corp",
       "tier": "STARTER"
     },
     {
-      "id": "org_test_beta_1790880047146",
+      "id": "org_test_beta_1790882489483",
       "name": "Beta Corp",
       "tier": "GROWTH"
     }
@@ -8436,24 +8438,24 @@
     },
     {
       "id": "lead_alpha_01",
-      "organizationId": "org_alpha_1790880047249",
-      "userId": "usr_alpha_1790880047249",
+      "organizationId": "org_alpha_1790882489623",
+      "userId": "usr_alpha_1790882489623",
       "name": "Alpha Target",
       "email": "target@alpha.com",
       "company": "Alpha Corp",
       "status": "NEW",
-      "createdAt": "2026-10-01T18:40:47.249Z",
+      "createdAt": "2026-10-01T19:21:29.623Z",
       "assignedToId": "usr_alpha_1790879469100"
     },
     {
       "id": "lead_beta_01",
-      "organizationId": "org_beta_1790880047249",
-      "userId": "usr_beta_1790880047249",
+      "organizationId": "org_beta_1790882489623",
+      "userId": "usr_beta_1790882489623",
       "name": "Beta Target",
       "email": "target@beta.com",
       "company": "Beta Corp",
       "status": "NEW",
-      "createdAt": "2026-10-01T18:40:47.249Z",
+      "createdAt": "2026-10-01T19:21:29.623Z",
       "assignedToId": "usr_beta_1790879469100"
     },
     {
@@ -9800,44 +9802,44 @@
       "assignedToId": "usr_alpha_1790879469100"
     },
     {
-      "id": "lead_a_1790880044901",
-      "organizationId": "org_test_iso_1790880044901",
-      "userId": "usr_iso_a_1790880044901",
+      "id": "lead_a_1790882486739",
+      "organizationId": "org_test_iso_1790882486739",
+      "userId": "usr_iso_a_1790882486739",
       "name": "Alice Prospect",
       "email": "alice@prospect.com",
       "company": "Alice Co",
       "status": "NEW",
-      "createdAt": "2026-10-01T18:40:44.901Z"
+      "createdAt": "2026-10-01T19:21:26.739Z"
     },
     {
-      "id": "lead_b_1790880044920",
-      "organizationId": "org_test_iso_1790880044901",
-      "userId": "usr_iso_b_1790880044901",
+      "id": "lead_b_1790882486759",
+      "organizationId": "org_test_iso_1790882486739",
+      "userId": "usr_iso_b_1790882486739",
       "name": "Bob Prospect",
       "email": "bob@prospect.com",
       "company": "Bob Corp",
       "status": "NEW",
-      "createdAt": "2026-10-01T18:40:44.920Z"
+      "createdAt": "2026-10-01T19:21:26.759Z"
     },
     {
-      "id": "lead_a_1790880047146",
-      "organizationId": "org_test_alpha_1790880047146",
+      "id": "lead_a_1790882489483",
+      "organizationId": "org_test_alpha_1790882489483",
       "name": "Lead Alpha"
     },
     {
-      "id": "lead_b_1790880047146",
-      "organizationId": "org_test_beta_1790880047146",
+      "id": "lead_b_1790882489483",
+      "organizationId": "org_test_beta_1790882489483",
       "name": "Lead Beta"
     },
     {
-      "id": "lead_crm_smoke_1790880047307",
-      "organizationId": "org_alpha_1790880047249",
-      "userId": "usr_alpha_1790880047249",
+      "id": "lead_crm_smoke_1790882489700",
+      "organizationId": "org_alpha_1790882489623",
+      "userId": "usr_alpha_1790882489623",
       "name": "Priya Sharma",
       "email": "priya.sharma@techscale.in",
       "company": "TechScale India",
       "status": "CONTACTED",
-      "createdAt": "2026-10-01T18:40:47.307Z"
+      "createdAt": "2026-10-01T19:21:29.700Z"
     }
   ],
   "campaigns": [
@@ -11858,9 +11860,9 @@
       "createdAt": "2026-10-01T18:31:09.206Z"
     },
     {
-      "id": "camp_crm_smoke_1790880047321",
-      "organizationId": "org_alpha_1790880047249",
-      "userId": "usr_alpha_1790880047249",
+      "id": "camp_crm_smoke_1790882489720",
+      "organizationId": "org_alpha_1790882489623",
+      "userId": "usr_alpha_1790882489623",
       "name": "Q3 SaaS Outreach",
       "status": "ACTIVE",
       "template": "Hi {{name}}, loved your work at {{company}}.",
@@ -11868,7 +11870,7 @@
       "sentCount": 0,
       "openCount": 0,
       "replyCount": 0,
-      "createdAt": "2026-10-01T18:40:47.321Z"
+      "createdAt": "2026-10-01T19:21:29.720Z"
     }
   ],
   "deals": [
@@ -13813,27 +13815,27 @@
       "createdAt": "2026-10-01T18:31:09.143Z"
     },
     {
-      "id": "deal_a_1790880044940",
-      "organizationId": "org_deal_iso_1790880044940",
-      "userId": "usr_deal_a_1790880044940",
+      "id": "deal_a_1790882486780",
+      "organizationId": "org_deal_iso_1790882486780",
+      "userId": "usr_deal_a_1790882486780",
       "title": "Enterprise Contract A",
       "value": 50000,
       "stage": "PROPOSAL",
-      "createdAt": "2026-10-01T18:40:44.940Z"
+      "createdAt": "2026-10-01T19:21:26.780Z"
     },
     {
-      "id": "deal_b_1790880044959",
-      "organizationId": "org_deal_iso_1790880044940",
-      "userId": "usr_deal_b_1790880044940",
+      "id": "deal_b_1790882486801",
+      "organizationId": "org_deal_iso_1790882486780",
+      "userId": "usr_deal_b_1790882486780",
       "title": "SMB Contract B",
       "value": 5000,
       "stage": "QUALIFICATION",
-      "createdAt": "2026-10-01T18:40:44.959Z"
+      "createdAt": "2026-10-01T19:21:26.801Z"
     },
     {
       "id": "deal_alpha_01",
-      "organizationId": "org_alpha_1790880047249",
-      "userId": "usr_alpha_1790880047249",
+      "organizationId": "org_alpha_1790882489623",
+      "userId": "usr_alpha_1790882489623",
       "title": "Alpha Enterprise Contract",
       "value": 150000,
       "stage": "PROPOSAL",
@@ -13842,12 +13844,12 @@
       "probability": 70,
       "contactName": "Alpha Target",
       "companyName": "Alpha Corp",
-      "createdAt": "2026-10-01T18:40:47.278Z"
+      "createdAt": "2026-10-01T19:21:29.662Z"
     },
     {
       "id": "deal_beta_01",
-      "organizationId": "org_beta_1790880047249",
-      "userId": "usr_beta_1790880047249",
+      "organizationId": "org_beta_1790882489623",
+      "userId": "usr_beta_1790882489623",
       "title": "Beta Mid-Market Contract",
       "value": 50000,
       "stage": "NEGOTIATION",
@@ -13856,7 +13858,7 @@
       "probability": 90,
       "contactName": "Beta Target",
       "companyName": "Beta Corp",
-      "createdAt": "2026-10-01T18:40:47.278Z"
+      "createdAt": "2026-10-01T19:21:29.662Z"
     }
   ],
   "appointments": [
@@ -15954,7 +15956,7 @@
       "leadName": "Jane Smith",
       "company": "Beta Corp",
       "email": "jane@beta.com",
-      "dateTime": "2026-10-02T18:40:44.982Z",
+      "dateTime": "2026-10-02T19:21:26.826Z",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "https://meet.google.com/xyz-uvwx-rst",
@@ -15963,7 +15965,7 @@
       "googleSynced": true,
       "reminderSent": false,
       "timelineList": [],
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "userId": "usr_gcal_conn_a",
       "googleEventId": "google_real_event_id_abc123",
       "syncStatus": "SYNCED"
@@ -15974,7 +15976,7 @@
       "leadName": "Legacy Prospect",
       "company": "Legacy Corp",
       "email": "legacy@corp.com",
-      "dateTime": "2026-10-01T18:40:44.982Z",
+      "dateTime": "2026-10-01T19:21:26.826Z",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "",
@@ -15983,7 +15985,7 @@
       "googleSynced": false,
       "reminderSent": false,
       "timelineList": [],
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "googleEventId": "",
       "syncStatus": "PENDING_SYNC"
     },
@@ -15993,7 +15995,7 @@
       "leadName": "Failed Prospect",
       "company": "Fail Corp",
       "email": "fail@corp.com",
-      "dateTime": "2026-10-01T18:40:44.982Z",
+      "dateTime": "2026-10-01T19:21:26.826Z",
       "durationMins": 30,
       "status": "SCHEDULED",
       "meetingLink": "",
@@ -16002,7 +16004,7 @@
       "googleSynced": false,
       "reminderSent": false,
       "timelineList": [],
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "googleEventId": "",
       "syncStatus": "ERROR"
     }
@@ -17067,27 +17069,27 @@
       "fullName": "User A Calendar",
       "accessToken": "mock_valid_token_a",
       "refreshToken": "mock_refresh_token_a",
-      "expiresAt": "2026-10-01T19:40:44.982Z",
+      "expiresAt": "2026-10-01T20:21:26.826Z",
       "status": "CONNECTED",
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "userId": "usr_gcal_conn_a",
-      "createdAt": "2026-10-01T18:40:44.982Z",
+      "createdAt": "2026-10-01T19:21:26.826Z",
       "calendarId": "primary",
       "scopes": [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events"
       ],
-      "lastVerifiedAt": "2026-10-01T18:40:44.982Z"
+      "lastVerifiedAt": "2026-10-01T19:21:26.826Z"
     },
     {
       "email": "invalid@gcalconn.com",
       "fullName": "Invalid User",
       "accessToken": "mock_invalid_token",
-      "expiresAt": "2026-10-01T19:40:44.982Z",
+      "expiresAt": "2026-10-01T20:21:26.826Z",
       "status": "REAUTH_REQUIRED",
-      "organizationId": "org_gcal_conn_test_1790880044982",
+      "organizationId": "org_gcal_conn_test_1790882486826",
       "userId": "usr_invalid",
-      "createdAt": "2026-10-01T18:40:44.982Z"
+      "createdAt": "2026-10-01T19:21:26.826Z"
     }
   ],
   "gmailAccounts": [],
@@ -19816,83 +19818,83 @@
   "outreachEvents": [],
   "callingNumbers": [
     {
-      "id": "cn_1790880044860_zafup",
+      "id": "cn_1790882486694_bkr94",
       "userId": "usr_edesy_1",
-      "organizationId": "org_edesy_1_1790880044860",
+      "organizationId": "org_edesy_1_1790882486693",
       "phoneNumber": "+15551234567",
       "countryCode": "+1",
       "isVerified": true,
       "isDefault": true,
-      "createdAt": "2026-10-01T18:40:44.860Z",
-      "updatedAt": "2026-10-01T18:40:44.860Z"
+      "createdAt": "2026-10-01T19:21:26.694Z",
+      "updatedAt": "2026-10-01T19:21:26.694Z"
     },
     {
-      "id": "cn_1790880044759_wg366",
+      "id": "cn_1790882486585_vjhd9",
       "userId": "usr_dial_x",
-      "organizationId": "org_dial_x_1790880044759",
+      "organizationId": "org_dial_x_1790882486585",
       "phoneNumber": "+15550001111",
       "countryCode": "+1",
       "isVerified": true,
       "isDefault": true,
-      "createdAt": "2026-10-01T18:40:44.759Z",
-      "updatedAt": "2026-10-01T18:40:44.759Z"
+      "createdAt": "2026-10-01T19:21:26.585Z",
+      "updatedAt": "2026-10-01T19:21:26.585Z"
     },
     {
-      "id": "cn_1790880044719_92lso",
+      "id": "cn_1790882486543_3wiwa",
       "userId": "usr_ver_b",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "phoneNumber": "+15559990000",
       "countryCode": "+1",
       "isVerified": true,
       "isDefault": true,
-      "createdAt": "2026-10-01T18:40:44.719Z",
-      "updatedAt": "2026-10-01T18:40:44.738Z"
+      "createdAt": "2026-10-01T19:21:26.543Z",
+      "updatedAt": "2026-10-01T19:21:26.562Z"
     },
     {
-      "id": "cn_1790880044700_3p6bg",
+      "id": "cn_1790882486524_fvp15",
       "userId": "usr_ver_b",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "phoneNumber": "+15557778888",
       "countryCode": "+1",
       "isVerified": true,
       "isDefault": false,
-      "createdAt": "2026-10-01T18:40:44.700Z",
-      "updatedAt": "2026-10-01T18:40:44.738Z"
+      "createdAt": "2026-10-01T19:21:26.524Z",
+      "updatedAt": "2026-10-01T19:21:26.562Z"
     },
     {
-      "id": "cn_1790880044680_0vlli",
+      "id": "cn_1790882486504_0lufd",
       "userId": "usr_ver_a",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "phoneNumber": "+15555556666",
       "countryCode": "+1",
       "isVerified": false,
       "isDefault": false,
-      "createdAt": "2026-10-01T18:40:44.680Z",
-      "updatedAt": "2026-10-01T18:40:44.680Z",
+      "createdAt": "2026-10-01T19:21:26.504Z",
+      "updatedAt": "2026-10-01T19:21:26.504Z",
       "verificationStatus": "REVOKED"
     },
     {
-      "id": "cn_1790880044661_vmq5f",
+      "id": "cn_1790882486485_2us5u",
       "userId": "usr_ver_a",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "phoneNumber": "+15553334444",
       "countryCode": "+1",
       "isVerified": false,
       "isDefault": false,
-      "createdAt": "2026-10-01T18:40:44.661Z",
-      "updatedAt": "2026-10-01T18:40:44.661Z",
+      "createdAt": "2026-10-01T19:21:26.485Z",
+      "updatedAt": "2026-10-01T19:21:26.485Z",
       "verificationStatus": "PENDING_VERIFICATION"
     },
     {
-      "id": "cn_1790880044642_gma16",
+      "id": "cn_1790882486466_8io32",
       "userId": "usr_ver_a",
-      "organizationId": "org_call_ver_1_1790880044641",
+      "organizationId": "org_call_ver_1_1790882486466",
       "phoneNumber": "+15551112222",
       "countryCode": "+1",
       "isVerified": true,
       "isDefault": true,
-      "createdAt": "2026-10-01T18:40:44.642Z",
-      "updatedAt": "2026-10-01T18:40:44.642Z"
+      "createdAt": "2026-10-01T19:21:26.466Z",
+      "updatedAt": "2026-10-01T19:21:26.466Z"
     },
     {
       "id": "cn_1790879466710_nznrl",
@@ -24716,11 +24718,11 @@
   ],
   "manualCallActivities": [
     {
-      "id": "act_direct_edesy_1790880044880",
+      "id": "act_direct_edesy_1790882486716",
       "source": "DIRECT_DIAL",
-      "organizationId": "org_edesy_1_1790880044860",
+      "organizationId": "org_edesy_1_1790882486693",
       "userId": "usr_edesy_1",
-      "callingNumberId": "cn_1790880044860_zafup",
+      "callingNumberId": "cn_1790882486694_bkr94",
       "callingNumber": "+15551234567",
       "callingNumberSnapshot": "+15551234567",
       "phoneNumber": "+15559876543",
@@ -24734,10 +24736,10 @@
       "provider": "EDESY",
       "providerCallId": "edesy_call_live_789456",
       "providerName": "Edesy",
-      "createdAt": "2026-10-01T18:40:44.880Z",
+      "createdAt": "2026-10-01T19:21:26.716Z",
       "auditHistory": [
         {
-          "timestamp": "2026-10-01T18:40:44.880Z",
+          "timestamp": "2026-10-01T19:21:26.716Z",
           "action": "INITIATED",
           "actorId": "usr_edesy_1",
           "details": "Call initiated from SalesPilot device dialer to +15559876543"
@@ -24745,11 +24747,11 @@
       ]
     },
     {
-      "id": "act_direct_test_1790880044780",
+      "id": "act_direct_test_1790882486607",
       "source": "DIRECT_DIAL",
-      "organizationId": "org_dial_x_1790880044759",
+      "organizationId": "org_dial_x_1790882486585",
       "userId": "usr_dial_x",
-      "callingNumberId": "cn_1790880044759_wg366",
+      "callingNumberId": "cn_1790882486585_vjhd9",
       "callingNumber": "+15550001111",
       "callingNumberSnapshot": "+15550001111",
       "phoneNumber": "+15559998888",
@@ -24760,36 +24762,36 @@
       "direction": "OUTBOUND",
       "activityType": "PHONE_CALL",
       "status": "COMPLETED",
-      "providerCallId": "prov_call_1790880044780",
+      "providerCallId": "prov_call_1790882486607",
       "providerName": "Mock Telephony Gateway",
-      "createdAt": "2026-10-01T18:40:44.780Z",
+      "createdAt": "2026-10-01T19:21:26.608Z",
       "auditHistory": [
         {
-          "timestamp": "2026-10-01T18:40:44.780Z",
+          "timestamp": "2026-10-01T19:21:26.608Z",
           "action": "INITIATED",
           "actorId": "usr_dial_x",
           "details": "Call initiated from SalesPilot device dialer to +15559998888"
         },
         {
-          "timestamp": "2026-10-01T18:40:44.800Z",
+          "timestamp": "2026-10-01T19:21:26.629Z",
           "action": "STATUS_UPDATED",
           "details": "Call status transitioned to IN_PROGRESS"
         },
         {
-          "timestamp": "2026-10-01T18:40:44.820Z",
+          "timestamp": "2026-10-01T19:21:26.650Z",
           "action": "STATUS_UPDATED",
           "details": "Call status transitioned to CANCELLED"
         },
         {
-          "timestamp": "2026-10-01T18:40:44.839Z",
+          "timestamp": "2026-10-01T19:21:26.671Z",
           "action": "OUTCOME_UPDATED",
           "actorId": "usr_dial_x",
           "details": "Outcome updated to Connected. Notes: Good chat"
         }
       ],
-      "updatedAt": "2026-10-01T18:40:44.839Z",
+      "updatedAt": "2026-10-01T19:21:26.671Z",
       "durationSeconds": 42,
-      "endedAt": "2026-10-01T18:40:44.820Z",
+      "endedAt": "2026-10-01T19:21:26.650Z",
       "outcome": "Connected"
     },
     {
@@ -32600,123 +32602,123 @@
   ],
   "payments": [
     {
-      "id": "pay_1790880047356_jo7ca2",
-      "organization_id": "org_billing_smoke_1790880047338",
-      "user_id": "usr_billing_smoke_1790880047338",
+      "id": "pay_1790882489759_s4adby",
+      "organization_id": "org_billing_smoke_1790882489741",
+      "user_id": "usr_billing_smoke_1790882489741",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "amount": 7079,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "UTR_SMOKE_1790880047338_1234",
+      "utr": "UTR_SMOKE_1790882489741_1234",
       "payment_status": "VERIFIED",
-      "payment_datetime": "2026-10-01T18:40:47.356Z",
-      "submitted_at": "2026-10-01T18:40:47.356Z",
-      "verified_at": "2026-10-01T18:40:47.500Z",
+      "payment_datetime": "2026-10-01T19:21:29.759Z",
+      "submitted_at": "2026-10-01T19:21:29.759Z",
+      "verified_at": "2026-10-01T19:21:29.911Z",
       "verified_by": "usr_admin_master",
-      "subscription_id": "sub_org_billing_smoke_1790880047338_1790880047500",
+      "subscription_id": "sub_org_billing_smoke_1790882489741_1790882489911",
       "rejection_reason": null,
       "notes": "Production smoke test payment",
       "customer_name": "",
       "customer_email": ""
     },
     {
-      "id": "pay_1790880046883_h2f5sl",
-      "organization_id": "org_expired_trial_1790880046839",
-      "user_id": "usr_expired_trial_1790880046839",
+      "id": "pay_1790882489208_lcr57m",
+      "organization_id": "org_expired_trial_1790882489157",
+      "user_id": "usr_expired_trial_1790882489157",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "amount": 7079,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "UTR_PROD_TEST_1790880046864",
+      "utr": "UTR_PROD_TEST_1790882489184",
       "payment_status": "VERIFIED",
-      "payment_datetime": "2026-10-01T18:40:46.883Z",
-      "submitted_at": "2026-10-01T18:40:46.883Z",
-      "verified_at": "2026-10-01T18:40:46.967Z",
+      "payment_datetime": "2026-10-01T19:21:29.208Z",
+      "submitted_at": "2026-10-01T19:21:29.208Z",
+      "verified_at": "2026-10-01T19:21:29.285Z",
       "verified_by": "usr_admin",
-      "subscription_id": "sub_org_expired_trial_1790880046839_1790880046967",
+      "subscription_id": "sub_org_expired_trial_1790882489157_1790882489285",
       "rejection_reason": null,
       "notes": "Testing checkout initiation for expired trial account",
       "customer_name": "",
       "customer_email": ""
     },
     {
-      "id": "pay_1790880046580_lki2hs",
-      "organization_id": "org_admin_test_1790880046530",
-      "user_id": "usr_cust_1790880046530",
+      "id": "pay_1790882488913_x7gsdk",
+      "organization_id": "org_admin_test_1790882488862",
+      "user_id": "usr_cust_1790882488862",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "amount": 7079,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "UTR_ADMIN_TEST_1790880046561",
+      "utr": "UTR_ADMIN_TEST_1790882488889",
       "payment_status": "VERIFIED",
-      "payment_datetime": "2026-10-01T18:40:46.580Z",
-      "submitted_at": "2026-10-01T18:40:46.580Z",
-      "verified_at": "2026-10-01T18:40:46.671Z",
+      "payment_datetime": "2026-10-01T19:21:28.913Z",
+      "submitted_at": "2026-10-01T19:21:28.913Z",
+      "verified_at": "2026-10-01T19:21:29.006Z",
       "verified_by": "usr_verified_founder",
-      "subscription_id": "sub_org_admin_test_1790880046530_1790880046671",
+      "subscription_id": "sub_org_admin_test_1790882488862_1790882489006",
       "rejection_reason": null,
       "notes": null,
       "customer_name": "",
       "customer_email": ""
     },
     {
-      "id": "pay_1790880046408_s1r59o",
-      "organization_id": "org_test_mode_1790880046356",
-      "user_id": "usr_test_mode_1790880046356",
-      "plan": "TEST_PAYMENT",
+      "id": "pay_1790882488619_5nghbp",
+      "organization_id": "org_billing_test_1790882488569",
+      "user_id": "usr_billing_test_1790882488569",
+      "plan": "GROWTH",
       "billing_cycle": "monthly",
-      "amount": 1,
+      "amount": 7079,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "TEST_FOUNDER_UTR_1790880046390",
+      "utr": "UTR_GROWTH_1790882488601",
       "payment_status": "VERIFIED",
-      "payment_datetime": "2026-10-01T18:40:46.408Z",
-      "submitted_at": "2026-10-01T18:40:46.408Z",
-      "verified_at": "2026-10-01T18:40:46.494Z",
+      "payment_datetime": "2026-10-01T19:21:28.619Z",
+      "submitted_at": "2026-10-01T19:21:28.619Z",
+      "verified_at": "2026-10-01T19:21:28.704Z",
       "verified_by": "usr_admin",
-      "subscription_id": "sub_org_test_mode_1790880046356_1790880046494",
+      "subscription_id": "sub_org_billing_test_1790882488569_1790882488704",
       "rejection_reason": null,
-      "notes": "Founder ₹1 connectivity test",
+      "notes": "Customer growth tier subscription",
       "customer_name": "",
       "customer_email": ""
     },
     {
-      "id": "pay_1790880045944_izulsm",
-      "organization_id": "org_tenant_a_1790880045924",
+      "id": "pay_1790882488185_vqtwys",
+      "organization_id": "org_tenant_a_1790882488165",
       "user_id": "usr_org_a_admin",
       "plan": "BUSINESS",
       "billing_cycle": "annual",
       "amount": 141588,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "UTR_ORGA_1790880045924",
+      "utr": "UTR_ORGA_1790882488165",
       "payment_status": "VERIFIED",
-      "payment_datetime": "2026-10-01T18:40:45.944Z",
-      "submitted_at": "2026-10-01T18:40:45.944Z",
-      "verified_at": "2026-10-01T18:40:46.042Z",
+      "payment_datetime": "2026-10-01T19:21:28.185Z",
+      "submitted_at": "2026-10-01T19:21:28.185Z",
+      "verified_at": "2026-10-01T19:21:28.283Z",
       "verified_by": "usr_admin_verifier_01",
-      "subscription_id": "sub_org_tenant_a_1790880045924_1790880046042",
+      "subscription_id": "sub_org_tenant_a_1790882488165_1790882488283",
       "rejection_reason": null,
       "notes": null,
       "customer_name": "",
       "customer_email": ""
     },
     {
-      "id": "pay_1790880045763_3oa5jj",
-      "organization_id": "org_test_reject_1790880045745",
-      "user_id": "usr_test_reject_1790880045745",
+      "id": "pay_1790882488003_vgqh74",
+      "organization_id": "org_test_reject_1790882487987",
+      "user_id": "usr_test_reject_1790882487987",
       "plan": "BUSINESS",
       "billing_cycle": "monthly",
       "amount": 14159,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "UTR_REJECT_1790880045745",
+      "utr": "UTR_REJECT_1790882487987",
       "payment_status": "REJECTED",
-      "payment_datetime": "2026-10-01T18:40:45.763Z",
-      "submitted_at": "2026-10-01T18:40:45.763Z",
+      "payment_datetime": "2026-10-01T19:21:28.003Z",
+      "submitted_at": "2026-10-01T19:21:28.003Z",
       "verified_at": null,
       "verified_by": "usr_admin_verifier_01",
       "subscription_id": null,
@@ -32726,21 +32728,21 @@
       "customer_email": ""
     },
     {
-      "id": "pay_1790880045061_28dsww",
-      "organization_id": "org_test_billing_1790880044984",
-      "user_id": "usr_test_billing_1790880044984",
+      "id": "pay_1790882487423_5uma6t",
+      "organization_id": "org_test_billing_1790882486827",
+      "user_id": "usr_test_billing_1790882486827",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "amount": 7079,
       "currency": "INR",
       "upi_id": "sohamkharat85@oksbi",
-      "utr": "UTR_1790880044984_998811",
+      "utr": "UTR_1790882486827_998811",
       "payment_status": "VERIFIED",
-      "payment_datetime": "2026-10-01T18:40:45.061Z",
-      "submitted_at": "2026-10-01T18:40:45.061Z",
-      "verified_at": "2026-10-01T18:40:45.304Z",
+      "payment_datetime": "2026-10-01T19:21:27.423Z",
+      "submitted_at": "2026-10-01T19:21:27.423Z",
+      "verified_at": "2026-10-01T19:21:27.701Z",
       "verified_by": "usr_admin_verifier_01",
-      "subscription_id": "sub_org_test_billing_1790880044984_1790880045304",
+      "subscription_id": "sub_org_test_billing_1790882486827_1790882487701",
       "rejection_reason": null,
       "notes": "Test UPI deposit",
       "customer_name": "",
@@ -39367,104 +39369,104 @@
       "updated_at": "2026-10-01T18:31:09.425Z"
     },
     {
-      "id": "sub_org_test_billing_1790880044984_1790880045304",
-      "organization_id": "org_test_billing_1790880044984",
-      "user_id": "usr_test_billing_1790880044984",
+      "id": "sub_org_test_billing_1790882486827_1790882487701",
+      "organization_id": "org_test_billing_1790882486827",
+      "user_id": "usr_test_billing_1790882486827",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "status": "ACTIVE",
-      "current_period_start": "2026-10-01T18:40:45.304Z",
-      "current_period_end": "2026-10-31T18:40:45.304Z",
-      "created_at": "2026-10-01T18:40:45.304Z",
-      "updated_at": "2026-10-01T18:40:45.304Z"
+      "current_period_start": "2026-10-01T19:21:27.701Z",
+      "current_period_end": "2026-10-31T19:21:27.701Z",
+      "created_at": "2026-10-01T19:21:27.701Z",
+      "updated_at": "2026-10-01T19:21:27.701Z"
     },
     {
-      "id": "sub_org_test_reject_1790880045745_1790880045803",
-      "organization_id": "org_test_reject_1790880045745",
-      "user_id": "usr_test_reject_1790880045745",
+      "id": "sub_org_test_reject_1790882487987_1790882488039",
+      "organization_id": "org_test_reject_1790882487987",
+      "user_id": "usr_test_reject_1790882487987",
       "plan": "BUSINESS",
       "billing_cycle": "monthly",
       "status": "CANCELLED",
-      "current_period_start": "2026-10-01T18:40:45.803Z",
-      "current_period_end": "2026-10-01T18:40:45.803Z",
-      "created_at": "2026-10-01T18:40:45.803Z",
-      "updated_at": "2026-10-01T18:40:45.803Z"
+      "current_period_start": "2026-10-01T19:21:28.039Z",
+      "current_period_end": "2026-10-01T19:21:28.039Z",
+      "created_at": "2026-10-01T19:21:28.039Z",
+      "updated_at": "2026-10-01T19:21:28.039Z"
     },
     {
-      "id": "sub_org_tenant_a_1790880045924_1790880046042",
-      "organization_id": "org_tenant_a_1790880045924",
+      "id": "sub_org_tenant_a_1790882488165_1790882488283",
+      "organization_id": "org_tenant_a_1790882488165",
       "user_id": "usr_org_a_admin",
       "plan": "BUSINESS",
       "billing_cycle": "annual",
       "status": "ACTIVE",
-      "current_period_start": "2026-10-01T18:40:46.042Z",
-      "current_period_end": "2027-10-01T18:40:46.042Z",
-      "created_at": "2026-10-01T18:40:46.042Z",
-      "updated_at": "2026-10-01T18:40:46.042Z"
+      "current_period_start": "2026-10-01T19:21:28.283Z",
+      "current_period_end": "2027-10-01T19:21:28.283Z",
+      "created_at": "2026-10-01T19:21:28.283Z",
+      "updated_at": "2026-10-01T19:21:28.283Z"
     },
     {
-      "id": "sub_org_test_mode_1790880046356_1790880046441",
-      "organization_id": "org_test_mode_1790880046356",
-      "user_id": "usr_test_mode_1790880046356",
-      "plan": "TEST_PAYMENT",
-      "billing_cycle": "monthly",
-      "status": "PENDING_VERIFICATION",
-      "current_period_start": "2026-10-01T18:40:46.441Z",
-      "current_period_end": "2026-10-01T18:40:46.441Z",
-      "created_at": "2026-10-01T18:40:46.441Z",
-      "updated_at": "2026-10-01T18:40:46.441Z"
-    },
-    {
-      "id": "sub_org_admin_test_1790880046530_1790880046671",
-      "organization_id": "org_admin_test_1790880046530",
-      "user_id": "usr_cust_1790880046530",
+      "id": "sub_org_billing_test_1790882488569_1790882488704",
+      "organization_id": "org_billing_test_1790882488569",
+      "user_id": "usr_billing_test_1790882488569",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "status": "ACTIVE",
-      "current_period_start": "2026-10-01T18:40:46.671Z",
-      "current_period_end": "2026-10-31T18:40:46.671Z",
-      "created_at": "2026-10-01T18:40:46.671Z",
-      "updated_at": "2026-10-01T18:40:46.671Z"
+      "current_period_start": "2026-10-01T19:21:28.704Z",
+      "current_period_end": "2026-10-31T19:21:28.704Z",
+      "created_at": "2026-10-01T19:21:28.704Z",
+      "updated_at": "2026-10-01T19:21:28.704Z"
     },
     {
-      "id": "sub_org_expired_trial_1790880046839_1790880046967",
-      "organization_id": "org_expired_trial_1790880046839",
-      "user_id": "usr_expired_trial_1790880046839",
+      "id": "sub_org_admin_test_1790882488862_1790882489006",
+      "organization_id": "org_admin_test_1790882488862",
+      "user_id": "usr_cust_1790882488862",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "status": "ACTIVE",
-      "current_period_start": "2026-10-01T18:40:46.967Z",
-      "current_period_end": "2026-10-31T18:40:46.967Z",
-      "created_at": "2026-10-01T18:40:46.967Z",
-      "updated_at": "2026-10-01T18:40:46.967Z"
+      "current_period_start": "2026-10-01T19:21:29.006Z",
+      "current_period_end": "2026-10-31T19:21:29.006Z",
+      "created_at": "2026-10-01T19:21:29.006Z",
+      "updated_at": "2026-10-01T19:21:29.006Z"
     },
     {
-      "id": "sub_a_1790880047146",
-      "organization_id": "org_test_alpha_1790880047146",
-      "user_id": "usr_alpha_1790880047146",
+      "id": "sub_org_expired_trial_1790882489157_1790882489285",
+      "organization_id": "org_expired_trial_1790882489157",
+      "user_id": "usr_expired_trial_1790882489157",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-01T19:21:29.285Z",
+      "current_period_end": "2026-10-31T19:21:29.285Z",
+      "created_at": "2026-10-01T19:21:29.285Z",
+      "updated_at": "2026-10-01T19:21:29.285Z"
+    },
+    {
+      "id": "sub_a_1790882489483",
+      "organization_id": "org_test_alpha_1790882489483",
+      "user_id": "usr_alpha_1790882489483",
       "plan": "STARTER",
       "status": "ACTIVE"
     },
     {
-      "id": "sub_org_billing_smoke_1790880047338_1790880047500",
-      "organization_id": "org_billing_smoke_1790880047338",
-      "user_id": "usr_billing_smoke_1790880047338",
+      "id": "sub_org_billing_smoke_1790882489741_1790882489911",
+      "organization_id": "org_billing_smoke_1790882489741",
+      "user_id": "usr_billing_smoke_1790882489741",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "status": "ACTIVE",
-      "current_period_start": "2026-10-01T18:40:47.500Z",
-      "current_period_end": "2026-10-31T18:40:47.500Z",
-      "created_at": "2026-10-01T18:40:47.500Z",
-      "updated_at": "2026-10-01T18:40:47.500Z"
+      "current_period_start": "2026-10-01T19:21:29.911Z",
+      "current_period_end": "2026-10-31T19:21:29.911Z",
+      "created_at": "2026-10-01T19:21:29.911Z",
+      "updated_at": "2026-10-01T19:21:29.911Z"
     }
   ],
   "invoices": [
     {
-      "id": "inv_1790880047500_lm0xw",
-      "invoice_number": "SP-2026-INV-3162",
-      "organization_id": "org_billing_smoke_1790880047338",
-      "user_id": "usr_billing_smoke_1790880047338",
-      "payment_id": "pay_1790880047356_jo7ca2",
+      "id": "inv_1790882489911_o2tae",
+      "invoice_number": "SP-2026-INV-7629",
+      "organization_id": "org_billing_smoke_1790882489741",
+      "user_id": "usr_billing_smoke_1790882489741",
+      "payment_id": "pay_1790882489759_s4adby",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "base_amount": 5999,
@@ -39472,17 +39474,17 @@
       "total_amount": 7079,
       "currency": "INR",
       "status": "PAID",
-      "issued_at": "2026-10-01T18:40:47.500Z",
-      "paid_at": "2026-10-01T18:40:47.500Z",
+      "issued_at": "2026-10-01T19:21:29.911Z",
+      "paid_at": "2026-10-01T19:21:29.911Z",
       "payment_method": "UPI",
-      "utr": "UTR_SMOKE_1790880047338_1234"
+      "utr": "UTR_SMOKE_1790882489741_1234"
     },
     {
-      "id": "inv_1790880046967_79g0o",
-      "invoice_number": "SP-2026-INV-8733",
-      "organization_id": "org_expired_trial_1790880046839",
-      "user_id": "usr_expired_trial_1790880046839",
-      "payment_id": "pay_1790880046883_h2f5sl",
+      "id": "inv_1790882489285_hjke2",
+      "invoice_number": "SP-2026-INV-6016",
+      "organization_id": "org_expired_trial_1790882489157",
+      "user_id": "usr_expired_trial_1790882489157",
+      "payment_id": "pay_1790882489208_lcr57m",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "base_amount": 5999,
@@ -39490,17 +39492,17 @@
       "total_amount": 7079,
       "currency": "INR",
       "status": "PAID",
-      "issued_at": "2026-10-01T18:40:46.967Z",
-      "paid_at": "2026-10-01T18:40:46.967Z",
+      "issued_at": "2026-10-01T19:21:29.285Z",
+      "paid_at": "2026-10-01T19:21:29.285Z",
       "payment_method": "UPI",
-      "utr": "UTR_PROD_TEST_1790880046864"
+      "utr": "UTR_PROD_TEST_1790882489184"
     },
     {
-      "id": "inv_1790880046671_kijk9",
-      "invoice_number": "SP-2026-INV-5893",
-      "organization_id": "org_admin_test_1790880046530",
-      "user_id": "usr_cust_1790880046530",
-      "payment_id": "pay_1790880046580_lki2hs",
+      "id": "inv_1790882489006_txyy3",
+      "invoice_number": "SP-2026-INV-7752",
+      "organization_id": "org_admin_test_1790882488862",
+      "user_id": "usr_cust_1790882488862",
+      "payment_id": "pay_1790882488913_x7gsdk",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "base_amount": 5999,
@@ -39508,17 +39510,35 @@
       "total_amount": 7079,
       "currency": "INR",
       "status": "PAID",
-      "issued_at": "2026-10-01T18:40:46.671Z",
-      "paid_at": "2026-10-01T18:40:46.671Z",
+      "issued_at": "2026-10-01T19:21:29.006Z",
+      "paid_at": "2026-10-01T19:21:29.006Z",
       "payment_method": "UPI",
-      "utr": "UTR_ADMIN_TEST_1790880046561"
+      "utr": "UTR_ADMIN_TEST_1790882488889"
     },
     {
-      "id": "inv_1790880046042_32z1u",
-      "invoice_number": "SP-2026-INV-7578",
-      "organization_id": "org_tenant_a_1790880045924",
+      "id": "inv_1790882488705_pgjz1",
+      "invoice_number": "SP-2026-INV-9991",
+      "organization_id": "org_billing_test_1790882488569",
+      "user_id": "usr_billing_test_1790882488569",
+      "payment_id": "pay_1790882488619_5nghbp",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-01T19:21:28.704Z",
+      "paid_at": "2026-10-01T19:21:28.704Z",
+      "payment_method": "UPI",
+      "utr": "UTR_GROWTH_1790882488601"
+    },
+    {
+      "id": "inv_1790882488283_qyd39",
+      "invoice_number": "SP-2026-INV-1293",
+      "organization_id": "org_tenant_a_1790882488165",
       "user_id": "usr_org_a_admin",
-      "payment_id": "pay_1790880045944_izulsm",
+      "payment_id": "pay_1790882488185_vqtwys",
       "plan": "BUSINESS",
       "billing_cycle": "annual",
       "base_amount": 119990,
@@ -39526,17 +39546,17 @@
       "total_amount": 141588,
       "currency": "INR",
       "status": "PAID",
-      "issued_at": "2026-10-01T18:40:46.042Z",
-      "paid_at": "2026-10-01T18:40:46.042Z",
+      "issued_at": "2026-10-01T19:21:28.283Z",
+      "paid_at": "2026-10-01T19:21:28.283Z",
       "payment_method": "UPI",
-      "utr": "UTR_ORGA_1790880045924"
+      "utr": "UTR_ORGA_1790882488165"
     },
     {
-      "id": "inv_1790880045304_f1spc",
-      "invoice_number": "SP-2026-INV-6368",
-      "organization_id": "org_test_billing_1790880044984",
-      "user_id": "usr_test_billing_1790880044984",
-      "payment_id": "pay_1790880045061_28dsww",
+      "id": "inv_1790882487702_gu8o4",
+      "invoice_number": "SP-2026-INV-6165",
+      "organization_id": "org_test_billing_1790882486827",
+      "user_id": "usr_test_billing_1790882486827",
+      "payment_id": "pay_1790882487423_5uma6t",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
       "base_amount": 5999,
@@ -39544,10 +39564,10 @@
       "total_amount": 7079,
       "currency": "INR",
       "status": "PAID",
-      "issued_at": "2026-10-01T18:40:45.304Z",
-      "paid_at": "2026-10-01T18:40:45.304Z",
+      "issued_at": "2026-10-01T19:21:27.701Z",
+      "paid_at": "2026-10-01T19:21:27.701Z",
       "payment_method": "UPI",
-      "utr": "UTR_1790880044984_998811"
+      "utr": "UTR_1790882486827_998811"
     },
     {
       "id": "inv_1790879469425_clamr",

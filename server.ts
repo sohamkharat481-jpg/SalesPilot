@@ -66,7 +66,7 @@ import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountrie
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
 import { UpiPaymentService } from './src/payments/upiPaymentService';
 import { getUpiBillingConfig, generateUpiIntentUri } from './src/payments/upiConfig';
-import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId, ENABLE_FOUNDER_TEST_MODE } from './src/payments/pricingConfig';
+import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId } from './src/payments/pricingConfig';
 
 import { validateStartupEnv } from './src/security/envValidator';
 import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
@@ -13940,20 +13940,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     if (plan === 'TEST_PAYMENT') {
-      if (!ENABLE_FOUNDER_TEST_MODE) {
-        return res.status(403).json({ error: 'Founder test payment mode is currently disabled.' });
-      }
-      if (!isVerifiedFounderEmail(user.email)) {
-        return res.status(403).json({ error: 'Forbidden. ₹1 Test Payment mode is restricted to verified platform founders only.' });
-      }
+      return res.status(400).json({ error: 'TEST_PAYMENT is not a valid subscription plan.' });
     }
 
     // Server-authoritative price calculation (Never trust client amount)
     const pricing = calculateCanonicalPayablePrice(plan, billingCycle);
     const upiConfig = getUpiBillingConfig();
-    const paymentNote = plan === 'TEST_PAYMENT'
-      ? `SalesPilot Founder ₹1 Test Payment (${user.email || 'Founder'})`
-      : `SalesPilot ${pricing.planId} (${pricing.billingCycle})`;
+    const paymentNote = `SalesPilot ${pricing.planId} (${pricing.billingCycle})`;
 
     const upiIntentUri = generateUpiIntentUri({
       upiId: upiConfig.upiId,
@@ -13994,12 +13987,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     const { plan, billingCycle, utr, paymentDateTime, notes } = req.body;
     if (plan === 'TEST_PAYMENT') {
-      if (!ENABLE_FOUNDER_TEST_MODE) {
-        return res.status(403).json({ error: 'Founder test payment mode is currently disabled.' });
-      }
-      if (!isVerifiedFounderEmail(user.email)) {
-        return res.status(403).json({ error: 'Forbidden. ₹1 Test Payment mode is restricted to verified platform founders only.' });
-      }
+      return res.status(400).json({ error: 'TEST_PAYMENT is not a valid subscription plan.' });
     }
     if (!utr) {
       return res.status(400).json({ error: 'UTR / Transaction Reference ID is required.' });
