@@ -7,8 +7,8 @@ import { WorkspaceUser, SubscriptionTier } from '../../types';
 
 interface SubscriptionsSectionProps {
   user: WorkspaceUser | null;
-  subscriptionStatus: 'ACTIVE' | 'PAUSED' | 'CANCELLED';
-  setSubscriptionStatus: (status: 'ACTIVE' | 'PAUSED' | 'CANCELLED') => void;
+  subscriptionStatus: 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'PENDING_VERIFICATION' | 'EXPIRED' | string;
+  setSubscriptionStatus: (status: any) => void;
   autoRenew: boolean;
   setAutoRenew: (val: boolean) => void;
   nextBillingDate: string;

@@ -998,6 +998,114 @@
       "organizationId": "org_gcal_conn_test_1790882486826",
       "userId": "usr_invalid",
       "createdAt": "2026-10-01T19:21:26.826Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-02T18:45:39.759Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790963139759",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-02T17:45:39.759Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-02T17:45:39.759Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-02T18:45:39.760Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790963139759",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-02T17:45:39.760Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-02T18:52:30.927Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790963550927",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-02T17:52:30.927Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-02T17:52:30.927Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-02T18:52:30.927Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790963550927",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-02T17:52:30.927Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-02T18:58:09.813Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790963889813",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-02T17:58:09.813Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-02T17:58:09.813Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-02T18:58:09.813Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790963889813",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-02T17:58:09.813Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-02T18:59:38.502Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1790963978502",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-02T17:59:38.502Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-02T17:59:38.502Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-02T18:59:38.502Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1790963978502",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-02T17:59:38.502Z"
     }
   ],
   "gmailAccounts": []

@@ -16,8 +16,10 @@ import {
   AiFollowup, AiMeetingBrief, AiProposal,
   Organization, OrgRole, OrgPermission, OrgMemberPermission,
   OrgNotification, OrgAuditLog, OrgTeamActivity, OrgInvitation,
-  AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory, LeadGenJob
+  AutomationWorkflow, WorkflowVersion, WorkflowRun, WorkflowLog, ScheduledJob, AutomationHistory, LeadGenJob,
+  AiOutreachProfile
 } from './src/types';
+import { formatBusinessContextForPrompt, getDefaultAiOutreachProfile } from './src/services/outreachProfileService';
 import { WorkflowRunner } from './src/lib/workflowRunner';
 import { WorkflowScheduler } from './src/lib/workflowScheduler';
 import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery, isGenericCompanyName } from './src/backend/leadProviders';
@@ -2963,7 +2965,7 @@ async function startServer() {
       return res.status(400).json({ error: 'An account with this email address already exists.' });
     }
 
-    const isFounderUser = emailLower === FOUNDER_EMAIL.toLowerCase();
+    const isFounderUser = isVerifiedFounderEmail(emailLower);
     const salt = bcrypt.genSaltSync(10);
     const passwordHash = bcrypt.hashSync(password, salt);
 
@@ -3125,7 +3127,7 @@ async function startServer() {
       if (ownedOrg) {
         userObj.organizationId = ownedOrg.id;
       } else {
-        const isFounder = userObj.email.toLowerCase() === FOUNDER_EMAIL.toLowerCase();
+        const isFounder = isVerifiedFounderEmail(userObj.email);
         if (isFounder) {
           userObj.organizationId = 'org_salespilot_lifetime';
         } else {
@@ -5396,7 +5398,7 @@ Rules:
       return res.status(404).json({ error: 'Organization not found.' });
     }
 
-    if (org.ownerId !== user.id && user.email.toLowerCase() !== FOUNDER_EMAIL.toLowerCase()) {
+    if (org.ownerId !== user.id && !isVerifiedFounderEmail(user.email)) {
       return res.status(403).json({ error: 'Only the current Owner or Founder can transfer ownership.' });
     }
 
@@ -8148,6 +8150,9 @@ Ensure the output is strictly valid JSON format.`;
         // REPLACE TEMPORARY ID WITH PERSISTENT DATABASE PRIMARY KEY ID
         newLead.id = finalDbId;
         (newLead as any).organizationId = targetOrgId;
+        (newLead as any).userId = user.id;
+        (newLead as any).assignedToId = user.id;
+        (newLead as any).isShared = false;
 
         const isSupabasePersisted = insertedToSupabase > 0;
         const activeDbProvider = isSupabasePersisted 
@@ -8170,8 +8175,13 @@ Ensure the output is strictly valid JSON format.`;
           requestLogs.push(`[LEAD PERSISTED] Temporary ID "${tempLeadId}" replaced with Database ID "${finalDbId}". Saved record for ${newLead.company} (${newLead.email}). Provider: ${activeDbProvider}.`);
         }
 
-        leads.unshift(newLead);
-        localDb.db.leads = leads;
+        localDb.saveLead(newLead);
+        const lIdx = leads.findIndex(l => l.id === newLead.id);
+        if (lIdx >= 0) {
+          leads[lIdx] = newLead;
+        } else {
+          leads.unshift(newLead);
+        }
         saveDb();
 
         triggerOutreachAutomation(finalDbId);
@@ -9610,7 +9620,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     }
   });
 
-  // AI Outreach Sequence Generator Endpoint
+  // AI Outreach Sequence Generator Endpoint (Business Profile Grounded)
   app.post('/api/v1/outreach/ai-generate', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized.' });
@@ -9620,14 +9630,22 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     const { prompt, leadIndustry, targetRole, stepNumber } = req.body;
     const stepNum = Number(stepNumber) || 1;
 
+    // Load authoritative business profile / context for this organization
+    const bizProfile = localDb.getAiOutreachProfile(orgId);
+    const businessContextBlock = formatBusinessContextForPrompt(bizProfile);
+    const senderName = bizProfile?.businessName || user.companyName || 'Outbound Team';
+
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const systemPrompt = `You are an elite B2B SDR copywriter at SalesPilot (an automated AI prospecting & CRM platform).
-Generate an ultra-personalized, high-converting outbound outreach email template.
+      const systemPrompt = `You are an elite B2B sales copywriter crafting outbound messaging on behalf of: ${senderName}.
+
+${businessContextBlock}
+
+Generate an ultra-personalized, high-converting outbound outreach email template tailored to the recipient.
 Target Industry: ${leadIndustry || 'B2B Services'}
 Target Role: ${targetRole || 'Decision Maker'}
-Step Number: ${stepNum} (Step 1 is initial value prop, Step 2 is follow-up bump, Step 3 is case study/ROI proof).
-Custom Focus/Instructions: ${prompt || 'High deliverability, concise, clear single CTA.'}
+Step Number: ${stepNum} (Step 1: Core Value Proposition & Pain Point, Step 2: Gentle Bump & Context, Step 3: Social Proof / Case Study / Low-Friction CTA).
+Custom Focus/Instructions: ${prompt || 'Concise 3-4 sentences, clear value proposition, frictionless question CTA.'}
 
 Use variable placeholders strictly:
 {{first_name}}, {{last_name}}, {{company}}, {{job_title}}, {{industry}}
@@ -9647,22 +9665,171 @@ Return JSON strictly:
       if (response && response.text) {
         const parsed = JSON.parse(response.text.trim());
         return res.json({
-          subject: parsed.subject || 'Quick question regarding {{company}}',
-          body: parsed.body || 'Hi {{first_name}},\n\nNoticed {{company}} is scaling outreach. Would love to share how SalesPilot automates warm pipeline generation.'
+          subject: parsed.subject || `Quick question regarding {{company}}`,
+          body: parsed.body || `Hi {{first_name}},\n\nI came across {{company}} and noticed your work in {{industry}}.\n\nWould you be open to a quick 5-minute chat to discuss how we can assist with your outbound pipeline?\n\nBest regards,\n${user.fullName || 'Sales Team'}`
         });
       }
 
       res.json({
         subject: 'Quick question regarding {{company}}',
-        body: 'Hi {{first_name}},\n\nNoticed {{company}} is scaling sales outreach. Would love to share how SalesPilot automates lead generation and warm email outreach.\n\nOpen to a 5-minute chat this week?'
+        body: `Hi {{first_name}},\n\nI came across {{company}} and noticed your focus in {{industry}}.\n\nWould you be open to a quick 5-minute conversation this week?\n\nBest,\n${user.fullName || 'Sales Team'}`
       });
     } catch (err: any) {
       console.error('[AI GENERATE OUTREACH ERROR]', err);
       res.json({
         subject: 'Quick question regarding {{company}}',
-        body: 'Hi {{first_name}},\n\nNoticed {{company}} is scaling sales outreach. Would love to share how SalesPilot automates lead generation and warm email outreach.\n\nOpen to a 5-minute chat this week?'
+        body: `Hi {{first_name}},\n\nI came across {{company}} and noticed your focus in {{industry}}.\n\nWould you be open to a quick 5-minute conversation this week?\n\nBest,\n${user.fullName || 'Sales Team'}`
       });
     }
+  });
+
+  // --- AI Outreach Business Profile (Business Context) Endpoints ---
+  app.get(['/api/v1/outreach/profile', '/api/v1/business-profile'], async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    let profile = localDb.getAiOutreachProfile(orgId);
+    if (!profile) {
+      profile = getDefaultAiOutreachProfile(orgId, user.companyName);
+    }
+
+    res.json({
+      success: true,
+      profile,
+      isConfigured: Boolean(profile?.isConfigured)
+    });
+  });
+
+  app.put(['/api/v1/outreach/profile', '/api/v1/business-profile'], async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const payload: Partial<AiOutreachProfile> = req.body || {};
+    const existing = localDb.getAiOutreachProfile(orgId) || getDefaultAiOutreachProfile(orgId, user.companyName);
+
+    const updatedProfile: AiOutreachProfile = {
+      ...existing,
+      ...payload,
+      organizationId: orgId,
+      userId: user.id,
+      targetIndustries: Array.isArray(payload.targetIndustries) ? payload.targetIndustries : existing.targetIndustries,
+      targetRoles: Array.isArray(payload.targetRoles) ? payload.targetRoles : existing.targetRoles,
+      painPoints: Array.isArray(payload.painPoints) ? payload.painPoints : (payload.painPoints ? [String(payload.painPoints)] : existing.painPoints)
+    };
+
+    const saved = localDb.saveAiOutreachProfile(updatedProfile);
+
+    // Also persist into Supabase if connected
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from('organizations').update({
+          settings: {
+            aiOutreachProfile: saved
+          }
+        }).eq('id', orgId);
+      } catch (sbErr) {
+        console.warn('[SUPABASE] Notice saving business profile:', sbErr);
+      }
+    }
+
+    res.json({
+      success: true,
+      profile: saved,
+      isConfigured: saved.isConfigured,
+      message: 'AI Outreach Business Profile saved successfully.'
+    });
+  });
+
+  app.post(['/api/v1/outreach/profile', '/api/v1/business-profile'], async (req, res) => {
+    // Alias to PUT handler
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const payload: Partial<AiOutreachProfile> = req.body || {};
+    const existing = localDb.getAiOutreachProfile(orgId) || getDefaultAiOutreachProfile(orgId, user.companyName);
+
+    const updatedProfile: AiOutreachProfile = {
+      ...existing,
+      ...payload,
+      organizationId: orgId,
+      userId: user.id,
+      targetIndustries: Array.isArray(payload.targetIndustries) ? payload.targetIndustries : existing.targetIndustries,
+      targetRoles: Array.isArray(payload.targetRoles) ? payload.targetRoles : existing.targetRoles,
+      painPoints: Array.isArray(payload.painPoints) ? payload.painPoints : (payload.painPoints ? [String(payload.painPoints)] : existing.painPoints)
+    };
+
+    const saved = localDb.saveAiOutreachProfile(updatedProfile);
+    res.json({
+      success: true,
+      profile: saved,
+      isConfigured: saved.isConfigured,
+      message: 'AI Outreach Business Profile saved successfully.'
+    });
+  });
+
+  // Bulk add verified leads to an outreach campaign with strict tenant verification
+  app.post('/api/v1/outreach/campaigns/:campaignId/leads/bulk-add', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized.' });
+    const { orgId, error } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    const { campaignId } = req.params;
+    const { leadIds } = req.body;
+
+    if (!campaignId || !Array.isArray(leadIds) || leadIds.length === 0) {
+      return res.status(400).json({ error: 'campaignId and non-empty leadIds array are required.' });
+    }
+
+    const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found or access denied.' });
+    }
+
+    // Verify each lead belongs to the authenticated tenant
+    const allOrgLeads = await getAllLeadsAsync(orgId);
+    const validOrgLeadIds = new Set(allOrgLeads.map(l => l.id));
+
+    const sanitizedSelectedIds = leadIds.filter((id: string) => validOrgLeadIds.has(String(id).trim()));
+
+    if (sanitizedSelectedIds.length === 0) {
+      return res.status(400).json({ error: 'None of the provided lead IDs belong to your organization.' });
+    }
+
+    // Re-verify campaign lead list and add without duplicates
+    const currentLeads: string[] = Array.isArray(campaign.targetLeadIds) 
+      ? campaign.targetLeadIds 
+      : [];
+
+    const mergedLeadIds = Array.from(new Set([...currentLeads, ...sanitizedSelectedIds]));
+    const newlyAddedCount = mergedLeadIds.length - currentLeads.length;
+
+    const updatedCampaign = {
+      ...campaign,
+      targetLeadIds: mergedLeadIds,
+      updatedAt: new Date().toISOString()
+    };
+    localDb.saveOutreachCampaign(updatedCampaign, campaign.steps || []);
+
+    // Also update lead records to link to campaignId
+    for (const lid of sanitizedSelectedIds) {
+      await updateLeadAsync(lid, { campaignId });
+    }
+
+    res.json({
+      success: true,
+      campaignId,
+      totalLeads: mergedLeadIds.length,
+      addedCount: newlyAddedCount,
+      message: `Successfully linked ${newlyAddedCount} leads to campaign.`
+    });
   });
 
   // Process Simulated / Incoming Webhook Replies
@@ -9950,6 +10117,9 @@ Respond strictly with valid JSON.`;
 
   // AI Outreach Message Personalization Generator with Gemini
   app.post('/api/v1/ai/generate-outreach', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const orgId = user?.organizationId || (req.headers['x-organization-id'] as string) || '';
+
     const { 
       name, jobTitle, company, website, industry, companySize, 
       painPoints, country, language, businessType 
@@ -9967,6 +10137,11 @@ Respond strictly with valid JSON.`;
     const targetSize = companySize || '11-50 employees';
     const targetBizType = businessType || 'B2B Enterprise';
 
+    // Load business context
+    const bizProfile = orgId ? localDb.getAiOutreachProfile(orgId) : null;
+    const businessContextBlock = formatBusinessContextForPrompt(bizProfile);
+    const senderName = bizProfile?.businessName || user?.companyName || 'Our Business';
+
     if (!geminiKey) {
       console.log('[WARN] No GEMINI_API_KEY. real AI outreach generation is disabled.');
       res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server. Real AI email/outreach generation requires a verified Google GenAI API key.' });
@@ -9979,7 +10154,10 @@ Respond strictly with valid JSON.`;
         httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
       });
 
-      const prompt = `You are an elite, highly specialized sales copywriter for a premium B2B SaaS platform called SalesPilot.
+      const prompt = `You are an elite, highly specialized sales copywriter crafting outbound messaging on behalf of: ${senderName}.
+
+${businessContextBlock}
+
 Generate high-converting outreach message variations personalized for this prospect:
 - Decision Maker Name: ${targetName}
 - Job Title: ${targetTitle}
@@ -18415,6 +18593,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     accessToken: string;
     refreshToken?: string;
     expiresAt: string;
+    scopes?: string[];
     status: 'CONNECTED' | 'REAUTH_NEEDED' | 'REAUTH_REQUIRED' | 'ERROR' | 'DISCONNECTED';
     organizationId?: string;
     userId?: string;

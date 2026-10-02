@@ -11,7 +11,7 @@ import {
   ApiKey, OAuthClient, OAuthToken, WebhookEndpoint, WebhookDelivery, IntegrationConfig, MarketplaceApp, DeveloperLog,
   OutreachCampaign, OutreachStep, OutreachQueueItem, OutreachMessage, OutreachEvent, OutreachReply,
   VoiceCallRecord, VoiceCallEvent, CallStatus, ManualCallActivity, ManualCallOutcome, CallingNumber,
-  SalesPilotNotification
+  SalesPilotNotification, AiOutreachProfile
 } from '../types';
 import { AIAgent, AgentTask, AgentMemory, AgentLog, AgentWorkflow, AgentPermission } from '../types/brain';
 import { LeadGenJob } from '../types';
@@ -83,6 +83,7 @@ export interface DBStructure {
   payments?: any[];
   subscriptions?: any[];
   invoices?: any[];
+  aiOutreachProfiles?: AiOutreachProfile[];
 }
 
 export function isValidCallStateTransition(from: CallStatus, to: CallStatus): boolean {
@@ -3721,6 +3722,34 @@ export class LocalDB {
       this.db.invoices.unshift(invoice);
     }
     this.save();
+  }
+
+  // --- AI Outreach Profile (Business Context) ---
+  public getAiOutreachProfile(organizationId: string): AiOutreachProfile | null {
+    if (!this.db.aiOutreachProfiles) this.db.aiOutreachProfiles = [];
+    const found = this.db.aiOutreachProfiles.find(p => p.organizationId === organizationId);
+    return found || null;
+  }
+
+  public saveAiOutreachProfile(profile: AiOutreachProfile): AiOutreachProfile {
+    if (!this.db.aiOutreachProfiles) this.db.aiOutreachProfiles = [];
+    const isConfigured = Boolean(
+      profile.businessName?.trim() && 
+      (profile.businessDescription?.trim() || profile.valueProposition?.trim() || profile.productsServices?.trim())
+    );
+    const enriched: AiOutreachProfile = {
+      ...profile,
+      isConfigured,
+      updatedAt: new Date().toISOString()
+    };
+    const idx = this.db.aiOutreachProfiles.findIndex(p => p.organizationId === profile.organizationId);
+    if (idx >= 0) {
+      this.db.aiOutreachProfiles[idx] = enriched;
+    } else {
+      this.db.aiOutreachProfiles.push(enriched);
+    }
+    this.save();
+    return enriched;
   }
 }
 

@@ -762,6 +762,42 @@ export interface DeveloperLog {
   createdAt: string;
 }
 
+export interface AiOutreachProfile {
+  id?: string;
+  organizationId: string;
+  userId?: string;
+  businessName: string;
+  businessDescription: string;
+  productsServices: string;
+  targetIcp: string;
+  targetIndustries: string[];
+  targetRoles: string[];
+  painPoints: string[];
+  valueProposition: string;
+  keyDifferentiators: string;
+  offer: string;
+  preferredCta: string;
+  toneOfVoice: string;
+  additionalInstructions: string;
+  isConfigured?: boolean;
+  updatedAt?: string;
+}
+
+export interface CalendarAccount {
+  id: string;
+  userId?: string;
+  organizationId?: string;
+  provider: string;
+  email: string;
+  connected?: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  scopes?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export * from './team-collaboration';
 export * from './outreach';
 export * from './voice';

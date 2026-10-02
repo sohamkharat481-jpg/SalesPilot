@@ -17,6 +17,7 @@ import { runProductionBillingCheckoutTestSuite } from './productionBillingChecko
 import { runHeaderImpersonationSecurityTestSuite } from './headerImpersonationSecurity.test';
 import { runNoRoleCrossoverTestSuite } from './noRoleCrossover.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
+import { runFinal3FlowVerificationTestSuite } from './final3FlowVerification.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -203,6 +204,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Final Production Smoke test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 18. Final 3-Flow Production Verification Suite
+  try {
+    const res = await runFinal3FlowVerificationTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Final 3-Flow Verification test suite crashed:', err);
     totalFailed++;
   }
 
