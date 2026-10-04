@@ -18,6 +18,7 @@ import { runHeaderImpersonationSecurityTestSuite } from './headerImpersonationSe
 import { runNoRoleCrossoverTestSuite } from './noRoleCrossover.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 import { runFinal3FlowVerificationTestSuite } from './final3FlowVerification.test';
+import { runGoogleLoginProductionAuditTestSuite } from './googleLoginProductionAudit.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -214,6 +215,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Final 3-Flow Verification test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 19. Google Login Production Auth Audit Suite
+  try {
+    const res = await runGoogleLoginProductionAuditTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Google Login Production Auth Audit test suite crashed:', err);
     totalFailed++;
   }
 

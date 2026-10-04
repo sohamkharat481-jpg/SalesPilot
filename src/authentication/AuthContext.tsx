@@ -45,6 +45,7 @@ interface AuthContextType {
   isLoading: boolean;
   authView: 'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team';
   authError: string | null;
+  clearAuthError: () => void;
   setAuthView: (view: 'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team') => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   signup: (email: string, password: string, fullName: string, role: UserRole) => Promise<boolean>;
@@ -309,6 +310,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initial session checking and OAuth state recovery
     async function initAuth() {
       setIsLoading(true);
+
+      // Check for incoming OAuth error parameters in URL (search or hash)
+      if (typeof window !== 'undefined') {
+        const searchParams = new URLSearchParams(window.location.search);
+        let urlError = searchParams.get('error_description') || searchParams.get('error');
+        if (!urlError && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          urlError = hashParams.get('error_description') || hashParams.get('error');
+        }
+        if (urlError) {
+          const cleanError = decodeURIComponent(urlError.replace(/\+/g, ' '));
+          console.error('[SECURE OAUTH ERROR IN URL]', cleanError);
+          const errLower = cleanError.toLowerCase();
+          const isNetwork = errLower.includes('network') || 
+                            errLower.includes('fetch') || 
+                            errLower.includes('timeout') || 
+                            errLower.includes('connection') || 
+                            errLower.includes('offline');
+          setAuthError(
+            isNetwork 
+              ? "Something went wrong while signing you in. Please try again."
+              : "Google sign-in couldn't be completed. Please try again."
+          );
+          // Clear error from URL query/hash to keep address bar clean
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
 
       const supabase = getSupabaseClient();
       if (supabase) {
@@ -1096,25 +1124,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const configuredAppUrl = (import.meta.env.VITE_APP_URL || '').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
-      const currentOrigin = window.location.origin.replace(/\/+$/, '');
-      const productionOrigin = 'https://sales-pilot-f4uv.vercel.app';
-      const appUrl = window.location.hostname === 'sales-pilot-f4uv.vercel.app'
-        ? productionOrigin
-        : (configuredAppUrl || currentOrigin);
+      const currentOrigin = typeof window !== 'undefined' ? window.location.origin.replace(/\/+$/, '') : '';
+      const productionCanonicalOrigin = 'https://sales-pilot-green.vercel.app';
+      
+      // Resolve canonical origin: If running on production Vercel, prioritize sales-pilot-green.vercel.app
+      let appUrl = productionCanonicalOrigin;
+      if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1') || currentOrigin.includes('.run.app')) {
+        appUrl = currentOrigin;
+      } else if (currentOrigin.includes('sales-pilot-green.vercel.app')) {
+        appUrl = productionCanonicalOrigin;
+      } else if (configuredAppUrl) {
+        appUrl = configuredAppUrl;
+      } else if (currentOrigin) {
+        appUrl = currentOrigin;
+      }
 
       console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", appUrl);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: appUrl
+          redirectTo: appUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
 
       if (error) throw error;
     } catch (err: any) {
-      console.error("[OAUTH LOGIN ERROR]", err);
-      setAuthError(err.message || 'Google Login failed');
+      console.error("[OAUTH LOGIN ERROR SECURE LOG]", err);
+      const errMsg = (err?.message || '').toLowerCase();
+      const isNetwork = errMsg.includes('network') || 
+                        errMsg.includes('fetch') || 
+                        errMsg.includes('timeout') || 
+                        errMsg.includes('connection') || 
+                        errMsg.includes('offline') ||
+                        (typeof navigator !== 'undefined' && !navigator.onLine);
+      setAuthError(
+        isNetwork 
+          ? "Something went wrong while signing you in. Please try again."
+          : "Google sign-in couldn't be completed. Please try again."
+      );
       setIsLoading(false);
     }
   };
@@ -1144,6 +1196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       authView,
       authError,
+      clearAuthError: () => setAuthError(null),
       setAuthView,
       login,
       signup,

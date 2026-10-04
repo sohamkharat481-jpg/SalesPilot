@@ -1,13 +1,14 @@
 import React from 'react';
 import { useAuth } from '../authentication/AuthContext';
 import { motion } from 'motion/react';
-import { Sparkles, Shield, AlertCircle, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Shield, AlertCircle, Loader2, ArrowRight, CheckCircle2, RotateCcw } from 'lucide-react';
 
 export function AuthView() {
   const {
     loginWithGoogle,
     isLoading,
     authError,
+    clearAuthError,
     isSandbox
   } = useAuth();
 
@@ -37,15 +38,28 @@ export function AuthView() {
           <p className="text-xs text-slate-400 font-mono mt-1.5">Autonomous B2B Outreach Engine</p>
         </div>
 
-        {/* Global Error Alert Banner */}
+        {/* Global Error Alert Banner with Try Again */}
         {authError && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-950/40 border border-red-500/30 rounded-xl flex items-start gap-3 text-xs text-red-200"
+            className="mb-6 p-4 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-red-200"
           >
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-            <span>{authError}</span>
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="leading-relaxed font-medium">{authError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                clearAuthError?.();
+                loginWithGoogle();
+              }}
+              className="shrink-0 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 active:bg-red-500/40 text-red-200 hover:text-white border border-red-500/30 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Try Again</span>
+            </button>
           </motion.div>
         )}
 

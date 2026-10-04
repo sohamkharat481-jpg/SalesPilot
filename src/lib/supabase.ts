@@ -5,8 +5,27 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * Single source of truth for Frontend Supabase credentials using Vite static replacements.
  * Frontend MUST use VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
  */
-export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co').trim();
-export const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkyMDAwMDAwMH0.placeholder').trim();
+const getClientEnvVar = (key: string): string => {
+  if (typeof import.meta !== 'undefined' && import.meta?.env && (import.meta.env as any)[key]) {
+    return String((import.meta.env as any)[key]).trim();
+  }
+  if (typeof process !== 'undefined' && process?.env && process.env[key]) {
+    return String(process.env[key]).trim();
+  }
+  return '';
+};
+
+export const SUPABASE_URL = (
+  getClientEnvVar('VITE_SUPABASE_URL') || 
+  getClientEnvVar('SUPABASE_URL') || 
+  'https://placeholder.supabase.co'
+).trim();
+
+export const SUPABASE_ANON_KEY = (
+  getClientEnvVar('VITE_SUPABASE_ANON_KEY') || 
+  getClientEnvVar('SUPABASE_ANON_KEY') || 
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkyMDAwMDAwMH0.placeholder'
+).trim();
 
 let clientInstance: SupabaseClient | null = null;
 

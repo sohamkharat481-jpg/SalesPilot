@@ -34,7 +34,7 @@ async function runVoiceCallingPhase3Tests() {
   const diagnosticObj = {
     configured: isConfigured,
     provider: configuredAdapter.name,
-    webhookUrl: 'https://sales-pilot-f4uv.vercel.app/api/v1/voice/webhook',
+    webhookUrl: 'https://sales-pilot-green.vercel.app/api/v1/voice/webhook',
     environment: 'production',
     readyForRealCall: isConfigured
   };
