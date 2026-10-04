@@ -150,7 +150,21 @@ export const RoleAndPermissionsMatrix: React.FC<RoleAndPermissionsMatrixProps> =
                   </td>
                   {teamMembers.map(member => {
                     const row = permissionMatrix.find(r => r.memberId === member.id);
-                    const isAllowed = row?.permissions?.[perm.id] ?? (member.role === 'ADMIN' || member.role === 'OWNER' || member.role === 'FOUNDER');
+                    const memberRoleUpper = (member.role || '').toUpperCase();
+                    const getDefaultPermissionForRole = (role: string, permKey: string) => {
+                      if (role === 'ADMIN' || role === 'OWNER' || role === 'FOUNDER' || role === 'SUPER_ADMIN') return true;
+                      if (role === 'MANAGER') return permKey !== 'perm_manage_billing' && permKey !== 'perm_manage_settings' && permKey !== 'perm_delete_crm';
+                      if (role === 'SALES' || role === 'SALES_REP' || role === 'SDR' || role === 'MARKETING') {
+                        return permKey === 'perm_view_crm' || permKey === 'perm_edit_crm' || permKey === 'perm_manage_campaigns' || permKey === 'perm_manage_ai' || permKey === 'perm_view_reports';
+                      }
+                      if (role === 'CLIENT' || role === 'MEMBER') {
+                        return permKey === 'perm_view_crm' || permKey === 'perm_edit_crm' || permKey === 'perm_manage_campaigns' || permKey === 'perm_manage_ai' || permKey === 'perm_view_reports' || permKey === 'perm_manage_integrations' || permKey === 'perm_manage_billing';
+                      }
+                      if (role === 'SUPPORT') return permKey === 'perm_view_crm' || permKey === 'perm_manage_integrations';
+                      if (role === 'VIEWER') return permKey === 'perm_view_crm' || permKey === 'perm_view_reports';
+                      return false;
+                    };
+                    const isAllowed = row?.permissions?.[perm.id] ?? getDefaultPermissionForRole(memberRoleUpper, perm.id);
                     const isMemberFounder = member.role === 'FOUNDER' || member.role === 'OWNER';
 
                     return (

@@ -1175,7 +1175,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkPermissions = (requiredRole: UserRole | UserRole[]): boolean => {
     if (!user) return false;
     
-    // Admin always has full access
+    // Founder, Super Admin, and Owner always have full workspace access
+    if (user.isFounder || user.role === 'SUPER_ADMIN' || user.role === 'OWNER') return true;
+    // Admin has full workspace access
     if (user.role === 'ADMIN') return true;
 
     const rolesList = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
@@ -1183,9 +1185,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isReadOnly = user?.role === 'VIEWER';
-  const canManageCampaigns = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const canManageSettings = user?.role === 'ADMIN';
-  const canManageBilling = user?.role === 'ADMIN';
+  const canManageCampaigns = !isReadOnly && Boolean(user) && (
+    ['OWNER', 'ADMIN', 'MANAGER', 'SALES', 'SALES_REP', 'MARKETING', 'MEMBER', 'CLIENT', 'SUPER_ADMIN'].includes((user?.role || '').toUpperCase()) ||
+    Boolean(user?.isFounder)
+  );
+  const canManageSettings = ['ADMIN', 'OWNER', 'SUPER_ADMIN'].includes((user?.role || '').toUpperCase()) || Boolean(user?.isFounder);
+  const canManageBilling = ['ADMIN', 'OWNER', 'CLIENT', 'SUPER_ADMIN'].includes((user?.role || '').toUpperCase()) || Boolean(user?.isFounder);
 
   return (
     <AuthContext.Provider value={{

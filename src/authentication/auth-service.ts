@@ -13,11 +13,12 @@ export class AuthService {
   }
 
   /**
-   * Evaluates role rights for workspaces.
+   * Evaluates role rights for workspace campaign management.
    */
   public static canManageCampaigns(user: WorkspaceUser | null): boolean {
     if (!user) return false;
-    // All tiers can manage campaigns, starter has quota bounds
-    return true;
+    const role = (user.role || '').toUpperCase();
+    if (role === 'VIEWER') return false;
+    return ['OWNER', 'ADMIN', 'MANAGER', 'SALES', 'SALES_REP', 'MARKETING', 'MEMBER', 'CLIENT', 'SUPER_ADMIN'].includes(role) || Boolean(user.isFounder);
   }
 }

@@ -1175,7 +1175,7 @@ export default function App() {
       {user?.role === 'SALES' && (
         <div className="bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-blue-800 dark:text-blue-300 flex items-start sm:items-center gap-2 font-mono">
           <ShieldAlert className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
-          <span><strong>Sales Outbound Access:</strong> You can manage leads, book demos, and move deal stages. Campaign sequence changes, Billing, and Settings are restricted.</span>
+          <span><strong>Sales Outbound Access:</strong> You can manage leads, campaigns, book demos, and move deal stages. Billing and Master Settings remain restricted to Admins.</span>
         </div>
       )}
       {user?.role === 'MANAGER' && (
@@ -1187,7 +1187,7 @@ export default function App() {
       {user?.role === 'CLIENT' && (
         <div className="bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-200 dark:border-indigo-900/40 px-3 sm:px-6 py-2 text-[10px] sm:text-[11px] text-indigo-800 dark:text-indigo-300 flex items-start sm:items-center gap-2 font-mono">
           <ShieldAlert className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
-          <span><strong>Client Portal Access:</strong> Active client simulation mode is enabled. Review outreach sequences, leads feed, book strategy sessions, and chat with Aero.</span>
+          <span><strong>Client Workspace Access:</strong> Standard client feature suite active. Manage your workspace leads, campaigns, CRM pipeline, Gmail/Calendar integrations, and billing.</span>
         </div>
       )}
       {user?.role === 'SUPER_ADMIN' && (

@@ -5135,7 +5135,11 @@ Rules:
     const user = localDb.getUsers().find(u => u.id === userId);
     if (!user) return false;
 
-    // Check if user is owner of this specific organization
+    // Founder, Super Admin, or Owner of this specific organization always has full access
+    if (user.role === 'SUPER_ADMIN' || user.isFounder || isVerifiedFounderEmail(user.email)) {
+      return true;
+    }
+
     const org = localDb.getOrganizationById(orgId);
     const isOwnerOfOrg = (org && org.ownerId === userId) || (user.organizationId === orgId && user.role === 'OWNER');
     if (isOwnerOfOrg) {
@@ -5149,14 +5153,18 @@ Rules:
     }
     const memberRoleName = member ? member.role : (user.organizationId === orgId ? user.role : 'VIEWER');
 
-    // Let's resolve standard roles' permission mappings:
+    // Standard roles' permission mappings:
     const standardRolePermissions: Record<string, string[]> = {
       'OWNER': ['View CRM', 'Edit CRM', 'Delete CRM', 'Manage Campaigns', 'Manage Billing', 'Manage AI', 'Manage Integrations', 'View Reports', 'Manage Team', 'Manage Settings'],
+      'SUPER_ADMIN': ['View CRM', 'Edit CRM', 'Delete CRM', 'Manage Campaigns', 'Manage Billing', 'Manage AI', 'Manage Integrations', 'View Reports', 'Manage Team', 'Manage Settings'],
       'ADMIN': ['View CRM', 'Edit CRM', 'Delete CRM', 'Manage Campaigns', 'Manage AI', 'Manage Integrations', 'View Reports', 'Manage Team', 'Manage Settings'],
       'MANAGER': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports', 'Manage Team'],
-      'SALES': ['View CRM', 'Edit CRM', 'Manage AI'],
-      'SALES_REP': ['View CRM', 'Edit CRM', 'Manage AI'],
-      'MARKETING': ['View CRM', 'Manage Campaigns'],
+      'SALES': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports'],
+      'SALES_REP': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports'],
+      'SDR': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports'],
+      'MARKETING': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports'],
+      'MEMBER': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports', 'Manage Integrations', 'Manage Billing'],
+      'CLIENT': ['View CRM', 'Edit CRM', 'Manage Campaigns', 'Manage AI', 'View Reports', 'Manage Integrations', 'Manage Billing'],
       'SUPPORT': ['View CRM', 'Manage Integrations'],
       'VIEWER': ['View CRM', 'View Reports']
     };
@@ -8599,6 +8607,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
     }
 
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
+
     const newCampaign: Campaign & { organizationId?: string } = {
       id: `camp_${Date.now()}`,
       organizationId: orgId,
@@ -8649,6 +8661,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
+
     const { id } = req.params;
     const camp = campaigns.find(c => c.id === id && ((c as any).organizationId === orgId || (c as any).organization_id === orgId)) ||
                  (localDb.getOutreachCampaignById ? localDb.getOutreachCampaignById(id, orgId) : null);
@@ -8676,6 +8692,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) {
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
     }
 
     const { id } = req.params;
@@ -9017,6 +9037,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
 
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
+
     const { name, targetLeadIds, dailyLimit, steps } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Campaign name is required.' });
     if (!targetLeadIds || !Array.isArray(targetLeadIds) || targetLeadIds.length === 0) {
@@ -9156,6 +9180,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
 
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
+
     const { campaignId } = req.params;
     const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
     if (!campaign) {
@@ -9211,6 +9239,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     const { orgId, error, status: errStatus } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(errStatus || 403).json({ error: error || 'Organization access denied.' });
+
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
 
     const { campaignId } = req.params;
     const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
@@ -9321,6 +9353,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     const { orgId, error } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
 
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
+
     const { campaignId } = req.params;
     localDb.updateOutreachCampaignStatus(campaignId, 'PAUSED', orgId);
     
@@ -9340,6 +9376,10 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     if (!user) return res.status(401).json({ error: 'Unauthorized.' });
     const { orgId, error } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
 
     const { campaignId } = req.params;
     const campaign = localDb.getOutreachCampaignById(campaignId, orgId);
@@ -9780,6 +9820,10 @@ Return JSON strictly:
     if (!user) return res.status(401).json({ error: 'Unauthorized.' });
     const { orgId, error } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(403).json({ error: error || 'Access denied.' });
+
+    if (!hasPermission(user.id, orgId, 'Manage Campaigns')) {
+      return res.status(403).json({ error: "Access denied: 'Manage Campaigns' permission required." });
+    }
 
     const { campaignId } = req.params;
     const { leadIds } = req.body;

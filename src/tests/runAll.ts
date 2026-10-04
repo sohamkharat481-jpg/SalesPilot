@@ -19,6 +19,8 @@ import { runNoRoleCrossoverTestSuite } from './noRoleCrossover.test';
 import { runFinalProductionSmokeTestSuite } from './finalProductionSmokeTest';
 import { runFinal3FlowVerificationTestSuite } from './final3FlowVerification.test';
 import { runGoogleLoginProductionAuditTestSuite } from './googleLoginProductionAudit.test';
+import { runCampaignPermissionsAuditTestSuite } from './campaignPermissionsAudit.test';
+import { runClientPermissionBaselineTestSuite } from './clientPermissionBaseline.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -225,6 +227,26 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Google Login Production Auth Audit test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 20. Campaign Management Permissions Audit Suite
+  try {
+    const res = await runCampaignPermissionsAuditTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Campaign Management Permissions test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 21. Client Account Permission Baseline Suite
+  try {
+    const res = await runClientPermissionBaselineTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Client Account Permission Baseline test suite crashed:', err);
     totalFailed++;
   }
 
