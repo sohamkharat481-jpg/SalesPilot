@@ -1841,7 +1841,27 @@ async function startServer() {
     }
 
     if (!verifiedOrgId) {
-      return { orgId: null, error: 'Forbidden. No verified organization membership found for this user.', status: 403 };
+      // Auto-provision personal organization if none exists so customer is never stranded
+      const autoOrgId = `org_${user.id.substring(0, 12)}`;
+      const autoOrg: any = {
+        id: autoOrgId,
+        name: user.companyName || `${user.fullName}'s Workspace`,
+        companyName: user.companyName || `${user.fullName}'s Workspace`,
+        domain: user.email ? user.email.split('@')[1] : '',
+        ownerId: user.id,
+        createdAt: new Date().toISOString()
+      };
+      try {
+        localDb.addOrganization(autoOrg);
+        verifiedOrgId = autoOrgId;
+        user.organizationId = autoOrgId;
+        localDb.saveUser(user);
+      } catch (_) {}
+    }
+
+    if (!verifiedOrgId) {
+      console.warn(`[SECURITY] No verified organization membership found for user ${user.id}`);
+      return { orgId: null, error: "We couldn't verify your workspace. Please refresh and try again.", status: 403 };
     }
 
     // Check client organizationId if supplied by browser/client
@@ -1863,9 +1883,18 @@ async function startServer() {
         );
 
       if (!isMemberOfClientOrg) {
+        console.warn(`[SECURITY] Cross-tenant organization mismatch: client supplied "${cleanClientOrgId}" for user ${user.id}. Server is authoritative: verifiedOrgId is "${verifiedOrgId}".`);
+        // For Google OAuth, Gmail connect/status, and Calendar operations:
+        // Client-supplied organizationId cannot override server-derived workspace.
+        // Fall back authoritatively to verifiedOrgId rather than breaking legitimate user:
+        const path = req.path || req.originalUrl || '';
+        if (path.includes('/auth/google') || path.includes('/gmail') || path.includes('/calendar')) {
+          console.warn(`[SECURITY] Authoritatively anchoring integration flow to verified workspace ${verifiedOrgId} for user ${user.id}`);
+          return { orgId: verifiedOrgId };
+        }
         return { 
           orgId: null, 
-          error: 'Forbidden. Organization mismatch: client-supplied organizationId does not match verified user workspace membership.', 
+          error: "We couldn't verify your workspace. Please refresh and try again.", 
           status: 403 
         };
       }
@@ -17879,7 +17908,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const rawClientId = process.env.GOOGLE_CLIENT_ID;
     if (!rawClientId) {
       console.error('[GOOGLE OAUTH URL GEN] ERROR: GOOGLE_CLIENT_ID is not configured in server environment variables.');
-      return res.status(400).json({ error: 'GOOGLE_CLIENT_ID is not configured on the server. Please add GOOGLE_CLIENT_ID to your environment variables.' });
+      return res.status(400).json({ error: 'Google integration is temporarily unavailable. Please try again later.' });
     }
     const clientId = rawClientId.trim().replace(/^['"]|['"]$/g, '');
     
@@ -17905,18 +17934,18 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     const user = getAuthenticatedUser(req);
     if (!user) {
-      return res.status(401).json({ error: 'An authenticated SalesPilot session is required to connect Google Workspace.' });
+      return res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
     }
     const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
     if (orgErr || !orgId) {
-      return res.status(orgStatus || 403).json({ error: orgErr || 'Forbidden. Organization mismatch or access denied.' });
+      return res.status(orgStatus || 403).json({ error: orgErr || "We couldn't verify your workspace. Please refresh and try again." });
     }
 
     // Log the redirect URI
     const redirectUri = getGoogleRedirectUri(req);
     const state = createGoogleOAuthState(req);
     if (!state) {
-      return res.status(500).json({ error: 'Server configuration error: GOOGLE_CLIENT_SECRET is missing.' });
+      return res.status(500).json({ error: 'Google integration is temporarily unavailable. Please try again later.' });
     }
     console.log(`[GOOGLE OAUTH AUDIT] FINAL RUNTIME REDIRECT URI: ${redirectUri}`);
     console.log(`[GOOGLE OAUTH URL GEN] Configured Redirect URI: ${redirectUri}`);
@@ -17978,11 +18007,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.send(`
         <html>
           <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
-            <h3 style="color: #dc2626;">Authentication Configuration Error</h3>
-            <p style="color: #4b5563;">Missing parameters, client configuration, or expired SalesPilot session.</p>
+            <h3 style="color: #dc2626;">Unable to Connect Google Account</h3>
+            <p style="color: #4b5563;">Unable to connect your Google account. Please try again.</p>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Missing parameters or client configuration.' }, '*');
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.' }, '*');
               }
               setTimeout(() => window.close(), 3000);
             </script>
@@ -18239,11 +18268,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       res.send(`
         <html>
           <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
-            <h3 style="color: #dc2626;">Authentication Failed</h3>
-            <p style="color: #4b5563;">${err.message || String(err)}</p>
+            <h3 style="color: #dc2626;">Unable to Connect Google Account</h3>
+            <p style="color: #4b5563;">Unable to connect your Google account. Please try again.</p>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(err.message || String(err))} }, '*');
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.' }, '*');
               }
               setTimeout(() => window.close(), 4000);
             </script>

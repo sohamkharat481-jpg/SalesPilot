@@ -22,9 +22,13 @@ export interface Organization {
   logo?: string;
   ownerId?: string;
   subscriptionPlan?: string;
+  plan?: string;
+  subscriptionTier?: string;
+  stripeCustomerId?: string;
   status?: string;
   settings?: any;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface OrganizationMember {
@@ -215,8 +219,8 @@ import { LeadIntelligence } from './lead-intelligence';
 
 export interface Lead {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   name?: string;
   companyName?: string;
@@ -228,6 +232,10 @@ export interface Lead {
   industry?: string;
   organizationId?: string;
   organization_id?: string;
+  userId?: string;
+  isTest?: boolean;
+  isSimulated?: boolean;
+  notes?: string;
   status: LeadStatus;
   enrichment?: LeadEnrichment;
   researchProfile?: LeadResearchProfile;
@@ -276,6 +284,8 @@ export interface Campaign {
   totalOpened: number;
   totalReplied: number;
   createdAt: string;
+  organizationId?: string;
+  organization_id?: string;
 }
 
 export type DealStage = 

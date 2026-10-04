@@ -7,6 +7,9 @@ import {
   Trash2
 } from 'lucide-react';
 import { Appointment, Lead } from '../types';
+import { sanitizeUserFacingError } from '../utils/errorMapper';
+import { useAuth } from '../authentication/AuthContext';
+import { getSupabaseClient } from '../lib/supabase';
 
 interface SchedulerViewProps {
   appointments: Appointment[];
@@ -35,6 +38,7 @@ export function SchedulerView({
   setDeals, 
   setActiveTab 
 }: SchedulerViewProps) {
+  const { user, organization } = useAuth();
   
   // Auto-detect timezone
   const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -99,10 +103,11 @@ export function SchedulerView({
         const email = event.data.email;
         setGoogleCalendarConnected(true);
         setGoogleCalendarEmail(email);
-        alert(`Successfully connected Google Account: ${email}.\nGmail and Calendar integrations are now fully synchronized with offline refresh support.`);
+        alert('Google connected successfully.');
         checkConnectionStatus();
       } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
-        alert(`Google Authentication Failed: ${event.data.error || 'Unknown error'}`);
+        const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
+        alert(friendlyError);
       }
     };
 
@@ -156,9 +161,18 @@ export function SchedulerView({
     try {
       console.log(`[GOOGLE OAUTH] Fetching auth URL from /api/auth/google/url...`);
       const authHeaders: Record<string, string> = {};
-      const sessionToken = localStorage.getItem('salespilot_token');
+      let sessionToken = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const supabaseClient = getSupabaseClient();
+      if (supabaseClient) {
+        try {
+          const { data } = await supabaseClient.auth.getSession();
+          if (data?.session?.access_token) {
+            sessionToken = data.session.access_token;
+          }
+        } catch (_) {}
+      }
       if (sessionToken) authHeaders.Authorization = `Bearer ${sessionToken}`;
-      const workspaceId = localStorage.getItem('salespilot_workspace_id');
+      const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
       if (workspaceId) authHeaders['x-organization-id'] = workspaceId;
       const res = await fetch('/api/auth/google/url', { headers: authHeaders });
       const rawText = await res.text();
@@ -200,7 +214,8 @@ export function SchedulerView({
       }
     } catch (err: any) {
       console.error(`[GOOGLE OAUTH ERROR]`, err);
-      alert(`Authorization failed: ${err.message || String(err)}`);
+      const friendlyMsg = sanitizeUserFacingError(err, 'Unable to connect your Google account. Please try again.');
+      alert(friendlyMsg);
     } finally {
       setLoadingId(null);
     }
@@ -395,9 +410,24 @@ export function SchedulerView({
     setLoadingId('booking');
     try {
       const dateTimeIso = new Date(`${bookingForm.date}T${bookingForm.time}:00`).toISOString();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      let sessionToken = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+      const supabaseClient = getSupabaseClient();
+      if (supabaseClient) {
+        try {
+          const { data } = await supabaseClient.auth.getSession();
+          if (data?.session?.access_token) {
+            sessionToken = data.session.access_token;
+          }
+        } catch (_) {}
+      }
+      if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+      const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
+      if (workspaceId) headers['x-organization-id'] = workspaceId;
+
       const response = await fetch('/api/v1/appointments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           leadId: bookingForm.leadId,
           dateTime: dateTimeIso,
@@ -409,7 +439,7 @@ export function SchedulerView({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
+        const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to book appointment');
       }
 
@@ -424,7 +454,7 @@ export function SchedulerView({
       // Automatically create a Deal Pipeline stage if available
       if (setDeals) {
         try {
-          const dealRes = await fetch('/api/v1/deals');
+          const dealRes = await fetch('/api/v1/deals', { headers });
           if (dealRes.ok) {
             const data = await dealRes.json();
             if (data.deals) {
@@ -449,7 +479,8 @@ export function SchedulerView({
       alert('Success! Meeting scheduled and synced with Google Calendar.');
     } catch (err: any) {
       console.error(err);
-      alert(`Failed to book appointment: ${err.message || String(err)}`);
+      const friendlyMsg = sanitizeUserFacingError(err, 'Failed to book appointment. Please try again.');
+      alert(friendlyMsg);
     } finally {
       setLoadingId(null);
     }

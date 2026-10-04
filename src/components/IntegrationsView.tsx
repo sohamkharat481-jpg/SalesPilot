@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../authentication/AuthContext';
 import { getSupabaseClient } from '../lib/supabase';
 import { buildGoogleOAuthHeaders } from '../utils/googleOAuthClient';
+import { sanitizeUserFacingError } from '../utils/errorMapper';
 import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
 import { MyCallingNumbers } from './voice/MyCallingNumbers';
 
@@ -618,7 +619,8 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         const diagData = await diagRes.json();
         setAiStats(diagData.aiStats);
       }
-      const logsRes = await fetch('/gmail/status');
+      const headers = await getAuthHeaders();
+      const logsRes = await fetch('/gmail/status', { headers });
       if (logsRes.ok) {
         const logsData = await logsRes.json();
         setSyncLogs(logsData.logs || []);
@@ -855,18 +857,37 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     }
   };
 
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    let sessionToken = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
+    const supabaseClient = getSupabaseClient();
+    if (supabaseClient) {
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        if (data?.session?.access_token) {
+          sessionToken = data.session.access_token;
+        }
+      } catch (_) {}
+    }
+    if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+    const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
+    if (workspaceId) headers['x-organization-id'] = workspaceId;
+    return headers;
+  };
+
   const fetchGmailStatus = async () => {
     try {
-      const res = await fetch('/gmail/status');
+      const headers = await getAuthHeaders();
+      const res = await fetch('/gmail/status', { headers });
       if (res.ok) {
         const data = await res.json();
-        setGmailAccounts(data.accounts);
-        setGmailQueue(data.queue);
-        setGmailLogs(data.logs);
-        setGmailTemplates(data.templates);
+        setGmailAccounts(data.accounts || []);
+        setGmailQueue(data.queue || []);
+        setGmailLogs(data.logs || []);
+        setGmailTemplates(data.templates || []);
         
         // Auto-select initial active accounts
-        if (data.accounts.length > 0) {
+        if (data.accounts?.length > 0) {
           if (!selectedGmailAccount) {
             setSelectedGmailAccount(data.accounts[0].email);
           }
@@ -882,12 +903,13 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
 
   const fetchGmailInbox = async () => {
     try {
+      const headers = await getAuthHeaders();
       const accountQuery = selectedGmailAccount ? `?accountId=${selectedGmailAccount}` : '';
       const labelQuery = activeGmailLabel ? `${accountQuery ? '&' : '?'}label=${activeGmailLabel}` : '';
-      const res = await fetch(`/gmail/inbox${accountQuery}${labelQuery}`);
+      const res = await fetch(`/gmail/inbox${accountQuery}${labelQuery}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setGmailThreads(data.threads);
+        setGmailThreads(data.threads || []);
       }
     } catch (err) {
       console.error('Error fetching Gmail inbox:', err);
@@ -896,10 +918,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
 
   const fetchThreadMessages = async (threadId: string) => {
     try {
-      const res = await fetch(`/gmail/thread?threadId=${threadId}`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/gmail/thread?threadId=${threadId}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setThreadMessages(data.messages);
+        setThreadMessages(data.messages || []);
         setActiveThreadId(threadId);
         // Refresh unreads
         fetchGmailInbox();
@@ -939,12 +962,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       }
       
       if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-        const email = event.data.email;
-        alert(`Successfully connected Google Account: ${email}.\nGmail and Calendar integrations are now fully synchronized with offline refresh support.`);
+        alert('Google connected successfully.');
         fetchGmailStatus();
         fetchGmailInbox();
       } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
-        alert(`Google Authentication Failed: ${event.data.error || 'Unknown error'}`);
+        const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
+        alert(friendlyError);
       }
     };
 
@@ -957,9 +980,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     if (!customEmail) return;
 
     try {
+      const headers = await getAuthHeaders();
+
       const res = await fetch('/gmail/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           email: customEmail,
           fullName: customName || customEmail.split('@')[0],
@@ -969,23 +994,31 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       });
 
       if (res.ok) {
-        const data = await res.json();
         logActivity(`Connected Gmail Account: ${customEmail}`, 'Gmail Integration');
         fetchGmailStatus();
         setIsConnectModalOpen(false);
         setCustomEmail('');
         setCustomName('');
+        alert('Sandbox account created successfully.');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const friendlyError = sanitizeUserFacingError(errData?.error || 'sandbox', 'Unable to create the sandbox account. Please try again.');
+        alert(friendlyError);
       }
     } catch (err) {
-      console.error('Error connecting account:', err);
+      console.error('Error connecting sandbox account:', err);
+      const friendlyError = sanitizeUserFacingError(err, 'Unable to create the sandbox account. Please try again.');
+      alert(friendlyError);
     }
   };
 
   const handleDisconnectAccount = async (email: string) => {
     try {
+      const headers = await getAuthHeaders();
+
       const res = await fetch('/gmail/disconnect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email })
       });
 
@@ -1016,9 +1049,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     setIsSending(true);
 
     try {
+      const headers = await getAuthHeaders();
+
       const res = await fetch('/gmail/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           accountId: composeSender,
           recipient: composeRecipient,
@@ -1029,7 +1064,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setComposeSuccess(isDraft ? 'Draft successfully stored to Google folder!' : 'Email queued in SalesPilot outbox!');
         logActivity(isDraft ? `Draft created: ${composeSubject}` : `Email queued to ${composeRecipient}`, 'Gmail Integration');
@@ -1044,10 +1079,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         }
         fetchGmailStatus();
       } else {
-        setComposeError(data.error || 'Failed to dispatch email.');
+        const friendlyError = sanitizeUserFacingError(data?.error, 'Failed to send email. Please try again.');
+        setComposeError(friendlyError);
       }
     } catch (err) {
-      setComposeError('Network transmission failure.');
+      const friendlyError = sanitizeUserFacingError(err, 'Connection failed. Please check your internet connection and try again.');
+      setComposeError(friendlyError);
     } finally {
       setIsSending(false);
     }
@@ -1061,9 +1098,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     const replySubject = lastMsg.subject.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject}`;
 
     try {
+      const headers = await getAuthHeaders();
+
       const res = await fetch('/gmail/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           accountId: selectedGmailAccount,
           recipient: replyRecipient,
@@ -1090,9 +1129,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         };
         setThreadMessages(prev => [...prev, localReply]);
         fetchGmailStatus();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(sanitizeUserFacingError(errData?.error, 'Failed to send reply. Please try again.'));
       }
     } catch (err) {
-      console.error('Error replying:', err);
+      alert(sanitizeUserFacingError(err, 'Connection failed. Please check your internet connection and try again.'));
     }
   };
 
@@ -1101,9 +1143,10 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     if (!newTplName || !newTplSubject || !newTplBody) return;
 
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch('/gmail/templates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: newTplName,
           subject: newTplSubject,
@@ -1193,7 +1236,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       }
 
       if (!sessionToken) {
-        alert('Authentication Error: No active Supabase session found. Please sign in before connecting Google Workspace.');
+        alert('Your session has expired. Please sign in again.');
         return;
       }
 
@@ -1204,14 +1247,14 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       try {
         authHeaders = buildGoogleOAuthHeaders(sessionToken, workspaceId);
       } catch (authErr: any) {
-        alert(authErr.message || 'Authentication Error: Please sign in before connecting Google Workspace.');
+        alert(sanitizeUserFacingError(authErr, 'Your session has expired. Please sign in again.'));
         return;
       }
 
       const res = await fetch('/api/auth/google/url', { headers: authHeaders });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to fetch Google Auth URL.');
+        throw new Error(errData.error || 'Unable to connect your Google account. Please try again.');
       }
       const data = await res.json();
       
@@ -1227,11 +1270,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       );
       
       if (!popup) {
-        alert('Popup blocker active. Please allow popups for this site to complete Google OAuth.');
+        alert('Unable to connect your Google account. Please allow popups for this site and try again.');
       }
     } catch (err: any) {
-      console.error('Real Google OAuth Error:', err);
-      alert(`Production Google Connection Blocked:\n\n${err.message || String(err)}\n\nPlease ensure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are defined in your environment variables via the Settings tab in AI Studio or Vercel.`);
+      console.error('[GOOGLE OAUTH SECURE LOG]', err);
+      const friendlyError = sanitizeUserFacingError(err, 'Unable to connect your Google account. Please try again.');
+      alert(friendlyError);
     }
   };
 

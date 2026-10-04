@@ -21,6 +21,8 @@ import { runFinal3FlowVerificationTestSuite } from './final3FlowVerification.tes
 import { runGoogleLoginProductionAuditTestSuite } from './googleLoginProductionAudit.test';
 import { runCampaignPermissionsAuditTestSuite } from './campaignPermissionsAudit.test';
 import { runClientPermissionBaselineTestSuite } from './clientPermissionBaseline.test';
+import { runClientFacingProductionHardeningTestSuite } from './clientFacingProductionHardening.test';
+import { runLiveProductionClientE2ETestSuite } from './liveProductionClientE2E.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -247,6 +249,26 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Client Account Permission Baseline test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 22. Client-Facing Production Hardening Suite
+  try {
+    const res = await runClientFacingProductionHardeningTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Client-Facing Production Hardening test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 23. Live Production Client E2E Verification Suite
+  try {
+    const res = await runLiveProductionClientE2ETestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Live Production Client E2E Verification test suite crashed:', err);
     totalFailed++;
   }
 

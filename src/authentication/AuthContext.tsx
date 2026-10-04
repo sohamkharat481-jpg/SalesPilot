@@ -8,6 +8,8 @@ export function clearUserClientState() {
   const keysToRemove = [
     'salespilot_user',
     'salespilot_org',
+    'salespilot_workspace_id',
+    'salespilot_org_id',
     'salespilot_team',
     'salespilot_token',
     'sb_session_token',
@@ -432,17 +434,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (resolvedOrg) {
             localStorage.setItem('salespilot_org', JSON.stringify(resolvedOrg));
           }
+          const verifiedWorkspaceId = resolvedOrg?.id || resolvedUser.organizationId;
+          if (verifiedWorkspaceId) {
+            localStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId);
+            try { sessionStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId); } catch (_) {}
+          }
 
           if (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.pathname.includes('/auth/callback')) {
             window.history.replaceState({}, document.title, `${window.location.pathname === '/auth/callback' ? '/' : window.location.pathname}${window.location.hash && !window.location.hash.includes('access_token') ? window.location.hash : ''}`);
           }
         } else if (event === 'SIGNED_OUT') {
+          clearUserClientState();
           setUser(null);
           setAuthView('login');
-          localStorage.removeItem('salespilot_token');
-          localStorage.removeItem('salespilot_user');
-          localStorage.removeItem('salespilot_org');
-          localStorage.removeItem('salespilot_team');
         }
       });
 
@@ -1127,17 +1131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentOrigin = typeof window !== 'undefined' ? window.location.origin.replace(/\/+$/, '') : '';
       const productionCanonicalOrigin = 'https://sales-pilot-green.vercel.app';
       
-      // Resolve canonical origin: If running on production Vercel, prioritize sales-pilot-green.vercel.app
-      let appUrl = productionCanonicalOrigin;
-      if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1') || currentOrigin.includes('.run.app')) {
-        appUrl = currentOrigin;
-      } else if (currentOrigin.includes('sales-pilot-green.vercel.app')) {
-        appUrl = productionCanonicalOrigin;
-      } else if (configuredAppUrl) {
-        appUrl = configuredAppUrl;
-      } else if (currentOrigin) {
-        appUrl = currentOrigin;
-      }
+      // Current origin is authoritative for the active browser session
+      const appUrl = currentOrigin || configuredAppUrl || productionCanonicalOrigin;
 
       console.log("[OAUTH] Initiating Supabase Google OAuth redirect to:", appUrl);
 
