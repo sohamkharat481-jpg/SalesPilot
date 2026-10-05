@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { AIAgent, AgentTask, AgentMemory, AgentLog, AgentWorkflow, AgentPermission } from '../types/brain';
 import { LeadGenJob } from '../types';
+import { isVerifiedFounderEmail } from '../security/founderAllowlist';
 
 const DB_FILE_PATH = path.join(process.cwd(), 'salespilot_db.json');
 const GOOGLE_ACCOUNTS_FILE_PATH = path.join(process.cwd(), 'google_accounts_store.json');
@@ -1669,7 +1670,130 @@ export class LocalDB {
       });
     }
 
+    // Ensure database state is saved
     this.save();
+  }
+
+  /**
+   * Reconcile founder identity to a single canonical provider ID and organization
+   */
+  public reconcileFounderCanonicalId(canonicalUserId: string, email: string): WorkspaceUser | null {
+    if (!canonicalUserId || !isVerifiedFounderEmail(email)) return null;
+    const emailLower = email.toLowerCase();
+    
+    // Find all records matching this founder
+    const matchingUsers = this.db.users.filter(u => u.email?.toLowerCase() === emailLower || u.id === canonicalUserId || u.id === 'usr_81927391');
+    
+    // Ensure one canonical founder record exists
+    let canonical = this.db.users.find(u => u.id === canonicalUserId);
+    if (!canonical) {
+      const template = matchingUsers[0];
+      canonical = {
+        id: canonicalUserId,
+        email: emailLower,
+        fullName: template?.fullName || 'Soham Kharat',
+        companyName: template?.companyName || 'SalesPilot',
+        industry: template?.industry || 'SaaS & Software',
+        tier: 'ENTERPRISE',
+        role: 'OWNER',
+        organizationId: 'org_salespilot_lifetime',
+        isVerified: true,
+        phone: template?.phone || '',
+        timezone: template?.timezone || 'Asia/Kolkata',
+        language: template?.language || 'English',
+        isFounder: true,
+        subscriptionStatus: 'LIFETIME',
+        createdAt: template?.createdAt || new Date().toISOString()
+      };
+      this.db.users.push(canonical);
+    }
+
+    canonical.id = canonicalUserId;
+    canonical.email = emailLower;
+    canonical.organizationId = 'org_salespilot_lifetime';
+    canonical.role = 'OWNER';
+    canonical.tier = 'ENTERPRISE';
+    canonical.isFounder = true;
+    canonical.subscriptionStatus = 'LIFETIME';
+
+    // Remove legacy duplicates from users array
+    this.db.users = this.db.users.filter(u => u.id === canonicalUserId || u.email?.toLowerCase() !== emailLower);
+    this.db.users.push(canonical);
+
+    // Reconcile dependent entities from legacy IDs ('usr_81927391', etc.) to canonicalUserId
+    const legacyIds = new Set(['usr_81927391', ...matchingUsers.map(u => u.id)]);
+    legacyIds.delete(canonicalUserId);
+
+    if (legacyIds.size > 0) {
+      this.db.leads.forEach(l => {
+        if (l.userId && legacyIds.has(l.userId)) l.userId = canonicalUserId;
+        if (l.organizationId === 'org_13ba0bdd' || (l.userId === canonicalUserId && !l.organizationId)) {
+          l.organizationId = 'org_salespilot_lifetime';
+        }
+      });
+
+      this.db.campaigns.forEach(c => {
+        if ((c as any).userId && legacyIds.has((c as any).userId)) (c as any).userId = canonicalUserId;
+        if (c.organizationId === 'org_13ba0bdd') c.organizationId = 'org_salespilot_lifetime';
+      });
+
+      this.db.deals.forEach(d => {
+        if ((d as any).userId && legacyIds.has((d as any).userId)) (d as any).userId = canonicalUserId;
+        if (d.organizationId === 'org_13ba0bdd') d.organizationId = 'org_salespilot_lifetime';
+      });
+
+      this.db.appointments.forEach(a => {
+        if ((a as any).userId && legacyIds.has((a as any).userId)) (a as any).userId = canonicalUserId;
+        if (a.organizationId === 'org_13ba0bdd') a.organizationId = 'org_salespilot_lifetime';
+      });
+
+      this.db.leadGenJobs.forEach(j => {
+        if (j.userId && legacyIds.has(j.userId)) j.userId = canonicalUserId;
+        if (j.organizationId === 'org_13ba0bdd') j.organizationId = 'org_salespilot_lifetime';
+      });
+
+      this.db.organizationMembers = this.db.organizationMembers.filter(m => !legacyIds.has(m.userId) || m.organizationId !== 'org_salespilot_lifetime');
+    }
+
+    // Ensure org_salespilot_lifetime has ownerId = canonicalUserId
+    let org = this.getOrganizationById('org_salespilot_lifetime');
+    if (!org) {
+      org = {
+        id: 'org_salespilot_lifetime',
+        name: 'SalesPilot Lifetime',
+        companyName: 'SalesPilot',
+        domain: 'salespilot.co',
+        industry: 'SaaS & Software',
+        ownerId: canonicalUserId,
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.organizations.push(org);
+    } else {
+      org.ownerId = canonicalUserId;
+      org.subscriptionPlan = 'ENTERPRISE';
+      org.status = 'ACTIVE';
+    }
+
+    // Clean up any stale org_13ba0bdd
+    this.db.organizations = this.db.organizations.filter(o => o.id !== 'org_13ba0bdd');
+
+    // Ensure organization membership
+    const memberIdx = this.db.organizationMembers.findIndex(m => m.userId === canonicalUserId && m.organizationId === 'org_salespilot_lifetime');
+    if (memberIdx === -1) {
+      this.db.organizationMembers.push({
+        id: `orgm_${canonicalUserId}_org_salespilot_lifetime`,
+        organizationId: 'org_salespilot_lifetime',
+        userId: canonicalUserId,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    this.save();
+    return canonical;
   }
 
   // --- Team Members Operations ---

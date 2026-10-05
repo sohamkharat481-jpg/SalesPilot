@@ -1590,8 +1590,8 @@ async function startServer() {
             const isFounder = isVerifiedFounderEmail(emailLower);
             
             let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
-            let resolvedOrgId: string | undefined = undefined;
-            let resolvedCompanyName = sbUser.user_metadata?.company_name || 'Workspace';
+            let resolvedOrgId: string | undefined = isFounder ? 'org_salespilot_lifetime' : undefined;
+            let resolvedCompanyName = isFounder ? 'SalesPilot' : (sbUser.user_metadata?.company_name || 'Workspace');
 
             // Always query authoritative Supabase/PostgreSQL database for profile & workspace membership
             try {
@@ -1631,17 +1631,52 @@ async function startServer() {
 
             if (isFounder) {
               resolvedRole = 'OWNER';
+              resolvedOrgId = 'org_salespilot_lifetime';
+              resolvedCompanyName = 'SalesPilot';
+
+              // Synchronize authoritative profiles & team_members in Supabase for founder
+              try {
+                await supabase.from('profiles').upsert({
+                  id: sbUser.id,
+                  email: emailLower,
+                  full_name: sbUser.user_metadata?.full_name || 'Soham Kharat',
+                  role: 'OWNER',
+                  organization_id: 'org_salespilot_lifetime',
+                  updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+
+                await supabase.from('team_members').upsert({
+                  user_id: sbUser.id,
+                  organization_id: 'org_salespilot_lifetime',
+                  role: 'OWNER',
+                  status: 'ACTIVE',
+                  email: emailLower,
+                  full_name: sbUser.user_metadata?.full_name || 'Soham Kharat'
+                }, { onConflict: 'user_id' });
+
+                await supabase.from('organizations').upsert({
+                  id: 'org_salespilot_lifetime',
+                  name: 'SalesPilot Lifetime',
+                  company_name: 'SalesPilot',
+                  owner_id: sbUser.id,
+                  tier: 'ENTERPRISE',
+                  status: 'ACTIVE'
+                }, { onConflict: 'id' });
+              } catch (_) {}
+
+              // Reconcile founder in LocalDB
+              localDb.reconcileFounderCanonicalId(sbUser.id, emailLower);
             }
 
             let user = localDb.getUserById(sbUser.id);
             const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(sbUser.id);
-            const orgId = resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || `org_${sbUser.id.substring(0, 8)}`));
+            const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || `org_${sbUser.id.substring(0, 8)}`)));
 
             if (!user) {
               user = {
                 id: sbUser.id,
                 email: sbUser.email || '',
-                fullName: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'User',
+                fullName: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || (isFounder ? 'Soham Kharat' : 'User'),
                 companyName: resolvedCompanyName,
                 industry: 'SaaS & Software',
                 tier: isFounder ? 'ENTERPRISE' : 'STARTER',

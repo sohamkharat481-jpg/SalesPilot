@@ -1646,6 +1646,60 @@
       "organizationId": "org_gcal_conn_test_1791199289906",
       "userId": "usr_invalid",
       "createdAt": "2026-10-05T11:21:29.906Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-05T12:53:53.835Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1791201233835",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-05T11:53:53.835Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-05T11:53:53.835Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-05T12:53:53.835Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1791201233835",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-05T11:53:53.835Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-05T12:56:19.259Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1791201379259",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-05T11:56:19.259Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-05T11:56:19.259Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-05T12:56:19.259Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1791201379259",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-05T11:56:19.259Z"
     }
   ],
   "gmailAccounts": [
@@ -1988,6 +2042,46 @@
       "accessToken": "mock_token_b",
       "status": "CONNECTED",
       "connectedAt": "2026-10-05T11:21:38.147Z"
+    },
+    {
+      "id": "gm_acc_a_1791201241352",
+      "userId": "usr_client_a_1791201241352",
+      "organizationId": "org_client_a_1791201241352",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-05T11:54:01.950Z"
+    },
+    {
+      "id": "gm_acc_b_1791201241352",
+      "userId": "usr_client_b_1791201241352",
+      "organizationId": "org_client_b_1791201241352",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-05T11:54:01.999Z"
+    },
+    {
+      "id": "gm_acc_a_1791201384448",
+      "userId": "usr_client_a_1791201384448",
+      "organizationId": "org_client_a_1791201384448",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-05T11:56:24.781Z"
+    },
+    {
+      "id": "gm_acc_b_1791201384448",
+      "userId": "usr_client_b_1791201384448",
+      "organizationId": "org_client_b_1791201384448",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-05T11:56:24.808Z"
     }
   ]
 }
