@@ -89,6 +89,17 @@ export function SchedulerView({
 
   useEffect(() => {
     checkConnectionStatus();
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const hash = window.location.hash || '';
+      if (url.searchParams.get('google') === 'connected' || hash.includes('google=connected')) {
+        setGoogleCalendarConnected(true);
+        alert('Google Calendar connected successfully.');
+        checkConnectionStatus();
+      } else if (url.searchParams.get('google') === 'error' || hash.includes('google=error')) {
+        alert('Unable to connect Google Calendar. Please try again.');
+      }
+    }
   }, []);
 
   // Listen for Google Auth callback success postMessages from popup

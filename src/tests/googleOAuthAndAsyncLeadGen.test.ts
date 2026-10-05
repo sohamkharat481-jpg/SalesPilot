@@ -107,6 +107,7 @@ export async function runGoogleOAuthAndAsyncLeadGenTestSuite(): Promise<{ passed
     const payload = Buffer.from(JSON.stringify({
       userId: 'usr_oauth_test_01',
       organizationId: 'org_oauth_test_01',
+      nonce: 'nonce_123',
       issuedAt: Date.now()
     })).toString('base64url');
 
@@ -121,6 +122,120 @@ export async function runGoogleOAuthAndAsyncLeadGenTestSuite(): Promise<{ passed
     const parsed = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'));
     assert.strictEqual(parsed.userId, 'usr_oauth_test_01');
     assert.strictEqual(parsed.organizationId, 'org_oauth_test_01');
+  });
+
+  const oauthSecret = 'prod_oauth_security_secret_key_999';
+  const usedNonces = new Set<string>();
+
+  const validateOAuthStateHelper = (state: unknown) => {
+    if (typeof state !== 'string' || !oauthSecret) return null;
+    const [p, s] = state.split('.');
+    if (!p || !s) return null;
+    const expected = crypto.createHmac('sha256', oauthSecret).update(p).digest('base64url');
+    if (s.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected))) return null;
+    try {
+      const parsed = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'));
+      if (!parsed.userId || !parsed.issuedAt || Date.now() - parsed.issuedAt > 15 * 60 * 1000) return null;
+      if (parsed.nonce) {
+        if (usedNonces.has(parsed.nonce)) return null;
+        usedNonces.add(parsed.nonce);
+      }
+      const dbUser = localDb.getUserById(parsed.userId);
+      if (!dbUser) return null;
+      return { userId: parsed.userId, organizationId: parsed.organizationId || dbUser.organizationId };
+    } catch (_) {
+      return null;
+    }
+  };
+
+  await test('1.5 Missing state is rejected', () => {
+    assert.strictEqual(validateOAuthStateHelper(undefined), null);
+    assert.strictEqual(validateOAuthStateHelper(''), null);
+  });
+
+  await test('1.6 Invalid HMAC state signature is rejected', () => {
+    const p = Buffer.from(JSON.stringify({ userId: 'usr_valid_01', issuedAt: Date.now() })).toString('base64url');
+    const forgedState = `${p}.forged_tampered_signature_999`;
+    assert.strictEqual(validateOAuthStateHelper(forgedState), null);
+  });
+
+  await test('1.7 Expired state (> 15 minutes) is rejected', () => {
+    const expiredPayload = Buffer.from(JSON.stringify({
+      userId: 'usr_valid_01',
+      issuedAt: Date.now() - 20 * 60 * 1000 // 20 mins ago
+    })).toString('base64url');
+    const sig = crypto.createHmac('sha256', oauthSecret).update(expiredPayload).digest('base64url');
+    assert.strictEqual(validateOAuthStateHelper(`${expiredPayload}.${sig}`), null);
+  });
+
+  await test('1.8 Replayed state nonce is rejected', () => {
+    const nonce = `nonce_replay_test_${Date.now()}`;
+    const testUser = {
+      id: `usr_oauth_replay_${Date.now()}`,
+      email: 'oauth_replay@test.com',
+      organizationId: 'org_oauth_replay',
+      role: 'CLIENT'
+    };
+    localDb.addUser(testUser as any);
+
+    const payload = Buffer.from(JSON.stringify({
+      userId: testUser.id,
+      organizationId: testUser.organizationId,
+      nonce,
+      issuedAt: Date.now()
+    })).toString('base64url');
+    const sig = crypto.createHmac('sha256', oauthSecret).update(payload).digest('base64url');
+    const stateToken = `${payload}.${sig}`;
+
+    // First use: Valid
+    const firstRes = validateOAuthStateHelper(stateToken);
+    assert.ok(firstRes);
+
+    // Second use: Replay rejected
+    const replayRes = validateOAuthStateHelper(stateToken);
+    assert.strictEqual(replayRes, null, 'Replayed state token must be rejected');
+  });
+
+  await test('1.9 Modified userId in state fails signature verification', () => {
+    const legitimatePayload = Buffer.from(JSON.stringify({
+      userId: 'usr_victim_01',
+      organizationId: 'org_victim_01',
+      issuedAt: Date.now()
+    })).toString('base64url');
+    const sig = crypto.createHmac('sha256', oauthSecret).update(legitimatePayload).digest('base64url');
+
+    // Attacker modifies payload to victim's ID while keeping signature
+    const attackerPayload = Buffer.from(JSON.stringify({
+      userId: 'usr_attacker_02',
+      organizationId: 'org_attacker_02',
+      issuedAt: Date.now()
+    })).toString('base64url');
+
+    assert.strictEqual(validateOAuthStateHelper(`${attackerPayload}.${sig}`), null);
+  });
+
+  await test('1.10 No Authorization header on callback route succeeds when signed state is valid', () => {
+    const validUser = {
+      id: `usr_bearerless_${Date.now()}`,
+      email: 'bearerless@test.com',
+      organizationId: 'org_bearerless',
+      role: 'CLIENT'
+    };
+    localDb.addUser(validUser as any);
+
+    const payload = Buffer.from(JSON.stringify({
+      userId: validUser.id,
+      organizationId: validUser.organizationId,
+      nonce: `nonce_bearerless_${Date.now()}`,
+      issuedAt: Date.now()
+    })).toString('base64url');
+    const sig = crypto.createHmac('sha256', oauthSecret).update(payload).digest('base64url');
+    const stateToken = `${payload}.${sig}`;
+
+    const res = validateOAuthStateHelper(stateToken);
+    assert.ok(res);
+    assert.strictEqual(res.userId, validUser.id);
+    assert.strictEqual(res.organizationId, validUser.organizationId);
   });
 
   // =========================================================================

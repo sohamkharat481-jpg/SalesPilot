@@ -217,7 +217,6 @@ export function LeadsView({
         const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        if (workspaceId) headers['x-organization-id'] = workspaceId;
 
         const res = await fetch(`/api/v1/leads/generate/jobs/${encodeURIComponent(jobId)}`, { headers });
         if (!res.ok) {
@@ -267,7 +266,6 @@ export function LeadsView({
       const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (workspaceId) headers['x-organization-id'] = workspaceId;
 
       const res = await fetch('/api/v1/leads/generate/jobs', { headers });
       if (res.ok) {
@@ -1158,7 +1156,6 @@ export function LeadsView({
         const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        if (workspaceId) headers['x-organization-id'] = workspaceId;
 
         const response = await fetch('/api/v1/leads/generate/jobs', {
           method: 'POST',

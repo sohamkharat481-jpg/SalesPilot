@@ -1884,20 +1884,8 @@ async function startServer() {
         );
 
       if (!isMemberOfClientOrg) {
-        console.warn(`[SECURITY] Cross-tenant organization mismatch: client supplied "${cleanClientOrgId}" for user ${user.id}. Server is authoritative: verifiedOrgId is "${verifiedOrgId}".`);
-        // For Google OAuth, Gmail connect/status, and Calendar operations:
-        // Client-supplied organizationId cannot override server-derived workspace.
-        // Fall back authoritatively to verifiedOrgId rather than breaking legitimate user:
-        const path = req.path || req.originalUrl || '';
-        if (path.includes('/auth/google') || path.includes('/gmail') || path.includes('/calendar')) {
-          console.warn(`[SECURITY] Authoritatively anchoring integration flow to verified workspace ${verifiedOrgId} for user ${user.id}`);
-          return { orgId: verifiedOrgId };
-        }
-        return { 
-          orgId: null, 
-          error: "We couldn't verify your workspace. Please refresh and try again.", 
-          status: 403 
-        };
+        console.warn(`[SECURITY] Client supplied unverified organization "${cleanClientOrgId}" for user ${user.id}. Server is authoritative: anchoring safely to verifiedOrgId "${verifiedOrgId}".`);
+        return { orgId: verifiedOrgId };
       }
       return { orgId: cleanClientOrgId };
     }
@@ -3041,11 +3029,15 @@ async function startServer() {
     '/calendar',
     '/gmail',
     '/api/v1/gmail',
-    '/api/auth/google'
+    '/api/auth/google/url'
   ];
 
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
     const p = req.path || req.originalUrl || '';
+    // OAuth callbacks arrive directly from provider redirects and must authenticate via signed OAuth state, not API bearer headers
+    if (p.includes('/api/auth/google/callback') || p.includes('/auth/google/callback')) {
+      return next();
+    }
     const isPaid = paidRoutePrefixes.some(prefix => p === prefix || p.startsWith(`${prefix}/`) || p.startsWith(`${prefix}?`));
     if (isPaid) {
       return verifyPaidSubscriptionAccess(req, res, next);
@@ -17959,19 +17951,24 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     });
   });
 
+  // In-memory replay protection cache for OAuth nonces
+  const usedOAuthNonces = new Set<string>();
+
   // Google OAuth URL generation
   const createGoogleOAuthState = (req: any): string => {
     const user = getAuthenticatedUser(req);
-    const secret = process.env.GOOGLE_CLIENT_SECRET || '';
+    const secret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
     if (!user || !secret) return '';
 
     // Verify organization_id: client-supplied headers MUST NOT override verified tenant context
     const { orgId } = resolveVerifiedOrganizationId(req, user);
     const effectiveOrgId = orgId || user.organizationId || '';
+    const nonce = crypto.randomBytes(16).toString('hex');
 
     const payload = Buffer.from(JSON.stringify({
       userId: user.id,
       organizationId: effectiveOrgId,
+      nonce,
       issuedAt: Date.now()
     })).toString('base64url');
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
@@ -17979,7 +17976,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   };
 
   const readGoogleOAuthState = (state: unknown): { userId: string; organizationId?: string } | null => {
-    const secret = process.env.GOOGLE_CLIENT_SECRET || '';
+    const secret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
     if (typeof state !== 'string' || !secret) return null;
     const [payload, signature] = state.split('.');
     if (!payload || !signature) return null;
@@ -17987,8 +17984,31 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
     try {
       const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-      if (!parsed.userId || Date.now() - parsed.issuedAt > 10 * 60 * 1000) return null;
-      return { userId: parsed.userId, organizationId: parsed.organizationId || undefined };
+      // State expiry check: 15 minutes window
+      if (!parsed.userId || !parsed.issuedAt || Date.now() - parsed.issuedAt > 15 * 60 * 1000) return null;
+      
+      // Nonce replay protection
+      if (parsed.nonce) {
+        if (usedOAuthNonces.has(parsed.nonce)) {
+          console.warn(`[OAUTH SECURITY] Replay detected for nonce ${parsed.nonce}. Rejecting.`);
+          return null;
+        }
+        usedOAuthNonces.add(parsed.nonce);
+        // Prune nonces cache periodically
+        if (usedOAuthNonces.size > 5000) {
+          usedOAuthNonces.clear();
+        }
+      }
+
+      // Re-verify that user exists in authoritative database
+      const dbUser = localDb.getUserById(parsed.userId);
+      if (!dbUser) {
+        console.warn(`[OAUTH SECURITY] User ${parsed.userId} in OAuth state not found in database.`);
+        return null;
+      }
+
+      const verifiedOrg = parsed.organizationId || dbUser.organizationId;
+      return { userId: parsed.userId, organizationId: verifiedOrg };
     } catch (_) {
       return null;
     }
@@ -18103,8 +18123,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             <script>
               if (window.opener) {
                 window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.' }, '*');
+                setTimeout(() => window.close(), 2500);
+              } else {
+                window.location.href = '/#appointments?google=error';
               }
-              setTimeout(() => window.close(), 3000);
             </script>
           </body>
         </html>
@@ -18339,7 +18361,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         <html>
           <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
             <h3 style="color: #10b981;">Authentication Successful!</h3>
-            <p style="color: #4b5563;">Syncing connected email and calendar accounts with SalesPilot...</p>
+            <p style="color: #4b5563;">Google connected successfully. Redirecting...</p>
             <script>
               if (window.opener) {
                 window.opener.postMessage({
@@ -18348,8 +18370,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                   name: ${JSON.stringify(name)},
                   expiresAt: ${JSON.stringify(expiresAt)}
                 }, '*');
+                setTimeout(() => window.close(), 1200);
+              } else {
+                window.location.href = '/#appointments?google=connected';
               }
-              setTimeout(() => window.close(), 1500);
             </script>
           </body>
         </html>
@@ -18364,8 +18388,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             <script>
               if (window.opener) {
                 window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.' }, '*');
+                setTimeout(() => window.close(), 3000);
+              } else {
+                window.location.href = '/#appointments?google=error';
               }
-              setTimeout(() => window.close(), 4000);
             </script>
           </body>
         </html>
