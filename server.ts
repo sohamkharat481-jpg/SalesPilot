@@ -3577,8 +3577,8 @@ async function startServer() {
         profileOrgId: profileData?.organization_id || null,
         teamMembersRole: tmData?.role || null,
         teamMembersOrgId: tmData?.organization_id || null,
-        sourceOfRole: profileData?.role ? 'public.profiles' : (tmData?.role ? 'public.team_members' : 'server_default'),
-        sourceOfOrg: tmData?.organizations?.id ? 'public.team_members -> organizations' : (profileData?.organization_id ? 'public.profiles' : 'server_default'),
+        sourceOfRole: profileData?.role ? 'public.profiles' : (tmData?.role ? 'public.team_members' : (serverUser ? 'VERIFIED_SESSION' : 'NONE')),
+        sourceOfOrg: tmData?.organizations?.id ? 'public.team_members -> organizations' : (profileData?.organization_id ? 'public.profiles' : (serverUser ? 'DIRECT_DATABASE' : 'NONE')),
         sessionUserId: sbUser?.id || serverUser?.id || null
       }
     });

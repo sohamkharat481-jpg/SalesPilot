@@ -452,12 +452,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       initAuth();
 
+      // Multi-tab sync & session expiry event listeners
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'salespilot_token' || e.key?.startsWith('sb-') || e.key === 'salespilot_user') {
+          console.log('[MULTI-TAB AUTH SYNC] Auth storage updated in another tab, re-initializing session...');
+          initAuth();
+        }
+      };
+      window.addEventListener('storage', handleStorageChange);
+
+      const handleSessionExpired = () => {
+        console.warn('[AUTH SESSION EXPIRED] Session expired event received. Clearing state & showing login.');
+        clearUserClientState();
+        setUser(null);
+        setOrganization(null);
+        setTeamMembers([]);
+        setAuthView('login');
+        setAuthError('Your session has expired. Please sign in again.');
+        setIsLoading(false);
+      };
+      window.addEventListener('salespilot:session_expired', handleSessionExpired);
+
       return () => {
         subscription.unsubscribe();
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('salespilot:session_expired', handleSessionExpired);
       };
     }
 
     initAuth();
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'salespilot_token' || e.key?.startsWith('sb-') || e.key === 'salespilot_user') {
+        initAuth();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    const handleSessionExpired = () => {
+      clearUserClientState();
+      setUser(null);
+      setOrganization(null);
+      setTeamMembers([]);
+      setAuthView('login');
+      setAuthError('Your session has expired. Please sign in again.');
+      setIsLoading(false);
+    };
+    window.addEventListener('salespilot:session_expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('salespilot:session_expired', handleSessionExpired);
+    };
   }, []);
 
   // Prevent Verified Founder from seeing onboarding, setup, or billing screens
