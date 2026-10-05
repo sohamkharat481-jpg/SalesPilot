@@ -24,6 +24,7 @@ import { runClientPermissionBaselineTestSuite } from './clientPermissionBaseline
 import { runClientFacingProductionHardeningTestSuite } from './clientFacingProductionHardening.test';
 import { runLiveProductionClientE2ETestSuite } from './liveProductionClientE2E.test';
 import { runSubscriptionExpiryAccessTestSuite } from './subscriptionExpiryAccess.test';
+import { runGoogleOAuthAndAsyncLeadGenTestSuite } from './googleOAuthAndAsyncLeadGen.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -280,6 +281,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Subscription Expiry Access test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 25. Google OAuth & Async Lead Gen Workspace Audit Suite
+  try {
+    const res = await runGoogleOAuthAndAsyncLeadGenTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Google OAuth & Async Lead Gen test suite crashed:', err);
     totalFailed++;
   }
 

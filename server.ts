@@ -8463,7 +8463,9 @@ Ensure the output is strictly valid JSON format.`;
 
       const newJob: LeadGenJob = {
         jobId,
-        organizationId: orgId, // strictly tenant-scoped from authenticated context
+        organizationId: orgId, // strictly tenant-scoped from authoritative verified context
+        userId: user.id, // persist authenticated userId
+        campaignId: jobCriteria.campaignId || undefined,
         status: 'QUEUED',
         progress: 0,
         total: jobCriteria.maxLeads,
@@ -15665,7 +15667,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // 1. Get Voice Provider Configuration & Production Diagnostic
   app.get(['/api/v1/voice/provider/config', '/api/v1/voice/provider-status'], (req, res) => {
     try {
-      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-green.vercel.app';
+      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-f4uv.vercel.app';
       const isConfigured = Boolean(process.env.EDESY_API_KEY?.trim()) || voiceProviderAdapter.isConfigured();
       const providerName = process.env.EDESY_API_KEY?.trim() ? 'Edesy' : voiceProviderAdapter.name;
       res.json({
@@ -15831,7 +15833,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
 
       // Invoke Provider to Start Call
-      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-green.vercel.app';
+      const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://sales-pilot-f4uv.vercel.app';
       const webhookUrl = `${baseUrl}/api/v1/voice/webhook`;
 
       const providerResult = await voiceProviderAdapter.createCall({
@@ -17870,7 +17872,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Helper to dynamically construct the Google OAuth redirect URI
   const getGoogleRedirectUri = (req: any): string => {
-    const canonicalProductionOrigin = 'https://sales-pilot-green.vercel.app';
+    // Canonical production Google callback: https://sales-pilot-f4uv.vercel.app/api/auth/google/callback
+    const canonicalProductionOrigin = 'https://sales-pilot-f4uv.vercel.app';
     const requestHost = String(req?.headers?.host || '').split(':')[0].toLowerCase();
     const forwardedHost = String(req?.headers?.['x-forwarded-host'] || '').split(':')[0].toLowerCase();
     const origin = String(req?.headers?.origin || '').toLowerCase();
@@ -17878,10 +17881,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     if (
       process.env.VERCEL_ENV === 'production' || 
-      requestHost === 'sales-pilot-green.vercel.app' ||
-      forwardedHost === 'sales-pilot-green.vercel.app' ||
-      origin.includes('sales-pilot-green.vercel.app') ||
-      referer.includes('sales-pilot-green.vercel.app')
+      process.env.VERCEL === '1' ||
+      requestHost.includes('sales-pilot-f4uv.vercel.app') ||
+      forwardedHost.includes('sales-pilot-f4uv.vercel.app') ||
+      origin.includes('sales-pilot-f4uv.vercel.app') ||
+      referer.includes('sales-pilot-f4uv.vercel.app')
     ) {
       return `${canonicalProductionOrigin}/api/auth/google/callback`;
     }

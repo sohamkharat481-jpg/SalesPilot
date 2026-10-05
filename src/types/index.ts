@@ -746,6 +746,8 @@ export type LeadGenJobStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | '
 export interface LeadGenJob {
   jobId: string;
   organizationId: string;
+  userId?: string;
+  campaignId?: string;
   status: LeadGenJobStatus;
   progress: number;
   total: number;
