@@ -19,9 +19,29 @@ export async function getAuthToken(): Promise<string | null> {
     } catch (_) {}
   }
 
+  // Fallback to localStorage salespilot_token
   try {
     const token = localStorage.getItem('salespilot_token');
-    if (token) return token;
+    if (token && token.trim() !== '' && token !== 'undefined' && token !== 'null') {
+      return token;
+    }
+  } catch (_) {}
+
+  // Scan localStorage for any Supabase auth token key (e.g. sb-<ref>-auth-token)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const val = localStorage.getItem(key);
+        if (val) {
+          const parsed = JSON.parse(val);
+          if (parsed?.access_token) {
+            localStorage.setItem('salespilot_token', parsed.access_token);
+            return parsed.access_token;
+          }
+        }
+      }
+    }
   } catch (_) {}
 
   return null;

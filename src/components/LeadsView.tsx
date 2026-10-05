@@ -11,6 +11,7 @@ import {
 import { Lead, LeadStatus, LeadNote, LeadTask, LeadTimelineEvent, Campaign, LeadGenJob } from '../types';
 import { LeadIntelligenceSection } from './crm/LeadIntelligenceSection';
 import { LeadGenJobsManager } from './crm/LeadGenJobsManager';
+import { getAuthHeaders, authenticatedFetch } from '../utils/apiAuth';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -165,13 +166,10 @@ export function LeadsView({
         existingStateCount: leads.length
       });
       console.log('[TELEMETRY RELOAD] fetchStarted: true');
-      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (workspaceId) headers['x-organization-id'] = workspaceId;
+      const headers = await getAuthHeaders(undefined, workspaceId);
 
       const url = workspaceId ? `/api/v1/leads?organizationId=${encodeURIComponent(workspaceId)}` : '/api/v1/leads';
-      const res = await fetch(url, { headers });
+      const res = await authenticatedFetch(url, { headers });
       console.log('[TELEMETRY RELOAD] fetchHttpStatus:', res.status);
 
       if (res.ok) {
@@ -214,11 +212,8 @@ export function LeadsView({
 
     const checkStatus = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const res = await fetch(`/api/v1/leads/generate/jobs/${encodeURIComponent(jobId)}`, { headers });
+        const headers = await getAuthHeaders(undefined, workspaceId);
+        const res = await authenticatedFetch(`/api/v1/leads/generate/jobs/${encodeURIComponent(jobId)}`, { headers });
         if (!res.ok) {
           console.error('[ASYNC_LEAD_GEN] Error polling job status:', res.status);
           return;
@@ -263,11 +258,8 @@ export function LeadsView({
   const fetchRecentJobs = useCallback(async () => {
     setIsLoadingJobs(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('/api/v1/leads/generate/jobs', { headers });
+      const headers = await getAuthHeaders(undefined, workspaceId);
+      const res = await authenticatedFetch('/api/v1/leads/generate/jobs', { headers });
       if (res.ok) {
         const data = await res.json();
         const jobsList: LeadGenJob[] = Array.isArray(data.jobs) ? data.jobs : [];
@@ -1153,11 +1145,8 @@ export function LeadsView({
     if (leadGenMode === 'ASYNC') {
       setIsScraperRunning(true);
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const response = await fetch('/api/v1/leads/generate/jobs', {
+        const headers = await getAuthHeaders(undefined, workspaceId);
+        const response = await authenticatedFetch('/api/v1/leads/generate/jobs', {
           method: 'POST',
           headers,
           body: JSON.stringify({
