@@ -2,6 +2,7 @@ import { getPrivilegedSupabaseServerClient, getSupabaseServerClient } from '../l
 import { LocalDB } from '../database/localDb';
 import { getUpiBillingConfig } from './upiConfig';
 import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId } from './pricingConfig';
+import { SubscriptionManager } from '../billing/subscriptionManager';
 
 export interface PaymentRecord {
   id: string;
@@ -253,9 +254,22 @@ export class UpiPaymentService {
       return { success: false, error: 'Payment is already verified.' };
     }
 
+    const existingSub = localDb.getSubscriptionByOrgId(payment.organization_id);
     const now = new Date();
-    const periodStart = now.toISOString();
-    const periodEndDate = new Date(now);
+    
+    // Server-side canonical renewal calculation:
+    // If the customer already has an active subscription whose expiry is in the future,
+    // extend from that future expiry date. Otherwise, start the period from right now.
+    let baseDate = now;
+    if (existingSub && existingSub.current_period_end) {
+      const existingEnd = new Date(existingSub.current_period_end).getTime();
+      if (existingEnd > now.getTime()) {
+        baseDate = new Date(existingSub.current_period_end);
+      }
+    }
+
+    const periodStart = (existingSub && existingSub.current_period_start) ? existingSub.current_period_start : now.toISOString();
+    const periodEndDate = new Date(baseDate);
     if (payment.billing_cycle === 'annual') {
       periodEndDate.setFullYear(periodEndDate.getFullYear() + 1);
     } else {
@@ -263,11 +277,11 @@ export class UpiPaymentService {
     }
     const periodEnd = periodEndDate.toISOString();
 
-    const subId = payment.subscription_id || `sub_${payment.organization_id}_${Date.now()}`;
+    const subId = payment.subscription_id || existingSub?.id || `sub_${payment.organization_id}_${Date.now()}`;
 
     // Update payment
     payment.payment_status = 'VERIFIED';
-    payment.verified_at = periodStart;
+    payment.verified_at = now.toISOString();
     payment.verified_by = adminUserId;
     payment.subscription_id = subId;
 
@@ -281,8 +295,8 @@ export class UpiPaymentService {
       status: 'ACTIVE',
       current_period_start: periodStart,
       current_period_end: periodEnd,
-      created_at: periodStart,
-      updated_at: periodStart
+      created_at: existingSub?.created_at || now.toISOString(),
+      updated_at: now.toISOString()
     };
 
     // Calculate invoice amounts with standard GST tax invoice
@@ -435,7 +449,7 @@ export class UpiPaymentService {
     const pendingPayment = orgPayments.find(p => p.payment_status === 'PENDING_VERIFICATION') || null;
     const latestPayment = orgPayments[0] || null;
 
-    // Check expiry
+    // Check expiry and dispatch renewal reminders
     if (sub && sub.status === 'ACTIVE' && sub.current_period_end) {
       const now = new Date().getTime();
       const end = new Date(sub.current_period_end).getTime();
@@ -447,6 +461,9 @@ export class UpiPaymentService {
           } catch (_) {}
         }
         localDb.saveSubscription(sub);
+      } else {
+        // Dispatch renewal reminders for 7d, 3d, 1d, 0d
+        SubscriptionManager.checkAndDispatchRenewalReminders(organizationId, sub.user_id);
       }
     }
 

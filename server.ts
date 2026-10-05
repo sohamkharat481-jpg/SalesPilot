@@ -69,6 +69,7 @@ import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
 import { UpiPaymentService } from './src/payments/upiPaymentService';
 import { getUpiBillingConfig, generateUpiIntentUri } from './src/payments/upiConfig';
 import { calculateCanonicalPayablePrice, normalizePlanId, CANONICAL_PLANS, CanonicalPlanId } from './src/payments/pricingConfig';
+import { SubscriptionManager } from './src/billing/subscriptionManager';
 
 import { validateStartupEnv } from './src/security/envValidator';
 import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
@@ -1904,6 +1905,42 @@ async function startServer() {
     return { orgId: verifiedOrgId };
   };
 
+  // Server-side Paid Subscription Access Guard
+  // Blocks expired, cancelled, or pending subscriptions from accessing paid SalesPilot functionality.
+  const verifyPaidSubscriptionAccess = (req: any, res: any, next: any) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+
+    // 1. Founder & Lifetime Privilege Bypass (Always allowed)
+    if (isVerifiedFounderEmail(user.email) || user.isFounder) {
+      return next();
+    }
+
+    // 2. Server-authoritative workspace resolution
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || "We couldn't verify your workspace. Please refresh and try again." });
+    }
+
+    // 3. Authoritative Subscription status & expiry check
+    const access = SubscriptionManager.checkSubscriptionAccess(orgId, user.id, user.email);
+    if (!access.isAllowed) {
+      return res.status(402).json({
+        success: false,
+        error: access.error || 'Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.',
+        code: access.code || 'SUBSCRIPTION_EXPIRED',
+        status: access.status || 'EXPIRED',
+        plan: access.plan,
+        expiresAt: access.expiresAt,
+        action: access.action || 'RENEW_SUBSCRIPTION'
+      });
+    }
+
+    next();
+  };
+
   // Lead Database Helper Mapping
   const mapSupabaseLeadToAppLead = (l: any): Lead & { organizationId?: string; assignedToId?: string; userId?: string; isShared?: boolean } => {
     let parsedNotes: any = {};
@@ -2978,6 +3015,41 @@ async function startServer() {
   // Passive request-piggyback middleware on API routes (non-blocking)
   app.use('/api/v1', (req: express.Request, res: express.Response, next: express.NextFunction) => {
     triggerThrottledPiggybackDrain();
+    try {
+      SubscriptionManager.sweepAllSubscriptions();
+    } catch (_) {}
+    next();
+  });
+
+  // Server-side Paid Subscription Access Guard
+  // Protects paid SalesPilot endpoints from direct, unauthorized or expired access
+  const paidRoutePrefixes = [
+    '/api/v1/leads',
+    '/api/v1/deals',
+    '/api/v1/crm',
+    '/api/v1/campaigns',
+    '/api/v1/outreach',
+    '/api/v1/appointments',
+    '/api/v1/calendar',
+    '/api/v1/ai',
+    '/api/v1/research',
+    '/api/v1/telephony',
+    '/api/v1/calls',
+    '/api/v1/pipeline',
+    '/api/v1/workflows',
+    '/api/v1/sandbox',
+    '/calendar',
+    '/gmail',
+    '/api/v1/gmail',
+    '/api/auth/google'
+  ];
+
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const p = req.path || req.originalUrl || '';
+    const isPaid = paidRoutePrefixes.some(prefix => p === prefix || p.startsWith(`${prefix}/`) || p.startsWith(`${prefix}?`));
+    if (isPaid) {
+      return verifyPaidSubscriptionAccess(req, res, next);
+    }
     next();
   });
 
@@ -14411,7 +14483,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     });
   });
 
-  // 11. Deprecated Cashfree Endpoints
+  // 11. Subscription Renewal Reminders Trigger
+  app.post('/api/v1/billing/reminders/check', (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId } = resolveVerifiedOrganizationId(req, user);
+    if (orgId) {
+      const dispatched = SubscriptionManager.checkAndDispatchRenewalReminders(orgId, user.id);
+      return res.json({ success: true, count: dispatched.length, reminders: dispatched });
+    }
+    SubscriptionManager.sweepAllSubscriptions();
+    res.json({ success: true, message: 'All subscriptions swept for renewal reminders.' });
+  });
+
+  // 12. Deprecated Cashfree Endpoints
   app.all(['/api/v1/payments/create-order', '/api/v1/payments/verify-payment', '/api/v1/payments/webhook'], (_req, res) => {
     res.status(410).json({
       error: 'Gone. Cashfree payment gateway integration has been deprecated and replaced with Direct UPI QR Scan & Pay.',

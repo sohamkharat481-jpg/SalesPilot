@@ -55,6 +55,7 @@ import { NotificationsView } from './components/NotificationsView';
 import { PublicStatusPageModal } from './components/PublicStatusPageModal';
 import { LegalPrivacyModal } from './components/LegalPrivacyModal';
 import { GlobalProductionReportModal } from './components/GlobalProductionReportModal';
+import { ExpiredSubscriptionScreen } from './components/billing/ExpiredSubscriptionScreen';
 import { Brain, Server } from 'lucide-react';
 import { ErrorBoundary } from './reliability/ErrorBoundary';
 import { OfflineBanner } from './reliability/OfflineBanner';
@@ -1365,6 +1366,14 @@ export default function App() {
         {/* Primary Content View Stage */}
         <main className="flex-1 p-3.5 sm:p-6 md:p-8 overflow-y-auto max-w-7xl w-full min-w-0 overflow-x-hidden">
           <ErrorBoundary>
+          {!isSubscriber && activeTab !== 'billing' ? (
+            <ExpiredSubscriptionScreen 
+              user={user} 
+              onRenew={() => setActiveTab('billing')} 
+              onLogout={logout} 
+            />
+          ) : (
+            <>
           {activeTab === 'dashboard' && (
             <DashboardView 
               leads={leads} 
@@ -1636,6 +1645,8 @@ export default function App() {
 
           {activeTab === 'work-done' && (
             <WorkDoneView />
+          )}
+          </>
           )}
           </ErrorBoundary>
         </main>

@@ -23,6 +23,7 @@ import { runCampaignPermissionsAuditTestSuite } from './campaignPermissionsAudit
 import { runClientPermissionBaselineTestSuite } from './clientPermissionBaseline.test';
 import { runClientFacingProductionHardeningTestSuite } from './clientFacingProductionHardening.test';
 import { runLiveProductionClientE2ETestSuite } from './liveProductionClientE2E.test';
+import { runSubscriptionExpiryAccessTestSuite } from './subscriptionExpiryAccess.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -269,6 +270,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Live Production Client E2E Verification test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 24. Subscription Expiry & Access Control Suite
+  try {
+    const res = await runSubscriptionExpiryAccessTestSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Subscription Expiry Access test suite crashed:', err);
     totalFailed++;
   }
 

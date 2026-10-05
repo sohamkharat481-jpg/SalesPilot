@@ -392,6 +392,30 @@ export function BillingView({ user, onUpdateTier }: BillingViewProps) {
         </div>
       )}
 
+      {/* Expired Subscription Renewal Prompt Card */}
+      {(subscriptionStatus === 'EXPIRED' || user?.subscriptionStatus === 'EXPIRED') && !pendingPayment && (
+        <div className="p-6 bg-rose-500/10 border-2 border-rose-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-rose-950 dark:text-rose-200">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-base font-bold text-rose-700 dark:text-rose-300">
+                Your SalesPilot subscription has expired.
+              </h3>
+              <p className="text-sm mt-1 text-slate-700 dark:text-slate-300">
+                Renew your subscription to continue using SalesPilot.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleInitiateUpiCheckout(serverSubscription?.plan || user?.tier || 'STARTER')}
+            className="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all text-sm shrink-0 cursor-pointer flex items-center justify-center gap-2"
+          >
+            <CreditCard className="w-4 h-4" />
+            Renew Subscription
+          </button>
+        </div>
+      )}
+
       {viewMode === 'admin' && isBillingAdminUser ? (
         <AdminBillingConsole 
           onLogMessage={handleLogMessage} 

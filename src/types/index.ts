@@ -59,7 +59,7 @@ export interface WorkspaceUser {
   callingModePreference?: 'NATIVE_DIALER' | 'PROVIDER_CALLING';
   createdAt: string;
   isFounder?: boolean;
-  subscriptionStatus?: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'CANCELLED' | 'LIFETIME' | 'TRIAL';
+  subscriptionStatus?: 'ACTIVE' | 'INACTIVE' | 'PAUSED' | 'CANCELLED' | 'LIFETIME' | 'TRIAL' | 'EXPIRED' | 'PENDING_VERIFICATION';
   onboardingProgress?: OnboardingStepProgress[];
   onboardingCompleted?: boolean;
 }
@@ -502,10 +502,10 @@ export interface SalesPilotNotification {
   id: string;
   organizationId: string;
   userId: string;
-  type: 'LEAD_ASSIGNED' | 'NEW_LEAD' | 'OUTREACH_REPLY' | 'INTERESTED_LEAD' | 'MEETING_REQUESTED' | 'MEETING_BOOKED' | 'FOLLOW_UP_DUE' | 'FOLLOW_UP_OVERDUE' | 'DEAL_CREATED' | 'DEAL_STAGE_CHANGED' | 'DEAL_WON' | 'DEAL_LOST' | 'TASK_COMPLETED';
+  type: 'LEAD_ASSIGNED' | 'NEW_LEAD' | 'OUTREACH_REPLY' | 'INTERESTED_LEAD' | 'MEETING_REQUESTED' | 'MEETING_BOOKED' | 'FOLLOW_UP_DUE' | 'FOLLOW_UP_OVERDUE' | 'DEAL_CREATED' | 'DEAL_STAGE_CHANGED' | 'DEAL_WON' | 'DEAL_LOST' | 'TASK_COMPLETED' | 'SUBSCRIPTION_RENEWAL_REMINDER' | 'SUBSCRIPTION_EXPIRED';
   title: string;
   message: string;
-  entityType?: 'LEAD' | 'DEAL' | 'FOLLOW_UP' | 'MEETING' | 'CALL';
+  entityType?: 'LEAD' | 'DEAL' | 'FOLLOW_UP' | 'MEETING' | 'CALL' | 'SUBSCRIPTION' | 'BILLING';
   entityId?: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   isRead: boolean;
