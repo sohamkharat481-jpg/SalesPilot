@@ -2065,9 +2065,12 @@ async function startServer() {
       techStack: []
     };
 
-    const assignedToId = l.assigned_to_id || l.assigned_to || l.user_id || parsedNotes.assignedToId || parsedNotes.userId || '';
-    const userId = l.user_id || l.created_by || parsedNotes.userId || assignedToId || '';
-    const isShared = Boolean(l.is_shared ?? parsedNotes.isShared ?? false);
+    const customFields = typeof l.custom_fields === 'object' && l.custom_fields !== null ? l.custom_fields : {};
+    const assignedToId = l.assigned_to_id || l.assigned_to || l.user_id || customFields.assignedToId || customFields.assignedTo || parsedNotes.assignedToId || parsedNotes.userId || '';
+    const userId = l.user_id || l.created_by || customFields.userId || parsedNotes.userId || assignedToId || '';
+    const isShared = Boolean(l.is_shared ?? customFields.isShared ?? parsedNotes.isShared ?? false);
+    const campaignId = l.campaign_id || customFields.campaignId || parsedNotes.campaignId || undefined;
+    const title = l.title || customFields.title || parsedNotes.title || 'Director';
 
     return {
       id: String(l.id),
@@ -2080,10 +2083,10 @@ async function startServer() {
       email: l.email || l.business_email || '',
       phone: l.phone || '',
       company: l.company || 'Company',
-      title: l.title || parsedNotes.title || 'Director',
+      title: title,
       status: (l.status as LeadStatus) || 'NEW',
       createdAt: l.created_at || new Date().toISOString(),
-      campaignId: l.campaign_id,
+      campaignId: campaignId,
       tags: Array.isArray(l.tags) && l.tags.length > 0 ? l.tags : (parsedNotes.tags || []),
       source: l.source || parsedNotes.source || 'Database',
       lastUpdated: l.updated_at || new Date().toISOString(),
@@ -2466,28 +2469,39 @@ async function startServer() {
           researchHistory: newLead.researchHistory || []
         };
 
+        const assignedTo = (newLead as any).assignedToId || (newLead as any).userId || (newLead as any).assignedTo || '';
+        const userId = (newLead as any).userId || (newLead as any).assignedToId || '';
+        const isShared = (newLead as any).isShared ?? false;
+        const campaignId = (newLead as any).campaignId || null;
+
         const dbLead: any = {
           id: newLead.id,
           organization_id: org_id,
-          assigned_to: (newLead as any).assignedToId || (newLead as any).userId || null,
-          user_id: (newLead as any).userId || (newLead as any).assignedToId || null,
-          is_shared: (newLead as any).isShared ?? false,
           first_name: newLead.firstName || '',
           last_name: newLead.lastName || '',
+          lead_name: [newLead.firstName, newLead.lastName].filter(Boolean).join(' ') || newLead.company || 'Prospect',
           company: newLead.company || '',
           email: newLead.email || '',
+          business_email: newLead.email || '',
           phone: newLead.phone || '',
           website: newLead.enrichment?.website || '',
           status: newLead.status || 'NEW',
           source: newLead.source || 'Manual',
+          campaign_id: campaignId,
           score: newLead.confidenceScore || 80,
+          lead_score: newLead.confidenceScore || 80,
+          industry: (newLead as any).industry || newLead.enrichment?.industry || '',
+          country: (newLead as any).country || newLead.enrichment?.country || 'India',
+          linkedin: (newLead as any).linkedin || newLead.enrichment?.socialLinks?.[0] || '',
           notes: JSON.stringify(fullNotesState),
           tags: newLead.tags || [],
           custom_fields: {
             title: newLead.title,
-            assignedToId: (newLead as any).assignedToId || (newLead as any).userId || '',
-            userId: (newLead as any).userId || (newLead as any).assignedToId || '',
-            isShared: (newLead as any).isShared ?? false,
+            assignedToId: assignedTo,
+            assignedTo: assignedTo,
+            userId: userId,
+            isShared: isShared,
+            campaignId: campaignId || '',
             industry: (newLead as any).industry || newLead.enrichment?.industry || '',
             country: (newLead as any).country || newLead.enrichment?.country || 'India',
             linkedin: (newLead as any).linkedin || newLead.enrichment?.socialLinks?.[0] || '',

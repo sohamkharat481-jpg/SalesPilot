@@ -60,6 +60,7 @@ import { Brain, Server } from 'lucide-react';
 import { ErrorBoundary } from './reliability/ErrorBoundary';
 import { OfflineBanner } from './reliability/OfflineBanner';
 import { EnvDiagnosticBanner } from './reliability/EnvDiagnosticBanner';
+import { authenticatedFetch, getAuthHeaders } from './utils/apiAuth';
 
 function RestrictedViewPlaceholder({ 
   title, 
@@ -291,21 +292,16 @@ export default function App() {
       }
       try {
         console.log(`[TELEMETRY RELOAD] fetchStarted: true`);
-        const token = localStorage.getItem('salespilot_token');
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        if (workspaceId) headers['x-organization-id'] = workspaceId;
-
         const leadsUrl = workspaceId ? `/api/v1/leads?organizationId=${encodeURIComponent(workspaceId)}` : '/api/v1/leads';
 
         const [leadsRes, campsRes, dealsRes, aptsRes, configRes, notRes, actRes] = await Promise.all([
-          fetch(leadsUrl, { headers }),
-          fetch('/api/v1/campaigns', { headers }),
-          fetch('/api/v1/deals', { headers }),
-          fetch('/api/v1/appointments', { headers }),
-          fetch('/api/v1/integrations', { headers }),
-          fetch('/api/v1/notifications?limit=25', { headers }).catch(() => null),
-          fetch('/api/v1/dashboard/activities', { headers }).catch(() => null)
+          authenticatedFetch(leadsUrl),
+          authenticatedFetch('/api/v1/campaigns'),
+          authenticatedFetch('/api/v1/deals'),
+          authenticatedFetch('/api/v1/appointments'),
+          authenticatedFetch('/api/v1/integrations'),
+          authenticatedFetch('/api/v1/notifications?limit=25').catch(() => null),
+          authenticatedFetch('/api/v1/dashboard/activities').catch(() => null)
         ]);
 
         console.log(`[TELEMETRY RELOAD] fetchHttpStatus: ${leadsRes.status}`);
@@ -335,7 +331,7 @@ export default function App() {
         let loadedCamps = Array.isArray(campsData?.campaigns) ? campsData.campaigns : (Array.isArray(campsData?.outreachCampaigns) ? campsData.outreachCampaigns : []);
         if (loadedCamps.length === 0) {
           try {
-            const ocRes = await fetch('/api/v1/outreach/campaigns', { headers });
+            const ocRes = await authenticatedFetch('/api/v1/outreach/campaigns');
             if (ocRes.ok) {
               const ocData = await ocRes.json();
               const found = Array.isArray(ocData?.campaigns) ? ocData.campaigns : (Array.isArray(ocData?.outreachCampaigns) ? ocData.outreachCampaigns : []);
@@ -397,13 +393,9 @@ export default function App() {
       return;
     }
     try {
-      const token = localStorage.getItem('salespilot_token');
-      const response = await fetch('/api/v1/leads', {
+      const response = await authenticatedFetch('/api/v1/leads', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(leadData)
       });
       const newLead = await response.json();

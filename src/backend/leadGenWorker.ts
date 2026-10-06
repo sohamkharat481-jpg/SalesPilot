@@ -369,9 +369,13 @@ export class LeadGenWorker {
           createdAt: new Date().toISOString()
         };
 
-        const leadRecord: Lead & { organizationId: string } = {
+        const leadRecord: Lead & { organizationId: string; userId?: string; assignedToId?: string; isShared?: boolean } = {
           id: newLeadId,
           organizationId: organizationId,
+          userId: claimedJob.userId || criteria.userId || undefined,
+          assignedToId: claimedJob.userId || criteria.userId || undefined,
+          campaignId: claimedJob.campaignId || criteria.campaignId || undefined,
+          isShared: false,
           firstName: cand.firstName || '',
           lastName: cand.lastName || '',
           title: cand.title || '',
