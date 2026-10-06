@@ -461,8 +461,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       window.addEventListener('storage', handleStorageChange);
 
-      const handleSessionExpired = () => {
-        console.warn('[AUTH SESSION EXPIRED] Session expired event received. Clearing state & showing login.');
+      const handleSessionExpired = async () => {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.info('[AUTH SESSION CHECK] Active Supabase session verified. Ignoring spurious session_expired event.');
+            return;
+          }
+        }
+        console.warn('[AUTH SESSION EXPIRED] Session expired event received and confirmed. Clearing state & showing login.');
         clearUserClientState();
         setUser(null);
         setOrganization(null);
@@ -488,7 +496,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener('storage', handleStorageChange);
 
-    const handleSessionExpired = () => {
+    const handleSessionExpired = async () => {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          return;
+        }
+      }
       clearUserClientState();
       setUser(null);
       setOrganization(null);

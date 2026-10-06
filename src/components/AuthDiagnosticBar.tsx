@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Activity, Database, Key, Layers, RefreshCw } from 'lucide-react';
 import { WorkspaceUser } from '../types';
+import { getAuthHeaders, authenticatedFetch } from '../utils/apiAuth';
 
 interface AuthDiagnosticsData {
   authenticatedSupabaseUserId: string | null;
@@ -35,16 +36,10 @@ export const AuthDiagnosticBar: React.FC<AuthDiagnosticBarProps> = ({ user }) =>
   );
 
   const fetchDiagnostics = async () => {
-    const token = localStorage.getItem('salespilot_token');
-    if (!token) {
-      setDiagnostics(null);
-      return;
-    }
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/diagnostics', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const headers = await getAuthHeaders();
+      const res = await authenticatedFetch('/api/v1/auth/diagnostics', { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.diagnostics) {
