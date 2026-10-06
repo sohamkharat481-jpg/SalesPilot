@@ -642,7 +642,7 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading && !user) {
     return (
       <div className="h-screen w-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
@@ -681,7 +681,7 @@ export default function App() {
     );
   }
 
-  if (loading) {
+  if (loading && leads.length === 0 && campaigns.length === 0 && deals.length === 0 && appointments.length === 0) {
     return (
       <div className="h-screen w-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-10 h-10 animate-spin text-blue-500" />

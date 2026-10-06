@@ -88,12 +88,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   console.log("Stage C: AuthContext initialized");
-  const [user, setUser] = useState<WorkspaceUser | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [user, setUser] = useState<WorkspaceUser | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('salespilot_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
+  const [organization, setOrganization] = useState<Organization | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('salespilot_org');
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const isLocalDev = Boolean(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')));
   const [isSandbox, setIsSandbox] = useState(() => isLocalDev && !isSupabaseConfigured());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const token = localStorage.getItem('salespilot_token');
+    const savedUser = localStorage.getItem('salespilot_user');
+    return !(token && savedUser);
+  });
   const [authError, setAuthError] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') !== 'false');
   
@@ -115,7 +136,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lastActive, setLastActive] = useState<number>(Date.now());
   
   // Navigation view inside authentication cycle
-  const [authView, setAuthView] = useState<'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team'>('login');
+  const [authView, setAuthView] = useState<'login' | 'authenticated' | 'email_verification' | 'profile_setup' | 'org_setup' | 'invite_team'>(() => {
+    if (typeof window === 'undefined') return 'login';
+    const token = localStorage.getItem('salespilot_token');
+    const savedUser = localStorage.getItem('salespilot_user');
+    return (token && savedUser) ? 'authenticated' : 'login';
+  });
 
   // Save log states to localStorage
   useEffect(() => {
