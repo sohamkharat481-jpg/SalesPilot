@@ -7917,7 +7917,7 @@
       "companyName": "SalesPilot Test Company",
       "role": "OWNER",
       "organizationId": "org_flow_test_alpha",
-      "createdAt": "2026-10-06T13:25:13.189Z"
+      "createdAt": "2026-10-06T13:49:01.285Z"
     },
     {
       "id": "usr_flow_test_beta",
@@ -7926,7 +7926,7 @@
       "companyName": "Acme Beta Corp",
       "role": "OWNER",
       "organizationId": "org_flow_test_beta",
-      "createdAt": "2026-10-06T13:25:13.189Z"
+      "createdAt": "2026-10-06T13:49:01.286Z"
     },
     {
       "id": "usr_ver_a",
@@ -10125,7 +10125,7 @@
       "organizationId": "org_acme_corp_101",
       "isFounder": false,
       "subscriptionStatus": "ACTIVE",
-      "createdAt": "2026-10-06T13:25:15.439Z"
+      "createdAt": "2026-10-06T13:49:05.231Z"
     },
     {
       "id": "usr_ver_a",
@@ -21231,6 +21231,361 @@
       "organizationId": "org_async_b_1791293118760",
       "role": "CLIENT",
       "createdAt": "2026-10-06T13:25:18.918Z"
+    },
+    {
+      "id": "usr_verify_a_1791294520739",
+      "email": "customerA_1791294520739@enterprise-client.com",
+      "fullName": "Customer A",
+      "organizationId": "org_verify_cust_a_1791294520739",
+      "role": "CLIENT",
+      "isFounder": false
+    },
+    {
+      "id": "usr_verify_b_1791294520739",
+      "email": "customerB_1791294520739@rival-firm.com",
+      "fullName": "Customer B",
+      "organizationId": "org_verify_cust_b_1791294520739",
+      "role": "CLIENT",
+      "isFounder": false
+    },
+    {
+      "id": "usr_ver_a",
+      "email": "usera@calling.com",
+      "fullName": "User A",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:53.605Z"
+    },
+    {
+      "id": "usr_ver_b",
+      "email": "userb@calling.com",
+      "fullName": "User B",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:53.605Z"
+    },
+    {
+      "id": "usr_ver_c",
+      "email": "userc@calling.com",
+      "fullName": "User C",
+      "companyName": "Company B",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_call_ver_2_1791294533605",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:53.605Z"
+    },
+    {
+      "id": "usr_dial_x",
+      "email": "userX@dial.com",
+      "fullName": "Dialer X",
+      "companyName": "Company X",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_dial_x_1791294533878",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:53.878Z"
+    },
+    {
+      "id": "usr_dial_y",
+      "email": "userY@dial.com",
+      "fullName": "Dialer Y",
+      "companyName": "Company Y",
+      "industry": "SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_dial_y_1791294533878",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:53.878Z"
+    },
+    {
+      "id": "usr_edesy_1",
+      "email": "user1@edesytest.com",
+      "fullName": "Alice Dialer",
+      "companyName": "Acme Sales",
+      "industry": "B2B SaaS",
+      "role": "OWNER",
+      "organizationId": "org_edesy_1_1791294534097",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:54.097Z"
+    },
+    {
+      "id": "usr_edesy_2",
+      "email": "user2@edesytest.com",
+      "fullName": "Bob Competitor",
+      "companyName": "Rival Corp",
+      "industry": "B2B SaaS",
+      "role": "MEMBER",
+      "organizationId": "org_edesy_2_1791294534097",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:54.097Z"
+    },
+    {
+      "id": "usr_gcal_conn_a",
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "companyName": "Company A",
+      "industry": "SaaS",
+      "role": "OWNER",
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:54.407Z"
+    },
+    {
+      "id": "usr_gcal_conn_b",
+      "email": "userb@gcalconn.com",
+      "fullName": "User B Calendar",
+      "companyName": "Company A",
+      "industry": "MEMBER",
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "tier": "ENTERPRISE",
+      "subscriptionStatus": "ACTIVE",
+      "isFounder": false,
+      "isVerified": true,
+      "createdAt": "2026-10-06T13:48:54.407Z"
+    },
+    {
+      "id": "usr_billing_test_1791294536938",
+      "email": "customer@company.com",
+      "organizationId": "org_billing_test_1791294536938",
+      "tier": "GROWTH",
+      "role": "OWNER",
+      "subscriptionStatus": "ACTIVE"
+    },
+    {
+      "id": "usr_cust_1791294537785",
+      "email": "customer@test.com",
+      "organizationId": "org_admin_test_1791294537785",
+      "role": "MEMBER",
+      "tier": "GROWTH",
+      "subscriptionStatus": "ACTIVE"
+    },
+    {
+      "id": "usr_expired_trial_1791294538654",
+      "email": "expired.trial@example.com",
+      "organizationId": "org_expired_trial_1791294538654",
+      "tier": "GROWTH",
+      "role": "MEMBER",
+      "subscriptionStatus": "ACTIVE"
+    },
+    {
+      "id": "usr_alpha_1791294539563",
+      "email": "alpha.owner.1791294539563@alpha.com",
+      "fullName": "Alpha Owner",
+      "organizationId": "org_test_alpha_1791294539563",
+      "role": "OWNER",
+      "tier": "STARTER"
+    },
+    {
+      "id": "usr_beta_1791294539563",
+      "email": "beta.viewer.1791294539563@beta.com",
+      "fullName": "Beta Viewer",
+      "organizationId": "org_test_beta_1791294539563",
+      "role": "VIEWER",
+      "tier": "GROWTH"
+    },
+    {
+      "id": "usr_owner_1791294542579",
+      "email": "owner_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Owner",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "OWNER",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_admin_1791294542579",
+      "email": "admin_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Admin",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "ADMIN",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_manager_1791294542579",
+      "email": "manager_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Manager",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "MANAGER",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_sales_1791294542579",
+      "email": "sales_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Sales Rep",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "SALES",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_viewer_1791294542579",
+      "email": "viewer_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Viewer",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "VIEWER",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_client_1791294542579",
+      "email": "client_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Client Portal",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "CLIENT",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_super_1791294542579",
+      "email": "superadmin_1791294542579@alphasoftware.io",
+      "fullName": "Alpha Super Admin",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "tier": "ENTERPRISE",
+      "role": "SUPER_ADMIN",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_beta_1791294542579",
+      "email": "beta_1791294542579@betamarketing.co",
+      "fullName": "Beta Rep",
+      "companyName": "Beta Marketing LLC",
+      "industry": "Marketing Agency",
+      "tier": "PROFESSIONAL",
+      "role": "SALES",
+      "organizationId": "org_campaign_beta_1791294542579",
+      "createdAt": "2026-10-06T13:49:02.714Z"
+    },
+    {
+      "id": "usr_client_a_1791294544214",
+      "email": "client_a_1791294544214@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "companyName": "Apex Growth Solutions",
+      "industry": "Consulting & B2B Services",
+      "tier": "GROWTH",
+      "role": "CLIENT",
+      "organizationId": "org_client_a_1791294544214",
+      "subscriptionStatus": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:04.297Z"
+    },
+    {
+      "id": "usr_client_b_1791294544214",
+      "email": "client_b_1791294544214@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "companyName": "Zenith Logistics Ltd",
+      "industry": "Supply Chain",
+      "tier": "GROWTH",
+      "role": "CLIENT",
+      "organizationId": "org_client_b_1791294544214",
+      "subscriptionStatus": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:04.506Z"
+    },
+    {
+      "id": "usr_prod_cust_a_1791294545366",
+      "email": "alex.chen_1791294545366@vertexai-demo.com",
+      "fullName": "Alex Chen",
+      "companyName": "Vertex Solutions",
+      "industry": "Cloud & AI SaaS",
+      "tier": "PROFESSIONAL",
+      "role": "CLIENT",
+      "organizationId": "org_prod_cust_a_1791294545366",
+      "isFounder": false,
+      "subscriptionStatus": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:05.366Z"
+    },
+    {
+      "id": "usr_prod_cust_b_1791294545366",
+      "email": "marcus_1791294545366@rivalcorp.com",
+      "fullName": "Marcus Vance",
+      "companyName": "Rival Corp",
+      "industry": "Consulting",
+      "tier": "ENTERPRISE",
+      "role": "CLIENT",
+      "organizationId": "org_prod_cust_b_1791294545366",
+      "isFounder": false,
+      "subscriptionStatus": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:05.735Z"
+    },
+    {
+      "id": "usr_verify_unlock_1791294545876",
+      "email": "customer_1791294545876@verify.com",
+      "organizationId": "org_verify_unlock_1791294545876",
+      "tier": "GROWTH",
+      "subscriptionStatus": "ACTIVE",
+      "role": "CLIENT"
+    },
+    {
+      "id": "usr_oauth_replay_1791294550020",
+      "email": "oauth_replay@test.com",
+      "organizationId": "org_oauth_replay",
+      "role": "CLIENT"
+    },
+    {
+      "id": "usr_bearerless_1791294550091",
+      "email": "bearerless@test.com",
+      "organizationId": "org_bearerless",
+      "role": "CLIENT"
+    },
+    {
+      "id": "usr_async_a_1791294550018",
+      "email": "usera_1791294550018@tenant-a.com",
+      "fullName": "Alice Tenant A",
+      "organizationId": "org_async_a_1791294550018",
+      "role": "CLIENT",
+      "createdAt": "2026-10-06T13:49:10.160Z"
+    },
+    {
+      "id": "usr_async_b_1791294550018",
+      "email": "userb_1791294550018@tenant-b.com",
+      "fullName": "Bob Tenant B",
+      "organizationId": "org_async_b_1791294550018",
+      "role": "CLIENT",
+      "createdAt": "2026-10-06T13:49:10.299Z"
     }
   ],
   "organizations": [
@@ -22251,7 +22606,7 @@
       "name": "Competitor Inc",
       "companyName": "Competitor Inc",
       "industry": "Logistics",
-      "createdAt": "2026-10-06T13:25:15.439Z"
+      "createdAt": "2026-10-06T13:49:05.231Z"
     },
     {
       "id": "org_billing_test_1791129184775",
@@ -25407,6 +25762,104 @@
       "tier": "STARTER",
       "status": "ACTIVE",
       "createdAt": "2026-10-06T13:25:18.957Z"
+    },
+    {
+      "id": "org_billing_test_1791294536938",
+      "name": "Canonical Billing Org",
+      "tier": "GROWTH",
+      "plan": "GROWTH"
+    },
+    {
+      "id": "org_admin_test_1791294537785",
+      "name": "Test Payment Org",
+      "tier": "GROWTH",
+      "plan": "GROWTH"
+    },
+    {
+      "id": "org_expired_trial_1791294538654",
+      "name": "Expired Trial Org",
+      "tier": "GROWTH",
+      "plan": "GROWTH"
+    },
+    {
+      "id": "org_secondary_2",
+      "name": "Secondary Org",
+      "ownerId": "usr_multi_org_123"
+    },
+    {
+      "id": "org_test_alpha_1791294539563",
+      "name": "Alpha Corp",
+      "tier": "STARTER"
+    },
+    {
+      "id": "org_test_beta_1791294539563",
+      "name": "Beta Corp",
+      "tier": "GROWTH"
+    },
+    {
+      "id": "org_campaign_alpha_1791294542579",
+      "name": "Alpha Software Corp",
+      "companyName": "Alpha Software Corp",
+      "industry": "Enterprise Software",
+      "domain": "alphasoftware.io",
+      "createdAt": "2026-10-06T13:49:02.579Z"
+    },
+    {
+      "id": "org_campaign_beta_1791294542579",
+      "name": "Beta Marketing LLC",
+      "companyName": "Beta Marketing LLC",
+      "industry": "Marketing Agency",
+      "domain": "betamarketing.co",
+      "createdAt": "2026-10-06T13:49:02.646Z"
+    },
+    {
+      "id": "org_client_a_1791294544214",
+      "name": "Apex Growth Solutions",
+      "companyName": "Apex Growth Solutions",
+      "industry": "Consulting & B2B Services",
+      "domain": "apexgrowth.com",
+      "createdAt": "2026-10-06T13:49:04.214Z"
+    },
+    {
+      "id": "org_client_b_1791294544214",
+      "name": "Zenith Logistics Ltd",
+      "companyName": "Zenith Logistics Ltd",
+      "industry": "Supply Chain",
+      "domain": "zenithlogistics.in",
+      "createdAt": "2026-10-06T13:49:04.437Z"
+    },
+    {
+      "id": "org_prod_cust_a_1791294545366",
+      "name": "Vertex Solutions",
+      "companyName": "Vertex Solutions",
+      "industry": "Cloud & AI SaaS",
+      "domain": "vertexai-demo.com",
+      "ownerId": "usr_prod_cust_a_1791294545366",
+      "createdAt": "2026-10-06T13:49:05.366Z"
+    },
+    {
+      "id": "org_prod_cust_b_1791294545366",
+      "name": "Rival Corp",
+      "companyName": "Rival Corp",
+      "industry": "Consulting",
+      "ownerId": "usr_prod_cust_b_1791294545366",
+      "createdAt": "2026-10-06T13:49:05.735Z"
+    },
+    {
+      "id": "org_async_a_1791294550018",
+      "name": "Tenant A Workspace",
+      "ownerId": "usr_async_a_1791294550018",
+      "tier": "GROWTH",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:10.234Z"
+    },
+    {
+      "id": "org_async_b_1791294550018",
+      "name": "Tenant B Workspace",
+      "ownerId": "usr_async_b_1791294550018",
+      "tier": "STARTER",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:10.366Z"
     }
   ],
   "teamMembers": [
@@ -28443,6 +28896,86 @@
       "role": "CLIENT",
       "status": "ACTIVE",
       "createdAt": "2026-10-06T13:25:15.075Z"
+    },
+    {
+      "id": "tm_owner_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_owner_1791294542579",
+      "fullName": "Alpha Owner",
+      "email": "owner_1791294542579@alphasoftware.io",
+      "role": "OWNER",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:03.259Z"
+    },
+    {
+      "id": "tm_admin_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_admin_1791294542579",
+      "fullName": "Alpha Admin",
+      "email": "admin_1791294542579@alphasoftware.io",
+      "role": "ADMIN",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:03.325Z"
+    },
+    {
+      "id": "tm_manager_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_manager_1791294542579",
+      "fullName": "Alpha Manager",
+      "email": "manager_1791294542579@alphasoftware.io",
+      "role": "MANAGER",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:03.390Z"
+    },
+    {
+      "id": "tm_sales_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_sales_1791294542579",
+      "fullName": "Alpha Sales Rep",
+      "email": "sales_1791294542579@alphasoftware.io",
+      "role": "SALES",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:03.461Z"
+    },
+    {
+      "id": "tm_viewer_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_viewer_1791294542579",
+      "fullName": "Alpha Viewer",
+      "email": "viewer_1791294542579@alphasoftware.io",
+      "role": "VIEWER",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:03.528Z"
+    },
+    {
+      "id": "tm_client_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_client_1791294542579",
+      "fullName": "Alpha Client Portal",
+      "email": "client_1791294542579@alphasoftware.io",
+      "role": "CLIENT",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:03.597Z"
+    },
+    {
+      "id": "tm_client_a_1791294544214",
+      "organizationId": "org_client_a_1791294544214",
+      "userId": "usr_client_a_1791294544214",
+      "fullName": "Arjun Verma",
+      "email": "client_a_1791294544214@apexgrowth.com",
+      "role": "CLIENT",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:04.371Z"
+    },
+    {
+      "id": "tm_client_b_1791294544214",
+      "organizationId": "org_client_b_1791294544214",
+      "userId": "usr_client_b_1791294544214",
+      "fullName": "Kavita Patel",
+      "email": "client_b_1791294544214@zenithlogistics.in",
+      "role": "CLIENT",
+      "status": "ACTIVE",
+      "createdAt": "2026-10-06T13:49:04.576Z"
     }
   ],
   "leads": [
@@ -28614,25 +29147,25 @@
     },
     {
       "id": "lead_alpha_01",
-      "organizationId": "org_alpha_1791293112368",
-      "userId": "usr_alpha_1791293112368",
+      "organizationId": "org_alpha_1791294540106",
+      "userId": "usr_alpha_1791294540106",
       "name": "Alpha Target",
       "email": "target@alpha.com",
       "company": "Alpha Corp",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:12.368Z",
-      "assignedToId": "usr_alpha_1791290657357"
+      "createdAt": "2026-10-06T13:49:00.106Z",
+      "assignedToId": "usr_alpha_1791293112368"
     },
     {
       "id": "lead_beta_01",
-      "organizationId": "org_beta_1791293112368",
-      "userId": "usr_beta_1791293112368",
+      "organizationId": "org_beta_1791294540106",
+      "userId": "usr_beta_1791294540106",
       "name": "Beta Target",
       "email": "target@beta.com",
       "company": "Beta Corp",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:12.368Z",
-      "assignedToId": "usr_beta_1791290657357"
+      "createdAt": "2026-10-06T13:49:00.106Z",
+      "assignedToId": "usr_beta_1791293112368"
     },
     {
       "id": "lead_crm_smoke_1790770820929",
@@ -41022,7 +41555,8 @@
       "email": "alice@prospect.com",
       "company": "Alice Co",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:07.103Z"
+      "createdAt": "2026-10-06T13:25:07.103Z",
+      "assignedToId": "usr_iso_a_1791293107103"
     },
     {
       "id": "lead_b_1791293107171",
@@ -41032,17 +41566,22 @@
       "email": "bob@prospect.com",
       "company": "Bob Corp",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:07.171Z"
+      "createdAt": "2026-10-06T13:25:07.171Z",
+      "assignedToId": "usr_iso_b_1791293107103"
     },
     {
       "id": "lead_a_1791293112081",
       "organizationId": "org_test_alpha_1791293112081",
-      "name": "Lead Alpha"
+      "name": "Lead Alpha",
+      "userId": "usr_alpha_1791293112081",
+      "assignedToId": "usr_alpha_1791293112081"
     },
     {
       "id": "lead_b_1791293112081",
       "organizationId": "org_test_beta_1791293112081",
-      "name": "Lead Beta"
+      "name": "Lead Beta",
+      "userId": "usr_beta_1791293112081",
+      "assignedToId": "usr_beta_1791293112081"
     },
     {
       "id": "lead_crm_smoke_1791293112526",
@@ -41052,7 +41591,8 @@
       "email": "priya.sharma@techscale.in",
       "company": "TechScale India",
       "status": "CONTACTED",
-      "createdAt": "2026-10-06T13:25:12.526Z"
+      "createdAt": "2026-10-06T13:25:12.526Z",
+      "assignedToId": "usr_alpha_1791293112368"
     },
     {
       "id": "lead_alpha_01_1791293113270",
@@ -41067,7 +41607,8 @@
       "status": "NEW",
       "industry": "Information Technology",
       "country": "India",
-      "createdAt": "2026-10-06T13:25:13.270Z"
+      "createdAt": "2026-10-06T13:25:13.270Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_alpha_02_1791293113270",
@@ -41082,7 +41623,8 @@
       "status": "NEW",
       "industry": "Financial Services",
       "country": "India",
-      "createdAt": "2026-10-06T13:25:13.270Z"
+      "createdAt": "2026-10-06T13:25:13.270Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_alpha_03_1791293113270",
@@ -41097,7 +41639,8 @@
       "status": "NEW",
       "industry": "Analytics",
       "country": "India",
-      "createdAt": "2026-10-06T13:25:13.270Z"
+      "createdAt": "2026-10-06T13:25:13.270Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_filt_01_1791293113551",
@@ -41111,7 +41654,8 @@
       "title": "Founder & CEO",
       "status": "NEW",
       "campaignId": "camp_target_verified",
-      "createdAt": "2026-10-06T13:25:13.551Z"
+      "createdAt": "2026-10-06T13:25:13.551Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_filt_02_1791293113551",
@@ -41125,7 +41669,8 @@
       "title": "VP of Marketing",
       "status": "CONTACTED",
       "campaignId": "camp_q4_enterprise",
-      "createdAt": "2026-10-06T13:25:13.551Z"
+      "createdAt": "2026-10-06T13:25:13.551Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_filt_03_1791293113551",
@@ -41139,7 +41684,8 @@
       "title": "Sales Director",
       "status": "INTERESTED",
       "campaignId": "camp_q4_midmarket",
-      "createdAt": "2026-10-06T13:25:13.551Z"
+      "createdAt": "2026-10-06T13:25:13.551Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_filt_04_1791293113551",
@@ -41153,7 +41699,8 @@
       "title": "Co-Founder",
       "status": "NEW",
       "campaignId": "camp_target_verified",
-      "createdAt": "2026-10-06T13:25:13.551Z"
+      "createdAt": "2026-10-06T13:25:13.551Z",
+      "assignedToId": "usr_flow_test_alpha"
     },
     {
       "id": "lead_foreign_1791293113789",
@@ -41166,7 +41713,8 @@
       "company": "Other Corp",
       "title": "Director",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:13.789Z"
+      "createdAt": "2026-10-06T13:25:13.789Z",
+      "assignedToId": "usr_flow_test_beta"
     },
     {
       "id": "ld_alpha_1791293113915",
@@ -41176,7 +41724,8 @@
       "company": "TechCorp India",
       "email": "priya@techcorp.in",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:14.633Z"
+      "createdAt": "2026-10-06T13:25:14.633Z",
+      "assignedToId": "usr_sales_1791293113915"
     },
     {
       "id": "ld_beta_1791293113915",
@@ -41186,7 +41735,8 @@
       "company": "Beta Industries",
       "email": "rajesh@betaind.com",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:14.673Z"
+      "createdAt": "2026-10-06T13:25:14.673Z",
+      "assignedToId": "usr_beta_1791293113915"
     },
     {
       "id": "ld_client_a_1791293114875",
@@ -41196,7 +41746,8 @@
       "company": "Mehta Global",
       "email": "vikram@mehtaglobal.com",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:15.114Z"
+      "createdAt": "2026-10-06T13:25:15.114Z",
+      "assignedToId": "usr_client_a_1791293114875"
     },
     {
       "id": "ld_client_b_1791293114875",
@@ -41206,7 +41757,8 @@
       "company": "Raina Logistics",
       "email": "suresh@rainalogistics.com",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:15.317Z"
+      "createdAt": "2026-10-06T13:25:15.317Z",
+      "assignedToId": "usr_client_b_1791293114875"
     },
     {
       "id": "lead_a1_1791293115519",
@@ -41220,7 +41772,8 @@
       "notes": "Inbound demo request from product landing page.",
       "isTest": false,
       "isSimulated": false,
-      "createdAt": "2026-10-06T13:25:15.598Z"
+      "createdAt": "2026-10-06T13:25:15.598Z",
+      "assignedToId": "usr_prod_cust_a_1791293115519"
     },
     {
       "id": "lead_a2_1791293115519",
@@ -41234,7 +41787,8 @@
       "notes": "Follow-up requested after initial outreach sequence.",
       "isTest": false,
       "isSimulated": false,
-      "createdAt": "2026-10-06T13:25:15.598Z"
+      "createdAt": "2026-10-06T13:25:15.598Z",
+      "assignedToId": "usr_prod_cust_a_1791293115519"
     },
     {
       "id": "lead_a_1791293118760_1",
@@ -41245,7 +41799,8 @@
       "company": "Fintech Corp 1",
       "email": "contact1@fintech1.in",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:19.040Z"
+      "createdAt": "2026-10-06T13:25:19.040Z",
+      "assignedToId": "usr_async_a_1791293118760"
     },
     {
       "id": "lead_a_1791293118760_2",
@@ -41256,7 +41811,8 @@
       "company": "Fintech Corp 2",
       "email": "contact2@fintech2.in",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:19.080Z"
+      "createdAt": "2026-10-06T13:25:19.080Z",
+      "assignedToId": "usr_async_a_1791293118760"
     },
     {
       "id": "lead_a_1791293118760_3",
@@ -41267,7 +41823,275 @@
       "company": "Fintech Corp 3",
       "email": "contact3@fintech3.in",
       "status": "NEW",
-      "createdAt": "2026-10-06T13:25:19.121Z"
+      "createdAt": "2026-10-06T13:25:19.121Z",
+      "assignedToId": "usr_async_a_1791293118760"
+    },
+    {
+      "id": "lead_secret_a_1791294520739",
+      "name": "Confidential Lead",
+      "company": "Secret Org",
+      "email": "confidential@secret.com",
+      "status": "QUALIFIED",
+      "organizationId": "org_verify_cust_a_1791294520739",
+      "userId": "usr_verify_a_1791294520739",
+      "isTest": false,
+      "createdAt": "2026-10-06T13:48:40.872Z",
+      "assignedToId": "usr_verify_a_1791294520739"
+    },
+    {
+      "id": "lead_a_1791294534201",
+      "organizationId": "org_test_iso_1791294534201",
+      "userId": "usr_iso_a_1791294534201",
+      "name": "Alice Prospect",
+      "email": "alice@prospect.com",
+      "company": "Alice Co",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:48:54.201Z"
+    },
+    {
+      "id": "lead_b_1791294534246",
+      "organizationId": "org_test_iso_1791294534201",
+      "userId": "usr_iso_b_1791294534201",
+      "name": "Bob Prospect",
+      "email": "bob@prospect.com",
+      "company": "Bob Corp",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:48:54.246Z"
+    },
+    {
+      "id": "lead_a_1791294539563",
+      "organizationId": "org_test_alpha_1791294539563",
+      "name": "Lead Alpha"
+    },
+    {
+      "id": "lead_b_1791294539563",
+      "organizationId": "org_test_beta_1791294539563",
+      "name": "Lead Beta"
+    },
+    {
+      "id": "lead_crm_smoke_1791294540383",
+      "organizationId": "org_alpha_1791294540106",
+      "userId": "usr_alpha_1791294540106",
+      "name": "Priya Sharma",
+      "email": "priya.sharma@techscale.in",
+      "company": "TechScale India",
+      "status": "CONTACTED",
+      "createdAt": "2026-10-06T13:49:00.383Z"
+    },
+    {
+      "id": "lead_alpha_01_1791294541446",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Vikram",
+      "lastName": "Malhotra",
+      "name": "Vikram Malhotra",
+      "email": "vikram.m@techcorp.in",
+      "company": "TechCorp India",
+      "title": "Chief Technology Officer",
+      "status": "NEW",
+      "industry": "Information Technology",
+      "country": "India",
+      "createdAt": "2026-10-06T13:49:01.446Z"
+    },
+    {
+      "id": "lead_alpha_02_1791294541446",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Priya",
+      "lastName": "Sharma",
+      "name": "Priya Sharma",
+      "email": "priya.s@fintechscale.com",
+      "company": "FintechScale",
+      "title": "Head of Growth",
+      "status": "NEW",
+      "industry": "Financial Services",
+      "country": "India",
+      "createdAt": "2026-10-06T13:49:01.446Z"
+    },
+    {
+      "id": "lead_alpha_03_1791294541446",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Ananya",
+      "lastName": "Iyer",
+      "name": "Ananya Iyer",
+      "email": "ananya@globalanalytics.co",
+      "company": "Global Analytics",
+      "title": "VP of Operations",
+      "status": "NEW",
+      "industry": "Analytics",
+      "country": "India",
+      "createdAt": "2026-10-06T13:49:01.446Z"
+    },
+    {
+      "id": "lead_filt_01_1791294541956",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Rahul",
+      "lastName": "Verma",
+      "name": "Rahul Verma",
+      "email": "rahul@apexcloud.io",
+      "company": "Apex Cloud",
+      "title": "Founder & CEO",
+      "status": "NEW",
+      "campaignId": "camp_target_verified",
+      "createdAt": "2026-10-06T13:49:01.956Z"
+    },
+    {
+      "id": "lead_filt_02_1791294541956",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Sneha",
+      "lastName": "Reddy",
+      "name": "Sneha Reddy",
+      "email": "sneha@cloudscale.net",
+      "company": "CloudScale",
+      "title": "VP of Marketing",
+      "status": "CONTACTED",
+      "campaignId": "camp_q4_enterprise",
+      "createdAt": "2026-10-06T13:49:01.956Z"
+    },
+    {
+      "id": "lead_filt_03_1791294541956",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Rohan",
+      "lastName": "Mehta",
+      "name": "Rohan Mehta",
+      "email": "rohan@fintechapex.com",
+      "company": "Fintech Apex",
+      "title": "Sales Director",
+      "status": "INTERESTED",
+      "campaignId": "camp_q4_midmarket",
+      "createdAt": "2026-10-06T13:49:01.956Z"
+    },
+    {
+      "id": "lead_filt_04_1791294541956",
+      "userId": "usr_flow_test_alpha",
+      "organizationId": "org_flow_test_alpha",
+      "firstName": "Deepak",
+      "lastName": "Patel",
+      "name": "Deepak Patel",
+      "email": "deepak@unassignedco.org",
+      "company": "Unassigned Co",
+      "title": "Co-Founder",
+      "status": "NEW",
+      "campaignId": "camp_target_verified",
+      "createdAt": "2026-10-06T13:49:01.956Z"
+    },
+    {
+      "id": "lead_foreign_1791294542374",
+      "userId": "usr_flow_test_beta",
+      "organizationId": "org_flow_test_beta",
+      "firstName": "Foreign",
+      "lastName": "User",
+      "name": "Foreign User",
+      "email": "foreign@othercorp.com",
+      "company": "Other Corp",
+      "title": "Director",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:02.374Z"
+    },
+    {
+      "id": "ld_alpha_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "userId": "usr_sales_1791294542579",
+      "name": "Priya Sharma",
+      "company": "TechCorp India",
+      "email": "priya@techcorp.in",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:03.809Z"
+    },
+    {
+      "id": "ld_beta_1791294542579",
+      "organizationId": "org_campaign_beta_1791294542579",
+      "userId": "usr_beta_1791294542579",
+      "name": "Rajesh Gupta",
+      "company": "Beta Industries",
+      "email": "rajesh@betaind.com",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:03.876Z"
+    },
+    {
+      "id": "ld_client_a_1791294544214",
+      "organizationId": "org_client_a_1791294544214",
+      "userId": "usr_client_a_1791294544214",
+      "name": "Vikram Mehta",
+      "company": "Mehta Global",
+      "email": "vikram@mehtaglobal.com",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:04.649Z"
+    },
+    {
+      "id": "ld_client_b_1791294544214",
+      "organizationId": "org_client_b_1791294544214",
+      "userId": "usr_client_b_1791294544214",
+      "name": "Suresh Raina",
+      "company": "Raina Logistics",
+      "email": "suresh@rainalogistics.com",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:04.994Z"
+    },
+    {
+      "id": "lead_a1_1791294545366",
+      "name": "Jordan Lee",
+      "company": "Apex Networks",
+      "email": "jordan@apexnetworks.io",
+      "phone": "+1 555-0192",
+      "status": "QUALIFIED",
+      "organizationId": "org_prod_cust_a_1791294545366",
+      "userId": "usr_prod_cust_a_1791294545366",
+      "notes": "Inbound demo request from product landing page.",
+      "isTest": false,
+      "isSimulated": false,
+      "createdAt": "2026-10-06T13:49:05.510Z"
+    },
+    {
+      "id": "lead_a2_1791294545366",
+      "name": "Sarah Connor",
+      "company": "Cyberdyne Systems",
+      "email": "sarah@cyberdyne.io",
+      "phone": "+1 555-0193",
+      "status": "IN_CONVERSATION",
+      "organizationId": "org_prod_cust_a_1791294545366",
+      "userId": "usr_prod_cust_a_1791294545366",
+      "notes": "Follow-up requested after initial outreach sequence.",
+      "isTest": false,
+      "isSimulated": false,
+      "createdAt": "2026-10-06T13:49:05.510Z"
+    },
+    {
+      "id": "lead_a_1791294550018_1",
+      "organizationId": "org_async_a_1791294550018",
+      "userId": "usr_async_a_1791294550018",
+      "firstName": "Lead",
+      "lastName": "A1",
+      "company": "Fintech Corp 1",
+      "email": "contact1@fintech1.in",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:10.500Z"
+    },
+    {
+      "id": "lead_a_1791294550018_2",
+      "organizationId": "org_async_a_1791294550018",
+      "userId": "usr_async_a_1791294550018",
+      "firstName": "Lead",
+      "lastName": "A2",
+      "company": "Fintech Corp 2",
+      "email": "contact2@fintech2.in",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:10.571Z"
+    },
+    {
+      "id": "lead_a_1791294550018_3",
+      "organizationId": "org_async_a_1791294550018",
+      "userId": "usr_async_a_1791294550018",
+      "firstName": "Lead",
+      "lastName": "A3",
+      "company": "Fintech Corp 3",
+      "email": "contact3@fintech3.in",
+      "status": "NEW",
+      "createdAt": "2026-10-06T13:49:10.639Z"
     }
   ],
   "campaigns": [
@@ -45446,6 +46270,61 @@
       "totalReplied": 0,
       "createdAt": "2026-10-06T13:25:15.154Z",
       "organizationId": "org_client_a_1791293114875"
+    },
+    {
+      "id": "camp_crm_smoke_1791294540454",
+      "organizationId": "org_alpha_1791294540106",
+      "userId": "usr_alpha_1791294540106",
+      "name": "Q3 SaaS Outreach",
+      "status": "ACTIVE",
+      "template": "Hi {{name}}, loved your work at {{company}}.",
+      "leadCount": 1,
+      "sentCount": 0,
+      "openCount": 0,
+      "replyCount": 0,
+      "createdAt": "2026-10-06T13:49:00.455Z"
+    },
+    {
+      "id": "camp_alpha_1791294542579",
+      "name": "Enterprise Outbound Q4",
+      "targetAudience": "[\"ld_alpha_1791294542579\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_camp_alpha_1791294542579_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Accelerate Enterprise Sales with SalesPilot",
+          "bodyTemplate": "Hi {{first_name}}, let us discuss pipeline automation.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-10-06T13:49:03.942Z",
+      "organizationId": "org_campaign_alpha_1791294542579"
+    },
+    {
+      "id": "camp_client_a_1791294544214",
+      "name": "Apex Strategic Outbound",
+      "targetAudience": "[\"ld_client_a_1791294544214\"]",
+      "status": "ACTIVE",
+      "steps": [
+        {
+          "id": "step_camp_client_a_1791294544214_1",
+          "stepNumber": 1,
+          "type": "EMAIL",
+          "subject": "Exploring synergies with Apex Growth",
+          "bodyTemplate": "Hi Vikram, let us connect regarding scalable sales infrastructure.",
+          "delayDays": 0
+        }
+      ],
+      "totalSent": 0,
+      "totalOpened": 0,
+      "totalReplied": 0,
+      "createdAt": "2026-10-06T13:49:04.716Z",
+      "organizationId": "org_client_a_1791294544214"
     }
   ],
   "deals": [
@@ -49828,6 +50707,62 @@
       "value": 500000,
       "stage": "NEGOTIATION",
       "createdAt": "2026-10-06T13:25:15.237Z"
+    },
+    {
+      "id": "deal_a_1791294534301",
+      "organizationId": "org_deal_iso_1791294534301",
+      "userId": "usr_deal_a_1791294534301",
+      "title": "Enterprise Contract A",
+      "value": 50000,
+      "stage": "PROPOSAL",
+      "createdAt": "2026-10-06T13:48:54.301Z"
+    },
+    {
+      "id": "deal_b_1791294534361",
+      "organizationId": "org_deal_iso_1791294534301",
+      "userId": "usr_deal_b_1791294534301",
+      "title": "SMB Contract B",
+      "value": 5000,
+      "stage": "QUALIFICATION",
+      "createdAt": "2026-10-06T13:48:54.361Z"
+    },
+    {
+      "id": "deal_alpha_01",
+      "organizationId": "org_alpha_1791294540106",
+      "userId": "usr_alpha_1791294540106",
+      "title": "Alpha Enterprise Contract",
+      "value": 150000,
+      "stage": "PROPOSAL",
+      "status": "OPEN",
+      "leadId": "lead_alpha_01",
+      "probability": 70,
+      "contactName": "Alpha Target",
+      "companyName": "Alpha Corp",
+      "createdAt": "2026-10-06T13:49:00.249Z"
+    },
+    {
+      "id": "deal_beta_01",
+      "organizationId": "org_beta_1791294540106",
+      "userId": "usr_beta_1791294540106",
+      "title": "Beta Mid-Market Contract",
+      "value": 50000,
+      "stage": "NEGOTIATION",
+      "status": "OPEN",
+      "leadId": "lead_beta_01",
+      "probability": 90,
+      "contactName": "Beta Target",
+      "companyName": "Beta Corp",
+      "createdAt": "2026-10-06T13:49:00.249Z"
+    },
+    {
+      "id": "deal_client_a_1791294544214",
+      "organizationId": "org_client_a_1791294544214",
+      "userId": "usr_client_a_1791294544214",
+      "leadId": "ld_client_a_1791294544214",
+      "title": "Mehta Global Enterprise Contract",
+      "value": 500000,
+      "stage": "NEGOTIATION",
+      "createdAt": "2026-10-06T13:49:04.852Z"
     }
   ],
   "appointments": [
@@ -55040,6 +55975,80 @@
       "organizationId": "org_prod_cust_a_1791293115519",
       "userId": "usr_prod_cust_a_1791293115519",
       "createdAt": "2026-10-06T13:25:15.678Z"
+    },
+    {
+      "id": "apt_conn_1",
+      "leadId": "lead_1",
+      "leadName": "Jane Smith",
+      "company": "Beta Corp",
+      "email": "jane@beta.com",
+      "dateTime": "2026-10-07T13:48:54.407Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "https://meet.google.com/xyz-uvwx-rst",
+      "notes": "Integration discussion",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": true,
+      "reminderSent": false,
+      "timelineList": [],
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "userId": "usr_gcal_conn_a",
+      "googleEventId": "google_real_event_id_abc123",
+      "syncStatus": "SYNCED"
+    },
+    {
+      "id": "apt_legacy_mock",
+      "leadId": "lead_2",
+      "leadName": "Legacy Prospect",
+      "company": "Legacy Corp",
+      "email": "legacy@corp.com",
+      "dateTime": "2026-10-06T13:48:54.407Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "",
+      "notes": "Legacy note",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "reminderSent": false,
+      "timelineList": [],
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "googleEventId": "",
+      "syncStatus": "PENDING_SYNC"
+    },
+    {
+      "id": "apt_failed_sync",
+      "leadId": "lead_3",
+      "leadName": "Failed Prospect",
+      "company": "Fail Corp",
+      "email": "fail@corp.com",
+      "dateTime": "2026-10-06T13:48:54.407Z",
+      "durationMins": 30,
+      "status": "SCHEDULED",
+      "meetingLink": "",
+      "notes": "Fail note",
+      "timezone": "Asia/Kolkata",
+      "googleSynced": false,
+      "reminderSent": false,
+      "timelineList": [],
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "googleEventId": "",
+      "syncStatus": "ERROR"
+    },
+    {
+      "id": "apt_prod_1791294545366",
+      "leadId": "lead_a1_1791294545366",
+      "title": "Product Demo with Apex Networks",
+      "attendeeName": "Jordan Lee",
+      "attendeeEmail": "jordan@apexnetworks.io",
+      "attendeeCompany": "Apex Networks",
+      "dateTime": "2026-10-07T13:49:05.663Z",
+      "durationMins": 30,
+      "status": "CONFIRMED",
+      "meetingLink": "https://meet.google.com/sp-live-demo",
+      "notes": "Google Calendar event with automated Meet link.",
+      "organizationId": "org_prod_cust_a_1791294545366",
+      "userId": "usr_prod_cust_a_1791294545366",
+      "createdAt": "2026-10-06T13:49:05.663Z"
     }
   ],
   "sessions": {
@@ -57311,6 +58320,33 @@
       "organizationId": "org_gcal_conn_test_1791293107381",
       "userId": "usr_invalid",
       "createdAt": "2026-10-06T13:25:07.381Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-06T14:48:54.407Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-06T13:48:54.407Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-06T13:48:54.407Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-06T14:48:54.407Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1791294534407",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-06T13:48:54.407Z"
     }
   ],
   "gmailAccounts": [
@@ -58053,6 +59089,26 @@
       "accessToken": "mock_token_b",
       "status": "CONNECTED",
       "connectedAt": "2026-10-06T13:25:15.397Z"
+    },
+    {
+      "id": "gm_acc_a_1791294544214",
+      "userId": "usr_client_a_1791294544214",
+      "organizationId": "org_client_a_1791294544214",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-06T13:49:05.073Z"
+    },
+    {
+      "id": "gm_acc_b_1791294544214",
+      "userId": "usr_client_b_1791294544214",
+      "organizationId": "org_client_b_1791294544214",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-06T13:49:05.152Z"
     }
   ],
   "aiCompanyResearch": [],
@@ -58398,6 +59454,12 @@
     {
       "id": "cp_1791293114595",
       "memberId": "tm_viewer_1791293113915",
+      "permissionId": "perm_manage_campaigns",
+      "allowed": false
+    },
+    {
+      "id": "cp_1791294543741",
+      "memberId": "tm_viewer_1791294542579",
       "permissionId": "perm_manage_campaigns",
       "allowed": false
     }
@@ -60170,6 +61232,30 @@
       "dailyLimit": 30,
       "createdAt": "2026-10-06T13:25:15.154Z",
       "updatedAt": "2026-10-06T13:25:15.197Z"
+    },
+    {
+      "id": "camp_alpha_1791294542579",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "name": "Enterprise Outbound Q4",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "ld_alpha_1791294542579"
+      ],
+      "dailyLimit": 25,
+      "createdAt": "2026-10-06T13:49:03.942Z",
+      "updatedAt": "2026-10-06T13:49:04.142Z"
+    },
+    {
+      "id": "camp_client_a_1791294544214",
+      "organizationId": "org_client_a_1791294544214",
+      "name": "Apex Strategic Outbound",
+      "status": "ACTIVE",
+      "targetLeadIds": [
+        "ld_client_a_1791294544214"
+      ],
+      "dailyLimit": 30,
+      "createdAt": "2026-10-06T13:49:04.716Z",
+      "updatedAt": "2026-10-06T13:49:04.784Z"
     }
   ],
   "outreachSteps": [
@@ -62053,6 +63139,28 @@
       "bodyTemplate": "Hi Vikram, let us connect regarding scalable sales infrastructure.",
       "createdAt": "2026-10-06T13:25:15.154Z",
       "updatedAt": "2026-10-06T13:25:15.154Z"
+    },
+    {
+      "id": "step_camp_alpha_1791294542579_1",
+      "organizationId": "org_campaign_alpha_1791294542579",
+      "campaignId": "camp_alpha_1791294542579",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Accelerate Enterprise Sales with SalesPilot",
+      "bodyTemplate": "Hi {{first_name}}, let us discuss pipeline automation.",
+      "createdAt": "2026-10-06T13:49:03.942Z",
+      "updatedAt": "2026-10-06T13:49:03.942Z"
+    },
+    {
+      "id": "step_camp_client_a_1791294544214_1",
+      "organizationId": "org_client_a_1791294544214",
+      "campaignId": "camp_client_a_1791294544214",
+      "stepNumber": 1,
+      "delayDays": 0,
+      "subjectTemplate": "Exploring synergies with Apex Growth",
+      "bodyTemplate": "Hi Vikram, let us connect regarding scalable sales infrastructure.",
+      "createdAt": "2026-10-06T13:49:04.716Z",
+      "updatedAt": "2026-10-06T13:49:04.716Z"
     }
   ],
   "outreachQueue": [
@@ -62733,6 +63841,85 @@
   "outreachReplies": [],
   "outreachEvents": [],
   "callingNumbers": [
+    {
+      "id": "cn_1791294534098_qy3u4",
+      "userId": "usr_edesy_1",
+      "organizationId": "org_edesy_1_1791294534097",
+      "phoneNumber": "+15551234567",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-10-06T13:48:54.098Z",
+      "updatedAt": "2026-10-06T13:48:54.098Z"
+    },
+    {
+      "id": "cn_1791294533878_t8vft",
+      "userId": "usr_dial_x",
+      "organizationId": "org_dial_x_1791294533878",
+      "phoneNumber": "+15550001111",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-10-06T13:48:53.878Z",
+      "updatedAt": "2026-10-06T13:48:53.878Z"
+    },
+    {
+      "id": "cn_1791294533787_yrbdp",
+      "userId": "usr_ver_b",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "phoneNumber": "+15559990000",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-10-06T13:48:53.787Z",
+      "updatedAt": "2026-10-06T13:48:53.829Z"
+    },
+    {
+      "id": "cn_1791294533744_8j0fc",
+      "userId": "usr_ver_b",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "phoneNumber": "+15557778888",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": false,
+      "createdAt": "2026-10-06T13:48:53.744Z",
+      "updatedAt": "2026-10-06T13:48:53.829Z"
+    },
+    {
+      "id": "cn_1791294533701_w1bkg",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "phoneNumber": "+15555556666",
+      "countryCode": "+1",
+      "isVerified": false,
+      "isDefault": false,
+      "createdAt": "2026-10-06T13:48:53.701Z",
+      "updatedAt": "2026-10-06T13:48:53.701Z",
+      "verificationStatus": "REVOKED"
+    },
+    {
+      "id": "cn_1791294533659_7qcmb",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "phoneNumber": "+15553334444",
+      "countryCode": "+1",
+      "isVerified": false,
+      "isDefault": false,
+      "createdAt": "2026-10-06T13:48:53.659Z",
+      "updatedAt": "2026-10-06T13:48:53.659Z",
+      "verificationStatus": "PENDING_VERIFICATION"
+    },
+    {
+      "id": "cn_1791294533606_uuula",
+      "userId": "usr_ver_a",
+      "organizationId": "org_call_ver_1_1791294533605",
+      "phoneNumber": "+15551112222",
+      "countryCode": "+1",
+      "isVerified": true,
+      "isDefault": true,
+      "createdAt": "2026-10-06T13:48:53.606Z",
+      "updatedAt": "2026-10-06T13:48:53.606Z"
+    },
     {
       "id": "cn_1791293106965_wjpeu",
       "userId": "usr_edesy_1",
@@ -71109,6 +72296,83 @@
     }
   ],
   "manualCallActivities": [
+    {
+      "id": "act_direct_edesy_1791294534150",
+      "source": "DIRECT_DIAL",
+      "organizationId": "org_edesy_1_1791294534097",
+      "userId": "usr_edesy_1",
+      "callingNumberId": "cn_1791294534098_qy3u4",
+      "callingNumber": "+15551234567",
+      "callingNumberSnapshot": "+15551234567",
+      "phoneNumber": "+15559876543",
+      "destinationNumber": "+15559876543",
+      "contactName": "Charlie Client",
+      "companyName": "Client Org",
+      "notes": "Initial intro call",
+      "direction": "OUTBOUND",
+      "activityType": "PHONE_CALL",
+      "status": "QUEUED",
+      "provider": "EDESY",
+      "providerCallId": "edesy_call_live_789456",
+      "providerName": "Edesy",
+      "createdAt": "2026-10-06T13:48:54.150Z",
+      "auditHistory": [
+        {
+          "timestamp": "2026-10-06T13:48:54.150Z",
+          "action": "INITIATED",
+          "actorId": "usr_edesy_1",
+          "details": "Call initiated from SalesPilot device dialer to +15559876543"
+        }
+      ]
+    },
+    {
+      "id": "act_direct_test_1791294533919",
+      "source": "DIRECT_DIAL",
+      "organizationId": "org_dial_x_1791294533878",
+      "userId": "usr_dial_x",
+      "callingNumberId": "cn_1791294533878_t8vft",
+      "callingNumber": "+15550001111",
+      "callingNumberSnapshot": "+15550001111",
+      "phoneNumber": "+15559998888",
+      "destinationNumber": "+15559998888",
+      "contactName": "Alice Smith",
+      "companyName": "Acme Corp",
+      "notes": "Good chat",
+      "direction": "OUTBOUND",
+      "activityType": "PHONE_CALL",
+      "status": "COMPLETED",
+      "providerCallId": "prov_call_1791294533919",
+      "providerName": "Mock Telephony Gateway",
+      "createdAt": "2026-10-06T13:48:53.919Z",
+      "auditHistory": [
+        {
+          "timestamp": "2026-10-06T13:48:53.919Z",
+          "action": "INITIATED",
+          "actorId": "usr_dial_x",
+          "details": "Call initiated from SalesPilot device dialer to +15559998888"
+        },
+        {
+          "timestamp": "2026-10-06T13:48:53.971Z",
+          "action": "STATUS_UPDATED",
+          "details": "Call status transitioned to IN_PROGRESS"
+        },
+        {
+          "timestamp": "2026-10-06T13:48:54.012Z",
+          "action": "STATUS_UPDATED",
+          "details": "Call status transitioned to CANCELLED"
+        },
+        {
+          "timestamp": "2026-10-06T13:48:54.054Z",
+          "action": "OUTCOME_UPDATED",
+          "actorId": "usr_dial_x",
+          "details": "Outcome updated to Connected. Notes: Good chat"
+        }
+      ],
+      "updatedAt": "2026-10-06T13:48:54.054Z",
+      "durationSeconds": 42,
+      "endedAt": "2026-10-06T13:48:54.012Z",
+      "outcome": "Connected"
+    },
     {
       "id": "act_direct_edesy_1791293107032",
       "source": "DIRECT_DIAL",
@@ -79988,6 +81252,18 @@
       "priority": "HIGH",
       "createdAt": "2026-10-06T13:25:15.278Z",
       "updatedAt": "2026-10-06T13:25:15.278Z"
+    },
+    {
+      "id": "fup_client_a_1791294544214",
+      "organizationId": "org_client_a_1791294544214",
+      "userId": "usr_client_a_1791294544214",
+      "leadId": "ld_client_a_1791294544214",
+      "title": "Send Revised Architecture Deck",
+      "dueAt": "2026-10-07T13:49:04.924Z",
+      "status": "PENDING",
+      "priority": "HIGH",
+      "createdAt": "2026-10-06T13:49:04.924Z",
+      "updatedAt": "2026-10-06T13:49:04.924Z"
     }
   ],
   "salesPilotNotifications": [
@@ -91768,9 +93044,521 @@
         "plan": "GROWTH"
       },
       "idempotencyKey": "sub_reminder_sub_7d_1791293115809_1d"
+    },
+    {
+      "id": "ntf_8f988087cb684686b42b3dc8b8caba8f",
+      "organizationId": "org_test_reject_1791293108648",
+      "userId": "usr_test_reject_1791293108648",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_test_reject_1791293108648_1791293108792",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.207Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_test_reject_1791293108648_1791293108792",
+        "expiredAt": "2026-10-06T13:25:08.792Z",
+        "plan": "BUSINESS"
+      },
+      "idempotencyKey": "sub_expired_sub_org_test_reject_1791293108648_1791293108792"
+    },
+    {
+      "id": "ntf_63bde0ee65014ce2b0c10d0a2af84306",
+      "organizationId": "org_expired_1791293115809",
+      "userId": "usr_expired_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_expired_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.279Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_expired_1791293115809",
+        "expiredAt": "2026-10-06T11:25:15.851Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_expired_1791293115809"
+    },
+    {
+      "id": "ntf_f0239be21db14b51841dbd6f257c91ab",
+      "organizationId": "org_expired_login_1791293115809",
+      "userId": "usr_expired_login_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_expired_login_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.326Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_expired_login_1791293115809",
+        "expiredAt": "2026-10-05T13:25:15.932Z",
+        "plan": "BUSINESS"
+      },
+      "idempotencyKey": "sub_expired_sub_org_expired_login_1791293115809"
+    },
+    {
+      "id": "ntf_8d8c1bf4d7ac4cacb0d4b3ffc8bb4f76",
+      "organizationId": "org_api_lock_1791293115809",
+      "userId": "usr_api_lock_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_api_lock_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.369Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_api_lock_1791293115809",
+        "expiredAt": "2026-10-01T13:25:16.015Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_api_lock_1791293115809"
+    },
+    {
+      "id": "ntf_35515d1d1b8f48f89282174ccc2ae90a",
+      "organizationId": "org_utr_lock_1791293115809",
+      "userId": "usr_utr_lock_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_utr_lock_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.464Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_utr_lock_1791293115809",
+        "expiredAt": "2026-10-01T13:25:16.057Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_utr_lock_1791293115809"
+    },
+    {
+      "id": "ntf_762a0e0fbfa04e75b9549168e9eab1df",
+      "organizationId": "org_pending_lock_1791293115809",
+      "userId": "usr_pending_lock_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_pending_lock_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.544Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_pending_lock_1791293115809",
+        "expiredAt": "2026-10-06T13:25:16.264Z",
+        "plan": "GROWTH"
+      },
+      "idempotencyKey": "sub_expired_sub_org_pending_lock_1791293115809"
+    },
+    {
+      "id": "ntf_6343dae5571c486cb44a101a0c3c4563",
+      "organizationId": "org_ls_tamper_1791293115809",
+      "userId": "usr_ls_tamper_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_ls_tamper_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.584Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_ls_tamper_1791293115809",
+        "expiredAt": "2026-09-26T13:25:17.340Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_ls_tamper_1791293115809"
+    },
+    {
+      "id": "ntf_633187e6b1bb463fb6b5ab14dd572cb5",
+      "organizationId": "org_customer_expired_1791293115809",
+      "userId": "usr_cust_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_customer_expired_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.624Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_customer_expired_1791293115809",
+        "expiredAt": "2026-09-26T13:25:17.380Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_customer_expired_1791293115809"
+    },
+    {
+      "id": "ntf_1c9a495cab2d4e45afef072e8b76689e",
+      "organizationId": "org_user_tamper_1791293115809",
+      "userId": "usr_victim_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_user_tamper_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.668Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_user_tamper_1791293115809",
+        "expiredAt": "2026-10-01T13:25:17.459Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_user_tamper_1791293115809"
+    },
+    {
+      "id": "ntf_222cc48c305646dda9c8af37f9f2e609",
+      "organizationId": "org_tenant_b_1791293115809",
+      "userId": "usr_tenant_b_1791293115809",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_tenant_b_1791293115809",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:31:50.710Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_tenant_b_1791293115809",
+        "expiredAt": "2026-10-06T13:25:07.543Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_tenant_b_1791293115809"
+    },
+    {
+      "id": "ntf_262f8c119bc34bc8b41803d605c0f6fd",
+      "organizationId": "org_reminder_1791294545876",
+      "userId": "usr_reminder_1791294545876",
+      "type": "SUBSCRIPTION_RENEWAL_REMINDER",
+      "title": "Subscription Renewal Reminder",
+      "message": "Your SalesPilot subscription expires soon. Please renew to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_7d_1791294545876",
+      "priority": "MEDIUM",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:49:09.147Z",
+      "readAt": null,
+      "metadata": {
+        "daysRemaining": 7,
+        "expiresAt": "2026-10-12T13:49:09.080Z",
+        "plan": "GROWTH"
+      },
+      "idempotencyKey": "sub_reminder_sub_7d_1791294545876_7d"
+    },
+    {
+      "id": "ntf_50cceda934324804897e22bb5c112173",
+      "organizationId": "org_reminder_1791294545876",
+      "userId": "usr_reminder_1791294545876",
+      "type": "SUBSCRIPTION_RENEWAL_REMINDER",
+      "title": "Subscription Renewal Reminder",
+      "message": "Your SalesPilot subscription expires soon. Please renew to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_7d_1791294545876",
+      "priority": "HIGH",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:49:09.290Z",
+      "readAt": null,
+      "metadata": {
+        "daysRemaining": 3,
+        "expiresAt": "2026-10-07T09:49:09.220Z",
+        "plan": "GROWTH"
+      },
+      "idempotencyKey": "sub_reminder_sub_7d_1791294545876_3d"
+    },
+    {
+      "id": "ntf_66182e4221f7478796872ab9429992d6",
+      "organizationId": "org_reminder_1791294545876",
+      "userId": "usr_reminder_1791294545876",
+      "type": "SUBSCRIPTION_RENEWAL_REMINDER",
+      "title": "Subscription Renewal Reminder",
+      "message": "Your SalesPilot subscription expires soon. Please renew to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_7d_1791294545876",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-06T13:49:09.361Z",
+      "readAt": null,
+      "metadata": {
+        "daysRemaining": 1,
+        "expiresAt": "2026-10-07T09:49:09.220Z",
+        "plan": "GROWTH"
+      },
+      "idempotencyKey": "sub_reminder_sub_7d_1791294545876_1d"
     }
   ],
   "payments": [
+    {
+      "id": "pay_1791294549457_fajjlz",
+      "organization_id": "org_flow_1791294545876",
+      "user_id": "usr_flow_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_FLOW_1791294545876",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:49:09.457Z",
+      "submitted_at": "2026-10-06T13:49:09.457Z",
+      "verified_at": "2026-10-06T13:49:09.691Z",
+      "verified_by": "usr_admin",
+      "subscription_id": "sub_org_flow_1791294545876_1791294549573",
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294548536_rxtd2i",
+      "organization_id": "org_tenant_a_1791294545876",
+      "user_id": "usr_tenant_a_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "amount": 2949,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_TENANT_A_1791294545876",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:49:08.536Z",
+      "submitted_at": "2026-10-06T13:49:08.536Z",
+      "verified_at": "2026-10-06T13:49:08.747Z",
+      "verified_by": "usr_admin",
+      "subscription_id": "sub_org_tenant_a_1791294545876",
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294547488_gzvyfh",
+      "organization_id": "org_renewal_calc_1791294545876",
+      "user_id": "usr_renewal_calc_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "amount": 2949,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_RENEW_ACTIVE_1791294545876",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:49:07.488Z",
+      "submitted_at": "2026-10-06T13:49:07.488Z",
+      "verified_at": "2026-10-06T13:49:07.734Z",
+      "verified_by": "usr_admin",
+      "subscription_id": "sub_org_renewal_calc_1791294545876",
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294546752_ktdg1o",
+      "organization_id": "org_verify_unlock_1791294545876",
+      "user_id": "usr_verify_unlock_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_UNLOCK_1791294545876",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:49:06.752Z",
+      "submitted_at": "2026-10-06T13:49:06.752Z",
+      "verified_at": "2026-10-06T13:49:06.974Z",
+      "verified_by": "usr_admin",
+      "subscription_id": "sub_org_verify_unlock_1791294545876_1791294546849",
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294546404_ntln6e",
+      "organization_id": "org_utr_lock_1791294545876",
+      "user_id": "usr_utr_lock_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "amount": 2949,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_LOCK_1791294545876",
+      "payment_status": "PENDING_VERIFICATION",
+      "payment_datetime": "2026-10-06T13:49:06.404Z",
+      "submitted_at": "2026-10-06T13:49:06.404Z",
+      "verified_at": null,
+      "verified_by": null,
+      "subscription_id": null,
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294540548_x181qm",
+      "organization_id": "org_billing_smoke_1791294540525",
+      "user_id": "usr_billing_smoke_1791294540525",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_SMOKE_1791294540525_1234",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:49:00.548Z",
+      "submitted_at": "2026-10-06T13:49:00.548Z",
+      "verified_at": "2026-10-06T13:49:00.835Z",
+      "verified_by": "usr_admin_master",
+      "subscription_id": "sub_org_billing_smoke_1791294540525_1791294540645",
+      "rejection_reason": null,
+      "notes": "Production smoke test payment",
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294538832_ox0cqd",
+      "organization_id": "org_expired_trial_1791294538654",
+      "user_id": "usr_expired_trial_1791294538654",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_PROD_TEST_1791294538795",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:48:58.832Z",
+      "submitted_at": "2026-10-06T13:48:58.832Z",
+      "verified_at": "2026-10-06T13:48:59.015Z",
+      "verified_by": "usr_admin",
+      "subscription_id": "sub_org_expired_trial_1791294538654_1791294538922",
+      "rejection_reason": null,
+      "notes": "Testing checkout initiation for expired trial account",
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294537954_0wpkpv",
+      "organization_id": "org_admin_test_1791294537785",
+      "user_id": "usr_cust_1791294537785",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_ADMIN_TEST_1791294537927",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:48:57.954Z",
+      "submitted_at": "2026-10-06T13:48:57.954Z",
+      "verified_at": "2026-10-06T13:48:58.177Z",
+      "verified_by": "usr_verified_founder",
+      "subscription_id": "sub_org_admin_test_1791294537785_1791294538048",
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294537096_va6piv",
+      "organization_id": "org_billing_test_1791294536938",
+      "user_id": "usr_billing_test_1791294536938",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_GROWTH_1791294537076",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:48:57.096Z",
+      "submitted_at": "2026-10-06T13:48:57.096Z",
+      "verified_at": "2026-10-06T13:48:57.309Z",
+      "verified_by": "usr_admin",
+      "subscription_id": "sub_org_billing_test_1791294536938_1791294537189",
+      "rejection_reason": null,
+      "notes": "Customer growth tier subscription",
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294536228_h5sybu",
+      "organization_id": "org_tenant_a_1791294536206",
+      "user_id": "usr_org_a_admin",
+      "plan": "BUSINESS",
+      "billing_cycle": "annual",
+      "amount": 141588,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_ORGA_1791294536206",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:48:56.228Z",
+      "submitted_at": "2026-10-06T13:48:56.228Z",
+      "verified_at": "2026-10-06T13:48:56.444Z",
+      "verified_by": "usr_admin_verifier_01",
+      "subscription_id": "sub_org_tenant_a_1791294536206_1791294536317",
+      "rejection_reason": null,
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294535813_0zdsfx",
+      "organization_id": "org_test_reject_1791294535789",
+      "user_id": "usr_test_reject_1791294535789",
+      "plan": "BUSINESS",
+      "billing_cycle": "monthly",
+      "amount": 14159,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_REJECT_1791294535789",
+      "payment_status": "REJECTED",
+      "payment_datetime": "2026-10-06T13:48:55.813Z",
+      "submitted_at": "2026-10-06T13:48:55.813Z",
+      "verified_at": null,
+      "verified_by": "usr_admin_verifier_01",
+      "subscription_id": null,
+      "rejection_reason": "UTR not found on bank statement",
+      "notes": null,
+      "customer_name": "",
+      "customer_email": ""
+    },
+    {
+      "id": "pay_1791294534959_ztkjih",
+      "organization_id": "org_test_billing_1791294534408",
+      "user_id": "usr_test_billing_1791294534408",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "amount": 7079,
+      "currency": "INR",
+      "upi_id": "sohamkharat85@oksbi",
+      "utr": "UTR_1791294534408_998811",
+      "payment_status": "VERIFIED",
+      "payment_datetime": "2026-10-06T13:48:54.959Z",
+      "submitted_at": "2026-10-06T13:48:54.959Z",
+      "verified_at": "2026-10-06T13:48:55.341Z",
+      "verified_by": "usr_admin_verifier_01",
+      "subscription_id": "sub_org_test_billing_1791294534408_1791294535067",
+      "rejection_reason": null,
+      "notes": "Test UPI deposit",
+      "customer_name": "",
+      "customer_email": ""
+    },
     {
       "id": "pay_1791293118365_otvzjf",
       "organization_id": "org_flow_1791293115809",
@@ -117017,7 +118805,7 @@
       "user_id": "usr_test_reject_1791293108648",
       "plan": "BUSINESS",
       "billing_cycle": "monthly",
-      "status": "CANCELLED",
+      "status": "EXPIRED",
       "current_period_start": "2026-10-06T13:25:08.792Z",
       "current_period_end": "2026-10-06T13:25:08.792Z",
       "created_at": "2026-10-06T13:25:08.792Z",
@@ -117144,7 +118932,7 @@
       "user_id": "usr_utr_lock_1791293115809",
       "plan": "STARTER",
       "billing_cycle": "monthly",
-      "status": "PENDING_VERIFICATION",
+      "status": "EXPIRED",
       "current_period_start": "2026-09-01T13:25:16.057Z",
       "current_period_end": "2026-10-01T13:25:16.057Z",
       "created_at": "2026-10-06T13:25:16.057Z",
@@ -117156,7 +118944,7 @@
       "user_id": "usr_pending_lock_1791293115809",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
-      "status": "PENDING_VERIFICATION",
+      "status": "EXPIRED",
       "current_period_start": "2026-10-06T13:25:16.264Z",
       "current_period_end": "2026-10-06T13:25:16.264Z",
       "created_at": "2026-10-06T13:25:16.264Z",
@@ -117281,9 +119069,472 @@
       "current_period_end": "2026-11-05T13:25:18.530Z",
       "created_at": "2026-10-06T13:25:18.440Z",
       "updated_at": "2026-10-06T13:25:18.530Z"
+    },
+    {
+      "id": "sub_org_test_billing_1791294534408_1791294535067",
+      "organization_id": "org_test_billing_1791294534408",
+      "user_id": "usr_test_billing_1791294534408",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:48:55.067Z",
+      "current_period_end": "2026-11-05T13:48:55.341Z",
+      "created_at": "2026-10-06T13:48:55.067Z",
+      "updated_at": "2026-10-06T13:48:55.341Z"
+    },
+    {
+      "id": "sub_org_test_reject_1791294535789_1791294535920",
+      "organization_id": "org_test_reject_1791294535789",
+      "user_id": "usr_test_reject_1791294535789",
+      "plan": "BUSINESS",
+      "billing_cycle": "monthly",
+      "status": "CANCELLED",
+      "current_period_start": "2026-10-06T13:48:55.920Z",
+      "current_period_end": "2026-10-06T13:48:55.920Z",
+      "created_at": "2026-10-06T13:48:55.920Z",
+      "updated_at": "2026-10-06T13:48:55.920Z"
+    },
+    {
+      "id": "sub_org_tenant_a_1791294536206_1791294536317",
+      "organization_id": "org_tenant_a_1791294536206",
+      "user_id": "usr_org_a_admin",
+      "plan": "BUSINESS",
+      "billing_cycle": "annual",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:48:56.317Z",
+      "current_period_end": "2027-10-06T13:48:56.444Z",
+      "created_at": "2026-10-06T13:48:56.317Z",
+      "updated_at": "2026-10-06T13:48:56.444Z"
+    },
+    {
+      "id": "sub_org_billing_test_1791294536938_1791294537189",
+      "organization_id": "org_billing_test_1791294536938",
+      "user_id": "usr_billing_test_1791294536938",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:48:57.189Z",
+      "current_period_end": "2026-11-05T13:48:57.309Z",
+      "created_at": "2026-10-06T13:48:57.189Z",
+      "updated_at": "2026-10-06T13:48:57.309Z"
+    },
+    {
+      "id": "sub_org_admin_test_1791294537785_1791294538048",
+      "organization_id": "org_admin_test_1791294537785",
+      "user_id": "usr_cust_1791294537785",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:48:58.048Z",
+      "current_period_end": "2026-11-05T13:48:58.177Z",
+      "created_at": "2026-10-06T13:48:58.048Z",
+      "updated_at": "2026-10-06T13:48:58.177Z"
+    },
+    {
+      "id": "sub_org_expired_trial_1791294538654_1791294538922",
+      "organization_id": "org_expired_trial_1791294538654",
+      "user_id": "usr_expired_trial_1791294538654",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:48:58.922Z",
+      "current_period_end": "2026-11-05T13:48:59.015Z",
+      "created_at": "2026-10-06T13:48:58.922Z",
+      "updated_at": "2026-10-06T13:48:59.015Z"
+    },
+    {
+      "id": "sub_a_1791294539563",
+      "organization_id": "org_test_alpha_1791294539563",
+      "user_id": "usr_alpha_1791294539563",
+      "plan": "STARTER",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "sub_org_billing_smoke_1791294540525_1791294540645",
+      "organization_id": "org_billing_smoke_1791294540525",
+      "user_id": "usr_billing_smoke_1791294540525",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:00.645Z",
+      "current_period_end": "2026-11-05T13:49:00.835Z",
+      "created_at": "2026-10-06T13:49:00.645Z",
+      "updated_at": "2026-10-06T13:49:00.835Z"
+    },
+    {
+      "id": "sub_org_active_1791294545876",
+      "organization_id": "org_active_1791294545876",
+      "user_id": "usr_active_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:05.876Z",
+      "current_period_end": "2026-10-21T13:49:05.876Z",
+      "created_at": "2026-10-06T13:49:05.876Z",
+      "updated_at": "2026-10-06T13:49:05.876Z"
+    },
+    {
+      "id": "sub_org_expired_1791294545876",
+      "organization_id": "org_expired_1791294545876",
+      "user_id": "usr_expired_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "EXPIRED",
+      "current_period_start": "2026-09-06T13:49:05.952Z",
+      "current_period_end": "2026-10-06T11:49:05.952Z",
+      "created_at": "2026-10-06T13:49:05.952Z",
+      "updated_at": "2026-10-06T13:49:05.952Z"
+    },
+    {
+      "id": "sub_org_expired_login_1791294545876",
+      "organization_id": "org_expired_login_1791294545876",
+      "user_id": "usr_expired_login_1791294545876",
+      "plan": "BUSINESS",
+      "billing_cycle": "annual",
+      "status": "EXPIRED",
+      "current_period_start": "2025-10-06T13:49:06.096Z",
+      "current_period_end": "2026-10-05T13:49:06.096Z",
+      "created_at": "2026-10-06T13:49:06.096Z",
+      "updated_at": "2026-10-06T13:49:06.096Z"
+    },
+    {
+      "id": "sub_org_api_lock_1791294545876",
+      "organization_id": "org_api_lock_1791294545876",
+      "user_id": "usr_api_lock_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "EXPIRED",
+      "current_period_start": "2026-09-01T13:49:06.237Z",
+      "current_period_end": "2026-10-01T13:49:06.237Z",
+      "created_at": "2026-10-06T13:49:06.237Z",
+      "updated_at": "2026-10-06T13:49:06.237Z"
+    },
+    {
+      "id": "sub_org_utr_lock_1791294545876",
+      "organization_id": "org_utr_lock_1791294545876",
+      "user_id": "usr_utr_lock_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "PENDING_VERIFICATION",
+      "current_period_start": "2026-09-01T13:49:06.309Z",
+      "current_period_end": "2026-10-01T13:49:06.309Z",
+      "created_at": "2026-10-06T13:49:06.309Z",
+      "updated_at": "2026-10-06T13:49:06.493Z"
+    },
+    {
+      "id": "sub_org_pending_lock_1791294545876",
+      "organization_id": "org_pending_lock_1791294545876",
+      "user_id": "usr_pending_lock_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "PENDING_VERIFICATION",
+      "current_period_start": "2026-10-06T13:49:06.586Z",
+      "current_period_end": "2026-10-06T13:49:06.586Z",
+      "created_at": "2026-10-06T13:49:06.586Z",
+      "updated_at": "2026-10-06T13:49:06.586Z"
+    },
+    {
+      "id": "sub_org_verify_unlock_1791294545876_1791294546849",
+      "organization_id": "org_verify_unlock_1791294545876",
+      "user_id": "usr_verify_unlock_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:06.849Z",
+      "current_period_end": "2026-11-05T13:49:06.974Z",
+      "created_at": "2026-10-06T13:49:06.849Z",
+      "updated_at": "2026-10-06T13:49:06.974Z"
+    },
+    {
+      "id": "sub_org_renewal_calc_1791294545876",
+      "organization_id": "org_renewal_calc_1791294545876",
+      "user_id": "usr_renewal_calc_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-09-16T13:49:07.349Z",
+      "current_period_end": "2026-11-15T13:49:07.349Z",
+      "created_at": "2026-10-06T13:49:07.349Z",
+      "updated_at": "2026-10-06T13:49:07.734Z"
+    },
+    {
+      "id": "sub_org_ls_tamper_1791294545876",
+      "organization_id": "org_ls_tamper_1791294545876",
+      "user_id": "usr_ls_tamper_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "EXPIRED",
+      "current_period_start": "2026-08-27T13:49:08.066Z",
+      "current_period_end": "2026-09-26T13:49:08.066Z",
+      "created_at": "2026-10-06T13:49:08.066Z",
+      "updated_at": "2026-10-06T13:49:08.066Z"
+    },
+    {
+      "id": "sub_org_customer_expired_1791294545876",
+      "organization_id": "org_customer_expired_1791294545876",
+      "user_id": "usr_cust_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "EXPIRED",
+      "current_period_start": "2026-08-27T13:49:08.139Z",
+      "current_period_end": "2026-09-26T13:49:08.139Z",
+      "created_at": "2026-10-06T13:49:08.139Z",
+      "updated_at": "2026-10-06T13:49:08.139Z"
+    },
+    {
+      "id": "sub_org_foreign_active_1791294545876",
+      "organization_id": "org_foreign_active_1791294545876",
+      "user_id": "usr_foreign_1791294545876",
+      "plan": "ENTERPRISE",
+      "billing_cycle": "annual",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:08.209Z",
+      "current_period_end": "2027-08-02T13:49:08.209Z",
+      "created_at": "2026-10-06T13:49:08.209Z",
+      "updated_at": "2026-10-06T13:49:08.209Z"
+    },
+    {
+      "id": "sub_org_user_tamper_1791294545876",
+      "organization_id": "org_user_tamper_1791294545876",
+      "user_id": "usr_victim_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "EXPIRED",
+      "current_period_start": "2026-09-01T13:49:08.280Z",
+      "current_period_end": "2026-10-01T13:49:08.280Z",
+      "created_at": "2026-10-06T13:49:08.280Z",
+      "updated_at": "2026-10-06T13:49:08.280Z"
+    },
+    {
+      "id": "sub_org_tenant_a_1791294545876",
+      "organization_id": "org_tenant_a_1791294545876",
+      "user_id": "usr_tenant_a_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:08.351Z",
+      "current_period_end": "2026-11-05T13:49:08.747Z",
+      "created_at": "2026-10-06T13:49:08.351Z",
+      "updated_at": "2026-10-06T13:49:08.747Z"
+    },
+    {
+      "id": "sub_org_tenant_b_1791294545876",
+      "organization_id": "org_tenant_b_1791294545876",
+      "user_id": "usr_tenant_b_1791294545876",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "status": "EXPIRED",
+      "current_period_start": "2026-10-06T13:49:08.417Z",
+      "current_period_end": "2026-10-06T13:48:58.417Z",
+      "created_at": "2026-10-06T13:49:08.417Z",
+      "updated_at": "2026-10-06T13:49:08.417Z"
+    },
+    {
+      "id": "sub_7d_1791294545876",
+      "organization_id": "org_reminder_1791294545876",
+      "user_id": "usr_reminder_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:09.080Z",
+      "current_period_end": "2026-10-07T09:49:09.220Z",
+      "created_at": "2026-10-06T13:49:09.080Z",
+      "updated_at": "2026-10-06T13:49:09.080Z"
+    },
+    {
+      "id": "sub_org_flow_1791294545876_1791294549573",
+      "organization_id": "org_flow_1791294545876",
+      "user_id": "usr_flow_1791294545876",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "status": "ACTIVE",
+      "current_period_start": "2026-10-06T13:49:09.573Z",
+      "current_period_end": "2026-11-05T13:49:09.691Z",
+      "created_at": "2026-10-06T13:49:09.573Z",
+      "updated_at": "2026-10-06T13:49:09.691Z"
     }
   ],
   "invoices": [
+    {
+      "id": "inv_1791294549691_r4h2o",
+      "invoice_number": "SP-2026-INV-1308",
+      "organization_id": "org_flow_1791294545876",
+      "user_id": "usr_flow_1791294545876",
+      "payment_id": "pay_1791294549457_fajjlz",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:49:09.573Z",
+      "paid_at": "2026-10-06T13:49:09.573Z",
+      "payment_method": "UPI",
+      "utr": "UTR_FLOW_1791294545876"
+    },
+    {
+      "id": "inv_1791294548747_oszji",
+      "invoice_number": "SP-2026-INV-5829",
+      "organization_id": "org_tenant_a_1791294545876",
+      "user_id": "usr_tenant_a_1791294545876",
+      "payment_id": "pay_1791294548536_rxtd2i",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "base_amount": 2499,
+      "gst_amount": 450,
+      "total_amount": 2949,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:49:08.351Z",
+      "paid_at": "2026-10-06T13:49:08.351Z",
+      "payment_method": "UPI",
+      "utr": "UTR_TENANT_A_1791294545876"
+    },
+    {
+      "id": "inv_1791294547734_h1zjz",
+      "invoice_number": "SP-2026-INV-5939",
+      "organization_id": "org_renewal_calc_1791294545876",
+      "user_id": "usr_renewal_calc_1791294545876",
+      "payment_id": "pay_1791294547488_gzvyfh",
+      "plan": "STARTER",
+      "billing_cycle": "monthly",
+      "base_amount": 2499,
+      "gst_amount": 450,
+      "total_amount": 2949,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-09-16T13:49:07.349Z",
+      "paid_at": "2026-09-16T13:49:07.349Z",
+      "payment_method": "UPI",
+      "utr": "UTR_RENEW_ACTIVE_1791294545876"
+    },
+    {
+      "id": "inv_1791294546974_n2j57",
+      "invoice_number": "SP-2026-INV-8095",
+      "organization_id": "org_verify_unlock_1791294545876",
+      "user_id": "usr_verify_unlock_1791294545876",
+      "payment_id": "pay_1791294546752_ktdg1o",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:49:06.849Z",
+      "paid_at": "2026-10-06T13:49:06.849Z",
+      "payment_method": "UPI",
+      "utr": "UTR_UNLOCK_1791294545876"
+    },
+    {
+      "id": "inv_1791294540835_ewi9r",
+      "invoice_number": "SP-2026-INV-3175",
+      "organization_id": "org_billing_smoke_1791294540525",
+      "user_id": "usr_billing_smoke_1791294540525",
+      "payment_id": "pay_1791294540548_x181qm",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:49:00.645Z",
+      "paid_at": "2026-10-06T13:49:00.645Z",
+      "payment_method": "UPI",
+      "utr": "UTR_SMOKE_1791294540525_1234"
+    },
+    {
+      "id": "inv_1791294539015_jwlwc",
+      "invoice_number": "SP-2026-INV-4994",
+      "organization_id": "org_expired_trial_1791294538654",
+      "user_id": "usr_expired_trial_1791294538654",
+      "payment_id": "pay_1791294538832_ox0cqd",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:48:58.922Z",
+      "paid_at": "2026-10-06T13:48:58.922Z",
+      "payment_method": "UPI",
+      "utr": "UTR_PROD_TEST_1791294538795"
+    },
+    {
+      "id": "inv_1791294538177_on6s8",
+      "invoice_number": "SP-2026-INV-6741",
+      "organization_id": "org_admin_test_1791294537785",
+      "user_id": "usr_cust_1791294537785",
+      "payment_id": "pay_1791294537954_0wpkpv",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:48:58.048Z",
+      "paid_at": "2026-10-06T13:48:58.048Z",
+      "payment_method": "UPI",
+      "utr": "UTR_ADMIN_TEST_1791294537927"
+    },
+    {
+      "id": "inv_1791294537309_252v5",
+      "invoice_number": "SP-2026-INV-6031",
+      "organization_id": "org_billing_test_1791294536938",
+      "user_id": "usr_billing_test_1791294536938",
+      "payment_id": "pay_1791294537096_va6piv",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:48:57.189Z",
+      "paid_at": "2026-10-06T13:48:57.189Z",
+      "payment_method": "UPI",
+      "utr": "UTR_GROWTH_1791294537076"
+    },
+    {
+      "id": "inv_1791294536444_wj3mg",
+      "invoice_number": "SP-2026-INV-5607",
+      "organization_id": "org_tenant_a_1791294536206",
+      "user_id": "usr_org_a_admin",
+      "payment_id": "pay_1791294536228_h5sybu",
+      "plan": "BUSINESS",
+      "billing_cycle": "annual",
+      "base_amount": 119990,
+      "gst_amount": 21598,
+      "total_amount": 141588,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:48:56.317Z",
+      "paid_at": "2026-10-06T13:48:56.317Z",
+      "payment_method": "UPI",
+      "utr": "UTR_ORGA_1791294536206"
+    },
+    {
+      "id": "inv_1791294535341_5tdhi",
+      "invoice_number": "SP-2026-INV-7324",
+      "organization_id": "org_test_billing_1791294534408",
+      "user_id": "usr_test_billing_1791294534408",
+      "payment_id": "pay_1791294534959_ztkjih",
+      "plan": "GROWTH",
+      "billing_cycle": "monthly",
+      "base_amount": 5999,
+      "gst_amount": 1080,
+      "total_amount": 7079,
+      "currency": "INR",
+      "status": "PAID",
+      "issued_at": "2026-10-06T13:48:55.067Z",
+      "paid_at": "2026-10-06T13:48:55.067Z",
+      "payment_method": "UPI",
+      "utr": "UTR_1791294534408_998811"
+    },
     {
       "id": "inv_1791293118530_s31gi",
       "invoice_number": "SP-2026-INV-3548",
@@ -126981,7 +129232,7 @@
       "toneOfVoice": "Professional, concise and personalized.",
       "additionalInstructions": "Keep emails concise (3-4 sentences), focus on pipeline visibility, avoid aggressive buzzwords.",
       "isConfigured": true,
-      "updatedAt": "2026-10-06T13:25:13.511Z"
+      "updatedAt": "2026-10-06T13:49:01.863Z"
     }
   ],
   "leadGenJobs": [
@@ -127551,6 +129802,27 @@
       },
       "createdAt": "2026-10-06T13:25:18.998Z",
       "updatedAt": "2026-10-06T13:25:19.161Z"
+    },
+    {
+      "jobId": "job_a_1791294550018",
+      "organizationId": "org_async_a_1791294550018",
+      "userId": "usr_async_a_1791294550018",
+      "campaignId": "camp_alpha",
+      "status": "COMPLETED",
+      "progress": 100,
+      "total": 5,
+      "processed": 3,
+      "created": 3,
+      "skipped": 0,
+      "errorMessage": null,
+      "criteria": {
+        "industry": "Fintech",
+        "city": "Mumbai",
+        "country": "India",
+        "maxLeads": 5
+      },
+      "createdAt": "2026-10-06T13:49:10.434Z",
+      "updatedAt": "2026-10-06T13:49:10.708Z"
     }
   ]
 }

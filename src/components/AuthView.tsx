@@ -39,7 +39,7 @@ export function AuthView() {
         </div>
 
         {/* Global Error Alert Banner with Try Again */}
-        {authError && (
+        {authError && !authError.toLowerCase().includes('session') && !authError.toLowerCase().includes('expired') && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}

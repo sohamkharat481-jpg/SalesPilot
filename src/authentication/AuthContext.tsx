@@ -513,7 +513,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setOrganization(null);
       setTeamMembers([]);
       setAuthView('login');
-      setAuthError('Your session has expired. Please sign in again.');
+      setAuthError(null);
       setIsLoading(false);
     };
     window.addEventListener('salespilot:session_expired', handleSessionExpired);
