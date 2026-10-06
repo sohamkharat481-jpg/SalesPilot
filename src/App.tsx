@@ -129,6 +129,7 @@ export default function App() {
       if (window.location.hash !== `#${activeTab}`) {
         window.location.hash = `#${activeTab}`;
       }
+      console.info('[ROUTE_CHANGED] Active view switched to:', activeTab);
     }
   }, [activeTab, authLoading]);
 
@@ -154,24 +155,23 @@ export default function App() {
 
   // Simulated 1-Day Trial countdown interval timer (bypassed for Founder & Enterprise accounts)
   useEffect(() => {
-    if (isFounderUser || isEnterpriseUser) return; // Founder & Enterprise accounts completely bypass trial timer
+    if (isFounderUser || isEnterpriseUser) return;
     if (!trialActive || trialTimeRemaining <= 0) return;
     const interval = setInterval(() => {
       setTrialTimeRemaining(prev => {
         const next = prev - 1;
-        localStorage.setItem('salespilot_trial_time', String(next));
         if (next <= 0) {
           clearInterval(interval);
           setTrialActive(false);
-          localStorage.setItem('salespilot_trial_active', 'false');
-          // Automatically trigger redirect to billing
+          try { localStorage.setItem('salespilot_trial_active', 'false'); } catch (_) {}
           setActiveTab('billing');
+          return 0;
         }
         return next;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isFounderUser, isEnterpriseUser, trialActive, trialTimeRemaining]);
+  }, [isFounderUser, isEnterpriseUser, trialActive]);
 
   const formatTrialTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -388,7 +388,7 @@ export default function App() {
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
-  }, [authReady, workspaceId, user]);
+  }, [authReady, workspaceId, user?.id]);
 
   // Real Lead addition handler
   const handleAddLead = async (leadData: Partial<Lead>) => {

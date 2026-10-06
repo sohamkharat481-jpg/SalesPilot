@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('remember_me', String(rememberMe));
   }, [rememberMe]);
 
-  // Activity tracking for idle timeout (Session Expiry)
+  // Activity tracking for idle timer (Extend active session timestamp without forced logouts)
   useEffect(() => {
     if (!user) {
       setSessionExpiryCountdown(null);
@@ -144,36 +144,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    window.addEventListener('mousemove', resetTimer);
-    window.addEventListener('keydown', resetTimer);
-    window.addEventListener('click', resetTimer);
-    window.addEventListener('scroll', resetTimer);
-
-    // Check inactivity every second
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const idleTime = now - lastActive;
-      const MAX_IDLE_MS = 15 * 60 * 1000; // 15 mins
-      const WARNING_THRESHOLD_MS = 14 * 60 * 1000; // Warn after 14 mins
-
-      if (idleTime >= MAX_IDLE_MS) {
-        logout();
-      } else if (idleTime >= WARNING_THRESHOLD_MS) {
-        const remainingSeconds = Math.max(0, Math.floor((MAX_IDLE_MS - idleTime) / 1000));
-        setSessionExpiryCountdown(remainingSeconds);
-      } else {
-        setSessionExpiryCountdown(null);
-      }
-    }, 1000);
+    window.addEventListener('mousemove', resetTimer, { passive: true });
+    window.addEventListener('keydown', resetTimer, { passive: true });
+    window.addEventListener('click', resetTimer, { passive: true });
+    window.addEventListener('scroll', resetTimer, { passive: true });
 
     return () => {
       window.removeEventListener('mousemove', resetTimer);
       window.removeEventListener('keydown', resetTimer);
       window.removeEventListener('click', resetTimer);
       window.removeEventListener('scroll', resetTimer);
-      clearInterval(interval);
     };
-  }, [user, lastActive, sessionExpiryCountdown]);
+  }, [user, sessionExpiryCountdown]);
 
   const logActivity = (action: string, module: string) => {
     const ua = navigator.userAgent;
@@ -310,8 +292,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsSandbox(isLocalDev && !configured);
 
     // Initial session checking and OAuth state recovery
-    async function initAuth() {
-      setIsLoading(true);
+    async function initAuth(silent = false) {
+      if (!silent) {
+        setIsLoading(true);
+      }
 
       // Check for incoming OAuth error parameters in URL (search or hash)
       if (typeof window !== 'undefined') {
@@ -351,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           console.info('[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null, '[USER_EMAIL]', session?.user?.email || null);
           if (session?.user) {
-            console.log("[OAUTH STEP 3] Valid Supabase session detected:", session.user.email);
+            console.info('[AUTH_INITIALIZED] Valid Supabase session verified for user:', session.user.id);
             const { user: resolvedUser, organization: resolvedOrg, teamMembers: resolvedTeam } = await resolveAuthenticatedProfile(session.user, session.access_token);
 
             setUser(resolvedUser);
@@ -369,6 +353,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (verifiedWorkspaceId) {
               localStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId);
               try { sessionStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId); } catch (_) {}
+              console.info('[WORKSPACE_INITIALIZED] Active tenant workspace bound:', verifiedWorkspaceId);
             }
             console.info('[SESSION_PERSISTED]', Boolean(localStorage.getItem('salespilot_user')));
 
@@ -398,12 +383,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             const data = await res.json();
             if (data.success && data.user) {
+              console.info('[AUTH_INITIALIZED] Token session verified for user:', data.user.id);
               setUser(data.user);
               if (data.organization) setOrganization(data.organization);
               if (data.teamMembers) setTeamMembers(data.teamMembers);
               setAuthView('authenticated');
               localStorage.setItem('salespilot_user', JSON.stringify(data.user));
-              if (data.organization) localStorage.setItem('salespilot_org', JSON.stringify(data.organization));
+              if (data.organization) {
+                localStorage.setItem('salespilot_org', JSON.stringify(data.organization));
+                const wsId = data.organization.id || data.user.organizationId;
+                if (wsId) {
+                  localStorage.setItem('salespilot_workspace_id', wsId);
+                  try { sessionStorage.setItem('salespilot_workspace_id', wsId); } catch (_) {}
+                  console.info('[WORKSPACE_INITIALIZED] Active tenant workspace bound:', wsId);
+                }
+              }
               setIsLoading(false);
               return;
             }
@@ -424,10 +418,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for Supabase auth state changes
     const supabase = getSupabaseClient();
+    let subscription: any = null;
     if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.info('[AUTH_EVENT]', event, '[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null, '[USER_EMAIL]', session?.user?.email || null);
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.info('[AUTH_EVENT]', event, '[SESSION_EXISTS]', Boolean(session), '[USER_ID]', session?.user?.id || null);
         if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          if (event === 'TOKEN_REFRESHED') {
+            console.info('[AUTH_INITIALIZED] Background token refresh completed seamlessly without UI remount.');
+            if (session.access_token) {
+              localStorage.setItem('salespilot_token', session.access_token);
+            }
+            return;
+          }
+
           const { user: resolvedUser, organization: resolvedOrg, teamMembers: resolvedTeam } = await resolveAuthenticatedProfile(session.user, session.access_token);
 
           setUser(resolvedUser);
@@ -443,6 +446,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (verifiedWorkspaceId) {
             localStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId);
             try { sessionStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId); } catch (_) {}
+            console.info('[WORKSPACE_INITIALIZED] Active tenant workspace bound:', verifiedWorkspaceId);
           }
 
           if (window.location.hash.includes('access_token') || window.location.search.includes('code=') || window.location.pathname.includes('/auth/callback')) {
@@ -454,61 +458,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthView('login');
         }
       });
-
-      initAuth();
-
-      // Multi-tab sync & session expiry event listeners
-      const handleStorageChange = (e: StorageEvent) => {
-        if (e.key === 'salespilot_token' || e.key?.startsWith('sb-') || e.key === 'salespilot_user') {
-          console.log('[MULTI-TAB AUTH SYNC] Auth storage updated in another tab, re-initializing session...');
-          initAuth();
-        }
-      };
-      window.addEventListener('storage', handleStorageChange);
-
-      const handleSessionExpired = async () => {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            console.info('[AUTH SESSION CHECK] Active Supabase session verified. Ignoring spurious session_expired event.');
-            return;
-          }
-        }
-        console.warn('[AUTH SESSION EXPIRED] Session expired event received and confirmed. Clearing state & showing login.');
-        clearUserClientState();
-        setUser(null);
-        setOrganization(null);
-        setTeamMembers([]);
-        setAuthView('login');
-        setAuthError('Your session has expired. Please sign in again.');
-        setIsLoading(false);
-      };
-      window.addEventListener('salespilot:session_expired', handleSessionExpired);
-
-      return () => {
-        subscription.unsubscribe();
-        window.removeEventListener('storage', handleStorageChange);
-        window.removeEventListener('salespilot:session_expired', handleSessionExpired);
-      };
+      subscription = data.subscription;
     }
 
     initAuth();
+
+    // Multi-tab sync & session expiry event listeners
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'salespilot_token' || e.key?.startsWith('sb-') || e.key === 'salespilot_user') {
-        initAuth();
+        console.log('[MULTI-TAB AUTH SYNC] Auth storage updated in another tab, silently syncing session...');
+        initAuth(true);
       }
     };
     window.addEventListener('storage', handleStorageChange);
 
     const handleSessionExpired = async () => {
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        const { data: { session } } = await supabase.auth.getSession();
+      const sbClient = getSupabaseClient();
+      if (sbClient) {
+        const { data: { session } } = await sbClient.auth.getSession();
         if (session?.user) {
+          console.info('[AUTH SESSION CHECK] Active Supabase session verified. Suppressing session_expired.');
           return;
         }
       }
+      console.warn('[AUTH SESSION EXPIRED] Session expired event received and confirmed. Showing login.');
       clearUserClientState();
       setUser(null);
       setOrganization(null);
@@ -520,6 +493,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('salespilot:session_expired', handleSessionExpired);
 
     return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('salespilot:session_expired', handleSessionExpired);
     };

@@ -27,7 +27,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   public override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('💥 [REACT ERROR BOUNDARY CAUGHT ERROR]:', error, errorInfo);
+    console.warn('[ERROR_BOUNDARY] React render error caught safely:', error?.message || error);
     this.setState({ errorInfo });
   }
 
@@ -36,6 +36,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   };
 
   private handleReloadPage = () => {
+    console.info('[PAGE_RELOAD_TRIGGER] User clicked manual page reload button in ErrorBoundary');
     window.location.reload();
   };
 
