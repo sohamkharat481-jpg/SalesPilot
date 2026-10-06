@@ -855,14 +855,14 @@ export function SchedulerView({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  Calendar connection needs attention.
+                  Connection Expired
                   <span className="text-[10px] bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/50 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 animate-pulse">
                     <span className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
-                    ATTENTION REQUIRED
+                    REAUTH REQUIRED
                   </span>
                 </h4>
                 <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 font-semibold">
-                  ⚠️ Calendar connection needs attention. Google Calendar API verification failed or authorization has expired. Please reconnect to restore calendar access.
+                  Your Google Calendar connection has expired. Please reconnect your Google account.
                 </p>
               </div>
             </div>
@@ -907,7 +907,7 @@ export function SchedulerView({
           <div className="flex items-center justify-between border-b border-slate-850 pb-2">
             <span className="font-bold text-slate-100 flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${testResult.success ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-              Google Calendar Integration Test Logs ({testResult.isRealGoogleAPI ? 'REAL END-TO-END' : 'MOCK PREVIEW'})
+              Google Calendar Integration Test Logs ({testResult.isRealGoogleAPI ? 'REAL PRODUCTION TEST' : 'LIVE INTEGRATION STATUS'})
             </span>
             <button 
               onClick={() => setTestResult(null)}

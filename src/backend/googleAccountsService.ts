@@ -434,3 +434,43 @@ export async function verifyGoogleCalendarConnection(
   return { success: acct.status === 'CONNECTED', status: acct.status };
 }
 
+/**
+ * Invalidates and marks a Google account as REAUTH_REQUIRED in public.google_accounts.
+ */
+export async function markGoogleAccountReauthRequired(
+  email: string,
+  organizationId?: string,
+  userId?: string,
+  privilegedClient?: SupabaseClient
+): Promise<void> {
+  if (!email || !email.includes('@')) return;
+  const cleanEmail = email.toLowerCase().trim();
+
+  try {
+    const client = privilegedClient || getPrivilegedSupabaseServerClient();
+    let query = client
+      .from('google_accounts')
+      .update({
+        status: 'REAUTH_REQUIRED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('email', cleanEmail);
+
+    if (organizationId && organizationId.trim()) {
+      query = query.eq('organization_id', organizationId.trim());
+    }
+    if (userId && userId.trim()) {
+      query = query.eq('user_id', userId.trim());
+    }
+
+    const { error } = await query;
+    if (error) {
+      console.warn('[OUTREACH GOOGLE ACCOUNT] Failed to mark account as REAUTH_REQUIRED:', error.message);
+    } else {
+      console.log(`[OUTREACH GOOGLE ACCOUNT] Marked account ${cleanEmail} as REAUTH_REQUIRED in public.google_accounts.`);
+    }
+  } catch (err: any) {
+    console.warn('[OUTREACH GOOGLE ACCOUNT] Exception marking account as REAUTH_REQUIRED:', err.message || String(err));
+  }
+}
+

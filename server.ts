@@ -62,7 +62,8 @@ import {
   resolveAuthoritativeCalendarAccount,
   verifyGoogleCalendarConnection,
   persistAuthoritativeGoogleAccount,
-  queryAuthoritativeGmailAccounts
+  queryAuthoritativeGmailAccounts,
+  markGoogleAccountReauthRequired
 } from './src/backend/googleAccountsService';
 import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountries';
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
@@ -19386,8 +19387,11 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (!account.accessToken) {
       console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Missing for ${email}`);
       account.status = 'REAUTH_NEEDED';
+      calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
+      gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
       saveAccountsToDisk();
-      throw new Error(`Google OAuth token is missing for ${email}. Please reconnect your account.`);
+      markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
+      throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
     }
 
     const isRealGoogleToken = !account.accessToken.startsWith('mock_');
@@ -19446,22 +19450,31 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             saveAccountsToDisk();
             return account.accessToken;
           } else {
-            console.warn(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid (Auto-refresh failed with error)`, tokenData);
+            console.warn(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid/Revoked (Auto-refresh failed with error)`, tokenData);
             account.status = 'REAUTH_NEEDED';
+            calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
+            gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
             saveAccountsToDisk();
-            throw new Error(`Google refresh token has been revoked or is invalid: ${JSON.stringify(tokenData)}`);
+            markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
+            throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
           }
         } catch (err: any) {
           console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid (Refresh network/API failed: ${err.message || String(err)})`);
           account.status = 'REAUTH_NEEDED';
+          calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
+          gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
           saveAccountsToDisk();
-          throw new Error(`Failed to refresh expired Google OAuth token: ${err.message}`);
+          markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
+          throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
         }
       } else {
         console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Expired without refresh token for ${email}`);
         account.status = 'REAUTH_NEEDED';
+        calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
+        gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
         saveAccountsToDisk();
-        throw new Error(`Google OAuth token is expired and no refresh token is available for ${email}. Please reconnect your account.`);
+        markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
+        throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
       }
     }
 
@@ -19498,13 +19511,40 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       });
 
       if (authoritativeAccount) {
+        let effectiveStatus = authoritativeAccount.status;
+        const isRealToken = !authoritativeAccount.accessToken.startsWith('mock_');
+        const isExpired = new Date(authoritativeAccount.expiresAt).getTime() <= Date.now();
+
+        if (effectiveStatus === 'CONNECTED' && isRealToken && isExpired) {
+          const tempCalAcc = {
+            email: authoritativeAccount.email,
+            fullName: authoritativeAccount.fullName,
+            accessToken: authoritativeAccount.accessToken,
+            refreshToken: authoritativeAccount.refreshToken,
+            expiresAt: authoritativeAccount.expiresAt,
+            status: 'CONNECTED' as const,
+            createdAt: authoritativeAccount.createdAt,
+            scopes: authoritativeAccount.scopes,
+            organizationId: orgId,
+            userId: user.id
+          };
+          try {
+            await refreshCalendarTokenIfNeeded(tempCalAcc);
+            effectiveStatus = 'CONNECTED';
+          } catch (refreshErr) {
+            console.warn(`[CALENDAR ACCOUNTS] Token refresh failed on connection check for ${authoritativeAccount.email}:`, refreshErr);
+            effectiveStatus = 'REAUTH_REQUIRED';
+            markGoogleAccountReauthRequired(authoritativeAccount.email, orgId, user.id);
+          }
+        }
+
         // Sync in-memory cache
         const existing = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
         if (existing) {
           existing.accessToken = authoritativeAccount.accessToken;
           existing.refreshToken = authoritativeAccount.refreshToken || existing.refreshToken;
           existing.expiresAt = authoritativeAccount.expiresAt;
-          existing.status = (authoritativeAccount.status === 'CONNECTED' ? 'CONNECTED' : (authoritativeAccount.status as any));
+          existing.status = (effectiveStatus === 'CONNECTED' ? 'CONNECTED' : (effectiveStatus as any));
           existing.fullName = authoritativeAccount.fullName;
         } else {
           calendarAccounts.push({
@@ -19513,7 +19553,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             accessToken: authoritativeAccount.accessToken,
             refreshToken: authoritativeAccount.refreshToken,
             expiresAt: authoritativeAccount.expiresAt,
-            status: (authoritativeAccount.status === 'CONNECTED' ? 'CONNECTED' : (authoritativeAccount.status as any)),
+            status: (effectiveStatus === 'CONNECTED' ? 'CONNECTED' : (effectiveStatus as any)),
             createdAt: authoritativeAccount.createdAt,
             scopes: authoritativeAccount.scopes,
             organizationId: orgId,
@@ -19526,8 +19566,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             {
               email: authoritativeAccount.email,
               fullName: authoritativeAccount.fullName,
-              status: authoritativeAccount.status,
-              isReal: !authoritativeAccount.accessToken.startsWith('mock_'),
+              status: effectiveStatus,
+              isReal: isRealToken,
               createdAt: authoritativeAccount.createdAt
             }
           ]
