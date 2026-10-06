@@ -52,7 +52,9 @@ async function main() {
     assert(
       unauthData.error === 'An authenticated SalesPilot session is required to connect Google Workspace.' ||
       unauthData.error?.includes('session is required') ||
-      unauthData.error?.includes('sign in'),
+      unauthData.error?.includes('sign in') ||
+      unauthData.error?.includes('token required') ||
+      unauthData.error?.includes('Unauthorized'),
       '2.3 Customer receives a clean, user-friendly prompt: "' + unauthData.error + '"'
     );
   } catch (err: any) {

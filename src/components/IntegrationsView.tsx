@@ -14,7 +14,7 @@ import { buildGoogleOAuthHeaders } from '../utils/googleOAuthClient';
 import { sanitizeUserFacingError } from '../utils/errorMapper';
 import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
 import { MyCallingNumbers } from './voice/MyCallingNumbers';
-import { getAuthToken } from '../utils/apiAuth';
+import { getAuthToken, getAuthHeaders as getApiAuthHeaders, authenticatedFetch } from '../utils/apiAuth';
 
 interface IntegrationsViewProps {
   credentials: IntegrationCredentials;
@@ -1219,26 +1219,9 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
 
   const triggerRealGoogleLogin = async () => {
     try {
-      // 1. Resolve current active Supabase session token using authoritative getAuthToken
-      const sessionToken = await getAuthToken();
-
-      if (!sessionToken) {
-        alert('Please wait for your session to finish loading before connecting Google.');
-        return;
-      }
-
-      // 2. Resolve verified workspace organization ID
       const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
-
-      let authHeaders: Record<string, string>;
-      try {
-        authHeaders = buildGoogleOAuthHeaders(sessionToken, workspaceId);
-      } catch (authErr: any) {
-        alert(sanitizeUserFacingError(authErr, 'Your session has expired. Please sign in again.'));
-        return;
-      }
-
-      const res = await fetch('/api/auth/google/url', { headers: authHeaders });
+      const authHeaders = await getApiAuthHeaders({}, workspaceId);
+      const res = await authenticatedFetch('/api/auth/google/url', { headers: authHeaders });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Unable to connect your Google account. Please try again.');

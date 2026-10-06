@@ -10,6 +10,7 @@ import { Appointment, Lead } from '../types';
 import { sanitizeUserFacingError } from '../utils/errorMapper';
 import { useAuth } from '../authentication/AuthContext';
 import { getSupabaseClient } from '../lib/supabase';
+import { getAuthHeaders, authenticatedFetch } from '../utils/apiAuth';
 
 interface SchedulerViewProps {
   appointments: Appointment[];
@@ -64,10 +65,7 @@ export function SchedulerView({
   // Check backend connected accounts state on load
   const checkConnectionStatus = async () => {
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-      const res = await fetch('/calendar/accounts', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
+      const res = await authenticatedFetch('/calendar/accounts');
       if (res.ok) {
         const data = await res.json();
         if (data.accounts && data.accounts.length > 0) {
@@ -130,7 +128,7 @@ export function SchedulerView({
   const fetchExternalEvents = async () => {
     if (!googleCalendarConnected || !googleCalendarEmail) return;
     try {
-      const response = await fetch(`/calendar/events?email=${googleCalendarEmail}`);
+      const response = await authenticatedFetch(`/calendar/events?email=${encodeURIComponent(googleCalendarEmail)}`);
       if (response.ok) {
         const data = await response.json();
         setExternalEvents(data.events || []);
@@ -147,12 +145,12 @@ export function SchedulerView({
   const handleSyncCalendar = async () => {
     setIsSyncingCalendar(true);
     try {
-      const response = await fetch(`/calendar/events?email=${googleCalendarEmail}`);
+      const response = await authenticatedFetch(`/calendar/events?email=${encodeURIComponent(googleCalendarEmail)}`);
       if (response.ok) {
         const data = await response.json();
         setExternalEvents(data.events || []);
         // Also fetch local appointments
-        const aptRes = await fetch('/api/v1/appointments');
+        const aptRes = await authenticatedFetch('/api/v1/appointments');
         if (aptRes.ok) {
           const aptData = await aptRes.json();
           setAppointments(aptData.appointments || []);
@@ -171,21 +169,9 @@ export function SchedulerView({
     setLoadingId(isReconnect ? 'reconnect-calendar' : 'connect-calendar');
     try {
       console.log(`[GOOGLE OAUTH] Fetching auth URL from /api/auth/google/url...`);
-      const authHeaders: Record<string, string> = {};
-      let sessionToken = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-      const supabaseClient = getSupabaseClient();
-      if (supabaseClient) {
-        try {
-          const { data } = await supabaseClient.auth.getSession();
-          if (data?.session?.access_token) {
-            sessionToken = data.session.access_token;
-          }
-        } catch (_) {}
-      }
-      if (sessionToken) authHeaders.Authorization = `Bearer ${sessionToken}`;
       const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
-      if (workspaceId) authHeaders['x-organization-id'] = workspaceId;
-      const res = await fetch('/api/auth/google/url', { headers: authHeaders });
+      const authHeaders = await getAuthHeaders({}, workspaceId);
+      const res = await authenticatedFetch('/api/auth/google/url', { headers: authHeaders });
       const rawText = await res.text();
       const contentType = res.headers.get('content-type') || 'unknown';
       console.log(`[GOOGLE OAUTH] Raw response status: ${res.status}, Content-Type: ${contentType}`);
@@ -237,7 +223,7 @@ export function SchedulerView({
     
     setLoadingId('disconnect-calendar');
     try {
-      const res = await fetch('/calendar/disconnect', {
+      const res = await authenticatedFetch('/calendar/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: googleCalendarEmail })
@@ -259,7 +245,7 @@ export function SchedulerView({
     if (!confirm('Are you sure you want to delete this event from Google Calendar?')) return;
     setLoadingId(`delete-${eventId}`);
     try {
-      const response = await fetch('/calendar/delete', {
+      const response = await authenticatedFetch('/calendar/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eventId })

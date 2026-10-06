@@ -11,7 +11,7 @@ import {
 import { Lead, LeadStatus, LeadNote, LeadTask, LeadTimelineEvent, Campaign, LeadGenJob } from '../types';
 import { LeadIntelligenceSection } from './crm/LeadIntelligenceSection';
 import { LeadGenJobsManager } from './crm/LeadGenJobsManager';
-import { getAuthHeaders, authenticatedFetch } from '../utils/apiAuth';
+import { getAuthHeaders, authenticatedFetch, getValidSupabaseSession } from '../utils/apiAuth';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -1145,7 +1145,16 @@ export function LeadsView({
     if (leadGenMode === 'ASYNC') {
       setIsScraperRunning(true);
       try {
+        const token = await getValidSupabaseSession();
+        if (!token) {
+          setIsScraperRunning(false);
+          alert('Authentication is initializing or your session is required. Please sign in to launch async jobs.');
+          return;
+        }
+
         const headers = await getAuthHeaders(undefined, workspaceId);
+        headers['Authorization'] = `Bearer ${token.trim()}`;
+
         const response = await authenticatedFetch('/api/v1/leads/generate/jobs', {
           method: 'POST',
           headers,
@@ -1206,7 +1215,7 @@ export function LeadsView({
         }
       });
 
-      const response = await fetch('/api/v1/leads/generate', {
+      const response = await authenticatedFetch('/api/v1/leads/generate', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
@@ -1421,7 +1430,7 @@ export function LeadsView({
   const handleRegenerateResearch = async (leadId: string) => {
     setRegeneratingId(leadId);
     try {
-      const response = await fetch(`/api/v1/leads/${leadId}/research/regenerate`, {
+      const response = await authenticatedFetch(`/api/v1/leads/${leadId}/research/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customApiKey: customProviderApiKey })
@@ -3079,27 +3088,6 @@ export function LeadsView({
                   );
                 })}
               </div>
-
-              {selectedProviderId !== 'astra-gemini' && (
-                <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2.5 animate-slide-down">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[9px] font-mono font-bold uppercase text-slate-400">
-                      Configure Custom Credentials / Token override
-                    </label>
-                    <span className="text-[9px] text-blue-600 dark:text-blue-400 font-mono">Optional client-override</span>
-                  </div>
-                  <input 
-                    type="password" 
-                    placeholder={`Enter custom key or token for ${selectedProviderId}`}
-                    value={customProviderApiKey}
-                    onChange={(e) => setCustomProviderApiKey(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono"
-                  />
-                  <p className="text-[9px] text-slate-400">
-                    If left blank, SalesPilot core utilizes the platform default backend environment variable. Keys are processed safely on the server.
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Campaign Run Execution Parameters & Mode Selection */}
@@ -3247,7 +3235,13 @@ export function LeadsView({
             onRetryJob={async (job) => {
               if (!job.criteria) return;
               try {
+                const token = await getValidSupabaseSession();
+                if (!token) {
+                  alert('Valid session required to retry job.');
+                  return;
+                }
                 const headers = await getAuthHeaders({}, workspaceId);
+                headers['Authorization'] = `Bearer ${token.trim()}`;
                 const response = await authenticatedFetch('/api/v1/leads/generate/jobs', {
                   method: 'POST',
                   headers,

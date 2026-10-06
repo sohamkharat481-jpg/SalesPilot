@@ -5,12 +5,23 @@ import { getSupabaseClient } from '../lib/supabase';
  * Provides single source of truth for Supabase session tokens and authenticated fetch requests.
  */
 
-export async function getAuthToken(): Promise<string | null> {
+export async function getValidSupabaseSession(): Promise<string | null> {
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (session?.access_token && !error) {
+        // Check if token expires within 60 seconds
+        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+        if (expiresAt && expiresAt - Date.now() < 60000) {
+          try {
+            const { data: { session: refreshedSession }, error: refError } = await supabase.auth.refreshSession();
+            if (refreshedSession?.access_token && !refError) {
+              try { localStorage.setItem('salespilot_token', refreshedSession.access_token); } catch (_) {}
+              return refreshedSession.access_token;
+            }
+          } catch (_) {}
+        }
         try {
           localStorage.setItem('salespilot_token', session.access_token);
         } catch (_) {}
@@ -35,9 +46,10 @@ export async function getAuthToken(): Promise<string | null> {
         const val = localStorage.getItem(key);
         if (val) {
           const parsed = JSON.parse(val);
-          if (parsed?.access_token) {
-            localStorage.setItem('salespilot_token', parsed.access_token);
-            return parsed.access_token;
+          const candidateToken = parsed?.access_token || parsed?.currentSession?.access_token || parsed?.session?.access_token;
+          if (candidateToken && typeof candidateToken === 'string' && candidateToken.trim() !== '') {
+            localStorage.setItem('salespilot_token', candidateToken);
+            return candidateToken;
           }
         }
       }
@@ -47,11 +59,15 @@ export async function getAuthToken(): Promise<string | null> {
   return null;
 }
 
+export async function getAuthToken(): Promise<string | null> {
+  return getValidSupabaseSession();
+}
+
 export async function getAuthHeaders(
   customHeaders?: Record<string, string>,
   workspaceId?: string | null
 ): Promise<Record<string, string>> {
-  const token = await getAuthToken();
+  const token = await getValidSupabaseSession();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...customHeaders,
@@ -70,7 +86,7 @@ export async function getAuthHeaders(
 }
 
 export async function authenticatedFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  const token = await getAuthToken();
+  const token = await getValidSupabaseSession();
   const existingHeaders = (init.headers || {}) as Record<string, string>;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -127,3 +143,4 @@ export async function authenticatedFetch(url: string, init: RequestInit = {}): P
 
   return res;
 }
+

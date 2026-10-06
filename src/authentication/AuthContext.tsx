@@ -365,6 +365,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (resolvedOrg) {
               localStorage.setItem('salespilot_org', JSON.stringify(resolvedOrg));
             }
+            const verifiedWorkspaceId = resolvedOrg?.id || resolvedUser.organizationId;
+            if (verifiedWorkspaceId) {
+              localStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId);
+              try { sessionStorage.setItem('salespilot_workspace_id', verifiedWorkspaceId); } catch (_) {}
+            }
             console.info('[SESSION_PERSISTED]', Boolean(localStorage.getItem('salespilot_user')));
 
             // Clean up OAuth callback state in URL without full page reload
@@ -1189,7 +1194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const configuredAppUrl = (import.meta.env.VITE_APP_URL || '').trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '');
       const currentOrigin = typeof window !== 'undefined' ? window.location.origin.replace(/\/+$/, '') : '';
-      const productionCanonicalOrigin = 'https://sales-pilot-green.vercel.app';
+      const productionCanonicalOrigin = 'https://sales-pilot-f4uv.vercel.app';
       
       // Current origin is authoritative for the active browser session
       const appUrl = currentOrigin || configuredAppUrl || productionCanonicalOrigin;
