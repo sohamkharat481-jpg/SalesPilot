@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Calendar as CalendarIcon, Clock, Video, User, Briefcase, ExternalLink, 
   CheckCircle, AlertCircle, PlusCircle, ArrowUpRight, Check, XCircle, 
@@ -54,6 +54,7 @@ export function SchedulerView({
   const [expandedAptId, setExpandedAptId] = useState<string | null>(null);
   const [editingAptId, setEditingAptId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
   // Google Calendar Integration States
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
@@ -63,7 +64,7 @@ export function SchedulerView({
   const [externalEvents, setExternalEvents] = useState<any[]>([]);
 
   // Check backend connected accounts state on load
-  const checkConnectionStatus = async () => {
+  const checkConnectionStatus = useCallback(async () => {
     try {
       const res = await authenticatedFetch('/calendar/accounts');
       if (res.ok) {
@@ -74,58 +75,22 @@ export function SchedulerView({
           setGoogleCalendarConnected(isConnected);
           setGoogleCalendarEmail(acc.email);
           setGoogleCalendarStatus(acc.status || 'CONNECTED');
+          return isConnected;
         } else {
           setGoogleCalendarConnected(false);
           setGoogleCalendarEmail('');
           setGoogleCalendarStatus('DISCONNECTED');
+          return false;
         }
       }
     } catch (err) {
       console.error('Failed to query calendar connection accounts:', err);
     }
-  };
-
-  useEffect(() => {
-    checkConnectionStatus();
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      const hash = window.location.hash || '';
-      if (url.searchParams.get('google') === 'connected' || hash.includes('google=connected')) {
-        setGoogleCalendarConnected(true);
-        alert('Google Calendar connected successfully.');
-        checkConnectionStatus();
-      } else if (url.searchParams.get('google') === 'error' || hash.includes('google=error')) {
-        alert('Unable to connect Google Calendar. Please try again.');
-      }
-    }
-  }, []);
-
-  // Listen for Google Auth callback success postMessages from popup
-  useEffect(() => {
-    const handleGoogleAuthMessage = (event: MessageEvent) => {
-      const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.endsWith('.vercel.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
-        return;
-      }
-      
-      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-        const email = event.data.email;
-        setGoogleCalendarConnected(true);
-        setGoogleCalendarEmail(email);
-        alert('Google connected successfully.');
-        checkConnectionStatus();
-      } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
-        const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
-        alert(friendlyError);
-      }
-    };
-
-    window.addEventListener('message', handleGoogleAuthMessage);
-    return () => window.removeEventListener('message', handleGoogleAuthMessage);
+    return false;
   }, []);
 
   // Fetch Google Calendar External Events
-  const fetchExternalEvents = async () => {
+  const fetchExternalEvents = useCallback(async () => {
     if (!googleCalendarConnected || !googleCalendarEmail) return;
     try {
       const response = await authenticatedFetch(`/calendar/events?email=${encodeURIComponent(googleCalendarEmail)}`);
@@ -136,11 +101,155 @@ export function SchedulerView({
     } catch (err) {
       console.error('Failed to fetch external Google Calendar events:', err);
     }
-  };
+  }, [googleCalendarConnected, googleCalendarEmail]);
+
+  // Centralized callback for when Google Auth succeeds across ANY channel
+  const onGoogleAuthSuccess = useCallback((email?: string) => {
+    console.log('[GOOGLE OAUTH] Google Calendar connected successfully. Email:', email);
+    setGoogleCalendarConnected(true);
+    if (email) setGoogleCalendarEmail(email);
+    setGoogleCalendarStatus('CONNECTED');
+    setLoadingId(null);
+    try {
+      if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.close();
+      }
+    } catch (_) {}
+    checkConnectionStatus();
+    fetchExternalEvents();
+  }, [checkConnectionStatus, fetchExternalEvents]);
+
+  // Initial load and URL parameter check
+  useEffect(() => {
+    checkConnectionStatus();
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const hash = window.location.hash || '';
+      if (url.searchParams.get('google') === 'connected' || hash.includes('google=connected')) {
+        onGoogleAuthSuccess();
+        // Clean URL parameter without reloading
+        try {
+          const newUrl = window.location.pathname + '#scheduler';
+          window.history.replaceState({}, document.title, newUrl);
+        } catch (_) {}
+      } else if (url.searchParams.get('google') === 'error' || hash.includes('google=error')) {
+        alert('Unable to connect Google Calendar. Please try again.');
+        try {
+          const newUrl = window.location.pathname + '#scheduler';
+          window.history.replaceState({}, document.title, newUrl);
+        } catch (_) {}
+      }
+    }
+  }, [checkConnectionStatus, onGoogleAuthSuccess]);
+
+  // Multi-channel inter-tab and popup synchronization
+  useEffect(() => {
+    // 1. Window postMessage listener
+    const handleGoogleAuthMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.endsWith('.vercel.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return;
+      }
+      
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        onGoogleAuthSuccess(event.data.email);
+        alert('Google Calendar connected successfully.');
+      } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
+        setLoadingId(null);
+        const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
+        alert(friendlyError);
+      }
+    };
+
+    // 2. BroadcastChannel across tabs/windows
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        broadcastChannel = new BroadcastChannel('salespilot_google_oauth');
+        broadcastChannel.onmessage = (event) => {
+          if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+            onGoogleAuthSuccess(event.data.email);
+            alert('Google Calendar connected successfully.');
+          } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
+            setLoadingId(null);
+            const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
+            alert(friendlyError);
+          }
+        };
+      }
+    } catch (_) {}
+
+    // 3. Storage event listener (fires in all other tabs when localStorage changes)
+    const handleStorageEvent = (event: StorageEvent) => {
+      if (event.key === 'salespilot_google_oauth_event' && event.newValue) {
+        try {
+          const payload = JSON.parse(event.newValue);
+          if (payload.type === 'GOOGLE_AUTH_SUCCESS') {
+            onGoogleAuthSuccess(payload.email);
+            alert('Google Calendar connected successfully.');
+          }
+        } catch (_) {}
+      }
+    };
+
+    // 4. Window focus / Visibility Change: auto-check when user switches back to this tab
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkConnectionStatus().then((connected) => {
+          if (connected) {
+            setLoadingId(null);
+            fetchExternalEvents();
+          }
+        });
+      }
+    };
+
+    window.addEventListener('message', handleGoogleAuthMessage);
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener('message', handleGoogleAuthMessage);
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+    };
+  }, [checkConnectionStatus, fetchExternalEvents, onGoogleAuthSuccess]);
+
+  // Active polling while connection is in progress
+  useEffect(() => {
+    if (loadingId !== 'connect-calendar' && loadingId !== 'reconnect-calendar') return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await authenticatedFetch('/calendar/accounts');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.accounts && data.accounts.length > 0 && data.accounts[0].status === 'CONNECTED') {
+            onGoogleAuthSuccess(data.accounts[0].email);
+            clearInterval(interval);
+          }
+        }
+      } catch (_) {}
+    }, 2000);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      setLoadingId(null);
+    }, 120000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [loadingId, onGoogleAuthSuccess]);
 
   useEffect(() => {
     fetchExternalEvents();
-  }, [googleCalendarConnected, googleCalendarEmail]);
+  }, [fetchExternalEvents, googleCalendarConnected, googleCalendarEmail]);
 
   const handleSyncCalendar = async () => {
     setIsSyncingCalendar(true);
@@ -202,6 +311,7 @@ export function SchedulerView({
         'google_oauth_popup',
         `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
       );
+      popupRef.current = popup;
       
       if (!popup) {
         console.warn(`[GOOGLE OAUTH] Popup blocked or failed. Redirecting browser window directly to Google OAuth:`, data.url);
@@ -213,7 +323,6 @@ export function SchedulerView({
       console.error(`[GOOGLE OAUTH ERROR]`, err);
       const friendlyMsg = sanitizeUserFacingError(err, 'Unable to connect your Google account. Please try again.');
       alert(friendlyMsg);
-    } finally {
       setLoadingId(null);
     }
   };

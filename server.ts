@@ -18267,16 +18267,36 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     
     if (!code || !clientId || !clientSecret || !oauthContext) {
       return res.send(`
+        <!DOCTYPE html>
         <html>
-          <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
-            <h3 style="color: #dc2626;">Unable to Connect Google Account</h3>
-            <p style="color: #4b5563;">Unable to connect your Google account. Please try again.</p>
+          <head>
+            <meta charset="utf-8">
+            <title>Unable to Connect Google Account</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
+              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 440px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+              h3 { color: #f87171; margin-top: 0; }
+              p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+              .btn { display: inline-block; background: #3b82f6; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; margin-top: 15px; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h3>Unable to Connect Google Account</h3>
+              <p>Unable to connect your Google account. Please try again.</p>
+              <button class="btn" onclick="finish()">Return to Scheduler</button>
+            </div>
             <script>
+              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.', timestamp: Date.now() };
+              try { if (window.opener) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
+              try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
+              try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
+              function finish() {
+                try { window.close(); } catch (_) {}
+                setTimeout(() => { window.location.href = '/#scheduler?google=error'; }, 200);
+              }
               if (window.opener) {
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.' }, '*');
-                setTimeout(() => window.close(), 2500);
-              } else {
-                window.location.href = '/#appointments?google=error';
+                setTimeout(() => { try { window.close(); } catch (_) {} }, 2500);
               }
             </script>
           </body>
@@ -18509,21 +18529,69 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       console.log('[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Preparing success response and closing authentication popup...');
       // Respond to popup window, sending postMessage and closing
       res.send(`
+        <!DOCTYPE html>
         <html>
-          <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
-            <h3 style="color: #10b981;">Authentication Successful!</h3>
-            <p style="color: #4b5563;">Google connected successfully. Redirecting...</p>
+          <head>
+            <meta charset="utf-8">
+            <title>Google Calendar Connected — SalesPilot</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
+              .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; max-width: 460px; margin: 40px auto; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+              .icon-wrap { width: 56px; height: 56px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; font-size: 28px; color: #10b981; }
+              h3 { color: #10b981; margin: 0 0 10px 0; font-size: 20px; }
+              p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; }
+              .btn { display: inline-block; background: #2563eb; hover: background: #1d4ed8; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="icon-wrap">&#10003;</div>
+              <h3>Google Calendar Connected</h3>
+              <p>Google Workspace account <strong>${email}</strong> has been connected successfully.</p>
+              <button class="btn" onclick="finish()">Return to Scheduler</button>
+            </div>
             <script>
+              const payload = {
+                type: 'GOOGLE_AUTH_SUCCESS',
+                email: ${JSON.stringify(email)},
+                name: ${JSON.stringify(name)},
+                expiresAt: ${JSON.stringify(expiresAt)},
+                timestamp: Date.now()
+              };
+
+              // 1. Send postMessage to opener
+              try {
+                if (window.opener) {
+                  window.opener.postMessage(payload, '*');
+                }
+              } catch (_) {}
+
+              // 2. Send via BroadcastChannel across tabs
+              try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                  const bc = new BroadcastChannel('salespilot_google_oauth');
+                  bc.postMessage(payload);
+                  bc.close();
+                }
+              } catch (_) {}
+
+              // 3. Update localStorage to trigger cross-tab storage event
+              try {
+                localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(payload));
+              } catch (_) {}
+
+              function finish() {
+                try { window.close(); } catch (_) {}
+                setTimeout(() => {
+                  window.location.href = '/#scheduler?google=connected';
+                }, 200);
+              }
+
+              // Auto-close if opener was present or shortly
               if (window.opener) {
-                window.opener.postMessage({
-                  type: 'GOOGLE_AUTH_SUCCESS',
-                  email: ${JSON.stringify(email)},
-                  name: ${JSON.stringify(name)},
-                  expiresAt: ${JSON.stringify(expiresAt)}
-                }, '*');
-                setTimeout(() => window.close(), 1200);
-              } else {
-                window.location.href = '/#appointments?google=connected';
+                setTimeout(() => {
+                  try { window.close(); } catch (_) {}
+                }, 1000);
               }
             </script>
           </body>
@@ -18532,16 +18600,36 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     } catch (err: any) {
       console.error('[GOOGLE CALLBACK FLOW] [FATAL EXCEPTION ERROR] Google Auth flow crashed:', err);
       res.send(`
+        <!DOCTYPE html>
         <html>
-          <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9fafb;">
-            <h3 style="color: #dc2626;">Unable to Connect Google Account</h3>
-            <p style="color: #4b5563;">Unable to connect your Google account. Please try again.</p>
+          <head>
+            <meta charset="utf-8">
+            <title>Unable to Connect Google Account</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
+              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 440px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+              h3 { color: #f87171; margin-top: 0; }
+              p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+              .btn { display: inline-block; background: #3b82f6; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; margin-top: 15px; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h3>Unable to Connect Google Account</h3>
+              <p>Unable to connect your Google account. Please try again.</p>
+              <button class="btn" onclick="finish()">Return to Scheduler</button>
+            </div>
             <script>
+              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.', timestamp: Date.now() };
+              try { if (window.opener) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
+              try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
+              try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
+              function finish() {
+                try { window.close(); } catch (_) {}
+                setTimeout(() => { window.location.href = '/#scheduler?google=error'; }, 200);
+              }
               if (window.opener) {
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.' }, '*');
-                setTimeout(() => window.close(), 3000);
-              } else {
-                window.location.href = '/#appointments?google=error';
+                setTimeout(() => { try { window.close(); } catch (_) {} }, 2500);
               }
             </script>
           </body>

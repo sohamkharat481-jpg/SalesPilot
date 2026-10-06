@@ -114,11 +114,24 @@ export default function App() {
     )
   );
 
+  const parseTabFromHash = (hashRaw: string): string | null => {
+    if (!hashRaw) return null;
+    const clean = hashRaw.replace(/^#\/?/, '').split('?')[0].toLowerCase().trim();
+    if (clean === 'appointments') return 'scheduler';
+    const validTabs = [
+      'dashboard', 'leads', 'campaigns', 'pipeline', 'scheduler', 
+      'analytics', 'voice', 'voice-calling', 'automation', 'crm', 
+      'billing', 'settings', 'integrations', 'notifications-inbox', 
+      'openai-suite', 'ai-agents', 'mobile-app', 'client-portal', 
+      'super-admin', 'white-label', 'enterprise-security', 
+      'revenue-intelligence', 'marketplace'
+    ];
+    return validTabs.includes(clean) ? clean : null;
+  };
+
   const [activeTab, setActiveTab] = useState<string>(() => {
-    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
-    if (hash && ['dashboard', 'leads', 'campaigns', 'pipeline', 'scheduler', 'analytics', 'voice', 'automation', 'crm', 'billing', 'settings'].includes(hash)) {
-      return hash;
-    }
+    const parsed = typeof window !== 'undefined' ? parseTabFromHash(window.location.hash) : null;
+    if (parsed) return parsed;
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem('salespilot_active_tab') : null;
     return saved || 'dashboard';
   });
@@ -127,7 +140,8 @@ export default function App() {
     if (authLoading) return;
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('salespilot_active_tab', activeTab);
-      if (window.location.hash !== `#${activeTab}`) {
+      const currentParsed = parseTabFromHash(window.location.hash);
+      if (currentParsed !== activeTab) {
         window.location.hash = `#${activeTab}`;
       }
       console.info('[ROUTE_CHANGED] Active view switched to:', activeTab);
@@ -136,9 +150,9 @@ export default function App() {
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && hash !== activeTab) {
-        setActiveTab(hash);
+      const parsed = parseTabFromHash(window.location.hash);
+      if (parsed && parsed !== activeTab) {
+        setActiveTab(parsed);
       }
     };
     window.addEventListener('hashchange', handleHashChange);
