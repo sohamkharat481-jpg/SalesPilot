@@ -98,19 +98,29 @@ export async function authenticatedFetch(url: string, init: RequestInit = {}): P
           localStorage.setItem('salespilot_token', session.access_token);
           headers['Authorization'] = `Bearer ${session.access_token}`;
           res = await fetch(url, { ...init, headers });
-        } else {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('salespilot:session_expired'));
-          }
         }
-      } catch (_) {
+      } catch (_) {}
+    }
+
+    // If still 401 after retry/refresh, verify if authoritative session actually exists
+    if (res.status === 401) {
+      let hasValidSession = false;
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            hasValidSession = true;
+          }
+        } catch (_) {}
+      }
+
+      // ONLY trigger session expiry if Supabase session is truly missing/dead
+      if (!hasValidSession) {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('salespilot:session_expired'));
         }
-      }
-    } else {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('salespilot:session_expired'));
+      } else {
+        console.warn('[AUTH] Received 401 on protected endpoint, but active Supabase session is valid. Suppressing false session expiry event (likely workspace/permission scoping).');
       }
     }
   }

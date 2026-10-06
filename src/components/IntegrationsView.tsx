@@ -14,6 +14,7 @@ import { buildGoogleOAuthHeaders } from '../utils/googleOAuthClient';
 import { sanitizeUserFacingError } from '../utils/errorMapper';
 import { IntegrationCredentials, UserRole, SubscriptionTier } from '../types';
 import { MyCallingNumbers } from './voice/MyCallingNumbers';
+import { getAuthToken } from '../utils/apiAuth';
 
 interface IntegrationsViewProps {
   credentials: IntegrationCredentials;
@@ -1218,25 +1219,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
 
   const triggerRealGoogleLogin = async () => {
     try {
-      // 1. Resolve current active Supabase session token
-      let sessionToken: string | null = null;
-      if (typeof window !== 'undefined') {
-        sessionToken = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
-      }
-
-      // Query active Supabase client session if available
-      const supabaseClient = getSupabaseClient();
-      if (supabaseClient) {
-        try {
-          const { data } = await supabaseClient.auth.getSession();
-          if (data?.session?.access_token) {
-            sessionToken = data.session.access_token;
-          }
-        } catch (_) {}
-      }
+      // 1. Resolve current active Supabase session token using authoritative getAuthToken
+      const sessionToken = await getAuthToken();
 
       if (!sessionToken) {
-        alert('Your session has expired. Please sign in again.');
+        alert('Please wait for your session to finish loading before connecting Google.');
         return;
       }
 
