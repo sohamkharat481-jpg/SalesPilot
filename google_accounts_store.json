@@ -1835,6 +1835,33 @@
       "organizationId": "org_gcal_conn_test_1791274479259",
       "userId": "usr_invalid",
       "createdAt": "2026-10-06T08:14:39.259Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-06T09:27:47.420Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1791275267419",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-06T08:27:47.420Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-06T08:27:47.420Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-06T09:27:47.420Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1791275267419",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-06T08:27:47.420Z"
     }
   ],
   "gmailAccounts": [
@@ -2317,6 +2344,26 @@
       "accessToken": "mock_token_b",
       "status": "CONNECTED",
       "connectedAt": "2026-10-06T08:14:46.168Z"
+    },
+    {
+      "id": "gm_acc_a_1791275273041",
+      "userId": "usr_client_a_1791275273041",
+      "organizationId": "org_client_a_1791275273041",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-06T08:27:53.446Z"
+    },
+    {
+      "id": "gm_acc_b_1791275273041",
+      "userId": "usr_client_b_1791275273041",
+      "organizationId": "org_client_b_1791275273041",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-06T08:27:53.476Z"
     }
   ]
 }

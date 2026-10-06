@@ -19,14 +19,14 @@ export function sanitizeUserFacingError(rawError: unknown, fallbackMessage = 'So
 
   // 1. Session Expiry & Authentication
   if (
-    lower.includes('jwt') ||
-    lower.includes('token') ||
-    lower.includes('unauthorized') ||
-    lower.includes('session') ||
-    lower.includes('expired') ||
-    lower.includes('auth token') ||
+    lower.includes('jwt expired') ||
+    lower.includes('invalid jwt') ||
+    lower.includes('session expired') ||
+    lower.includes('token expired') ||
+    lower.includes('no active session') ||
+    lower.includes('auth session expired') ||
     lower.includes('sign in before') ||
-    lower.includes('authenticated salespilot session')
+    lower.includes('authenticated salespilot session expired')
   ) {
     return 'Your session has expired. Please sign in again.';
   }

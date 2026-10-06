@@ -3247,12 +3247,8 @@ export function LeadsView({
             onRetryJob={async (job) => {
               if (!job.criteria) return;
               try {
-                const token = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-                if (workspaceId) headers['x-organization-id'] = workspaceId;
-
-                const response = await fetch('/api/v1/leads/generate/jobs', {
+                const headers = await getAuthHeaders({}, workspaceId);
+                const response = await authenticatedFetch('/api/v1/leads/generate/jobs', {
                   method: 'POST',
                   headers,
                   body: JSON.stringify({
