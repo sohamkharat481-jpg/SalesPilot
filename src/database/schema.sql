@@ -186,6 +186,7 @@ ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS refresh_token TEXT;
 ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS scopes TEXT[] DEFAULT '{}'::text[];
 ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS expiry_date BIGINT;
 ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS account_type TEXT DEFAULT 'GMAIL';
+ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'CONNECTED';
 ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.google_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 

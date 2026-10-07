@@ -153,11 +153,10 @@ export function SchedulerView({
       
       if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
         onGoogleAuthSuccess(event.data.email);
-        alert('Google Calendar connected successfully.');
       } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
         setLoadingId(null);
         const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
-        alert(friendlyError);
+        console.warn('[GOOGLE OAUTH FAILURE]', friendlyError);
       }
     };
 
@@ -169,11 +168,10 @@ export function SchedulerView({
         broadcastChannel.onmessage = (event) => {
           if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
             onGoogleAuthSuccess(event.data.email);
-            alert('Google Calendar connected successfully.');
           } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
             setLoadingId(null);
             const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
-            alert(friendlyError);
+            console.warn('[GOOGLE OAUTH FAILURE]', friendlyError);
           }
         };
       }
@@ -186,7 +184,6 @@ export function SchedulerView({
           const payload = JSON.parse(event.newValue);
           if (payload.type === 'GOOGLE_AUTH_SUCCESS') {
             onGoogleAuthSuccess(payload.email);
-            alert('Google Calendar connected successfully.');
           }
         } catch (_) {}
       }

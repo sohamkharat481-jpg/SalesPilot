@@ -7,6 +7,12 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-organization-id, X-Organization-ID, x-requested-with');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  const pathParam = String(req.query?.path || req.headers?.['x-matched-path'] || req.url || '');
+  if (pathParam.includes('google/callback')) {
+    res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  }
+
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }

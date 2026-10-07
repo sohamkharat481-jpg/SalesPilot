@@ -17998,6 +17998,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Helper to dynamically construct the Google OAuth redirect URI
   const getGoogleRedirectUri = (req: any): string => {
+    // 0. Explicit environment variable check
+    const explicitEnvRedirectUri = (process.env.GOOGLE_REDIRECT_URI || '').trim().replace(/^['"]|['"]$/g, '');
+    if (explicitEnvRedirectUri) {
+      console.log(`[GOOGLE OAUTH REDIRECT] Using explicit GOOGLE_REDIRECT_URI: "${explicitEnvRedirectUri}"`);
+      return explicitEnvRedirectUri;
+    }
+
     // Canonical production Google callback: https://sales-pilot-f4uv.vercel.app/api/auth/google/callback
     const canonicalProductionOrigin = 'https://sales-pilot-f4uv.vercel.app';
     const requestHost = String(req?.headers?.host || '').split(':')[0].toLowerCase();
@@ -18091,7 +18098,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Google OAuth URL generation
   const createGoogleOAuthState = (req: any): string => {
     const user = getAuthenticatedUser(req);
-    const secret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
+    const rawSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
+    const secret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
     if (!user || !secret) return '';
 
     // Verify organization_id: client-supplied headers MUST NOT override verified tenant context
@@ -18110,7 +18118,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   };
 
   const readGoogleOAuthState = (state: unknown): { userId: string; organizationId?: string } | null => {
-    const secret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
+    const rawSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
+    const secret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
     if (typeof state !== 'string' || !secret) return null;
     const [payload, signature] = state.split('.');
     if (!payload || !signature) return null;
@@ -18246,9 +18255,12 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Google OAuth Callback Handler
-  app.get('/api/auth/google/callback', async (req, res) => {
+  app.get(['/api/auth/google/callback', '/auth/google/callback'], async (req, res) => {
     console.log('[GOOGLE CALLBACK FLOW] Received request on callback handler.');
+    res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+
     const code = req.query.code as string;
+    const oauthError = req.query.error as string;
     const rawClientId = process.env.GOOGLE_CLIENT_ID;
     const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET;
     
@@ -18256,6 +18268,51 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const clientSecret = rawClientSecret ? rawClientSecret.trim().replace(/^['"]|['"]$/g, '') : '';
     const oauthContext = readGoogleOAuthState(req.query.state);
     
+    if (oauthError) {
+      console.warn(`[GOOGLE CALLBACK FLOW] Google returned error in callback: "${oauthError}"`);
+      const errorMsg = oauthError === 'access_denied' 
+        ? 'Google connection was canceled. Please try again when you are ready.'
+        : `Google authorization failed (${oauthError}). Please try again.`;
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Google Connection Canceled — SalesPilot</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
+              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 440px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+              h3 { color: #f87171; margin-top: 0; }
+              p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+              .btn { display: inline-block; background: #3b82f6; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; margin-top: 15px; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h3>Connection Canceled</h3>
+              <p>${errorMsg}</p>
+              <button class="btn" onclick="finish()">Return to Scheduler</button>
+            </div>
+            <script>
+              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(errorMsg)}, timestamp: Date.now() };
+              try { if (window.opener && !window.opener.closed) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
+              try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
+              try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
+              function finish() {
+                try { window.close(); } catch (_) {}
+                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
+              }
+              if (window.opener && !window.opener.closed) {
+                setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
+              } else {
+                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 2000);
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
     if (!code) {
       console.error('[GOOGLE CALLBACK FLOW] ERROR: No auth code provided in query string.');
     }
@@ -18265,8 +18322,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     if (!clientSecret) {
       console.error('[GOOGLE CALLBACK FLOW] ERROR: GOOGLE_CLIENT_SECRET is missing.');
     }
+    if (!oauthContext) {
+      console.error('[GOOGLE CALLBACK FLOW] ERROR: Invalid or expired OAuth state parameter.');
+    }
     
     if (!code || !clientId || !clientSecret || !oauthContext) {
+      const displayMsg = !oauthContext
+        ? 'Your authorization session expired. Please return to Scheduler and try connecting again.'
+        : 'Unable to connect your Google account. Please try again.';
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -18284,20 +18347,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           <body>
             <div class="card">
               <h3>Unable to Connect Google Account</h3>
-              <p>Unable to connect your Google account. Please try again.</p>
+              <p>${displayMsg}</p>
               <button class="btn" onclick="finish()">Return to Scheduler</button>
             </div>
             <script>
-              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.', timestamp: Date.now() };
-              try { if (window.opener) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
+              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(displayMsg)}, timestamp: Date.now() };
+              try { if (window.opener && !window.opener.closed) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
               try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
               try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
               function finish() {
                 try { window.close(); } catch (_) {}
-                setTimeout(() => { window.location.href = '/#scheduler?google=error'; }, 200);
+                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
               }
-              if (window.opener) {
-                setTimeout(() => { try { window.close(); } catch (_) {} }, 2500);
+              if (window.opener && !window.opener.closed) {
+                setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
+              } else {
+                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 2000);
               }
             </script>
           </body>
@@ -18360,16 +18425,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       // Verify and log Gmail and Calendar permissions
       const scopesArr = scope ? scope.split(' ') : [];
       const hasGmailSend = scopesArr.includes('https://www.googleapis.com/auth/gmail.send');
-      const hasCalendar = scopesArr.includes('https://www.googleapis.com/auth/calendar');
-      const hasCalendarEvents = scopesArr.includes('https://www.googleapis.com/auth/calendar.events');
+      const hasCalendar = scopesArr.some((s: string) => s.includes('calendar'));
 
-      console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Verifying required API scopes for account "${email}":
-        - https://www.googleapis.com/auth/gmail.send: ${hasGmailSend ? 'GRANTED [OK]' : 'MISSING [ERROR]'}
-        - https://www.googleapis.com/auth/calendar: ${hasCalendar ? 'GRANTED [OK]' : 'MISSING [ERROR]'}
-        - https://www.googleapis.com/auth/calendar.events: ${hasCalendarEvents ? 'GRANTED [OK]' : 'MISSING [ERROR]'}`);
+      console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Verifying API scopes for account "${email}":
+        - Gmail send: ${hasGmailSend ? 'GRANTED [OK]' : 'NOT GRANTED'}
+        - Calendar: ${hasCalendar ? 'GRANTED [OK]' : 'NOT GRANTED'}`);
 
-      if (!hasGmailSend || !hasCalendar || !hasCalendarEvents) {
-        console.warn(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] [FAILED] User "${email}" did not grant all required scopes. Aborting integration.`);
+      if (!hasCalendar && !hasGmailSend) {
+        console.warn(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] [FAILED] User "${email}" did not grant either Calendar or Gmail scopes.`);
         return res.send(`
           <html>
             <body style="font-family: sans-serif; text-align: center; padding: 40px; background-color: #fef2f2; color: #991b1b; display: flex; align-items: center; justify-content: center; min-height: 80vh; margin: 0;">
@@ -18378,39 +18441,23 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                   <span style="margin-right: 10px; font-size: 28px;">[WARN]</span> Authorization Scopes Missing
                 </h2>
                 <p style="color: #4b5563; line-height: 1.6; font-size: 15px; margin-top: 15px;">
-                  Your Google Account was authenticated successfully, but you did not grant all required permissions. 
-                  SalesPilot requires these permissions to schedule appointments, inject Google Meet conference links, and dispatch real-time email invitations.
+                  Your Google Account was authenticated, but no Calendar permissions were granted. 
+                  SalesPilot requires Calendar permissions to schedule appointments and sync availability.
                 </p>
-                
-                <div style="background-color: #fbfbfe; padding: 18px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #dc2626; font-size: 14px; color: #374151; font-family: monospace;">
-                  <strong style="display: block; margin-bottom: 10px; font-family: sans-serif; font-size: 15px; color: #1e293b;">Missing Scopes:</strong>
-                  ${!hasGmailSend ? '<div style="margin-bottom: 6px; color: #b91c1c;">[ERROR] <code>https://www.googleapis.com/auth/gmail.send</code> (Send emails on your behalf)</div>' : ''}
-                  ${!hasCalendar ? '<div style="margin-bottom: 6px; color: #b91c1c;">[ERROR] <code>https://www.googleapis.com/auth/calendar</code> (Manage your Google Calendar)</div>' : ''}
-                  ${!hasCalendarEvents ? '<div style="margin-bottom: 6px; color: #b91c1c;">[ERROR] <code>https://www.googleapis.com/auth/calendar.events</code> (Manage individual events)</div>' : ''}
-                </div>
-
-                <div style="margin: 25px 0; font-size: 14px; color: #4b5563; line-height: 1.5; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
-                  <strong style="color: #15803d; font-size: 15px; display: block; margin-bottom: 6px;">How to resolve this immediately:</strong>
-                  <ol style="margin-top: 4px; padding-left: 20px; margin-bottom: 0;">
-                     <li style="margin-bottom: 6px;">Click the button below to close this window.</li>
-                     <li style="margin-bottom: 6px;">In SalesPilot, click <strong>Connect Google Account</strong> again.</li>
-                     <li style="margin-bottom: 6px;">On the Google sign-in / consent prompt, <strong>make sure to check the checkbox next to every requested permission</strong> (especially the option to send emails on your behalf).</li>
-                     <li style="margin-bottom: 0;">If those checkboxes do not appear, go to your <strong>Google Cloud Console</strong> &rarr; <strong>OAuth Consent Screen</strong>, ensure the requested scopes are enabled under the <strong>Scopes</strong> list, and make sure your app is in testing mode with your user added as a test user.</li>
-                  </ol>
-                </div>
-
                 <div style="text-align: center; margin-top: 25px;">
-                  <button onclick="window.close()" style="background-color: #dc2626; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; transition: background-color 0.2s; box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.3);">
-                    Close Window & Retry
+                  <button onclick="finish()" style="background-color: #dc2626; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;">
+                    Return to Scheduler
                   </button>
                 </div>
               </div>
               <script>
-                if (window.opener) {
-                  window.opener.postMessage({ 
-                    type: 'GOOGLE_AUTH_FAILURE', 
-                    error: 'Required authorization scopes were not granted by the user.' 
-                  }, '*');
+                function finish() {
+                  try { window.close(); } catch (_) {}
+                  setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
+                }
+                if (window.opener && !window.opener.closed) {
+                  window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Google Calendar permissions were not granted.' }, '*');
+                  setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
                 }
               </script>
             </body>
@@ -18419,34 +18466,34 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       }
 
       console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Saving account and setting CONNECTED status...');
-      // Connect user to Gmail Account on server
-      const existingGmail = gmailAccounts.find(a => a.email === email && (a.organizationId === oauthContext.organizationId || !a.organizationId));
-      if (existingGmail) {
-        existingGmail.accessToken = access_token;
-        if (refresh_token) existingGmail.refreshToken = refresh_token;
-        existingGmail.expiresAt = expiresAt;
-        existingGmail.status = 'CONNECTED';
-        existingGmail.fullName = name;
-        existingGmail.organizationId = oauthContext.organizationId || existingGmail.organizationId;
-        existingGmail.userId = oauthContext.userId || existingGmail.userId;
-        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Updated existing Gmail account record for ${email}. Status: CONNECTED.`);
-      } else {
-        gmailAccounts.push({
-          email,
-          fullName: name,
-          accessToken: access_token,
-          refreshToken: refresh_token,
-          expiresAt,
-          status: 'CONNECTED',
-          organizationId: oauthContext.organizationId,
-          userId: oauthContext.userId,
-          sendingLimit: 500,
-          sentToday: 0,
-          bounceCount: 0,
-          retryCount: 0,
-          createdAt: new Date().toISOString()
-        });
-        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Created new Gmail account record for ${email}. Status: CONNECTED.`);
+      // Connect user to Gmail Account on server if scope present
+      if (hasGmailSend) {
+        const existingGmail = gmailAccounts.find(a => a.email === email && (a.organizationId === oauthContext.organizationId || !a.organizationId));
+        if (existingGmail) {
+          existingGmail.accessToken = access_token;
+          if (refresh_token) existingGmail.refreshToken = refresh_token;
+          existingGmail.expiresAt = expiresAt;
+          existingGmail.status = 'CONNECTED';
+          existingGmail.fullName = name;
+          existingGmail.organizationId = oauthContext.organizationId || existingGmail.organizationId;
+          existingGmail.userId = oauthContext.userId || existingGmail.userId;
+        } else {
+          gmailAccounts.push({
+            email,
+            fullName: name,
+            accessToken: access_token,
+            refreshToken: refresh_token,
+            expiresAt,
+            status: 'CONNECTED',
+            organizationId: oauthContext.organizationId,
+            userId: oauthContext.userId,
+            sendingLimit: 500,
+            sentToday: 0,
+            bounceCount: 0,
+            retryCount: 0,
+            createdAt: new Date().toISOString()
+          });
+        }
       }
 
       // Connect user to Calendar Account on server
@@ -18499,36 +18546,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       }
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Disk write complete.');
 
-      // Immediate Readback/Verification to ensure they are persisted and correct
-      try {
-        if (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) {
-          console.log('[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] Supabase persistence already acknowledged successfully.');
-        } else if (fs.existsSync(ACCOUNTS_STORE_PATH)) {
-          const verifyData = JSON.parse(fs.readFileSync(ACCOUNTS_STORE_PATH, 'utf8'));
-          const foundGmail = verifyData.gmailAccounts?.find((a: any) => a.email === email);
-          const foundCalendar = verifyData.calendarAccounts?.find((c: any) => c.email === email);
-          
-          if (foundGmail && foundGmail.status === 'CONNECTED' && foundCalendar && foundCalendar.status === 'CONNECTED') {
-            console.log(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [SUCCESS] All credentials and integration statuses successfully saved:
-              - Account Email: "${email}"
-              - Gmail Integration Status: "${foundGmail.status}" (CONNECTED)
-              - Calendar Integration Status: "${foundCalendar.status}" (CONNECTED)
-              - Gmail Access Token persisted: ${!!foundGmail.accessToken} (Length: ${foundGmail.accessToken?.length || 0})
-              - Calendar Access Token persisted: ${!!foundCalendar.accessToken} (Length: ${foundCalendar.accessToken?.length || 0})
-              - Refresh Token persisted: ${!!foundGmail.refreshToken} (Length: ${foundGmail.refreshToken?.length || 0})
-              - Expiry date: "${foundGmail.expiresAt}"`);
-          } else {
-            console.error(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [FAILED] Saved account state mismatch on validation read! Gmail: ${foundGmail?.status || 'NOT_FOUND'}, Calendar: ${foundCalendar?.status || 'NOT_FOUND'}`);
-          }
-        } else {
-          console.error(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [FAILED] Store file is missing at path: "${ACCOUNTS_STORE_PATH}"`);
-        }
-      } catch (verifyErr: any) {
-        console.error(`[GOOGLE CALLBACK FLOW] [PERSISTENCE AUDIT VERIFICATION] [EXCEPTION] Verification error:`, verifyErr);
-      }
-
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Preparing success response and closing authentication popup...');
-      // Respond to popup window, sending postMessage and closing
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Preparing success response and notifying Scheduler...');
+      // Respond to popup window or top-level redirect, sending postMessage and redirecting to Scheduler
       res.send(`
         <!DOCTYPE html>
         <html>
@@ -18540,8 +18559,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; max-width: 460px; margin: 40px auto; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
               .icon-wrap { width: 56px; height: 56px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; font-size: 28px; color: #10b981; }
               h3 { color: #10b981; margin: 0 0 10px 0; font-size: 20px; }
-              p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; }
-              .btn { display: inline-block; background: #2563eb; hover: background: #1d4ed8; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
+              p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 16px 0; }
+              .subtext { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+              .btn { display: inline-block; background: #2563eb; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
             </style>
           </head>
           <body>
@@ -18549,7 +18569,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               <div class="icon-wrap">&#10003;</div>
               <h3>Google Calendar Connected</h3>
               <p>Google Workspace account <strong>${email}</strong> has been connected successfully.</p>
-              <button class="btn" onclick="finish()">Return to Scheduler</button>
+              <div class="subtext">Redirecting to Scheduler...</div>
+              <button class="btn" onclick="finish()">Go to Scheduler</button>
             </div>
             <script>
               const payload = {
@@ -18562,7 +18583,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
               // 1. Send postMessage to opener
               try {
-                if (window.opener) {
+                if (window.opener && !window.opener.closed) {
                   window.opener.postMessage(payload, '*');
                 }
               } catch (_) {}
@@ -18583,16 +18604,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
               function finish() {
                 try { window.close(); } catch (_) {}
-                setTimeout(() => {
-                  window.location.href = '/#scheduler?google=connected';
-                }, 200);
+                setTimeout(function() {
+                  window.location.replace('/#scheduler?google=connected');
+                }, 150);
               }
 
-              // Auto-close if opener was present or shortly
-              if (window.opener) {
-                setTimeout(() => {
+              // If opened in a popup with active opener, close automatically after sending message
+              if (window.opener && !window.opener.closed) {
+                setTimeout(function() {
                   try { window.close(); } catch (_) {}
-                }, 1000);
+                }, 800);
+              } else {
+                // If direct full-window navigation, redirect straight to Scheduler
+                setTimeout(function() {
+                  window.location.replace('/#scheduler?google=connected');
+                }, 1200);
               }
             </script>
           </body>
@@ -18622,15 +18648,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
             </div>
             <script>
               const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.', timestamp: Date.now() };
-              try { if (window.opener) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
+              try { if (window.opener && !window.opener.closed) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
               try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
               try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
               function finish() {
                 try { window.close(); } catch (_) {}
-                setTimeout(() => { window.location.href = '/#scheduler?google=error'; }, 200);
+                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
               }
-              if (window.opener) {
-                setTimeout(() => { try { window.close(); } catch (_) {} }, 2500);
+              if (window.opener && !window.opener.closed) {
+                setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
+              } else {
+                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 2000);
               }
             </script>
           </body>

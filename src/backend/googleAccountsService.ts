@@ -226,7 +226,7 @@ export async function resolveAuthoritativeCalendarAccount(
     .eq('organization_id', cleanOrgId)
     .eq('user_id', cleanUserId)
     .not('access_token', 'is', null)
-    .order('created_at', { ascending: false })
+    .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -306,6 +306,20 @@ export async function persistAuthoritativeGoogleAccount(
   const client = customClient || getPrivilegedSupabaseServerClient();
   const now = new Date().toISOString();
 
+  let effectiveRefreshToken = refreshToken || '';
+  if (!effectiveRefreshToken) {
+    try {
+      const { data: existingRec } = await client
+        .from('google_accounts')
+        .select('refresh_token')
+        .eq('id', `ga_${cleanUserId}_${cleanEmail}_calendar`)
+        .maybeSingle();
+      if (existingRec?.refresh_token) {
+        effectiveRefreshToken = existingRec.refresh_token;
+      }
+    } catch (_) {}
+  }
+
   const calendarStatus = calendarAccessVerified ? 'CONNECTED' : 'CONNECTING';
 
   const rows = [
@@ -315,7 +329,7 @@ export async function persistAuthoritativeGoogleAccount(
       organization_id: cleanOrgId,
       email: cleanEmail,
       access_token: accessToken,
-      refresh_token: refreshToken || '',
+      refresh_token: effectiveRefreshToken,
       scopes: scopes || [],
       expiry_date: expiresAt,
       account_type: 'calendar',
@@ -328,7 +342,7 @@ export async function persistAuthoritativeGoogleAccount(
       organization_id: cleanOrgId,
       email: cleanEmail,
       access_token: accessToken,
-      refresh_token: refreshToken || '',
+      refresh_token: effectiveRefreshToken,
       scopes: scopes || [],
       expiry_date: expiresAt,
       account_type: 'gmail',

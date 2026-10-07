@@ -5,6 +5,7 @@ export function configureSecurityHeaders() {
   const helmetMiddleware = helmet({
     contentSecurityPolicy: false, // Let custom CSP / CORS handle iframe and OAuth popup requirements
     crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false, // Allow cross-origin OAuth popups to communicate back to opener
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     frameguard: false, // Allow iframe embedding in AI Studio workspace
     xssFilter: true,
