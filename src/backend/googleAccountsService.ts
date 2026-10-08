@@ -428,7 +428,22 @@ export async function queryAuthoritativeGmailAccounts(options: {
         query = query.eq('user_id', userId.trim());
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      let { data, error } = await query.order('created_at', { ascending: false });
+
+      if ((!data || data.length === 0) && userId) {
+        const fallbackRes = await client
+          .from('google_accounts')
+          .select('id, user_id, organization_id, email, scopes, status, account_type, created_at, updated_at')
+          .in('account_type', ['gmail', 'GMAIL'])
+          .eq('organization_id', cleanOrgId)
+          .not('access_token', 'is', null)
+          .order('created_at', { ascending: false });
+
+        if (!fallbackRes.error && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+          data = fallbackRes.data;
+          error = fallbackRes.error;
+        }
+      }
       if (!error && Array.isArray(data)) {
         return data.map(d => ({
           id: d.id,

@@ -882,18 +882,23 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       const res = await fetch('/gmail/status', { headers });
       if (res.ok) {
         const data = await res.json();
-        setGmailAccounts(data.accounts || []);
+        const rawAccounts = data.accounts || [];
+        const accountsList = (rawAccounts.length > 0)
+          ? rawAccounts
+          : (data.account && data.account.email ? [data.account] : []);
+        
+        setGmailAccounts(accountsList);
         setGmailQueue(data.queue || []);
         setGmailLogs(data.logs || []);
         setGmailTemplates(data.templates || []);
         
         // Auto-select initial active accounts
-        if (data.accounts?.length > 0) {
+        if (accountsList.length > 0) {
           if (!selectedGmailAccount) {
-            setSelectedGmailAccount(data.accounts[0].email);
+            setSelectedGmailAccount(accountsList[0].email);
           }
           if (!composeSender) {
-            setComposeSender(data.accounts[0].email);
+            setComposeSender(accountsList[0].email);
           }
         }
       }
@@ -932,6 +937,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       console.error('Error fetching thread:', err);
     }
   };
+
+  // Unconditionally fetch active Gmail accounts on mount so dropdowns and linked profiles are immediately populated
+  React.useEffect(() => {
+    fetchGmailStatus();
+  }, []);
 
   // Poll server state while tab is open to show live retries, queue progress and customer replies
   React.useEffect(() => {
