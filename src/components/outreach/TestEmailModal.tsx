@@ -13,18 +13,43 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
   const [body, setBody] = useState(
     'Hi,\n\nThis is a controlled test outreach message sent from SalesPilot Outreach Engine.\n\nBest,\nSalesPilot Team'
   );
-  const [senderAccount, setSenderAccount] = useState<string>('sohamkharat481@gmail.com');
+  const [senderAccount, setSenderAccount] = useState<string>('');
   const [step, setStep] = useState<'compose' | 'confirm'>('compose');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<any | null>(null);
 
   useEffect(() => {
-    // Reset state when opened
+    // Reset state and fetch connected status when opened
     if (isOpen) {
       setStep('compose');
       setError(null);
       setSuccessResult(null);
+      
+      // Fetch authoritative Gmail connection status from server
+      const fetchStatus = async () => {
+        try {
+          const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
+          const workspaceId = localStorage.getItem('salespilot_workspace_id') || localStorage.getItem('salespilot_org_id');
+          const headers: Record<string, string> = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          if (workspaceId) headers['x-organization-id'] = workspaceId;
+
+          const res = await fetch('/gmail/status', { headers });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.connected && data.account?.email) {
+              setSenderAccount(data.account.email);
+            } else {
+              setError('No authorized Gmail account connected. Please connect your Google Workspace account under Settings > Integrations.');
+            }
+          }
+        } catch (_) {
+          // Keep current state
+        }
+      };
+
+      fetchStatus();
     }
   }, [isOpen]);
 

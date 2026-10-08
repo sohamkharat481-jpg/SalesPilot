@@ -115,7 +115,25 @@ export async function resolveAuthoritativeGmailAccount(
     query = query.eq('email', senderEmail.trim().toLowerCase());
   }
 
-  const { data, count, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+  let { data, count, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+  // Fallback: If specific senderEmail filter yielded no record for this user, search by user_id and organization_id
+  if (!data && senderEmail && userId) {
+    let fallbackQuery = client
+      .from('google_accounts')
+      .select('*', { count: 'exact' })
+      .in('account_type', ['gmail', 'GMAIL'])
+      .eq('organization_id', cleanOrgId)
+      .eq('user_id', userId.trim())
+      .not('access_token', 'is', null);
+
+    const fallbackRes = await fallbackQuery.order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (fallbackRes.data) {
+      data = fallbackRes.data;
+      count = fallbackRes.count;
+      error = fallbackRes.error;
+    }
+  }
 
   const queryCount = count !== null && count !== undefined ? count : (data ? 1 : 0);
   const matchedEmail = data?.email || null;
