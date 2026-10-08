@@ -18852,7 +18852,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   });
 
   // Sends an Email or Saves a Draft
-  app.post('/gmail/send', (req, res) => {
+  app.post('/gmail/send', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -18868,10 +18868,16 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(400).json({ error: 'Missing required email field (recipient, subject, or body)' });
     }
 
-    // Strictly resolve the Gmail account owned by that authenticated user within that organization
-    const senderAccount = gmailAccounts.find(a => a.organizationId === orgId && a.userId === user.id);
+    // Strictly resolve the Gmail account owned by that authenticated user within that organization authoritatively
+    let senderAccount: any = await resolveAuthoritativeGmailAccount({
+      organizationId: orgId,
+      userId: user.id
+    });
     if (!senderAccount) {
-      return res.status(400).json({ error: 'Connect your Gmail account before sending outreach.' });
+      senderAccount = gmailAccounts.find(a => a.organizationId === orgId && a.userId === user.id);
+    }
+    if (!senderAccount || !senderAccount.accessToken) {
+      return res.status(400).json({ error: 'Connect your Google account from Integrations' });
     }
     const accountId = senderAccount.email;
 
