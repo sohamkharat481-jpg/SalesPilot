@@ -1628,7 +1628,7 @@ async function startServer() {
       if (sbUser) {
         try {
           const emailLower = (sbUser.email || '').toLowerCase();
-          const isFounder = isVerifiedFounderEmail(emailLower);
+          const isFounder = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
           
           let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
           let resolvedOrgId: string | undefined = isFounder ? 'org_salespilot_lifetime' : undefined;
@@ -1711,17 +1711,67 @@ async function startServer() {
 
             // Reconcile founder in LocalDB
             localDb.reconcileFounderCanonicalId(sbUser.id, emailLower);
+          } else {
+            // STRICT TENANT ISOLATION FOR NON-FOUNDER / CUSTOMER (e.g. Prodigy):
+            // Disinfect any contaminated org_salespilot_lifetime or Soham Kharat identity
+            if (resolvedOrgId === 'org_salespilot_lifetime') {
+              resolvedOrgId = undefined;
+            }
+            const cleanName = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer';
+            const customerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : (resolvedOrgId || `org_${sbUser.id.substring(0, 12)}`);
+            resolvedOrgId = customerOrgId;
+            resolvedCompanyName = emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`;
+
+            if (supabase) {
+              try {
+                // Remove contaminated association with founder organization if any
+                await supabase.from('team_members').delete().eq('user_id', sbUser.id).eq('organization_id', 'org_salespilot_lifetime');
+
+                // Upsert clean customer profile
+                await supabase.from('profiles').upsert({
+                  id: sbUser.id,
+                  email: emailLower,
+                  full_name: cleanName,
+                  role: resolvedRole || 'OWNER',
+                  organization_id: customerOrgId,
+                  updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+
+                // Ensure customer organization exists
+                await supabase.from('organizations').upsert({
+                  id: customerOrgId,
+                  name: resolvedCompanyName,
+                  company_name: resolvedCompanyName,
+                  owner_id: sbUser.id,
+                  tier: 'STARTER',
+                  status: 'ACTIVE'
+                }, { onConflict: 'id' });
+
+                // Upsert customer team member
+                await supabase.from('team_members').upsert({
+                  user_id: sbUser.id,
+                  organization_id: customerOrgId,
+                  role: 'OWNER',
+                  status: 'ACTIVE',
+                  email: emailLower,
+                  full_name: cleanName
+                }, { onConflict: 'user_id' });
+              } catch (cleanErr) {
+                console.warn('[AUTH CLEANUP NOTICE]', cleanErr);
+              }
+            }
           }
 
           let user = localDb.getUserById(sbUser.id);
           const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(sbUser.id);
           const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || `org_${sbUser.id.substring(0, 8)}`)));
+          const cleanDisplayName = isFounder ? 'Soham Kharat' : (sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer');
 
           if (!user) {
             user = {
               id: sbUser.id,
               email: sbUser.email || '',
-              fullName: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || (isFounder ? 'Soham Kharat' : 'User'),
+              fullName: cleanDisplayName,
               companyName: resolvedCompanyName,
               industry: 'SaaS & Software',
               tier: isFounder ? 'ENTERPRISE' : 'STARTER',
@@ -1737,13 +1787,24 @@ async function startServer() {
             };
             localDb.addUser(user);
           } else {
-            // Keep role & organization synchronized with authoritative Supabase record
+            // Keep role & organization synchronized with authoritative record
             user.role = resolvedRole;
             user.organizationId = orgId;
+            if (isFounder) {
+              user.fullName = 'Soham Kharat';
+              user.isFounder = true;
+            } else {
+              if (user.fullName === 'Soham Kharat' || user.fullName?.startsWith('Soham Kharat')) {
+                user.fullName = cleanDisplayName;
+              }
+              user.isFounder = false;
+              if (user.subscriptionStatus === 'LIFETIME') {
+                user.subscriptionStatus = 'ACTIVE';
+              }
+            }
             if (resolvedCompanyName && resolvedCompanyName !== 'Workspace') {
               user.companyName = resolvedCompanyName;
             }
-            user.isFounder = isFounder;
             try { localDb.saveUser(user); } catch (_) {}
           }
 
@@ -1768,25 +1829,23 @@ async function startServer() {
       // 4. Non-production sandbox development tokens (Strictly blocked in production)
       const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
       if (!isProductionRuntime && (token === 'sandbox_google_auth_token' || token === 'sandbox_dev_auth_token' || token === 'sb_access_token_sandbox_valid' || token.startsWith('sandbox_'))) {
-        const founderUser = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com');
-        if (founderUser) {
-          req.authenticatedUser = founderUser;
-          return next();
-        }
-      }
-    }
-
-    // Explicit dev bypass or local development default in non-production local environment
-    const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
-    if (!isProductionRuntime) {
-      const devUser = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com') || localDb.getUsers()[0];
-      if (devUser) {
-        req.authenticatedUser = devUser;
+        const sandboxDevUser = localDb.getUserById('usr_sandbox_dev') || {
+          id: 'usr_sandbox_dev',
+          email: 'developer@sandbox.local',
+          fullName: 'Developer Sandbox',
+          companyName: 'Dev Workspace',
+          organizationId: 'org_sandbox_dev',
+          role: 'OWNER',
+          tier: 'STARTER',
+          isFounder: false,
+          subscriptionStatus: 'ACTIVE'
+        };
+        req.authenticatedUser = sandboxDevUser as any;
         return next();
       }
     }
 
-    // Default: unauthenticated (req.authenticatedUser is undefined)
+    // Default: unauthenticated (req.authenticatedUser is undefined - no unauthorized fallback)
     next();
   });
 
@@ -1880,15 +1939,17 @@ async function startServer() {
           const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
           if (payload && payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
             const emailLower = (payload.email || '').toLowerCase();
-            const isFounder = isVerifiedFounderEmail(emailLower);
+            const isFounder = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
             let user = localDb.getUserById(payload.sub) || (emailLower ? localDb.getUserByEmail(emailLower) : null);
             if (!user) {
-              const orgId = isFounder ? 'org_salespilot_lifetime' : `org_${payload.sub.substring(0, 8)}`;
+              const customerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${payload.sub.substring(0, 8)}`;
+              const orgId = isFounder ? 'org_salespilot_lifetime' : customerOrgId;
+              const cleanName = payload.user_metadata?.full_name || payload.email?.split('@')[0] || (isFounder ? 'Soham Kharat' : 'User');
               user = {
                 id: payload.sub,
                 email: payload.email || '',
-                fullName: payload.user_metadata?.full_name || payload.email?.split('@')[0] || (isFounder ? 'Soham Kharat' : 'User'),
-                companyName: isFounder ? 'SalesPilot' : 'Workspace',
+                fullName: cleanName,
+                companyName: isFounder ? 'SalesPilot' : (emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`),
                 industry: 'SaaS & Software',
                 tier: isFounder ? 'ENTERPRISE' : 'STARTER',
                 role: isFounder ? 'OWNER' : 'VIEWER',
@@ -1902,6 +1963,14 @@ async function startServer() {
                 createdAt: new Date().toISOString()
               };
               localDb.addUser(user);
+            } else if (!isFounder) {
+              if (user.organizationId === 'org_salespilot_lifetime') {
+                user.organizationId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${user.id.substring(0, 12)}`;
+              }
+              if (user.fullName === 'Soham Kharat') {
+                user.fullName = payload.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+              }
+              user.isFounder = false;
             }
             req.authenticatedUser = user;
             return user;
@@ -1918,12 +1987,26 @@ async function startServer() {
       return { orgId: null, error: 'Unauthorized. Authentication token required.', status: 401 };
     }
 
+    const emailLower = (user.email || '').toLowerCase();
+    const isFounder = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
+
     // Derive authoritative organization from user identity and verified workspace membership
     let verifiedOrgId: string | null = null;
 
     // 1. Direct user profile organization
     if (user.organizationId && typeof user.organizationId === 'string' && user.organizationId.trim() !== '') {
-      verifiedOrgId = user.organizationId.trim();
+      const candidate = user.organizationId.trim();
+      if (candidate === 'org_salespilot_lifetime' && !isFounder) {
+        console.warn(`[SECURITY] Non-founder user ${user.id} has invalid org_salespilot_lifetime. Stripping.`);
+      } else {
+        verifiedOrgId = candidate;
+      }
+    }
+
+    // Explicit binding for Pordigy
+    if (emailLower === 'pordigyai@gmail.com' && (!verifiedOrgId || verifiedOrgId === 'org_salespilot_lifetime')) {
+      verifiedOrgId = 'org_pordigy_enterprise';
+      user.organizationId = verifiedOrgId;
     }
 
     // 2. Team member workspace membership
@@ -3192,7 +3275,7 @@ async function startServer() {
       return res.status(400).json({ error: 'An account with this email address already exists.' });
     }
 
-    const isFounderUser = isVerifiedFounderEmail(emailLower);
+    const isFounderUser = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
     const salt = bcrypt.genSaltSync(10);
     const passwordHash = bcrypt.hashSync(password, salt);
 
@@ -3354,7 +3437,7 @@ async function startServer() {
       if (ownedOrg) {
         userObj.organizationId = ownedOrg.id;
       } else {
-        const isFounder = isVerifiedFounderEmail(userObj.email);
+        const isFounder = isVerifiedFounderEmail(userObj.email) && userObj.email?.toLowerCase() === 'sohamkharat481@gmail.com';
         if (isFounder) {
           userObj.organizationId = 'org_salespilot_lifetime';
         } else {
@@ -3608,16 +3691,29 @@ async function startServer() {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
     
-    await applyFounderPrivileges(userObj);
+    if (userObj.email?.toLowerCase() === 'sohamkharat481@gmail.com') {
+      await applyFounderPrivileges(userObj);
+    } else {
+      userObj.isFounder = false;
+      if (userObj.subscriptionStatus === 'LIFETIME') {
+        userObj.subscriptionStatus = 'ACTIVE';
+      }
+      if (userObj.organizationId === 'org_salespilot_lifetime') {
+        userObj.organizationId = userObj.email?.toLowerCase() === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${userObj.id.substring(0, 12)}`;
+      }
+      if (userObj.fullName === 'Soham Kharat' || userObj.fullName?.startsWith('Soham Kharat')) {
+        userObj.fullName = userObj.email ? userObj.email.split('@')[0] : 'Customer';
+      }
+    }
 
-    const org = localDb.getOrganizationById(userObj.organizationId || '') || serverOrganizations.find(o => o.id === userObj.organizationId || o.name === userObj.companyName) || null;
+    const org = localDb.getOrganizationById(userObj.organizationId || '') || serverOrganizations.find(o => o.id === userObj.organizationId) || null;
     const orgTeamMembers = org ? localDb.getTeamMembers(org.id) : [];
     
     res.json({
       success: true,
       user: userObj,
       organization: org,
-      teamMembers: orgTeamMembers.length > 0 ? orgTeamMembers : serverTeamMembers,
+      teamMembers: orgTeamMembers,
       activityLogs: serverActivityLogs.filter(al => al.userId === userObj.id),
       loginHistory: serverLoginHistory.filter(lh => lh.userId === userObj.id)
     });
@@ -8792,10 +8888,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
 
   // Fetch Campaigns
   app.get('/api/v1/campaigns', (req, res) => {
-    let user = getAuthenticatedUser(req);
-    if (!user) {
-      user = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com') || localDb.getUsers()[0];
-    }
+    const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
@@ -8944,10 +9037,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
 
   // Get Outreach Campaigns with Aggregated Metrics (Authoritative Supabase + localDb fallback)
   app.get('/api/v1/outreach/campaigns', async (req, res) => {
-    let user = getAuthenticatedUser(req);
-    if (!user) {
-      user = localDb.getUserById('usr_81927391') || localDb.getUserByEmail('sohamkharat481@gmail.com') || localDb.getUsers()[0];
-    }
+    const user = getAuthenticatedUser(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
     if (error || !orgId) return res.status(status || 403).json({ error: error || 'Organization access denied.' });

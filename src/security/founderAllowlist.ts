@@ -11,8 +11,6 @@
 export const VERIFIED_FOUNDER_EMAILS: ReadonlySet<string> = new Set<string>(
   [
     'sohamkharat481@gmail.com',
-    'pordigyai@gmail.com',
-    'ayesha.kashif13008@gmail.com',
     'soham@gmail.com',
     ...(typeof process !== 'undefined' && process.env?.FOUNDER_EMAIL ? [process.env.FOUNDER_EMAIL] : []),
     ...(typeof process !== 'undefined' && process.env?.FOUNDER_EMAILS ? process.env.FOUNDER_EMAILS.split(',') : [])

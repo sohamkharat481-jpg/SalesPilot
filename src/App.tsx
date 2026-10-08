@@ -328,19 +328,7 @@ export default function App() {
 
         const loadedLeads = Array.isArray(leadsData?.leads) ? leadsData.leads : [];
         console.log(`[TELEMETRY RELOAD] databaseReturnedCount: ${loadedLeads.length}`);
-
-        if (loadedLeads.length > 0) {
-          setLeads(prev => {
-            const map = new Map<string, Lead>();
-            loadedLeads.forEach((l: Lead) => map.set(l.id, l));
-            prev.forEach((l: Lead) => {
-              if (!map.has(l.id)) map.set(l.id, l);
-            });
-            const merged = Array.from(map.values());
-            console.log(`[TELEMETRY RELOAD] frontendStateCount: ${merged.length}`);
-            return merged;
-          });
-        }
+        setLeads(loadedLeads);
 
         let loadedCamps = Array.isArray(campsData?.campaigns) ? campsData.campaigns : (Array.isArray(campsData?.outreachCampaigns) ? campsData.outreachCampaigns : []);
         if (loadedCamps.length === 0) {
@@ -353,13 +341,7 @@ export default function App() {
             }
           } catch (e) {}
         }
-        if (loadedCamps.length > 0) {
-          setCampaigns(prev => {
-            const map = new Map(prev.map(c => [c.id || (c as any).campaignId, c]));
-            loadedCamps.forEach((c: any) => map.set(c.id || c.campaignId, c));
-            return Array.from(map.values());
-          });
-        }
+        setCampaigns(loadedCamps);
         setDeals(Array.isArray(dealsData?.deals) ? dealsData.deals : []);
         setAppointments(Array.isArray(aptsData?.appointments) ? aptsData.appointments : []);
         setIntegrations(configData?.integrations || {});

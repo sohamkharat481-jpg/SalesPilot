@@ -194,8 +194,8 @@
         "weeklyReport": true
       },
       "passwordHash": "$2b$10$lhL2/njYXDBX.Kdcs9TU/Ogy8Tu9LRZodauKOu4qANOZRUqWNaIUy",
-      "isFounder": true,
-      "subscriptionStatus": "LIFETIME",
+      "isFounder": false,
+      "subscriptionStatus": "ACTIVE",
       "createdAt": "2026-09-26T12:07:28.271Z"
     },
     {
@@ -42938,7 +42938,8 @@
       "organizationId": "org_verify_cust_a_1791395523816",
       "userId": "usr_verify_a_1791395523816",
       "isTest": false,
-      "createdAt": "2026-10-07T17:52:03.971Z"
+      "createdAt": "2026-10-07T17:52:03.971Z",
+      "assignedToId": "usr_verify_a_1791395523816"
     }
   ],
   "campaigns": [
@@ -95203,6 +95204,227 @@
         "plan": "GROWTH"
       },
       "idempotencyKey": "sub_reminder_sub_7d_1791395471669_1d"
+    },
+    {
+      "id": "ntf_17e40259c9e04a2aac05dd7c0f021748",
+      "organizationId": "org_test_reject_1791395463343",
+      "userId": "usr_test_reject_1791395463343",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_test_reject_1791395463343_1791395463505",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.504Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_test_reject_1791395463343_1791395463505",
+        "expiredAt": "2026-10-07T17:51:03.505Z",
+        "plan": "BUSINESS"
+      },
+      "idempotencyKey": "sub_expired_sub_org_test_reject_1791395463343_1791395463505"
+    },
+    {
+      "id": "ntf_c66c98281782425cb5f92b4f485e5718",
+      "organizationId": "org_expired_1791395471669",
+      "userId": "usr_expired_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_expired_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.556Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_expired_1791395471669",
+        "expiredAt": "2026-10-07T15:51:11.720Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_expired_1791395471669"
+    },
+    {
+      "id": "ntf_79b4509ec1c34737895fc86247611575",
+      "organizationId": "org_expired_login_1791395471669",
+      "userId": "usr_expired_login_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_expired_login_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.609Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_expired_login_1791395471669",
+        "expiredAt": "2026-10-06T17:51:11.826Z",
+        "plan": "BUSINESS"
+      },
+      "idempotencyKey": "sub_expired_sub_org_expired_login_1791395471669"
+    },
+    {
+      "id": "ntf_bc476df46a1a49a3bc98d5960ae8bb94",
+      "organizationId": "org_api_lock_1791395471669",
+      "userId": "usr_api_lock_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_api_lock_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.659Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_api_lock_1791395471669",
+        "expiredAt": "2026-10-02T17:51:11.933Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_api_lock_1791395471669"
+    },
+    {
+      "id": "ntf_c802b3e168db4ec6a61ec3daf1290877",
+      "organizationId": "org_utr_lock_1791395471669",
+      "userId": "usr_utr_lock_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_utr_lock_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.759Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_utr_lock_1791395471669",
+        "expiredAt": "2026-10-02T17:51:11.986Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_utr_lock_1791395471669"
+    },
+    {
+      "id": "ntf_287f2899dc0447fb92f620d16282b502",
+      "organizationId": "org_pending_lock_1791395471669",
+      "userId": "usr_pending_lock_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_pending_lock_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.862Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_pending_lock_1791395471669",
+        "expiredAt": "2026-10-07T17:51:12.236Z",
+        "plan": "GROWTH"
+      },
+      "idempotencyKey": "sub_expired_sub_org_pending_lock_1791395471669"
+    },
+    {
+      "id": "ntf_d728fd3f00e5442e92e5dd679b20aab3",
+      "organizationId": "org_ls_tamper_1791395471669",
+      "userId": "usr_ls_tamper_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_ls_tamper_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.909Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_ls_tamper_1791395471669",
+        "expiredAt": "2026-09-27T17:51:13.525Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_ls_tamper_1791395471669"
+    },
+    {
+      "id": "ntf_ff5692df94474fb4baedd515360a2dc8",
+      "organizationId": "org_customer_expired_1791395471669",
+      "userId": "usr_cust_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_customer_expired_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:26.964Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_customer_expired_1791395471669",
+        "expiredAt": "2026-09-27T17:51:13.581Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_customer_expired_1791395471669"
+    },
+    {
+      "id": "ntf_d792fa28c0db4aadb974edae3e490d98",
+      "organizationId": "org_user_tamper_1791395471669",
+      "userId": "usr_victim_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_user_tamper_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:27.029Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_user_tamper_1791395471669",
+        "expiredAt": "2026-10-02T17:51:13.694Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_user_tamper_1791395471669"
+    },
+    {
+      "id": "ntf_6b267d0806ff43c0bfe9d310870e205c",
+      "organizationId": "org_tenant_b_1791395471669",
+      "userId": "usr_tenant_b_1791395471669",
+      "type": "SUBSCRIPTION_EXPIRED",
+      "title": "Subscription Expired",
+      "message": "Your SalesPilot subscription has expired. Renew your subscription to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_org_tenant_b_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:27.083Z",
+      "readAt": null,
+      "metadata": {
+        "subscriptionId": "sub_org_tenant_b_1791395471669",
+        "expiredAt": "2026-10-07T17:51:03.809Z",
+        "plan": "STARTER"
+      },
+      "idempotencyKey": "sub_expired_sub_org_tenant_b_1791395471669"
+    },
+    {
+      "id": "ntf_2741673af779440d80087d2b82d79cb4",
+      "organizationId": "org_reminder_1791395471669",
+      "userId": "usr_reminder_1791395471669",
+      "type": "SUBSCRIPTION_RENEWAL_REMINDER",
+      "title": "Subscription Renewal Reminder - Expiry Day",
+      "message": "Your SalesPilot subscription expires soon. Please renew to continue using SalesPilot.",
+      "entityType": "SUBSCRIPTION",
+      "entityId": "sub_7d_1791395471669",
+      "priority": "URGENT",
+      "isRead": false,
+      "createdAt": "2026-10-08T05:21:27.131Z",
+      "readAt": null,
+      "metadata": {
+        "daysRemaining": 0,
+        "isExpiryDay": true,
+        "expiresAt": "2026-10-08T13:51:14.679Z",
+        "plan": "GROWTH"
+      },
+      "idempotencyKey": "sub_reminder_sub_7d_1791395471669_0d"
     }
   ],
   "payments": [
@@ -121522,7 +121744,7 @@
       "user_id": "usr_test_reject_1791395463343",
       "plan": "BUSINESS",
       "billing_cycle": "monthly",
-      "status": "CANCELLED",
+      "status": "EXPIRED",
       "current_period_start": "2026-10-07T17:51:03.505Z",
       "current_period_end": "2026-10-07T17:51:03.505Z",
       "created_at": "2026-10-07T17:51:03.505Z",
@@ -121649,7 +121871,7 @@
       "user_id": "usr_utr_lock_1791395471669",
       "plan": "STARTER",
       "billing_cycle": "monthly",
-      "status": "PENDING_VERIFICATION",
+      "status": "EXPIRED",
       "current_period_start": "2026-09-02T17:51:11.986Z",
       "current_period_end": "2026-10-02T17:51:11.986Z",
       "created_at": "2026-10-07T17:51:11.986Z",
@@ -121661,7 +121883,7 @@
       "user_id": "usr_pending_lock_1791395471669",
       "plan": "GROWTH",
       "billing_cycle": "monthly",
-      "status": "PENDING_VERIFICATION",
+      "status": "EXPIRED",
       "current_period_start": "2026-10-07T17:51:12.236Z",
       "current_period_end": "2026-10-07T17:51:12.236Z",
       "created_at": "2026-10-07T17:51:12.236Z",

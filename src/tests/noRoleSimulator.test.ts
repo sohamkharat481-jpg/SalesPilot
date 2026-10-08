@@ -6,7 +6,7 @@ const localDb = LocalDB.instance;
 const isBillingAdmin = (user: any): boolean => {
   if (!user) return false;
   const email = String(user.email || '').trim().toLowerCase();
-  const isFounder = ['sohamkharat481@gmail.com', 'ayesha.kashif13008@gmail.com', 'pordigyai@gmail.com'].includes(email);
+  const isFounder = ['sohamkharat481@gmail.com', 'soham@gmail.com'].includes(email);
   return isFounder || user.role === 'SUPER_ADMIN';
 };
 
@@ -89,7 +89,7 @@ export async function runNoRoleSimulatorTestSuite(): Promise<{ passed: number; f
   });
 
   await test('5. Authorized founder accounts preserve lifetime SUPER_ADMIN privileges', () => {
-    const founderEmails = ['sohamkharat481@gmail.com', 'ayesha.kashif13008@gmail.com', 'pordigyai@gmail.com'];
+    const founderEmails = ['sohamkharat481@gmail.com', 'soham@gmail.com'];
     founderEmails.forEach(email => {
       const founderUser = { id: 'usr_founder', email, role: 'OWNER' };
       assert.strictEqual(isBillingAdmin(founderUser), true, `Founder email ${email} must be billing admin`);

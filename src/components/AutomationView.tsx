@@ -13,7 +13,7 @@ import { WorkflowCanvas } from './workflow/WorkflowCanvas';
 export function AutomationView() {
   const { user } = useAuth();
   const token = localStorage.getItem('token') || localStorage.getItem('salespilot_token') || '';
-  const orgId = user?.organizationId || 'org_salespilot_lifetime';
+  const orgId = user?.organizationId || '';
 
   // State managers
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>([]);

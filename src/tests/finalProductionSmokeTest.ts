@@ -480,8 +480,7 @@ export async function runFinalProductionSmokeTestSuite(): Promise<{ passed: numb
 
   await test('Smoke 8a: Verified founder email receives Lifetime Enterprise allowlist status', () => {
     assert.strictEqual(isVerifiedFounderEmail('sohamkharat481@gmail.com'), true);
-    assert.strictEqual(isVerifiedFounderEmail('ayesha.kashif13008@gmail.com'), true);
-    assert.strictEqual(isVerifiedFounderEmail('pordigyai@gmail.com'), true);
+    assert.strictEqual(isVerifiedFounderEmail('pordigyai@gmail.com'), false);
   });
 
   await test('Smoke 8b: Substring or lookalike emails are rejected from founder allowlist', () => {

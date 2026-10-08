@@ -49,7 +49,7 @@ Return ONLY valid JSON.`;
   const fallback: MeetingBriefResult = {
     id: `brief_${appointment.id}`,
     appointmentId: appointment.id,
-    organizationId: appointment.organizationId || 'org_salespilot_lifetime',
+    organizationId: appointment.organizationId || '',
     companyOverview: `${lead.company} is an active industry participant with established operational workflows and growth ambitions in their sector.`,
     contactOverview: `${lead.firstName} holds a senior position (${lead.title || 'Decision Maker'}) with direct oversight on operational efficiency and vendor evaluation.`,
     keyDiscussionPoints: [
@@ -75,7 +75,7 @@ Return ONLY valid JSON.`;
   return {
     id: `brief_${appointment.id}`,
     appointmentId: appointment.id,
-    organizationId: appointment.organizationId || 'org_salespilot_lifetime',
+    organizationId: appointment.organizationId || '',
     companyOverview: aiData.companyOverview || fallback.companyOverview,
     contactOverview: aiData.contactOverview || fallback.contactOverview,
     keyDiscussionPoints: aiData.keyDiscussionPoints || fallback.keyDiscussionPoints,

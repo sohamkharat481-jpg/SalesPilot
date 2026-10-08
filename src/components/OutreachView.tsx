@@ -131,7 +131,7 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
         firstCampaignStatus: firstCamp?.status || 'none',
         firstCampaignOrgId: firstCamp?.organizationId || firstCamp?.organization_id || 'none',
         authUserId: user?.id || 'none',
-        authOrgId: verifiedOrgId || 'org_salespilot_lifetime',
+        authOrgId: verifiedOrgId || user?.organizationId || 'none',
         passesFilter: firstCamp ? (String(firstCamp.status || '').toUpperCase() === 'ACTIVE' || String(firstCamp.status || '').toUpperCase() === 'RUNNING') : false
       };
       setRuntimeDiagnostic(diagnosticInfo);
@@ -195,7 +195,7 @@ export function OutreachView({ initialCampaigns }: OutreachViewProps = {}) {
     try {
       const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
       const storedOrg = localStorage.getItem('salespilot_org');
-      let orgId = 'org_salespilot_lifetime';
+      let orgId = user?.organizationId || '';
       if (storedOrg) {
         try {
           const parsed = JSON.parse(storedOrg);

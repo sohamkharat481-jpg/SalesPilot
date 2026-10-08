@@ -288,23 +288,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (isFounder) {
+    // Strict tenant boundary enforcement: non-founder must never be linked to org_salespilot_lifetime or named Soham Kharat
+    if (!isFounder) {
+      if (authoritativeOrg?.id === 'org_salespilot_lifetime') {
+        authoritativeOrg = null;
+      }
+      if (authoritativeUser?.organizationId === 'org_salespilot_lifetime') {
+        authoritativeUser.organizationId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${sessionUser.id.substring(0, 12)}`;
+      }
+      if (authoritativeUser && (authoritativeUser.fullName === 'Soham Kharat' || authoritativeUser.fullName.startsWith('Soham Kharat'))) {
+        authoritativeUser.fullName = fullName;
+      }
+      if (authoritativeUser) {
+        authoritativeUser.isFounder = false;
+        if (authoritativeUser.subscriptionStatus === 'LIFETIME') {
+          authoritativeUser.subscriptionStatus = 'ACTIVE';
+        }
+      }
+    } else {
       resolvedRole = 'OWNER';
     }
 
+    const defaultCustomerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${sessionUser.id.substring(0, 12)}`;
     const finalUser: WorkspaceUser = authoritativeUser || {
       id: sessionUser.id,
-      fullName: authoritativeUser?.fullName || fullName,
+      fullName: (authoritativeUser?.fullName && (isFounder || authoritativeUser.fullName !== 'Soham Kharat')) ? authoritativeUser.fullName : fullName,
       email,
       avatarUrl: sessionUser.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
       role: resolvedRole,
-      companyName: authoritativeOrg?.name || authoritativeUser?.companyName || 'SalesPilot',
+      companyName: authoritativeOrg?.name || authoritativeUser?.companyName || (isFounder ? 'SalesPilot' : `${fullName}'s Workspace`),
       industry: authoritativeUser?.industry || 'SaaS',
       tier: isFounder ? 'ENTERPRISE' : (authoritativeUser?.tier || 'STARTER'),
       subscriptionStatus: isFounder ? 'LIFETIME' : (authoritativeUser?.subscriptionStatus || 'ACTIVE'),
       isFounder,
       isVerified: true,
-      organizationId: authoritativeOrg?.id || authoritativeUser?.organizationId,
+      organizationId: isFounder ? 'org_salespilot_lifetime' : (authoritativeOrg?.id || authoritativeUser?.organizationId || defaultCustomerOrgId),
       onboardingCompleted: isFounder ? true : (authoritativeUser?.onboardingCompleted ?? false),
       createdAt: authoritativeUser?.createdAt || new Date().toISOString()
     };
@@ -529,12 +547,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent Verified Founder from seeing onboarding, setup, or billing screens
   useEffect(() => {
-    const isFounder = isVerifiedFounderEmail(user?.email);
+    const isFounder = user?.email?.toLowerCase() === 'sohamkharat481@gmail.com';
     if (user && isFounder) {
       const needsUpdate = !user.isFounder || 
                           user.subscriptionStatus !== 'LIFETIME' || 
                           user.tier !== 'ENTERPRISE' || 
-                          !user.isVerified;
+                          !user.isVerified ||
+                          user.organizationId !== 'org_salespilot_lifetime';
       if (needsUpdate) {
         console.log("Verified founder detected in AuthContext. Enforcing Lifetime access.");
         const updatedUser: WorkspaceUser = {
@@ -573,20 +592,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }));
       }
     } else if (user && !isFounder) {
-      // Ensure normal customer OWNER cannot spoof or retain isFounder / LIFETIME status
-      if (user.isFounder || user.subscriptionStatus === 'LIFETIME') {
+      // Ensure normal customer cannot retain isFounder, LIFETIME status, or founder's organization
+      const isContaminatedOrg = user.organizationId === 'org_salespilot_lifetime';
+      const isContaminatedName = user.fullName === 'Soham Kharat' || user.fullName?.startsWith('Soham Kharat');
+      if (user.isFounder || user.subscriptionStatus === 'LIFETIME' || isContaminatedOrg || isContaminatedName) {
+        const cleanName = isContaminatedName ? (user.email ? user.email.split('@')[0] : 'Customer') : user.fullName;
+        const cleanOrgId = isContaminatedOrg 
+          ? (user.email?.toLowerCase() === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${user.id.substring(0, 12)}`)
+          : user.organizationId;
+
         const cleanedUser: WorkspaceUser = {
           ...user,
+          fullName: cleanName,
+          organizationId: cleanOrgId,
           isFounder: false,
-          subscriptionStatus: 'ACTIVE'
+          subscriptionStatus: user.subscriptionStatus === 'LIFETIME' ? 'ACTIVE' : (user.subscriptionStatus || 'ACTIVE')
         };
         setUser(cleanedUser);
         try {
           localStorage.setItem('salespilot_user', JSON.stringify(cleanedUser));
+          if (cleanOrgId) {
+            localStorage.setItem('salespilot_workspace_id', cleanOrgId);
+          }
         } catch (_) {}
+
+        if (organization?.id === 'org_salespilot_lifetime') {
+          const cleanedOrg: Organization = {
+            id: cleanOrgId || `org_${user.id.substring(0, 12)}`,
+            name: `${cleanName}'s Workspace`,
+            companyName: `${cleanName}'s Workspace`,
+            domain: user.email ? user.email.split('@')[1] : '',
+            industry: 'General Software',
+            subscriptionPlan: 'STARTER',
+            createdAt: new Date().toISOString()
+          };
+          setOrganization(cleanedOrg);
+          try {
+            localStorage.setItem('salespilot_org', JSON.stringify(cleanedOrg));
+          } catch (_) {}
+        }
       }
     }
-  }, [user]);
+  }, [user, organization]);
 
   useEffect(() => {
     if (user && isVerifiedFounderEmail(user.email)) {
@@ -1162,26 +1209,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!supabase || SUPABASE_URL.includes('placeholder')) {
         console.warn('[OAUTH] Supabase credentials not fully configured; entering sandbox login mode.');
         const mockUser: WorkspaceUser = {
-          id: 'usr_81927391',
-          email: 'sohamkharat481@gmail.com',
-          fullName: 'Soham Kharat',
-          companyName: 'SalesPilot',
+          id: 'usr_sandbox_dev',
+          email: 'developer@sandbox.local',
+          fullName: 'Developer Sandbox',
+          companyName: 'Dev Workspace',
           industry: 'SaaS & Software',
-          tier: 'ENTERPRISE',
+          tier: 'STARTER',
           role: 'OWNER',
-          organizationId: 'org_salespilot_lifetime',
-          isFounder: true,
-          subscriptionStatus: 'LIFETIME',
+          organizationId: 'org_sandbox_dev',
+          isFounder: false,
+          subscriptionStatus: 'ACTIVE',
           avatarUrl: '',
-          title: 'Founder & CEO',
+          title: 'Developer',
           createdAt: new Date().toISOString()
         };
         const mockOrg: Organization = {
-          id: 'org_salespilot_lifetime',
-          name: 'SalesPilot',
-          companyName: 'SalesPilot',
+          id: 'org_sandbox_dev',
+          name: 'Dev Workspace',
+          companyName: 'Dev Workspace',
           industry: 'SaaS & Software',
-          domain: 'salespilot.co',
+          domain: 'sandbox.local',
           createdAt: new Date().toISOString()
         };
         setUser(mockUser);

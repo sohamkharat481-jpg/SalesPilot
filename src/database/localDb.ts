@@ -293,8 +293,17 @@ export class LocalDB {
             }
           }
           if (!resolvedOrg) {
-            resolvedOrg = defaultOrgId;
-            reason = 'Assigned to default lifetime organization.';
+            if (oldUser) {
+              const owningUser = this.db.users?.find(u => u.id === oldUser);
+              if (owningUser?.organizationId) {
+                resolvedOrg = owningUser.organizationId;
+                reason = 'Resolved organization from owning user.';
+              }
+            }
+            if (!resolvedOrg) {
+              resolvedOrg = defaultOrgId;
+              reason = 'Assigned to default lifetime organization.';
+            }
           }
         }
 
@@ -755,12 +764,13 @@ export class LocalDB {
 
       // 4. Migrate Leads
       for (const lead of this.db.leads) {
+        if (!(lead as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('leads')
             .upsert({
               id: lead.id,
-              organization_id: (lead as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (lead as any).organizationId,
               first_name: lead.firstName,
               last_name: lead.lastName || '',
               email: lead.email || '',
@@ -782,12 +792,13 @@ export class LocalDB {
 
       // 5. Migrate Campaigns
       for (const camp of this.db.campaigns) {
+        if (!(camp as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('campaigns')
             .upsert({
               id: camp.id,
-              organization_id: (camp as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (camp as any).organizationId,
               name: camp.name,
               target_audience: camp.targetAudience || 'GENERAL',
               status: camp.status || 'DRAFT',
@@ -806,12 +817,13 @@ export class LocalDB {
 
       // 6. Migrate Deals
       for (const deal of this.db.deals) {
+        if (!(deal as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('deals')
             .upsert({
               id: deal.id,
-              organization_id: (deal as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (deal as any).organizationId,
               lead_id: deal.leadId,
               lead_name: deal.leadName || '',
               company: deal.company || '',
@@ -825,12 +837,13 @@ export class LocalDB {
 
       // 7. Migrate Appointments
       for (const apt of this.db.appointments) {
+        if (!(apt as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('appointments')
             .upsert({
               id: apt.id,
-              organization_id: (apt as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (apt as any).organizationId,
               lead_id: apt.leadId,
               lead_name: apt.leadName || '',
               company: apt.company || '',
@@ -1210,11 +1223,12 @@ export class LocalDB {
             return;
           }
 
+          if (!(lead as any).organizationId) return;
           await this.supabase!
             .from('leads')
             .upsert({
               id: lead.id,
-              organization_id: (lead as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (lead as any).organizationId,
               first_name: lead.firstName,
               last_name: lead.lastName || '',
               email: lead.email || '',
@@ -1236,12 +1250,13 @@ export class LocalDB {
 
       // Deals
       for (const deal of this.db.deals) {
+        if (!(deal as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('deals')
             .upsert({
               id: deal.id,
-              organization_id: (deal as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (deal as any).organizationId,
               lead_id: deal.leadId,
               lead_name: deal.leadName || '',
               company: deal.company || '',
@@ -1255,12 +1270,13 @@ export class LocalDB {
 
       // Appointments
       for (const apt of this.db.appointments) {
+        if (!(apt as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('appointments')
             .upsert({
               id: apt.id,
-              organization_id: (apt as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (apt as any).organizationId,
               lead_id: apt.leadId,
               lead_name: apt.leadName || '',
               company: apt.company || '',
@@ -1284,12 +1300,13 @@ export class LocalDB {
 
       // Campaigns
       for (const camp of this.db.campaigns) {
+        if (!(camp as any).organizationId) continue;
         await this.retryWithBackoff(async () => {
           await this.supabase!
             .from('campaigns')
             .upsert({
               id: camp.id,
-              organization_id: (camp as any).organizationId || 'org_salespilot_lifetime',
+              organization_id: (camp as any).organizationId,
               name: camp.name,
               target_audience: camp.targetAudience || 'GENERAL',
               status: camp.status || 'DRAFT',
@@ -1574,8 +1591,8 @@ export class LocalDB {
       pordigyUser.organizationId = 'org_pordigy_enterprise';
       pordigyUser.role = 'OWNER';
       pordigyUser.tier = 'ENTERPRISE';
-      pordigyUser.isFounder = true;
-      pordigyUser.subscriptionStatus = 'LIFETIME';
+      pordigyUser.isFounder = false;
+      pordigyUser.subscriptionStatus = 'ACTIVE';
     }
 
     let pordigyOrg = this.getOrganizationById('org_pordigy_enterprise');
@@ -1678,7 +1695,7 @@ export class LocalDB {
    * Reconcile founder identity to a single canonical provider ID and organization
    */
   public reconcileFounderCanonicalId(canonicalUserId: string, email: string): WorkspaceUser | null {
-    if (!canonicalUserId || !isVerifiedFounderEmail(email)) return null;
+    if (!canonicalUserId || email.toLowerCase() !== 'sohamkharat481@gmail.com') return null;
     const emailLower = email.toLowerCase();
     
     // Find all records matching this founder
