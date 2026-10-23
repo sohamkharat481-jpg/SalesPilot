@@ -28,3 +28,26 @@ export function isVerifiedFounderEmail(email?: string | null): boolean {
   const clean = email.trim().toLowerCase();
   return VERIFIED_FOUNDER_EMAILS.has(clean);
 }
+
+/**
+ * Authoritative Verified Lifetime Subscriber Allowlist
+ */
+export const VERIFIED_LIFETIME_SUBSCRIBER_EMAILS: ReadonlySet<string> = new Set<string>(
+  [
+    'anjanapadhi21@gmail.com',
+    'ayesha.kashif13008@gmail.com',
+    ...(typeof process !== 'undefined' && process.env?.LIFETIME_EMAILS ? process.env.LIFETIME_EMAILS.split(',') : [])
+  ]
+    .map(e => String(e || '').trim().toLowerCase())
+    .filter(Boolean)
+);
+
+/**
+ * Validates whether an email belongs to a verified lifetime subscriber account.
+ */
+export function isLifetimeSubscriberEmail(email?: string | null): boolean {
+  if (!email || typeof email !== 'string') return false;
+  const clean = email.trim().toLowerCase();
+  return VERIFIED_LIFETIME_SUBSCRIBER_EMAILS.has(clean);
+}
+

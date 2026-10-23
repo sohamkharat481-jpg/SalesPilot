@@ -1,5 +1,5 @@
 import { LocalDB } from '../database/localDb';
-import { isVerifiedFounderEmail } from '../security/founderAllowlist';
+import { isVerifiedFounderEmail, isLifetimeSubscriberEmail } from '../security/founderAllowlist';
 import { SubscriptionRecord } from '../payments/upiPaymentService';
 import { SalesPilotNotification } from '../types';
 
@@ -27,7 +27,7 @@ export class SubscriptionManager {
     email?: string
   ): SubscriptionAccessResult {
     // 1. Founder & Lifetime Privilege Check
-    if (isVerifiedFounderEmail(email)) {
+    if (isVerifiedFounderEmail(email) || isLifetimeSubscriberEmail(email)) {
       return {
         isAllowed: true,
         status: 'ACTIVE',
@@ -37,7 +37,7 @@ export class SubscriptionManager {
 
     if (userId) {
       const user = localDb.getUserById(userId);
-      if (user && (user.isFounder || isVerifiedFounderEmail(user.email) || user.subscriptionStatus === 'LIFETIME')) {
+      if (user && (user.isFounder || isVerifiedFounderEmail(user.email) || isLifetimeSubscriberEmail(user.email) || user.subscriptionStatus === 'LIFETIME')) {
         return {
           isAllowed: true,
           status: 'ACTIVE',

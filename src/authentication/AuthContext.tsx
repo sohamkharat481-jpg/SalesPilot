@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { WorkspaceUser, UserRole, SubscriptionTier, Organization, TeamMember } from '../types';
 import { getSupabaseClient, isSupabaseConfigured, getSupabaseDiagnostics, SUPABASE_URL } from '../lib/supabase';
 
-import { isVerifiedFounderEmail } from '../security/founderAllowlist';
+import { isVerifiedFounderEmail, isLifetimeSubscriberEmail } from '../security/founderAllowlist';
 
 export function clearUserClientState() {
   const keysToRemove = [
@@ -221,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const emailLower = email.toLowerCase();
     const fullName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || email.split('@')[0] || 'User';
     const isFounder = isVerifiedFounderEmail(emailLower);
+    const isLifetimeSubscriber = isLifetimeSubscriberEmail(emailLower);
 
     let authoritativeUser: WorkspaceUser | null = null;
     let authoritativeOrg: Organization | null = null;
@@ -294,14 +295,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authoritativeOrg = null;
       }
       if (authoritativeUser?.organizationId === 'org_salespilot_lifetime') {
-        authoritativeUser.organizationId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${sessionUser.id.substring(0, 12)}`;
+        authoritativeUser.organizationId = emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : (emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${sessionUser.id.substring(0, 12)}`);
       }
       if (authoritativeUser && (authoritativeUser.fullName === 'Soham Kharat' || authoritativeUser.fullName.startsWith('Soham Kharat'))) {
         authoritativeUser.fullName = fullName;
       }
       if (authoritativeUser) {
         authoritativeUser.isFounder = false;
-        if (authoritativeUser.subscriptionStatus === 'LIFETIME') {
+        if (isLifetimeSubscriber) {
+          authoritativeUser.tier = 'ENTERPRISE';
+          authoritativeUser.subscriptionStatus = 'LIFETIME';
+        } else if (authoritativeUser.subscriptionStatus === 'LIFETIME') {
           authoritativeUser.subscriptionStatus = 'ACTIVE';
         }
       }
@@ -309,21 +313,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resolvedRole = 'OWNER';
     }
 
-    const defaultCustomerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${sessionUser.id.substring(0, 12)}`;
+    const defaultCustomerOrgId = emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : (emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${sessionUser.id.substring(0, 12)}`);
     const finalUser: WorkspaceUser = authoritativeUser || {
       id: sessionUser.id,
       fullName: (authoritativeUser?.fullName && (isFounder || authoritativeUser.fullName !== 'Soham Kharat')) ? authoritativeUser.fullName : fullName,
       email,
       avatarUrl: sessionUser.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
       role: resolvedRole,
-      companyName: authoritativeOrg?.name || authoritativeUser?.companyName || (isFounder ? 'SalesPilot' : `${fullName}'s Workspace`),
+      companyName: authoritativeOrg?.name || authoritativeUser?.companyName || (isFounder ? 'SalesPilot' : (emailLower === 'anjanapadhi21@gmail.com' ? "Anjana's Workspace" : `${fullName}'s Workspace`)),
       industry: authoritativeUser?.industry || 'SaaS',
-      tier: isFounder ? 'ENTERPRISE' : (authoritativeUser?.tier || 'STARTER'),
-      subscriptionStatus: isFounder ? 'LIFETIME' : (authoritativeUser?.subscriptionStatus || 'ACTIVE'),
+      tier: (isFounder || isLifetimeSubscriber) ? 'ENTERPRISE' : (authoritativeUser?.tier || 'STARTER'),
+      subscriptionStatus: (isFounder || isLifetimeSubscriber) ? 'LIFETIME' : (authoritativeUser?.subscriptionStatus || 'ACTIVE'),
       isFounder,
       isVerified: true,
-      organizationId: isFounder ? 'org_salespilot_lifetime' : (authoritativeOrg?.id || authoritativeUser?.organizationId || defaultCustomerOrgId),
-      onboardingCompleted: isFounder ? true : (authoritativeUser?.onboardingCompleted ?? false),
+      organizationId: isFounder ? 'org_salespilot_lifetime' : (emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : (authoritativeOrg?.id || authoritativeUser?.organizationId || defaultCustomerOrgId)),
+      onboardingCompleted: (isFounder || isLifetimeSubscriber) ? true : (authoritativeUser?.onboardingCompleted ?? false),
       createdAt: authoritativeUser?.createdAt || new Date().toISOString()
     };
 

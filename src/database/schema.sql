@@ -1202,3 +1202,37 @@ EXCEPTION
     WHEN OTHERS THEN
         NULL;
 END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = 'org_anjana_21') THEN
+        INSERT INTO public.organizations (id, name, company_name, domain)
+        VALUES ('org_anjana_21', 'Anjana''s Workspace', 'Anjana''s Workspace', 'gmail.com');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = 'usr_anjana_21' OR email = 'anjanapadhi21@gmail.com') THEN
+        INSERT INTO public.users (id, email, full_name, role, tier, organization_id, is_verified, is_founder, subscription_status)
+        VALUES ('usr_anjana_21', 'anjanapadhi21@gmail.com', 'Anjana Padhi', 'OWNER', 'ENTERPRISE', 'org_anjana_21', true, false, 'LIFETIME');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = 'usr_anjana_21' OR email = 'anjanapadhi21@gmail.com') THEN
+        INSERT INTO public.profiles (id, email, full_name, role, organization_id)
+        VALUES ('usr_anjana_21', 'anjanapadhi21@gmail.com', 'Anjana Padhi', 'OWNER', 'org_anjana_21');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+

@@ -1563,6 +1563,83 @@ export class LocalDB {
       });
     }
 
+    // 1c. Anjana Padhi Lifetime Enterprise workspace & membership
+    let anjanaUser = this.db.users.find(u => u.email?.toLowerCase() === 'anjanapadhi21@gmail.com' || u.id === 'usr_anjana_21');
+    if (!anjanaUser) {
+      const salt = bcrypt.genSaltSync(10);
+      anjanaUser = {
+        id: 'usr_anjana_21',
+        email: 'anjanapadhi21@gmail.com',
+        fullName: 'Anjana Padhi',
+        companyName: "Anjana's Workspace",
+        industry: 'SaaS & Software',
+        tier: 'ENTERPRISE',
+        role: 'OWNER',
+        organizationId: 'org_anjana_21',
+        isVerified: true,
+        phone: '',
+        timezone: 'Asia/Kolkata',
+        language: 'English',
+        notificationPrefs: { email: true, push: true, weeklyReport: true },
+        passwordHash: bcrypt.hashSync('Anjana2026!', salt),
+        isFounder: false,
+        subscriptionStatus: 'LIFETIME',
+        createdAt: new Date().toISOString()
+      };
+      this.db.users.push(anjanaUser);
+    } else {
+      anjanaUser.organizationId = 'org_anjana_21';
+      anjanaUser.role = 'OWNER';
+      anjanaUser.tier = 'ENTERPRISE';
+      anjanaUser.isFounder = false;
+      anjanaUser.subscriptionStatus = 'LIFETIME';
+    }
+
+    let anjanaOrg = this.getOrganizationById('org_anjana_21');
+    if (!anjanaOrg) {
+      anjanaOrg = {
+        id: 'org_anjana_21',
+        name: "Anjana's Workspace",
+        companyName: "Anjana's Workspace",
+        domain: 'gmail.com',
+        industry: 'SaaS & Software',
+        ownerId: anjanaUser.id,
+        subscriptionPlan: 'ENTERPRISE',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      };
+      this.db.organizations.push(anjanaOrg);
+    } else {
+      anjanaOrg.ownerId = anjanaUser.id;
+      anjanaOrg.subscriptionPlan = 'ENTERPRISE';
+    }
+
+    const anjanaMemberIdx = this.db.organizationMembers.findIndex(m => m.userId === anjanaUser.id && m.organizationId === 'org_anjana_21');
+    if (anjanaMemberIdx === -1) {
+      this.db.organizationMembers.push({
+        id: `orgm_${anjanaUser.id}_org_anjana_21`,
+        organizationId: 'org_anjana_21',
+        userId: anjanaUser.id,
+        role: 'OWNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    if (!this.getSubscriptionByOrgId('org_anjana_21')) {
+      this.saveSubscription({
+        id: 'sub_anjana_lifetime',
+        organization_id: 'org_anjana_21',
+        plan_id: 'ENTERPRISE',
+        status: 'ACTIVE',
+        subscription_type: 'LIFETIME',
+        current_period_start: new Date().toISOString(),
+        current_period_end: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
     // 2. Pordigy Enterprise workspace & membership
     let pordigyUser = this.db.users.find(u => u.email?.toLowerCase() === 'pordigyai@gmail.com' || u.id === 'usr_pordigy_auth_01');
     if (!pordigyUser) {

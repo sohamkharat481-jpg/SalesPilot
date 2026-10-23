@@ -232,7 +232,7 @@ let serverLoginHistory = localDb.getLoginHistory();
 let serverActivityLogs = localDb.getActivityLogs();
 
 let serverSessions: Record<string, { user: any; expiresAt: number }> = {};
-import { isVerifiedFounderEmail, VERIFIED_FOUNDER_EMAILS } from './src/security/founderAllowlist';
+import { isVerifiedFounderEmail, isLifetimeSubscriberEmail, VERIFIED_FOUNDER_EMAILS } from './src/security/founderAllowlist';
 
 let failedLoginAttempts: Record<string, { count: number; lockedUntil?: number }> = {};
 
@@ -253,9 +253,32 @@ async function applyFounderPrivileges(userObj: any) {
   if (!userObj) return;
 
   const emailLower = String(userObj.email || '').trim().toLowerCase();
-  // ONLY grant lifetime Enterprise to verified founder email identities from the strict allowlist.
+  // ONLY grant lifetime Enterprise to verified founder/subscriber email identities from the strict allowlists.
   // NEVER grant based on role === 'OWNER', substring matching, or unverified frontend flags.
   const isFounder = isVerifiedFounderEmail(emailLower);
+  const isLifetimeSubscriber = isLifetimeSubscriberEmail(emailLower);
+
+  if (isLifetimeSubscriber && !isFounder) {
+    userObj.tier = 'ENTERPRISE';
+    userObj.subscriptionStatus = 'LIFETIME';
+    userObj.isFounder = false;
+    userObj.role = userObj.role || 'OWNER';
+    userObj.isVerified = true;
+    userObj.onboardingCompleted = true;
+    userObj.unlimitedFeatures = true;
+    userObj.unlimitedAiUsage = true;
+    userObj.unlimitedLeadSearches = true;
+    userObj.unlimitedCampaigns = true;
+    userObj.unlimitedApiAccess = true;
+
+    if (emailLower === 'anjanapadhi21@gmail.com') {
+      userObj.organizationId = 'org_anjana_21';
+      userObj.companyName = "Anjana's Workspace";
+    } else if (!userObj.organizationId || userObj.organizationId === 'org_salespilot_lifetime') {
+      userObj.organizationId = `org_${(userObj.id || 'subscriber').substring(0, 12)}`;
+    }
+    return;
+  }
 
   if (!isFounder && hasFreeAccess(userObj)) {
     userObj.tier = 'ENTERPRISE';
@@ -267,7 +290,7 @@ async function applyFounderPrivileges(userObj: any) {
 
   if (!isFounder) {
     userObj.isFounder = false;
-    if (userObj.subscriptionStatus === 'LIFETIME') {
+    if (userObj.subscriptionStatus === 'LIFETIME' && !isLifetimeSubscriber) {
       userObj.subscriptionStatus = 'ACTIVE';
     }
     if (userObj && !userObj.subscriptionStatus) {
@@ -1762,9 +1785,11 @@ async function startServer() {
             }
           }
 
+          const isLifetimeSubscriber = isLifetimeSubscriberEmail(emailLower);
           let user = localDb.getUserById(sbUser.id);
           const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(sbUser.id);
-          const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || `org_${sbUser.id.substring(0, 8)}`)));
+          const defaultCustomerOrgId = emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : `org_${sbUser.id.substring(0, 8)}`;
+          const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || defaultCustomerOrgId)));
           const cleanDisplayName = isFounder ? 'Soham Kharat' : (sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer');
 
           if (!user) {
@@ -1774,7 +1799,7 @@ async function startServer() {
               fullName: cleanDisplayName,
               companyName: resolvedCompanyName,
               industry: 'SaaS & Software',
-              tier: isFounder ? 'ENTERPRISE' : 'STARTER',
+              tier: (isFounder || isLifetimeSubscriber) ? 'ENTERPRISE' : 'STARTER',
               role: resolvedRole,
               organizationId: orgId,
               isVerified: true,
@@ -1782,7 +1807,7 @@ async function startServer() {
               timezone: 'Asia/Kolkata',
               language: 'English',
               isFounder,
-              subscriptionStatus: isFounder ? 'LIFETIME' : 'ACTIVE',
+              subscriptionStatus: (isFounder || isLifetimeSubscriber) ? 'LIFETIME' : 'ACTIVE',
               createdAt: new Date().toISOString()
             };
             localDb.addUser(user);
@@ -1798,7 +1823,10 @@ async function startServer() {
                 user.fullName = cleanDisplayName;
               }
               user.isFounder = false;
-              if (user.subscriptionStatus === 'LIFETIME') {
+              if (isLifetimeSubscriber) {
+                user.tier = 'ENTERPRISE';
+                user.subscriptionStatus = 'LIFETIME';
+              } else if (user.subscriptionStatus === 'LIFETIME') {
                 user.subscriptionStatus = 'ACTIVE';
               }
             }
@@ -2102,7 +2130,7 @@ async function startServer() {
     }
 
     // 1. Founder & Lifetime Privilege Bypass (Always allowed)
-    if (isVerifiedFounderEmail(user.email) || user.isFounder) {
+    if (isVerifiedFounderEmail(user.email) || isLifetimeSubscriberEmail(user.email) || user.isFounder || user.subscriptionStatus === 'LIFETIME') {
       return next();
     }
 
@@ -9903,13 +9931,16 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       });
       const gmailAcc = await resolveAuthoritativeGmailAccount({
         organizationId: orgId,
-        senderEmail,
         userId: user.id,
         xOrganizationId: xOrgId as string
       });
+      console.log('[DEBUG-GMAIL-SEND] Resolved Account:', gmailAcc ? { id: gmailAcc.id, email: gmailAcc.email, hasToken: !!gmailAcc.accessToken } : 'null');
       if (!gmailAcc || !gmailAcc.accessToken) {
         return res.status(400).json({ 
-          error: 'No authorized Gmail account connected. Please connect your Google Workspace account under Settings > Integrations.' 
+          error: 'No authorized Gmail account connected.',
+          debug: {
+            resolvedAcc: gmailAcc ? { id: gmailAcc.id, email: gmailAcc.email } : 'null'
+          }
         });
       }
       if (gmailAcc.status === 'REAUTH_REQUIRED' || gmailAcc.status === 'REAUTH_NEEDED') {
@@ -19063,11 +19094,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     // Query authoritative database records for this tenant and user
     const dbAccounts = await queryAuthoritativeGmailAccounts({ organizationId: orgId, userId: user.id });
+console.log("[DEBUG] dbAccounts:", dbAccounts.length, "User OrgId:", orgId, "First Gmail Account OrgId:", gmailAccounts[0]?.organizationId);
+console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     // Fallback to memory/disk accounts only if database query returned empty and not in production
+console.log("[DEBUG] Gmail Accounts in memory:", gmailAccounts.length);
+console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
     const filteredAccounts = dbAccounts.length > 0 
       ? dbAccounts 
-      : (process.env.NODE_ENV !== 'production' ? gmailAccounts.filter(a => a.organizationId === orgId) : []);
+      : gmailAccounts.filter(a => a.organizationId === orgId);
 
     const filteredQueue = gmailQueue.filter(q => {
       const acc = filteredAccounts.find((a: any) => a.email === q.accountId);

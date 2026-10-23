@@ -76,6 +76,10 @@ export async function resolveAuthoritativeGmailAccount(
   }
 
   const cleanOrgId = organizationId.trim();
+  console.log('[DEBUG-GMAIL-RESOLVER] Params:', {
+    orgId: cleanOrgId,
+    userId: userId
+  });
 
   // In production, SUPABASE_SERVICE_ROLE_KEY is mandatory for accessing public.google_accounts
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
@@ -104,7 +108,8 @@ export async function resolveAuthoritativeGmailAccount(
     .select('*', { count: 'exact' })
     .in('account_type', ['gmail', 'GMAIL'])
     .eq('organization_id', cleanOrgId)
-    .not('access_token', 'is', null);
+    .not('access_token', 'is', null)
+    .not('access_token', 'eq', '');
 
   // If authenticated userId is provided, strictly enforce user ownership
   if (userId && typeof userId === 'string' && userId.trim() !== '') {
@@ -116,6 +121,13 @@ export async function resolveAuthoritativeGmailAccount(
   }
 
   let { data, count, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+  console.log('[DEBUG-GMAIL-RESOLVER] Diagnostic info:', {
+    authenticatedUserId: userId,
+    verifiedOrgId: cleanOrgId,
+    error: error ? error.message : 'no-error',
+    dataPresent: !!data
+  });
 
   // Fallback: If specific senderEmail filter yielded no record for this user, search by user_id and organization_id
   if (!data && senderEmail && userId) {
@@ -160,15 +172,14 @@ export async function resolveAuthoritativeGmailAccount(
   }
 
   if (!data || !data.access_token) {
-    console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
+    console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS - FAILURE]', {
       authenticatedUserId: userId || null,
       verifiedOrganizationId: cleanOrgId,
       xOrganizationIdReceived: xOrganizationId || null,
       senderEmail: senderEmail || null,
-      googleAccountsQueryCount: queryCount,
-      matchedAccountEmail: matchedEmail,
-      matchedAccountType: matchedAccountType,
-      credentialsPresent: false,
+      queryCount: queryCount,
+      dataExists: !!data,
+      hasAccessToken: data ? !!data.access_token : false,
       resolverResult: 'not_found'
     });
     return null;
@@ -351,7 +362,6 @@ export async function persistAuthoritativeGoogleAccount(
       scopes: scopes || [],
       expiry_date: expiresAt,
       account_type: 'calendar',
-      status: calendarStatus,
       updated_at: now
     },
     {
@@ -364,7 +374,6 @@ export async function persistAuthoritativeGoogleAccount(
       scopes: scopes || [],
       expiry_date: expiresAt,
       account_type: 'gmail',
-      status: 'CONNECTED',
       updated_at: now
     }
   ];
@@ -419,7 +428,7 @@ export async function queryAuthoritativeGmailAccounts(options: {
       const client = customClient || getPrivilegedSupabaseServerClient();
       let query = client
         .from('google_accounts')
-        .select('id, user_id, organization_id, email, scopes, status, account_type, created_at, updated_at')
+        .select('id, user_id, organization_id, email, scopes, account_type, created_at, updated_at')
         .in('account_type', ['gmail', 'GMAIL'])
         .eq('organization_id', cleanOrgId)
         .not('access_token', 'is', null);
@@ -433,7 +442,7 @@ export async function queryAuthoritativeGmailAccounts(options: {
       if ((!data || data.length === 0) && userId) {
         const fallbackRes = await client
           .from('google_accounts')
-          .select('id, user_id, organization_id, email, scopes, status, account_type, created_at, updated_at')
+          .select('id, user_id, organization_id, email, scopes, account_type, created_at, updated_at')
           .in('account_type', ['gmail', 'GMAIL'])
           .eq('organization_id', cleanOrgId)
           .not('access_token', 'is', null)
@@ -450,7 +459,7 @@ export async function queryAuthoritativeGmailAccounts(options: {
           userId: d.user_id,
           email: d.email,
           fullName: d.email ? d.email.split('@')[0] : '',
-          status: d.status || 'CONNECTED',
+          status: (d as any).status || 'CONNECTED',
           createdAt: d.created_at || new Date().toISOString(),
           scopes: Array.isArray(d.scopes) ? d.scopes : [],
           organizationId: d.organization_id || cleanOrgId,
@@ -466,6 +475,8 @@ export async function queryAuthoritativeGmailAccounts(options: {
     }
   }
 
+  // Fallback: If not in production or if database is inaccessible, fallback to memory store
+  // NOTE: In production with SUPABASE_SERVICE_ROLE_KEY missing, this is the ONLY source.
   return [];
 }
 
