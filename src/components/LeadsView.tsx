@@ -1946,7 +1946,13 @@ export function LeadsView({
                                 )}
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-mono">{lead.title || 'Decision Maker'}</div>
-                              <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{lead.email}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">
+                                {lead.email ? (
+                                  <span className="text-slate-700 dark:text-slate-300">{lead.email}</span>
+                                ) : (
+                                  <span className="text-amber-500 dark:text-amber-400 italic font-medium">No email found (EMAIL_NOT_FOUND)</span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="py-3.5 px-4">

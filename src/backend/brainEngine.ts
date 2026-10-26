@@ -675,7 +675,7 @@ SalesPilot Brain Services.
         leadId: lead.id,
         leadName: `${lead.firstName} ${lead.lastName}`,
         company: lead.company,
-        email: lead.email || 'info@corporate.com',
+        email: lead.email || '',
         dateTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days in future
         durationMins: 30,
         status: 'SCHEDULED',

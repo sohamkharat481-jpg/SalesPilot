@@ -504,12 +504,16 @@ export class GoogleMapsLeadProvider implements LeadProvider {
           }
         }
 
-        const contactEmail = domainName ? `info@${domainName}` : '';
+        const contactEmail = '';
+        const emailStatus = 'EMAIL_NOT_FOUND' as const;
+        const emailSource = 'NONE';
 
         const prospect: Partial<Lead> = {
           firstName: '',
           lastName: '',
           email: contactEmail,
+          emailStatus,
+          emailSource,
           phone: details.nationalPhoneNumber || '',
           company: details.displayName?.text || place.displayName?.text || '',
           title: '',
@@ -1001,7 +1005,9 @@ export class CrunchbaseLeadProvider implements LeadProvider {
         const prospect: Partial<Lead> = {
           firstName: 'Sourcing',
           lastName: 'Director',
-          email: domain ? `contact@${domain}` : '',
+          email: '',
+          emailStatus: 'EMAIL_NOT_FOUND',
+          emailSource: 'NONE',
           phone: '',
           company: properties.name,
           title: 'Growth Sourcing Lead',
@@ -1176,13 +1182,16 @@ export class GoogleSearchLeadProvider implements LeadProvider {
           totalDiscarded++;
         }
 
-        const email = domain ? `${firstName.toLowerCase()}.${lastName.toLowerCase().replace(/\s/g, '')}@${domain}` : '';
-        const hunterStatus = await verifyEmail(email);
+        const email = '';
+        const emailStatus = 'EMAIL_NOT_FOUND' as const;
+        const emailSource = 'NONE';
 
         const prospect: Partial<Lead> = {
           firstName,
           lastName,
           email,
+          emailStatus,
+          emailSource,
           phone: '',
           company,
           title: roleText,
@@ -1267,13 +1276,16 @@ export class WebsiteCrawlingLeadProvider implements LeadProvider {
       console.warn(`[CRAWLER WARNING] Target URL "${website}" failed DNS/HTTP validation: ${validation.reason}. Continuing anyway with available business data.`);
     }
 
-    const email = `contact@${validation.domain || domain}`;
-    const hunterStatus = await verifyEmail(email);
+    const email = '';
+    const emailStatus = 'EMAIL_NOT_FOUND' as const;
+    const emailSource = 'NONE';
 
     const prospect: Partial<Lead> = {
       firstName: '',
       lastName: '',
       email: email,
+      emailStatus,
+      emailSource,
       phone: '',
       company: domain.split('.')[0].toUpperCase(),
       title: '',

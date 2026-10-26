@@ -372,11 +372,16 @@ export class WorkflowRunner {
         const nameParts = (config.name || config.firstName || 'Workflow Lead').split(' ');
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(' ') || 'User';
+        const email = config.email || '';
+        const emailStatus = config.email ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND';
+        const emailSource = config.email ? 'WORKFLOW' : 'NONE';
         const newLead: Lead = {
           id: leadId,
           firstName,
           lastName,
-          email: config.email || `lead_${leadId}@example.com`,
+          email,
+          emailStatus,
+          emailSource,
           company: config.company || 'Unknown',
           phone: config.phone || '',
           status: (config.status || 'NEW') as any,

@@ -226,6 +226,10 @@ export interface Lead {
   companyName?: string;
   value?: number;
   email: string;
+  emailSource?: string;
+  emailStatus?: 'VERIFIED' | 'UNVERIFIED' | 'RISKY' | 'INVALID' | 'EMAIL_NOT_FOUND';
+  emailVerifiedAt?: string;
+  verificationProvider?: string;
   phone?: string;
   company: string;
   title?: string;

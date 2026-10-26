@@ -129,6 +129,19 @@ export class OutreachWorker {
           continue;
         }
 
+        // 3.5. Validate lead email address (Reject missing, unverified/invalid, or malformed addresses)
+        const recipientEmail = lead.email ? lead.email.trim().toLowerCase() : '';
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!recipientEmail || !emailRegex.test(recipientEmail) || lead.emailStatus === 'INVALID' || lead.emailStatus === 'EMAIL_NOT_FOUND') {
+          await this.context.updateQueueItem(claimed.id, { 
+            status: 'FAILED', 
+            error: `Lead email is missing, invalid, or unverified (email: "${lead.email || 'None'}", status: "${lead.emailStatus || 'NONE'}")`,
+            attempts: (claimed.attempts || 0) + 1
+          }, claimed.organizationId);
+          failed++;
+          continue;
+        }
+
         // 4. Retrieve connected Gmail account for sender strictly scoped to user + org
         const senderUserId = claimed.userId || campaign.userId || (campaign as any).createdById;
         const gmailAcc = await this.context.getGmailAccount(claimed.organizationId, senderUserId);

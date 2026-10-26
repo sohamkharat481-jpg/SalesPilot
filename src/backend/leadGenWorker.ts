@@ -329,8 +329,10 @@ export class LeadGenWorker {
         const websiteDomain = valResult.domain;
         const companyClean = cand.company.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-        // 3. Email resolution: Use real provider email if present, or verified domain email
-        const email = cand.email ? cand.email.trim() : (websiteDomain ? `contact@${websiteDomain.replace(/^www\./, '')}` : '');
+        // 3. Email resolution: Use real provider email if present, NEVER fabricate contact@domain
+        const email = cand.email ? cand.email.trim() : '';
+        const emailStatus = cand.email ? (cand.emailStatus || 'UNVERIFIED') : 'EMAIL_NOT_FOUND';
+        const emailSource = cand.email ? (cand.emailSource || 'API_PROVIDER') : 'NONE';
 
         if (email && seenEmails.has(normalizeString(email))) {
           console.log(`[LEAD WORKER] Candidate "${cand.company}" discarded: duplicate email "${email}"`);
@@ -380,6 +382,8 @@ export class LeadGenWorker {
           lastName: cand.lastName || '',
           title: cand.title || '',
           email: email || '',
+          emailStatus,
+          emailSource,
           phone: cand.phone || '',
           company: cand.company,
           status: 'NEW',
