@@ -9921,6 +9921,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       return res.status(400).json({ error: 'Valid recipient email address is required.' });
     }
 
+    let gmailAcc: any = null;
     try {
       console.log('[TEST EMAIL RUNTIME DIAGNOSTICS]', {
         authenticatedUserId: user.id,
@@ -9929,7 +9930,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
         requestedSenderEmail: senderEmail || null,
         resolverPath: 'resolveAuthoritativeGmailAccount'
       });
-      const gmailAcc = await resolveAuthoritativeGmailAccount({
+      gmailAcc = await resolveAuthoritativeGmailAccount({
         organizationId: orgId,
         userId: user.id,
         xOrganizationId: xOrgId as string
@@ -9994,11 +9995,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       const errMsg = err?.message || String(err);
       if (errMsg.includes('invalid_grant') || errMsg.includes('revoked') || errMsg.includes('expired') || errMsg.includes('REAUTH_NEEDED') || errMsg.includes('REAUTH_REQUIRED')) {
         try {
-          const privilegedClient = getPrivilegedSupabaseServerClient();
-          await privilegedClient
-            .from('google_accounts')
-            .update({ status: 'REAUTH_REQUIRED' })
-            .eq('organization_id', orgId);
+          await markGoogleAccountReauthRequired(gmailAcc?.email || '', orgId, user.id);
         } catch (dbErr) {
           // ignore
         }
@@ -19567,6 +19564,7 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
       // Attempt refresh if refresh token exists
       if (account.refreshToken) {
         console.log(`[GOOGLE AUTH - ${serviceName}] Attempting automatic token refresh for ${email}...`);
+        let tokenData: any = null;
         try {
           const rawClientId = process.env.GOOGLE_CLIENT_ID || '';
           const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -19583,48 +19581,51 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
               grant_type: 'refresh_token'
             })
           });
-          const tokenData = await response.json();
-          if (tokenData.access_token) {
-            account.accessToken = tokenData.access_token;
-            account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
-            account.status = 'CONNECTED';
-            console.log(`[GOOGLE AUTH - ${serviceName}] Token status: Refreshed successfully for ${email}`);
-            
-            // Sync across lists (Calendar <-> Gmail)
-            if (serviceName === 'Calendar') {
-              const matchedGmail = gmailAccounts.find(g => g.email === email);
-              if (matchedGmail) {
-                matchedGmail.accessToken = account.accessToken;
-                matchedGmail.expiresAt = account.expiresAt;
-                matchedGmail.status = 'CONNECTED';
-              }
-            } else {
-              const matchedCalendar = calendarAccounts.find(c => c.email === email);
-              if (matchedCalendar) {
-                matchedCalendar.accessToken = account.accessToken;
-                matchedCalendar.expiresAt = account.expiresAt;
-                matchedCalendar.status = 'CONNECTED';
-              }
-            }
-            saveAccountsToDisk();
-            return account.accessToken;
-          } else {
-            console.warn(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid/Revoked (Auto-refresh failed with error)`, tokenData);
-            account.status = 'REAUTH_NEEDED';
-            calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
-            gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
-            saveAccountsToDisk();
-            markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
-            throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
-          }
-        } catch (err: any) {
-          console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid (Refresh network/API failed: ${err.message || String(err)})`);
+          tokenData = await response.json();
+        } catch (fetchErr: any) {
+          console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid (Refresh network call failed: ${fetchErr.message || String(fetchErr)})`);
           account.status = 'REAUTH_NEEDED';
           calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
           gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
           saveAccountsToDisk();
           markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
-          throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
+          throw new Error(`Your Google ${serviceName} connection has expired. Please reconnect your Google account.`);
+        }
+
+        if (tokenData && tokenData.access_token) {
+          account.accessToken = tokenData.access_token;
+          account.expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
+          account.status = 'CONNECTED';
+          console.log(`[GOOGLE AUTH - ${serviceName}] Token status: Refreshed successfully for ${email}`);
+          
+          // Sync across lists (Calendar <-> Gmail)
+          if (serviceName === 'Calendar') {
+            const matchedGmail = gmailAccounts.find(g => g.email === email);
+            if (matchedGmail) {
+              matchedGmail.accessToken = account.accessToken;
+              matchedGmail.expiresAt = account.expiresAt;
+              matchedGmail.status = 'CONNECTED';
+            }
+          } else {
+            const matchedCalendar = calendarAccounts.find(c => c.email === email);
+            if (matchedCalendar) {
+              matchedCalendar.accessToken = account.accessToken;
+              matchedCalendar.expiresAt = account.expiresAt;
+              matchedCalendar.status = 'CONNECTED';
+            }
+          }
+          saveAccountsToDisk();
+          return account.accessToken;
+        } else {
+          const oauthErr = tokenData?.error || 'token_refresh_failed';
+          const oauthDesc = tokenData?.error_description || 'OAuth token auto-refresh failed';
+          console.warn(`[GOOGLE AUTH - ${serviceName}] Token status: Invalid/Revoked (${oauthErr}: ${oauthDesc})`);
+          account.status = 'REAUTH_NEEDED';
+          calendarAccounts.filter(c => c.email === email).forEach(c => c.status = 'REAUTH_NEEDED');
+          gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
+          saveAccountsToDisk();
+          markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
+          throw new Error(`Your Google ${serviceName} connection has expired (${oauthErr}). Please reconnect your Google account.`);
         }
       } else {
         console.error(`[GOOGLE AUTH - ${serviceName}] Token status: Expired without refresh token for ${email}`);
@@ -19633,7 +19634,7 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
         gmailAccounts.filter(g => g.email === email).forEach(g => g.status = 'REAUTH_NEEDED');
         saveAccountsToDisk();
         markGoogleAccountReauthRequired(email, account.organizationId, account.userId);
-        throw new Error(`Your Google Calendar connection has expired. Please reconnect your Google account.`);
+        throw new Error(`Your Google ${serviceName} connection has expired. Please reconnect your Google account.`);
       }
     }
 

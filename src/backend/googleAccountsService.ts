@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getPrivilegedSupabaseServerClient } from '../lib/supabase.server';
+import { LocalDB } from '../database/localDb';
 
 export interface AuthoritativeGmailAccount {
   id?: string;
@@ -60,6 +61,196 @@ export interface PersistGoogleAccountParams {
 }
 
 /**
+ * Validates that an account possesses a required Gmail sending scope.
+ *
+ * Minimum required scope requested during OAuth: https://www.googleapis.com/auth/gmail.send
+ * Also accepts full mail scopes: https://mail.google.com/, https://www.googleapis.com/auth/gmail.compose, https://www.googleapis.com/auth/gmail.modify.
+ * An empty array, null, undefined, or missing scope is strictly treated as unauthorized.
+ */
+export function hasRequiredGmailSendScope(scopes: any): boolean {
+  if (!scopes) return false;
+
+  let scopesList: string[] = [];
+  if (Array.isArray(scopes)) {
+    scopesList = scopes.map(s => String(s).trim()).filter(Boolean);
+  } else if (typeof scopes === 'string') {
+    scopesList = scopes.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  } else {
+    return false;
+  }
+
+  if (scopesList.length === 0) {
+    return false;
+  }
+
+  const validSendScopes = [
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://mail.google.com/',
+    'https://mail.google.com',
+    'https://www.googleapis.com/auth/gmail.compose',
+    'https://www.googleapis.com/auth/gmail.modify'
+  ];
+
+  return scopesList.some(s => validSendScopes.includes(s.toLowerCase()));
+}
+
+function resolveLocalDbFallback(cleanOrgId: string, userId?: string, senderEmail?: string): AuthoritativeGmailAccount | null {
+  try {
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== 'true') {
+      console.warn('[SAFE GMAIL RESOLVER] LocalDB fallback is disabled in production to prevent instance inconsistency.');
+      return null;
+    }
+    if (!userId || typeof userId !== 'string' || !userId.trim()) {
+      console.warn('[SAFE GMAIL RESOLVER] Rejection: userId is required for LocalDB fallback resolution.');
+      return null;
+    }
+    const cleanUserId = userId.trim();
+    const localDb = LocalDB.getInstance();
+    const localAccounts = localDb.getGmailAccounts(cleanOrgId, cleanUserId);
+
+    const matchingLocal = localAccounts.find(a => {
+      const storedUserId = a.userId || a.user_id;
+      const storedOrgId = a.organizationId || a.organization_id;
+      const storedToken = a.accessToken || a.access_token;
+
+      // Enforce strict ownership: stored userId and organizationId MUST exist and match exactly
+      if (!storedUserId || String(storedUserId).trim() !== cleanUserId) return false;
+      if (!storedOrgId || String(storedOrgId).trim() !== cleanOrgId) return false;
+
+      // Must have valid non-mock access token
+      if (!storedToken || typeof storedToken !== 'string' || storedToken.startsWith('mock_')) return false;
+
+      // Filter by senderEmail if specified
+      if (senderEmail && typeof senderEmail === 'string' && senderEmail.trim() !== '') {
+        if ((a.email || '').toLowerCase().trim() !== senderEmail.trim().toLowerCase()) return false;
+      }
+
+      return true;
+    });
+
+    if (matchingLocal) {
+      const storedToken = matchingLocal.accessToken || matchingLocal.access_token;
+      const storedRefreshToken = matchingLocal.refreshToken || matchingLocal.refresh_token;
+      const storedExpiry = matchingLocal.expiresAt || matchingLocal.expiry_date;
+      const storedUserId = matchingLocal.userId || matchingLocal.user_id || cleanUserId;
+      const storedOrgId = matchingLocal.organizationId || matchingLocal.organization_id || cleanOrgId;
+
+      console.log('[SAFE GMAIL RESOLVER] Valid LocalDB account resolved for org:', cleanOrgId, 'user:', cleanUserId, 'email:', matchingLocal.email);
+      const email = (matchingLocal.email || '').toLowerCase().trim();
+
+      // OAuth Validation: Check expiration, NaN expiry handling, and explicit status
+      let isExpired = true;
+      if (storedExpiry) {
+        const parsedTime = new Date(storedExpiry).getTime();
+        isExpired = isNaN(parsedTime) || parsedTime <= Date.now();
+      }
+
+      const hasRefresh = Boolean(storedRefreshToken && String(storedRefreshToken).trim().length > 0);
+      const isExplicitlyConnected = matchingLocal.status === 'CONNECTED';
+
+      // Scope Validation: Validate required Gmail send scope presence
+      const hasGmailScope = hasRequiredGmailSendScope(matchingLocal.scopes);
+
+      let effectiveStatus = 'CONNECTED';
+      if (!isExplicitlyConnected || (isExpired && !hasRefresh) || !hasGmailScope) {
+        effectiveStatus = 'REAUTH_REQUIRED';
+      }
+
+      const scopesArr = Array.isArray(matchingLocal.scopes) 
+        ? matchingLocal.scopes 
+        : (typeof matchingLocal.scopes === 'string' ? matchingLocal.scopes.split(/[\s,]+/).filter(Boolean) : []);
+
+      return {
+        id: matchingLocal.id || `ga_${cleanUserId}_${email}_gmail`,
+        userId: storedUserId,
+        email,
+        fullName: email.split('@')[0],
+        accessToken: storedToken,
+        refreshToken: storedRefreshToken || undefined,
+        expiresAt: storedExpiry || new Date(0).toISOString(),
+        status: effectiveStatus,
+        createdAt: matchingLocal.createdAt || matchingLocal.created_at || new Date().toISOString(),
+        scopes: scopesArr,
+        organizationId: storedOrgId,
+        accountType: 'gmail'
+      };
+    }
+  } catch (localErr: any) {
+    console.warn('[OUTREACH GOOGLE ACCOUNT] LocalDB fallback lookup failed:', localErr?.message);
+  }
+  return null;
+}
+
+function resolveLocalDbCalendarFallback(cleanOrgId: string, cleanUserId: string): AuthoritativeCalendarAccount | null {
+  try {
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== 'true') {
+      console.warn('[SAFE CALENDAR RESOLVER] LocalDB fallback is disabled in production to prevent instance inconsistency.');
+      return null;
+    }
+    if (!cleanUserId || typeof cleanUserId !== 'string' || !cleanUserId.trim()) {
+      return null;
+    }
+    const localDb = LocalDB.getInstance();
+    const localAccounts = localDb.getCalendarAccounts(cleanOrgId, cleanUserId);
+
+    const matchingLocal = localAccounts.find(a => {
+      const storedUserId = a.userId || a.user_id;
+      const storedOrgId = a.organizationId || a.organization_id;
+      const storedToken = a.accessToken || a.access_token;
+
+      if (!storedUserId || String(storedUserId).trim() !== cleanUserId) return false;
+      if (!storedOrgId || String(storedOrgId).trim() !== cleanOrgId) return false;
+      if (!storedToken || typeof storedToken !== 'string') return false;
+
+      return true;
+    });
+
+    if (matchingLocal) {
+      const storedToken = matchingLocal.accessToken || matchingLocal.access_token;
+      const storedRefreshToken = matchingLocal.refreshToken || matchingLocal.refresh_token;
+      const storedExpiry = matchingLocal.expiresAt || matchingLocal.expiry_date;
+      const storedUserId = matchingLocal.userId || matchingLocal.user_id || cleanUserId;
+      const storedOrgId = matchingLocal.organizationId || matchingLocal.organization_id || cleanOrgId;
+
+      const email = (matchingLocal.email || '').toLowerCase().trim();
+
+      let isExpired = true;
+      if (storedExpiry) {
+        const parsedTime = new Date(storedExpiry).getTime();
+        isExpired = isNaN(parsedTime) || parsedTime <= Date.now();
+      }
+
+      const hasRefresh = Boolean(storedRefreshToken && String(storedRefreshToken).trim().length > 0);
+      const isExplicitlyConnected = matchingLocal.status === 'CONNECTED';
+
+      let effectiveStatus = 'CONNECTED';
+      if (!isExplicitlyConnected || (isExpired && !hasRefresh && !storedToken.startsWith('mock_'))) {
+        effectiveStatus = 'REAUTH_REQUIRED';
+      }
+
+      return {
+        id: matchingLocal.id || `ca_${cleanUserId}_${email}_calendar`,
+        userId: storedUserId,
+        email,
+        fullName: email.split('@')[0],
+        accessToken: storedToken,
+        refreshToken: storedRefreshToken || undefined,
+        expiresAt: storedExpiry || new Date(0).toISOString(),
+        status: effectiveStatus,
+        calendarAccessVerified: effectiveStatus === 'CONNECTED',
+        createdAt: matchingLocal.createdAt || matchingLocal.created_at || new Date().toISOString(),
+        scopes: Array.isArray(matchingLocal.scopes) ? matchingLocal.scopes : [],
+        organizationId: storedOrgId,
+        accountType: 'calendar'
+      };
+    }
+  } catch (localErr: any) {
+    console.warn('[CALENDAR RESOLVER] LocalDB fallback lookup failed:', localErr?.message);
+  }
+  return null;
+}
+
+/**
  * Resolves an authorized Gmail account strictly scoped to the authenticated user + organization.
  *
  * Never falls back to a global account, founder account, or another user's account.
@@ -87,8 +278,8 @@ export async function resolveAuthoritativeGmailAccount(
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Configuration Error: SUPABASE_SERVICE_ROLE_KEY is required in production to resolve authorized Gmail accounts from public.google_accounts.');
     }
-    console.warn('[OUTREACH GOOGLE ACCOUNT] Protected google_accounts access blocked: SUPABASE_SERVICE_ROLE_KEY is missing.');
-    return null;
+    console.warn('[OUTREACH GOOGLE ACCOUNT] Protected google_accounts access blocked: SUPABASE_SERVICE_ROLE_KEY is missing. Falling back to LocalDB.');
+    return resolveLocalDbFallback(cleanOrgId, userId, senderEmail);
   }
 
   let client: SupabaseClient;
@@ -99,7 +290,7 @@ export async function resolveAuthoritativeGmailAccount(
       throw err;
     }
     console.warn('[OUTREACH GOOGLE ACCOUNT] Failed to obtain privileged Supabase client:', err?.message || err);
-    return null;
+    return resolveLocalDbFallback(cleanOrgId, userId, senderEmail);
   }
 
   // Query authoritative public.google_accounts with strict tenant and user isolation
@@ -154,35 +345,14 @@ export async function resolveAuthoritativeGmailAccount(
 
   if (error) {
     console.error('[OUTREACH GOOGLE ACCOUNT] Database query error on google_accounts:', error.message);
-    console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
-      authenticatedUserId: userId || null,
-      verifiedOrganizationId: cleanOrgId,
-      xOrganizationIdReceived: xOrganizationId || null,
-      senderEmail: senderEmail || null,
-      googleAccountsQueryCount: queryCount,
-      matchedAccountEmail: matchedEmail,
-      matchedAccountType: matchedAccountType,
-      credentialsPresent,
-      resolverResult: 'error'
-    });
     if (process.env.NODE_ENV === 'production') {
       throw new Error(`Database error querying authoritative google_accounts: ${error.message}`);
     }
-    return null;
+    return resolveLocalDbFallback(cleanOrgId, userId, senderEmail);
   }
 
   if (!data || !data.access_token) {
-    console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS - FAILURE]', {
-      authenticatedUserId: userId || null,
-      verifiedOrganizationId: cleanOrgId,
-      xOrganizationIdReceived: xOrganizationId || null,
-      senderEmail: senderEmail || null,
-      queryCount: queryCount,
-      dataExists: !!data,
-      hasAccessToken: data ? !!data.access_token : false,
-      resolverResult: 'not_found'
-    });
-    return null;
+    return resolveLocalDbFallback(cleanOrgId, userId, senderEmail);
   }
 
   // Double check user isolation: if userId was provided, ensure record strictly matches
@@ -191,7 +361,8 @@ export async function resolveAuthoritativeGmailAccount(
     return null;
   }
 
-  const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED';
+  const hasGmailScope = hasRequiredGmailSendScope(data.scopes);
+  const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED' || !hasGmailScope;
 
   console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
     authenticatedUserId: userId || null,
@@ -202,6 +373,7 @@ export async function resolveAuthoritativeGmailAccount(
     matchedAccountEmail: matchedEmail,
     matchedAccountType: matchedAccountType,
     credentialsPresent: true,
+    hasRequiredGmailScope: hasGmailScope,
     resolverResult: isReauthRequired ? 'REAUTH_REQUIRED' : 'success'
   });
 
@@ -209,6 +381,10 @@ export async function resolveAuthoritativeGmailAccount(
   const expiresAt = data.expiry_date
     ? (typeof data.expiry_date === 'number' ? new Date(data.expiry_date).toISOString() : String(data.expiry_date))
     : new Date(Date.now() + 3600000).toISOString();
+
+  const scopesArr = Array.isArray(data.scopes) 
+    ? data.scopes 
+    : (typeof data.scopes === 'string' ? data.scopes.split(/[\s,]+/).filter(Boolean) : []);
 
   return {
     id: data.id,
@@ -220,7 +396,7 @@ export async function resolveAuthoritativeGmailAccount(
     expiresAt,
     status: isReauthRequired ? 'REAUTH_REQUIRED' : (data.status || 'CONNECTED'),
     createdAt: data.created_at || new Date().toISOString(),
-    scopes: Array.isArray(data.scopes) ? data.scopes : [],
+    scopes: scopesArr,
     organizationId: cleanOrgId,
     accountType: 'gmail'
   };
@@ -241,11 +417,20 @@ export async function resolveAuthoritativeCalendarAccount(
   const cleanOrgId = organizationId.trim();
   const cleanUserId = userId.trim();
 
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
+  if (!hasServiceRoleKey && !customClient) {
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== 'true') {
+      console.warn('[CALENDAR ACCOUNT RESOLVER] SUPABASE_SERVICE_ROLE_KEY is missing in production and LocalDB fallback is disabled.');
+      return null;
+    }
+    return resolveLocalDbCalendarFallback(cleanOrgId, cleanUserId);
+  }
+
   let client: SupabaseClient;
   try {
     client = customClient || getPrivilegedSupabaseServerClient();
   } catch (err: any) {
-    return null;
+    return resolveLocalDbCalendarFallback(cleanOrgId, cleanUserId);
   }
 
   const { data, error } = await client
@@ -260,7 +445,7 @@ export async function resolveAuthoritativeCalendarAccount(
     .maybeSingle();
 
   if (error || !data || !data.access_token) {
-    return null;
+    return resolveLocalDbCalendarFallback(cleanOrgId, cleanUserId);
   }
 
   const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED';
@@ -454,29 +639,94 @@ export async function queryAuthoritativeGmailAccounts(options: {
         }
       }
       if (!error && Array.isArray(data)) {
-        return data.map(d => ({
-          id: d.id,
-          userId: d.user_id,
-          email: d.email,
-          fullName: d.email ? d.email.split('@')[0] : '',
-          status: (d as any).status || 'CONNECTED',
-          createdAt: d.created_at || new Date().toISOString(),
-          scopes: Array.isArray(d.scopes) ? d.scopes : [],
-          organizationId: d.organization_id || cleanOrgId,
-          accountType: 'gmail',
-          sendingLimit: 500,
-          sentToday: 0,
-          bounceCount: 0,
-          retryCount: 0
-        }));
+        return data.map(d => {
+          const hasGmailScope = hasRequiredGmailSendScope(d.scopes);
+          const rawStatus = (d as any).status || 'CONNECTED';
+          const isReauth = rawStatus === 'REAUTH_REQUIRED' || rawStatus === 'REAUTH_NEEDED' || !hasGmailScope;
+          const scopesArr = Array.isArray(d.scopes) 
+            ? d.scopes 
+            : (typeof d.scopes === 'string' ? d.scopes.split(/[\s,]+/).filter(Boolean) : []);
+
+          return {
+            id: d.id,
+            userId: d.user_id,
+            email: d.email,
+            fullName: d.email ? d.email.split('@')[0] : '',
+            status: isReauth ? 'REAUTH_REQUIRED' : rawStatus,
+            createdAt: d.created_at || new Date().toISOString(),
+            scopes: scopesArr,
+            organizationId: d.organization_id || cleanOrgId,
+            accountType: 'gmail',
+            sendingLimit: 500,
+            sentToday: 0,
+            bounceCount: 0,
+            retryCount: 0
+          };
+        });
       }
     } catch (err: any) {
       console.warn('[OUTREACH GOOGLE ACCOUNT] Database query on google_accounts failed:', err.message);
     }
   }
 
-  // Fallback: If not in production or if database is inaccessible, fallback to memory store
-  // NOTE: In production with SUPABASE_SERVICE_ROLE_KEY missing, this is the ONLY source.
+  // Fallback: If database is inaccessible or empty, fallback to LocalDB
+  try {
+    if (!userId || typeof userId !== 'string' || !userId.trim()) {
+      return [];
+    }
+    const cleanUserId = userId.trim();
+    const localDb = LocalDB.getInstance();
+    const localAccounts = localDb.getGmailAccounts(cleanOrgId, cleanUserId);
+
+    if (Array.isArray(localAccounts) && localAccounts.length > 0) {
+      const validAccounts = localAccounts.filter(a => {
+        const storedUserId = a.userId || a.user_id;
+        const storedOrgId = a.organizationId || a.organization_id;
+        const storedToken = a.accessToken || a.access_token;
+
+        if (!storedUserId || String(storedUserId).trim() !== cleanUserId) return false;
+        if (!storedOrgId || String(storedOrgId).trim() !== cleanOrgId) return false;
+        if (!storedToken || typeof storedToken !== 'string' || storedToken.startsWith('mock_')) return false;
+        return true;
+      });
+
+      return validAccounts.map(d => {
+        const storedRefreshToken = d.refreshToken || d.refresh_token;
+        const storedExpiry = d.expiresAt || d.expiry_date;
+        const storedUserId = d.userId || d.user_id || cleanUserId;
+        const storedOrgId = d.organizationId || d.organization_id || cleanOrgId;
+
+        const isExpired = storedExpiry ? new Date(storedExpiry).getTime() <= Date.now() : true;
+        const hasRefresh = Boolean(storedRefreshToken && String(storedRefreshToken).trim().length > 0);
+        const isExplicitlyConnected = d.status === 'CONNECTED';
+        const hasGmailScope = hasRequiredGmailSendScope(d.scopes);
+        const effectiveStatus = (isExplicitlyConnected && (!isExpired || hasRefresh) && hasGmailScope) ? 'CONNECTED' : 'REAUTH_REQUIRED';
+
+        const scopesArr = Array.isArray(d.scopes) 
+          ? d.scopes 
+          : (typeof d.scopes === 'string' ? d.scopes.split(/[\s,]+/).filter(Boolean) : []);
+
+        return {
+          id: d.id,
+          userId: storedUserId,
+          email: d.email,
+          fullName: d.email ? d.email.split('@')[0] : '',
+          status: effectiveStatus,
+          createdAt: d.createdAt || d.created_at || new Date().toISOString(),
+          scopes: scopesArr,
+          organizationId: storedOrgId,
+          accountType: 'gmail',
+          sendingLimit: 500,
+          sentToday: 0,
+          bounceCount: 0,
+          retryCount: 0
+        };
+      });
+    }
+  } catch (err: any) {
+    console.warn('[OUTREACH GOOGLE ACCOUNT] LocalDB query fallback failed:', err?.message);
+  }
+
   return [];
 }
 
@@ -504,31 +754,71 @@ export async function markGoogleAccountReauthRequired(
   if (!email || !email.includes('@')) return;
   const cleanEmail = email.toLowerCase().trim();
 
+  // 1. Update Supabase if SUPABASE_SERVICE_ROLE_KEY or custom privilegedClient is available
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
+  if (hasServiceRoleKey || privilegedClient) {
+    try {
+      const client = privilegedClient || getPrivilegedSupabaseServerClient();
+      let query = client
+        .from('google_accounts')
+        .update({
+          status: 'REAUTH_REQUIRED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', cleanEmail);
+
+      if (organizationId && organizationId.trim()) {
+        query = query.eq('organization_id', organizationId.trim());
+      }
+      if (userId && userId.trim()) {
+        query = query.eq('user_id', userId.trim());
+      }
+
+      const { error } = await query;
+      if (error) {
+        console.warn('[OUTREACH GOOGLE ACCOUNT] Failed to mark account as REAUTH_REQUIRED in Supabase:', error.message);
+      } else {
+        console.log(`[OUTREACH GOOGLE ACCOUNT] Marked account ${cleanEmail} as REAUTH_REQUIRED in public.google_accounts.`);
+      }
+    } catch (err: any) {
+      console.warn('[OUTREACH GOOGLE ACCOUNT] Supabase update notice:', err.message || String(err));
+    }
+  }
+
+  // 2. Update LocalDB store for both Gmail and Calendar accounts
   try {
-    const client = privilegedClient || getPrivilegedSupabaseServerClient();
-    let query = client
-      .from('google_accounts')
-      .update({
-        status: 'REAUTH_REQUIRED',
-        updated_at: new Date().toISOString()
-      })
-      .eq('email', cleanEmail);
+    const localDb = LocalDB.getInstance();
+    
+    // Update Gmail accounts
+    if (localDb.db.gmailAccounts && Array.isArray(localDb.db.gmailAccounts)) {
+      localDb.db.gmailAccounts.forEach(g => {
+        if ((g.email || '').toLowerCase().trim() === cleanEmail) {
+          const matchOrg = !organizationId || (g.organizationId || g.organization_id) === organizationId.trim();
+          const matchUser = !userId || (g.userId || g.user_id) === userId.trim();
+          if (matchOrg && matchUser) {
+            g.status = 'REAUTH_REQUIRED';
+          }
+        }
+      });
+    }
 
-    if (organizationId && organizationId.trim()) {
-      query = query.eq('organization_id', organizationId.trim());
-    }
-    if (userId && userId.trim()) {
-      query = query.eq('user_id', userId.trim());
+    // Update Calendar accounts
+    if (localDb.db.calendarAccounts && Array.isArray(localDb.db.calendarAccounts)) {
+      localDb.db.calendarAccounts.forEach(c => {
+        if ((c.email || '').toLowerCase().trim() === cleanEmail) {
+          const matchOrg = !organizationId || (c.organizationId || c.organization_id) === organizationId.trim();
+          const matchUser = !userId || (c.userId || c.user_id) === userId.trim();
+          if (matchOrg && matchUser) {
+            c.status = 'REAUTH_REQUIRED';
+          }
+        }
+      });
     }
 
-    const { error } = await query;
-    if (error) {
-      console.warn('[OUTREACH GOOGLE ACCOUNT] Failed to mark account as REAUTH_REQUIRED:', error.message);
-    } else {
-      console.log(`[OUTREACH GOOGLE ACCOUNT] Marked account ${cleanEmail} as REAUTH_REQUIRED in public.google_accounts.`);
-    }
-  } catch (err: any) {
-    console.warn('[OUTREACH GOOGLE ACCOUNT] Exception marking account as REAUTH_REQUIRED:', err.message || String(err));
+    localDb.save();
+    console.log(`[OUTREACH GOOGLE ACCOUNT] Marked account ${cleanEmail} as REAUTH_REQUIRED in LocalDB.`);
+  } catch (localErr: any) {
+    console.warn('[OUTREACH GOOGLE ACCOUNT] LocalDB mark status notice:', localErr?.message);
   }
 }
 

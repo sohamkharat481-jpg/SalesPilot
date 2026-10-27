@@ -2240,6 +2240,87 @@
       "organizationId": "org_gcal_conn_test_1791395461890",
       "userId": "usr_invalid",
       "createdAt": "2026-10-07T17:51:01.890Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-27T10:01:41.465Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1793091701465",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-27T09:01:41.465Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-27T09:01:41.465Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-27T10:01:41.465Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1793091701465",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-27T09:01:41.465Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-27T10:02:58.286Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1793091778286",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-27T09:02:58.286Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-27T09:02:58.286Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-27T10:02:58.286Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1793091778286",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-27T09:02:58.286Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-10-27T10:05:07.841Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1793091907841",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-10-27T09:05:07.841Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-10-27T09:05:07.841Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-10-27T10:05:07.841Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1793091907841",
+      "userId": "usr_invalid",
+      "createdAt": "2026-10-27T09:05:07.841Z"
     }
   ],
   "gmailAccounts": [
@@ -3022,6 +3103,155 @@
       "accessToken": "mock_token_b",
       "status": "CONNECTED",
       "connectedAt": "2026-10-07T17:51:11.136Z"
+    },
+    {
+      "id": "ga_usr_owner_1_user1@example.com_gmail",
+      "userId": "usr_owner_1",
+      "organizationId": "org_test_ownership_1",
+      "email": "user1@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "refreshToken": "1//refresh_token_user1",
+      "expiresAt": "2026-10-27T08:54:45.204Z",
+      "status": "REAUTH_REQUIRED",
+      "scopes": [
+        "https://www.googleapis.com/auth/gmail.send"
+      ]
+    },
+    {
+      "id": "ga_unowned_unowned@example.com_gmail",
+      "userId": "",
+      "organizationId": "",
+      "email": "unowned@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "expiresAt": "2026-10-27T08:54:45.204Z",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "ga_usr_owner_2_expired@example.com_gmail",
+      "userId": "usr_owner_2",
+      "organizationId": "org_test_ownership_2",
+      "email": "expired@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "expiresAt": "2026-10-27T06:54:45.204Z",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "ga_usr_owner_1_user1_clean_test@example.com_gmail",
+      "userId": "usr_owner_1",
+      "organizationId": "org_test_ownership_1",
+      "email": "user1_clean_test@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "refreshToken": "1//refresh_token_user1",
+      "expiresAt": "2026-10-27T10:05:26.129Z",
+      "status": "CONNECTED",
+      "scopes": [
+        "https://www.googleapis.com/auth/gmail.send"
+      ]
+    },
+    {
+      "id": "ga_unowned_unowned_test@example.com_gmail",
+      "userId": "",
+      "organizationId": "",
+      "email": "unowned_test@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "refreshToken": "",
+      "expiresAt": "2026-10-27T10:05:26.129Z",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "ga_usr_owner_2_expired_no_refresh_test@example.com_gmail",
+      "userId": "usr_owner_2",
+      "organizationId": "org_test_ownership_2",
+      "email": "expired_no_refresh_test@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "refreshToken": "",
+      "expiresAt": "2026-10-27T08:05:26.129Z",
+      "status": "CONNECTED",
+      "refresh_token": "",
+      "expiry_date": "2026-10-27T07:42:17.653Z"
+    },
+    {
+      "id": "gm_acc_a_1793091710361",
+      "userId": "usr_client_a_1793091710361",
+      "organizationId": "org_client_a_1793091710361",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-27T09:01:50.982Z"
+    },
+    {
+      "id": "gm_acc_b_1793091710361",
+      "userId": "usr_client_b_1793091710361",
+      "organizationId": "org_client_b_1793091710361",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-27T09:01:51.036Z"
+    },
+    {
+      "id": "gm_acc_a_1793091786837",
+      "userId": "usr_client_a_1793091786837",
+      "organizationId": "org_client_a_1793091786837",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-27T09:03:07.204Z"
+    },
+    {
+      "id": "gm_acc_b_1793091786837",
+      "userId": "usr_client_b_1793091786837",
+      "organizationId": "org_client_b_1793091786837",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-27T09:03:07.235Z"
+    },
+    {
+      "id": "gm_acc_a_1793091915532",
+      "userId": "usr_client_a_1793091915532",
+      "organizationId": "org_client_a_1793091915532",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-27T09:05:15.908Z"
+    },
+    {
+      "id": "gm_acc_b_1793091915532",
+      "userId": "usr_client_b_1793091915532",
+      "organizationId": "org_client_b_1793091915532",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-10-27T09:05:15.938Z"
+    },
+    {
+      "id": "ga_usr_owner_1_invalid_expiry_test@example.com_gmail",
+      "userId": "usr_owner_1",
+      "organizationId": "org_test_ownership_1",
+      "email": "invalid_expiry_test@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "refreshToken": "",
+      "expiresAt": "not-a-valid-date-string",
+      "status": "CONNECTED"
+    },
+    {
+      "id": "ga_usr_owner_1_lacking_scopes_test@example.com_gmail",
+      "userId": "usr_owner_1",
+      "organizationId": "org_test_ownership_1",
+      "email": "lacking_scopes_test@example.com",
+      "accessToken": "ya29.valid_test_access_token_12345",
+      "refreshToken": "1//valid_refresh_token",
+      "expiresAt": "2026-10-27T10:05:26.129Z",
+      "status": "CONNECTED",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar.readonly"
+      ]
     }
   ]
 }

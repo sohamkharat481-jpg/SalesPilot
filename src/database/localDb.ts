@@ -2319,8 +2319,10 @@ export class LocalDB {
   public getGmailAccounts(organizationId?: string, userId?: string): any[] {
     if (!this.db.gmailAccounts) this.db.gmailAccounts = [];
     return this.db.gmailAccounts.filter(g => {
-      if (organizationId && g.organizationId && g.organizationId !== organizationId) return false;
-      if (userId && g.userId && g.userId !== userId) return false;
+      const gOrgId = g.organizationId || g.organization_id;
+      const gUserId = g.userId || g.user_id;
+      if (organizationId && gOrgId && gOrgId !== organizationId) return false;
+      if (userId && gUserId && gUserId !== userId) return false;
       return true;
     });
   }
@@ -2328,10 +2330,12 @@ export class LocalDB {
   public saveGmailAccount(account: any): void {
     if (!this.db.gmailAccounts) this.db.gmailAccounts = [];
     const idx = this.db.gmailAccounts.findIndex(existing => {
-      if (account.userId && existing.userId) {
-        return existing.userId === account.userId && existing.email.toLowerCase() === account.email.toLowerCase();
+      const exUser = existing.userId || existing.user_id;
+      const accUser = account.userId || account.user_id;
+      if (accUser && exUser) {
+        return exUser === accUser && (existing.email || '').toLowerCase() === (account.email || '').toLowerCase();
       }
-      return existing.email.toLowerCase() === account.email.toLowerCase();
+      return (existing.email || '').toLowerCase() === (account.email || '').toLowerCase();
     });
     if (idx !== -1) {
       this.db.gmailAccounts[idx] = { ...this.db.gmailAccounts[idx], ...account };
