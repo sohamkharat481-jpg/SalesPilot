@@ -4,7 +4,7 @@
  */
 
 export type SubscriptionTier = 'FREE_TRIAL' | 'STARTER' | 'GROWTH' | 'BUSINESS' | 'ENTERPRISE' | 'PROFESSIONAL' | 'AGENCY';
-export type UserRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'SALES' | 'VIEWER' | 'SUPER_ADMIN' | 'CLIENT';
+export type UserRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'SALES' | 'VIEWER' | 'SUPER_ADMIN' | 'CLIENT' | 'MEMBER' | 'SALES_REP' | 'MARKETING';
 
 export interface Organization {
   id: string;

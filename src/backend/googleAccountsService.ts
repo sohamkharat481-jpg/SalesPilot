@@ -299,8 +299,7 @@ export async function resolveAuthoritativeGmailAccount(
     .select('*', { count: 'exact' })
     .in('account_type', ['gmail', 'GMAIL'])
     .eq('organization_id', cleanOrgId)
-    .not('access_token', 'is', null)
-    .not('access_token', 'eq', '');
+    .not('access_token', 'is', null);
 
   // If authenticated userId is provided, strictly enforce user ownership
   if (userId && typeof userId === 'string' && userId.trim() !== '') {

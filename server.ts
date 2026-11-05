@@ -190,7 +190,20 @@ async function generateContentWithFallback(
   throw lastError || new Error("All Gemini models in the fallback chain failed.");
 }
 
-const PORT = 3000;
+function getPort(): number {
+  const portArgIndex = process.argv.indexOf('--port');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const parsed = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(parsed)) return parsed;
+  }
+  if (process.env.PORT) {
+    const parsed = parseInt(process.env.PORT, 10);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 3000;
+}
+
+const PORT = getPort();
 const app = express();
 export { app };
 
@@ -1651,11 +1664,14 @@ async function startServer() {
       if (sbUser) {
         try {
           const emailLower = (sbUser.email || '').toLowerCase();
-          const isFounder = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
+          const isFounder = isVerifiedFounderEmail(emailLower);
           
-          let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
+          let resolvedRole: UserRole = isFounder ? 'OWNER' : 'MEMBER';
           let resolvedOrgId: string | undefined = isFounder ? 'org_salespilot_lifetime' : undefined;
           let resolvedCompanyName = isFounder ? 'SalesPilot' : (sbUser.user_metadata?.company_name || 'Workspace');
+
+          let dbProfile: any = null;
+          let dbTeamMember: any = null;
 
           // Always query authoritative Supabase/PostgreSQL database for profile & workspace membership
           if (supabase) {
@@ -1665,30 +1681,46 @@ async function startServer() {
                 .select('*')
                 .eq('id', sbUser.id)
                 .maybeSingle();
+              dbProfile = profile;
 
               const { data: tm } = await supabase
                 .from('team_members')
                 .select('*, organizations(*)')
                 .eq('user_id', sbUser.id)
                 .maybeSingle();
+              dbTeamMember = tm;
 
-              if (profile?.role) {
+              if (dbProfile?.role) {
                 const r = String(profile.role).toUpperCase();
-                if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER' || r === 'MANAGER' || r === 'SUPER_ADMIN') {
+                if (['OWNER', 'ADMIN', 'SALES', 'VIEWER', 'MANAGER', 'SUPER_ADMIN', 'MEMBER'].includes(r)) {
                   resolvedRole = r as UserRole;
                 }
-              } else if (tm?.role) {
-                const r = String(tm.role).toUpperCase();
-                if (r === 'OWNER' || r === 'ADMIN' || r === 'SALES' || r === 'VIEWER' || r === 'MANAGER' || r === 'SUPER_ADMIN') {
+              } else if (dbTeamMember?.role) {
+                const r = String(dbTeamMember.role).toUpperCase();
+                if (['OWNER', 'ADMIN', 'SALES', 'VIEWER', 'MANAGER', 'SUPER_ADMIN', 'MEMBER'].includes(r)) {
                   resolvedRole = r as UserRole;
                 }
               }
 
-              if (tm?.organizations?.id) {
-                resolvedOrgId = tm.organizations.id;
-                resolvedCompanyName = tm.organizations.name || resolvedCompanyName;
-              } else if (profile?.organization_id) {
-                resolvedOrgId = profile.organization_id;
+              if (dbTeamMember?.organizations?.id) {
+                resolvedOrgId = dbTeamMember.organizations.id;
+                resolvedCompanyName = dbTeamMember.organizations.name || resolvedCompanyName;
+              } else if (dbProfile?.organization_id) {
+                resolvedOrgId = dbProfile.organization_id;
+              }
+
+              // Self-healing: If user is organization owner but has VIEWER/MEMBER role, promote to OWNER
+              if (resolvedOrgId) {
+                const { data: orgRecord } = await supabase
+                  .from('organizations')
+                  .select('owner_id')
+                  .eq('id', resolvedOrgId)
+                  .maybeSingle();
+                
+                if (orgRecord?.owner_id === sbUser.id && (resolvedRole === 'VIEWER' || resolvedRole === 'MEMBER')) {
+                  console.info(`[AUTH] Self-healing: Promoting user ${sbUser.id} to OWNER of org ${resolvedOrgId}`);
+                  resolvedRole = 'OWNER';
+                }
               }
             } catch (qErr) {
               console.warn('[AUTH] Error resolving profile from Supabase tables:', qErr);
@@ -1735,8 +1767,7 @@ async function startServer() {
             // Reconcile founder in LocalDB
             localDb.reconcileFounderCanonicalId(sbUser.id, emailLower);
           } else {
-            // STRICT TENANT ISOLATION FOR NON-FOUNDER / CUSTOMER (e.g. Prodigy):
-            // Disinfect any contaminated org_salespilot_lifetime or Soham Kharat identity
+            // STRICT TENANT ISOLATION FOR NON-FOUNDER / CUSTOMER
             if (resolvedOrgId === 'org_salespilot_lifetime') {
               resolvedOrgId = undefined;
             }
@@ -1744,6 +1775,11 @@ async function startServer() {
             const customerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : (resolvedOrgId || `org_${sbUser.id.substring(0, 12)}`);
             resolvedOrgId = customerOrgId;
             resolvedCompanyName = emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`;
+
+            // If they have no role yet, they are likely the owner of their new org
+            if (resolvedRole === 'MEMBER' && !dbTeamMember && !dbProfile) {
+              resolvedRole = 'OWNER';
+            }
 
             if (supabase) {
               try {
@@ -1967,7 +2003,7 @@ async function startServer() {
           const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
           if (payload && payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
             const emailLower = (payload.email || '').toLowerCase();
-            const isFounder = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
+            const isFounder = isVerifiedFounderEmail(emailLower);
             let user = localDb.getUserById(payload.sub) || (emailLower ? localDb.getUserByEmail(emailLower) : null);
             if (!user) {
               const customerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${payload.sub.substring(0, 8)}`;
@@ -1980,7 +2016,7 @@ async function startServer() {
                 companyName: isFounder ? 'SalesPilot' : (emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`),
                 industry: 'SaaS & Software',
                 tier: isFounder ? 'ENTERPRISE' : 'STARTER',
-                role: isFounder ? 'OWNER' : 'VIEWER',
+                role: isFounder ? 'OWNER' : 'OWNER', // New users are owners of their own workspace
                 organizationId: orgId,
                 isVerified: true,
                 phone: '',
@@ -1995,7 +2031,7 @@ async function startServer() {
               if (user.organizationId === 'org_salespilot_lifetime') {
                 user.organizationId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${user.id.substring(0, 12)}`;
               }
-              if (user.fullName === 'Soham Kharat') {
+              if (user.fullName === 'Soham Kharat' && !isVerifiedFounderEmail(user.email)) {
                 user.fullName = payload.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
               }
               user.isFounder = false;
@@ -2016,7 +2052,7 @@ async function startServer() {
     }
 
     const emailLower = (user.email || '').toLowerCase();
-    const isFounder = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
+    const isFounder = isVerifiedFounderEmail(emailLower);
 
     // Derive authoritative organization from user identity and verified workspace membership
     let verifiedOrgId: string | null = null;
@@ -3303,7 +3339,7 @@ async function startServer() {
       return res.status(400).json({ error: 'An account with this email address already exists.' });
     }
 
-    const isFounderUser = isVerifiedFounderEmail(emailLower) && emailLower === 'sohamkharat481@gmail.com';
+    const isFounderUser = isVerifiedFounderEmail(emailLower);
     const salt = bcrypt.genSaltSync(10);
     const passwordHash = bcrypt.hashSync(password, salt);
 
@@ -3312,11 +3348,11 @@ async function startServer() {
       id: `usr_${Date.now()}`,
       email: emailLower,
       fullName,
-      companyName: '',
+      companyName: isFounderUser ? 'SalesPilot' : `${fullName}'s Workspace`,
       industry: '',
       organizationId: userOrgId,
       tier: isFounderUser ? 'ENTERPRISE' : 'STARTER',
-      role: isFounderUser ? 'OWNER' : 'MEMBER',
+      role: 'OWNER', // New signup is the owner of their workspace
       createdAt: new Date().toISOString(),
       isVerified: isFounderUser ? true : false,
       phone: '',
@@ -3334,6 +3370,7 @@ async function startServer() {
         companyName: `${fullName}'s Workspace`,
         slug: userOrgId,
         owner: newUser.id,
+        ownerId: newUser.id,
         industry: 'General',
         country: 'India',
         currency: 'INR',
@@ -3464,10 +3501,12 @@ async function startServer() {
                        localDb.getOrganizations().find(o => o.owner === userObj.id || (o as any).ownerId === userObj.id);
       if (ownedOrg) {
         userObj.organizationId = ownedOrg.id;
+        userObj.role = 'OWNER';
       } else {
-        const isFounder = isVerifiedFounderEmail(userObj.email) && userObj.email?.toLowerCase() === 'sohamkharat481@gmail.com';
+        const isFounder = isVerifiedFounderEmail(userObj.email);
         if (isFounder) {
           userObj.organizationId = 'org_salespilot_lifetime';
+          userObj.role = 'OWNER';
         } else {
           const newOrgId = `org_${Date.now()}`;
           const newOrg = {
@@ -3476,6 +3515,7 @@ async function startServer() {
             companyName: `${userObj.fullName || 'User'}'s Workspace`,
             slug: newOrgId,
             owner: userObj.id,
+            ownerId: userObj.id,
             industry: userObj.industry || 'General',
             country: 'India',
             currency: 'INR',
@@ -3485,6 +3525,7 @@ async function startServer() {
           serverOrganizations.push(newOrg as any);
           localDb.addOrganization(newOrg as any);
           userObj.organizationId = newOrgId;
+          userObj.role = 'OWNER';
         }
       }
     }
@@ -3719,11 +3760,14 @@ async function startServer() {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
     }
     
-    if (userObj.email?.toLowerCase() === 'sohamkharat481@gmail.com') {
+    const isFounder = isVerifiedFounderEmail(userObj.email);
+    const isLifetime = isLifetimeSubscriberEmail(userObj.email) || userObj.subscriptionStatus === 'LIFETIME';
+
+    if (isFounder || isLifetime) {
       await applyFounderPrivileges(userObj);
     } else {
       userObj.isFounder = false;
-      if (userObj.subscriptionStatus === 'LIFETIME') {
+      if (userObj.subscriptionStatus === 'LIFETIME' && !isLifetime) {
         userObj.subscriptionStatus = 'ACTIVE';
       }
       if (userObj.organizationId === 'org_salespilot_lifetime') {
@@ -19449,10 +19493,12 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
         synchronizeUnifiedAccounts();
         console.log(`[PERSISTENCE] Loaded ${calendarAccounts.length} calendar and ${gmailAccounts.length} gmail accounts from local disk store.`);
         
-        // Trigger background verification of scopes
-        verifyAndInvalidateAccountsIfNeeded().catch(err => {
-          console.error('[GOOGLE OAUTH] Background verification failed:', err);
-        });
+        // Trigger background verification of scopes non-blockingly after server startup
+        setTimeout(() => {
+          verifyAndInvalidateAccountsIfNeeded().catch(err => {
+            console.error('[GOOGLE OAUTH] Background verification failed:', err);
+          });
+        }, 5000);
       }
     } catch (err: any) {
       console.error('[PERSISTENCE] Error loading accounts from disk:', err.message);
@@ -22064,7 +22110,10 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
   // Vite middleware / static serve setup
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined
+      },
       appType: 'spa'
     });
     app.use(vite.middlewares);

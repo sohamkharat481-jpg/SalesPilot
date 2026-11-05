@@ -21,7 +21,7 @@ export function authenticateUser(req: AuthenticatedRequest, res: Response, next:
         id: 'usr_explicit_dev',
         fullName: 'Local Developer',
         email: 'dev@salespilot.dev',
-        role: 'VIEWER',
+        role: 'OWNER',
         companyName: 'SalesPilot Dev Workspace',
         industry: 'SaaS',
         tier: 'STARTER',

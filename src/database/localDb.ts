@@ -1714,7 +1714,7 @@ export class LocalDB {
         companyName: 'Acme Corp',
         industry: 'General Software',
         tier: 'STARTER',
-        role: 'VIEWER',
+        role: 'OWNER',
         organizationId: 'org_customer_acme',
         isVerified: true,
         phone: '',
@@ -1729,7 +1729,7 @@ export class LocalDB {
       this.db.users.push(customerUser);
     } else {
       customerUser.organizationId = 'org_customer_acme';
-      customerUser.role = 'VIEWER';
+      customerUser.role = 'OWNER';
       customerUser.tier = 'STARTER';
       customerUser.isFounder = false;
     }
@@ -1758,7 +1758,7 @@ export class LocalDB {
         id: `orgm_${customerUser.id}_org_customer_acme`,
         organizationId: 'org_customer_acme',
         userId: customerUser.id,
-        role: 'VIEWER',
+        role: 'OWNER',
         status: 'ACTIVE',
         createdAt: new Date().toISOString()
       });

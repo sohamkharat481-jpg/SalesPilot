@@ -12,6 +12,7 @@ export const VERIFIED_FOUNDER_EMAILS: ReadonlySet<string> = new Set<string>(
   [
     'sohamkharat481@gmail.com',
     'soham@gmail.com',
+    'ayesha.kashif13008@gmail.com',
     ...(typeof process !== 'undefined' && process.env?.FOUNDER_EMAIL ? [process.env.FOUNDER_EMAIL] : []),
     ...(typeof process !== 'undefined' && process.env?.FOUNDER_EMAILS ? process.env.FOUNDER_EMAILS.split(',') : [])
   ]
@@ -36,6 +37,7 @@ export const VERIFIED_LIFETIME_SUBSCRIBER_EMAILS: ReadonlySet<string> = new Set<
   [
     'anjanapadhi21@gmail.com',
     'ayesha.kashif13008@gmail.com',
+    'pordigyai@gmail.com',
     ...(typeof process !== 'undefined' && process.env?.LIFETIME_EMAILS ? process.env.LIFETIME_EMAILS.split(',') : [])
   ]
     .map(e => String(e || '').trim().toLowerCase())

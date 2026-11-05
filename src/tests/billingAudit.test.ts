@@ -2,7 +2,7 @@ import { CANONICAL_PLANS, calculateCanonicalPayablePrice, normalizePlanId } from
 import { getUpiBillingConfig, generateUpiIntentUri } from '../payments/upiConfig';
 import { UpiPaymentService } from '../payments/upiPaymentService';
 import { LocalDB } from '../database/localDb';
-import { isVerifiedFounderEmail } from '../security/founderAllowlist';
+import { isVerifiedFounderEmail, isLifetimeSubscriberEmail } from '../security/founderAllowlist';
 
 export async function runBillingAuditTestSuite() {
   console.log('=== STARTING DIRECT UPI BILLING & SUBSCRIPTION AUDIT TEST SUITE ===');
@@ -132,8 +132,8 @@ export async function runBillingAuditTestSuite() {
     // 9. Authoritative Founder & Entitlement Security Regression Tests
     // Simulates authoritative server-side privilege resolution
     const resolveServerEntitlement = (userObj: any, dbSubscription?: any) => {
-      const emailLower = String(userObj?.email || '').trim().toLowerCase();
-      const isFounder = isVerifiedFounderEmail(emailLower);
+      const emailLower = (userObj.email || '').toLowerCase().trim();
+      const isFounder = isVerifiedFounderEmail(emailLower) || isLifetimeSubscriberEmail(emailLower);
       
       if (isFounder) {
         return {

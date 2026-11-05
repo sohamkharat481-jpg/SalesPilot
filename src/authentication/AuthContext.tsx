@@ -226,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let authoritativeUser: WorkspaceUser | null = null;
     let authoritativeOrg: Organization | null = null;
     let authoritativeTeam: TeamMember[] = [];
-    let resolvedRole: UserRole = isFounder ? 'OWNER' : 'VIEWER';
+    let resolvedRole: UserRole = isFounder ? 'OWNER' : 'MEMBER';
 
     // 1. Authoritative Backend Profile & Workspace Membership API
     if (token) {
@@ -551,7 +551,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent Verified Founder from seeing onboarding, setup, or billing screens
   useEffect(() => {
-    const isFounder = user?.email?.toLowerCase() === 'sohamkharat481@gmail.com';
+    const isFounder = user?.email && isVerifiedFounderEmail(user.email);
     if (user && isFounder) {
       const needsUpdate = !user.isFounder || 
                           user.subscriptionStatus !== 'LIFETIME' || 

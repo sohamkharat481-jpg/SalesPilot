@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { isVerifiedFounderEmail } from '../security/founderAllowlist';
+import { isVerifiedFounderEmail, isLifetimeSubscriberEmail } from '../security/founderAllowlist';
 import { UpiPaymentService } from '../payments/upiPaymentService';
 import { LocalDB } from '../database/localDb';
 
@@ -24,7 +24,7 @@ export async function runAdminBillingAuthTestSuite(): Promise<{ passed: number; 
   const isBillingAdminUser = (user: any): boolean => {
     if (!user) return false;
     const email = String(user.email || '').trim().toLowerCase();
-    return isVerifiedFounderEmail(email) || user.role === 'SUPER_ADMIN';
+    return isVerifiedFounderEmail(email) || isLifetimeSubscriberEmail(email) || user.role === 'SUPER_ADMIN';
   };
 
   await test('1. VIEWER role cannot see Admin Console (isBillingAdminUser = false)', () => {

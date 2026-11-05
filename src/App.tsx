@@ -452,8 +452,9 @@ export default function App() {
 
   // Real Campaign Addition
   const handleAddCampaign = async (campaignData: Partial<Campaign>) => {
-    if (user?.role === 'VIEWER' || user?.role === 'SALES') {
-      alert('Permission Denied: Campaign management is restricted to Admin & Manager roles.');
+    const role = (user?.role || '').toUpperCase();
+    if (role === 'VIEWER') {
+      alert('Permission Denied: Read-only Viewer permissions active.');
       return;
     }
     try {
@@ -485,8 +486,9 @@ export default function App() {
 
   // Real AI Sequence Generator (using server Gemini)
   const handleGenerateAISequence = async (campaignName: string, targetAudience: string) => {
-    if (user?.role === 'VIEWER' || user?.role === 'SALES') {
-      alert('Permission Denied: Campaign management is restricted to Admin & Manager roles.');
+    const role = (user?.role || '').toUpperCase();
+    if (role === 'VIEWER') {
+      alert('Permission Denied: Read-only Viewer permissions active.');
       return [];
     }
     try {
@@ -606,8 +608,9 @@ export default function App() {
 
   // Real Credentials Integrations Saver
   const handleSaveCredentials = async (creds: Partial<IntegrationCredentials>) => {
-    if (user?.role !== 'ADMIN') {
-      alert('Permission Denied: Settings configuration is restricted to Workspace Admin.');
+    const role = (user?.role || '').toUpperCase();
+    if (role !== 'ADMIN' && role !== 'OWNER' && role !== 'SUPER_ADMIN') {
+      alert('Permission Denied: Settings configuration is restricted to Workspace Administrators and Owners.');
       return;
     }
     try {
@@ -716,7 +719,7 @@ export default function App() {
     { id: 'global-launch', label: 'Global Launch Hub', icon: Globe },
     { id: 'workspace', label: 'Workspace Hub', icon: Building2 },
     { id: 'client-portal', label: 'Client Portal', icon: Briefcase },
-    ...((user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') ? [{ id: 'super-admin', label: 'Admin (Owner Only)', icon: ShieldCheck }] : [])
+    ...((user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'OWNER') ? [{ id: 'super-admin', label: 'Admin (Owner Only)', icon: ShieldCheck }] : [])
   ] : [
     { id: 'billing', label: 'Pricing & Plans', icon: CreditCard }
   ];
