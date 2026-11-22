@@ -138,8 +138,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const [activeGmailLabel, setActiveGmailLabel] = useState<string>('INBOX');
   const [selectedGmailAccount, setSelectedGmailAccount] = useState<string>('');
   
-  // Connect Modal state
+  // Connect Modal & Google OAuth state
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+  const [oauthErrorBanner, setOauthErrorBanner] = useState<string | null>(null);
+  const [oauthSuccessBanner, setOauthSuccessBanner] = useState<string | null>(null);
+  const [gmailStatusError, setGmailStatusError] = useState<string | null>(null);
   const [customEmail, setCustomEmail] = useState('');
   const [customName, setCustomName] = useState('');
   
@@ -859,39 +863,27 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   };
 
   const getAuthHeaders = async (): Promise<Record<string, string>> => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    let sessionToken = typeof window !== 'undefined' ? localStorage.getItem('salespilot_token') : null;
-    const supabaseClient = getSupabaseClient();
-    if (supabaseClient) {
-      try {
-        const { data } = await supabaseClient.auth.getSession();
-        if (data?.session?.access_token) {
-          sessionToken = data.session.access_token;
-        }
-      } catch (_) {}
-    }
-    if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
     const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
-    if (workspaceId) headers['x-organization-id'] = workspaceId;
-    return headers;
+    return getApiAuthHeaders({}, workspaceId);
   };
 
-  const fetchGmailStatus = async () => {
+  const fetchGmailStatus = async (): Promise<boolean> => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/gmail/status', { headers });
+      const res = await authenticatedFetch('/gmail/status', { headers });
       if (res.ok) {
         const data = await res.json();
         const rawAccounts = data.accounts || [];
         const accountsList = (rawAccounts.length > 0)
           ? rawAccounts
           : (data.account && data.account.email ? [data.account] : []);
-        
+
         setGmailAccounts(accountsList);
         setGmailQueue(data.queue || []);
         setGmailLogs(data.logs || []);
         setGmailTemplates(data.templates || []);
-        
+        setGmailStatusError(null);
+
         // Auto-select initial active accounts
         if (accountsList.length > 0) {
           if (!selectedGmailAccount) {
@@ -901,18 +893,29 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
             setComposeSender(accountsList[0].email);
           }
         }
+        return true;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const statusErr = sanitizeUserFacingError(
+          errData?.error || `Failed to load Gmail status (HTTP ${res.status}).`,
+          `Failed to load Gmail status (HTTP ${res.status}).`
+        );
+        setGmailStatusError(statusErr);
+        return false;
       }
     } catch (err) {
       console.error('Error fetching Gmail status:', err);
+      setGmailStatusError(sanitizeUserFacingError(err, 'Unable to load Gmail status. Please try again.'));
+      return false;
     }
   };
 
   const fetchGmailInbox = async () => {
     try {
       const headers = await getAuthHeaders();
-      const accountQuery = selectedGmailAccount ? `?accountId=${selectedGmailAccount}` : '';
-      const labelQuery = activeGmailLabel ? `${accountQuery ? '&' : '?'}label=${activeGmailLabel}` : '';
-      const res = await fetch(`/gmail/inbox${accountQuery}${labelQuery}`, { headers });
+      const accountQuery = selectedGmailAccount ? `?accountId=${encodeURIComponent(selectedGmailAccount)}` : '';
+      const labelQuery = activeGmailLabel ? `${accountQuery ? '&' : '?'}label=${encodeURIComponent(activeGmailLabel)}` : '';
+      const res = await authenticatedFetch(`/gmail/inbox${accountQuery}${labelQuery}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setGmailThreads(data.threads || []);
@@ -925,7 +928,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const fetchThreadMessages = async (threadId: string) => {
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`/gmail/thread?threadId=${threadId}`, { headers });
+      const res = await authenticatedFetch(`/gmail/thread?threadId=${encodeURIComponent(threadId)}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setThreadMessages(data.messages || []);
@@ -938,53 +941,141 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     }
   };
 
-  // Unconditionally fetch active Gmail accounts on mount so dropdowns and linked profiles are immediately populated
+  const handleGoogleOAuthSuccess = React.useCallback((email?: string, gmailScopeGranted?: boolean) => {
+    setIsConnectingGoogle(false);
+    setIsConnectModalOpen(false);
+    setOauthErrorBanner(null);
+    if (gmailScopeGranted === false) {
+      setOauthErrorBanner('Google account authenticated, but Gmail send permission (gmail.send) was not granted. Click Reconnect Google to grant all permissions.');
+    } else {
+      setOauthSuccessBanner(email ? `Google connected successfully (${email}).` : 'Google connected successfully.');
+    }
+    fetchGmailStatus();
+    fetchGmailInbox();
+  }, [selectedGmailAccount, activeGmailLabel, organization?.id, user?.id]);
+
+  // Fetch active Gmail accounts on mount and when active user/workspace changes
   React.useEffect(() => {
     fetchGmailStatus();
-  }, []);
+  }, [user?.id, organization?.id]);
+
+  // Handle redirect-back URL query/hash params (when full-window redirect was used instead of popup)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const hash = window.location.hash || '';
+    if (url.searchParams.get('google') === 'connected' || hash.includes('google=connected')) {
+      setActiveSubTab('gmail');
+      handleGoogleOAuthSuccess();
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname + '#integrations');
+      } catch (_) {}
+    } else if (url.searchParams.get('google') === 'error' || hash.includes('google=error')) {
+      setActiveSubTab('gmail');
+      try {
+        const rawStored = localStorage.getItem('salespilot_google_oauth_event');
+        if (rawStored) {
+          const parsed = JSON.parse(rawStored);
+          if (parsed?.type === 'GOOGLE_AUTH_FAILURE' && parsed?.error) {
+            setOauthErrorBanner(sanitizeUserFacingError(parsed.error, 'Unable to connect your Google account. Please try again.'));
+          }
+        }
+      } catch (_) {}
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname + '#integrations');
+      } catch (_) {}
+    }
+  }, [handleGoogleOAuthSuccess]);
 
   // Poll server state while tab is open to show live retries, queue progress and customer replies
   React.useEffect(() => {
     if (activeSubTab === 'gmail') {
       fetchGmailStatus();
       fetchGmailInbox();
-      
+
       const timer = setInterval(() => {
         fetchGmailStatus();
         fetchGmailInbox();
         if (activeThreadId) {
-          fetch(`/gmail/thread?threadId=${activeThreadId}`)
-            .then(res => res.ok ? res.json() : null)
-            .then(data => {
-              if (data) setThreadMessages(data.messages);
-            });
+          getAuthHeaders().then(headers =>
+            authenticatedFetch(`/gmail/thread?threadId=${encodeURIComponent(activeThreadId)}`, { headers })
+              .then(res => res.ok ? res.json() : null)
+              .then(data => {
+                if (data?.messages) setThreadMessages(data.messages);
+              })
+              .catch(() => {})
+          );
         }
       }, 5000);
       return () => clearInterval(timer);
     }
   }, [activeSubTab, selectedGmailAccount, activeGmailLabel, activeThreadId]);
 
-  // Listen for Google Auth callback success postMessages from popup
+  // Multi-channel Google OAuth completion listeners (postMessage, BroadcastChannel, localStorage, focus)
   React.useEffect(() => {
+    let lastHandledTimestamp = 0;
+
+    const processOAuthPayload = (payload: any) => {
+      if (!payload || typeof payload !== 'object') return;
+      if (payload.timestamp && payload.timestamp <= lastHandledTimestamp) return;
+      if (payload.timestamp) lastHandledTimestamp = payload.timestamp;
+
+      if (payload.type === 'GOOGLE_AUTH_SUCCESS') {
+        handleGoogleOAuthSuccess(payload.email, payload.gmailScopeGranted);
+      } else if (payload.type === 'GOOGLE_AUTH_FAILURE') {
+        setIsConnectingGoogle(false);
+        const friendlyError = sanitizeUserFacingError(payload.error, 'Unable to connect your Google account. Please try again.');
+        setOauthErrorBanner(friendlyError);
+        alert(friendlyError);
+      }
+    };
+
     const handleGoogleAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
       if (!origin.endsWith('.run.app') && !origin.endsWith('.vercel.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
         return;
       }
-      
-      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-        alert('Google connected successfully.');
+      processOAuthPayload(event.data);
+    };
+
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        broadcastChannel = new BroadcastChannel('salespilot_google_oauth');
+        broadcastChannel.onmessage = (event) => {
+          processOAuthPayload(event.data);
+        };
+      }
+    } catch (_) {}
+
+    const handleStorageEvent = (event: StorageEvent) => {
+      if (event.key === 'salespilot_google_oauth_event' && event.newValue) {
+        try {
+          processOAuthPayload(JSON.parse(event.newValue));
+        } catch (_) {}
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && (activeSubTab === 'gmail' || isConnectingGoogle)) {
         fetchGmailStatus();
-        fetchGmailInbox();
-      } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
-        const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
-        alert(friendlyError);
       }
     };
 
     window.addEventListener('message', handleGoogleAuthMessage);
-    return () => window.removeEventListener('message', handleGoogleAuthMessage);
-  }, []);
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    return () => {
+      window.removeEventListener('message', handleGoogleAuthMessage);
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+    };
+  }, [activeSubTab, isConnectingGoogle, handleGoogleOAuthSuccess]);
 
   const handleConnectAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1228,33 +1319,49 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   };
 
   const triggerRealGoogleLogin = async () => {
+    setOauthErrorBanner(null);
+    setOauthSuccessBanner(null);
+    setIsConnectingGoogle(true);
     try {
       const workspaceId = organization?.id || user?.organizationId || (typeof window !== 'undefined' ? localStorage.getItem('salespilot_workspace_id') : null);
       const authHeaders = await getApiAuthHeaders({}, workspaceId);
-      const res = await authenticatedFetch('/api/auth/google/url', { headers: authHeaders });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Unable to connect your Google account. Please try again.');
+      const res = await authenticatedFetch('/api/auth/google/url?source=integrations', { headers: authHeaders });
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch (_) {
+        throw new Error(`OAuth endpoint returned HTTP ${res.status}.`);
       }
-      const data = await res.json();
-      
-      const width = 500;
+
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed to start Google connection (HTTP ${res.status}).`);
+      }
+      if (!data?.url) {
+        throw new Error('Server did not return a valid Google authorization URL.');
+      }
+
+      const width = 550;
       const height = 650;
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
-      
+
       const popup = window.open(
         data.url,
         'google_oauth_popup',
         `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
       );
-      
+
       if (!popup) {
-        alert('Unable to connect your Google account. Please allow popups for this site and try again.');
+        // Fallback to full-window navigation cleanly returning to /#integrations
+        window.location.href = data.url;
+        return;
       }
     } catch (err: any) {
+      setIsConnectingGoogle(false);
       console.error('[GOOGLE OAUTH SECURE LOG]', err);
       const friendlyError = sanitizeUserFacingError(err, 'Unable to connect your Google account. Please try again.');
+      setOauthErrorBanner(friendlyError);
       alert(friendlyError);
     }
   };
@@ -3906,13 +4013,56 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
               </div>
             </div>
 
+            {/* OAuth & Gmail Status Diagnostic Banners */}
+            {oauthErrorBanner && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start justify-between gap-3 text-xs text-rose-800">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-rose-900">Google Connection Issue</p>
+                    <p className="mt-0.5">{oauthErrorBanner}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOauthErrorBanner(null)}
+                  className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {oauthSuccessBanner && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start justify-between gap-3 text-xs text-emerald-800">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <p className="font-semibold text-emerald-900">{oauthSuccessBanner}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOauthSuccessBanner(null)}
+                  className="text-emerald-500 hover:text-emerald-700 p-0.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {gmailStatusError && (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-800">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{gmailStatusError}</span>
+              </div>
+            )}
+
             {/* Grid 1: Linked Profiles */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Linked Google Profiles</h4>
               {gmailAccounts.length === 0 ? (
-                <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-500">
+                <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-500 space-y-2">
                   <Mail className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  No Google Workspace accounts linked to this pipeline workspace.
+                  <p>No Google Workspace accounts linked to this pipeline workspace.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -4557,15 +4707,23 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                         Authorize SalesPilot to request secure Google REST tokens using client-side OAuth popups. Direct secure pipeline to your real inbox.
                       </p>
                       
+                      {oauthErrorBanner && (
+                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-800 flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                          <span>{oauthErrorBanner}</span>
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={triggerRealGoogleLogin}
-                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        disabled={isConnectingGoogle}
+                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
                       >
                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                           <path fill="currentColor" d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.7 0 3.3.59 4.54 1.74l2.36-2.36C17.2 1.54 14.86 1 12.24 1 6.58 1 2 5.58 2 11.24s4.58 10.24 10.24 10.24c5.74 0 10.24-4.5 10.24-10.24 0-.6-.06-1.19-.17-1.74H12.24z"/>
                         </svg>
-                        Authenticate Google Account
+                        {isConnectingGoogle ? 'Opening Google Sign-In...' : 'Authenticate Google Account'}
                       </button>
                     </div>
                   </div>

@@ -30,6 +30,7 @@ export interface DBStructure {
   deals: Deal[];
   appointments: Appointment[];
   sessions: Record<string, { userId: string; expiresAt: number }>;
+  oauthNonces?: Record<string, { userId: string; organizationId?: string; expiresAt: number; createdAt: number }>;
   activityLogs: any[];
   loginHistory: any[];
   calendarAccounts: any[];
@@ -118,6 +119,7 @@ export class LocalDB {
     deals: [],
     appointments: [],
     sessions: {},
+    oauthNonces: {},
     activityLogs: [],
     loginHistory: [],
     calendarAccounts: [],
@@ -208,6 +210,7 @@ export class LocalDB {
         if (!this.db.roles) this.db.roles = [];
         if (!this.db.permissions) this.db.permissions = [];
         if (!this.db.memberPermissions) this.db.memberPermissions = [];
+        if (!this.db.oauthNonces) this.db.oauthNonces = {};
         if (!this.db.notifications) this.db.notifications = [];
         if (!this.db.auditLogs) this.db.auditLogs = [];
         if (!this.db.teamActivities) this.db.teamActivities = [];
@@ -2235,7 +2238,13 @@ export class LocalDB {
 
   // --- Sessions Operations ---
   public getSession(token: string): { userId: string; expiresAt: number } | null {
-    return this.db.sessions[token] || null;
+    if (!token || typeof token !== 'string') return null;
+    const session = this.db.sessions[token];
+    if (!session || typeof session.userId !== 'string' || !session.userId.trim()) return null;
+    if (typeof session.expiresAt !== 'number' || !Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) {
+      return null;
+    }
+    return session;
   }
 
   public createSession(token: string, userId: string, durationMs: number): void {
@@ -2251,6 +2260,52 @@ export class LocalDB {
         expires_at: new Date(Date.now() + durationMs).toISOString()
       }).then();
     }
+  }
+
+  public cleanupExpiredOAuthNonces(nowMs: number = Date.now()): number {
+    if (!this.db.oauthNonces) {
+      this.db.oauthNonces = {};
+      return 0;
+    }
+    let removed = 0;
+    for (const [nonceKey, record] of Object.entries(this.db.oauthNonces)) {
+      if (!record || typeof record.expiresAt !== 'number' || !Number.isFinite(record.expiresAt) || record.expiresAt < nowMs) {
+        delete this.db.oauthNonces[nonceKey];
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      this.save();
+    }
+    return removed;
+  }
+
+  public consumeOAuthNonce(
+    nonce: string,
+    userId: string,
+    organizationId: string | undefined,
+    expiresAtMs: number
+  ): boolean {
+    const cleanNonce = typeof nonce === 'string' ? nonce.trim() : '';
+    if (!cleanNonce || !userId || !Number.isFinite(expiresAtMs)) return false;
+    if (!this.db.oauthNonces) this.db.oauthNonces = {};
+
+    const nowMs = Date.now();
+    // Safely purge only expired nonces without ever clearing active nonces
+    this.cleanupExpiredOAuthNonces(nowMs);
+
+    if (this.db.oauthNonces[cleanNonce]) {
+      return false;
+    }
+
+    this.db.oauthNonces[cleanNonce] = {
+      userId,
+      organizationId: organizationId || undefined,
+      expiresAt: expiresAtMs,
+      createdAt: nowMs
+    };
+    this.save();
+    return true;
   }
 
   public deleteSession(token: string): void {

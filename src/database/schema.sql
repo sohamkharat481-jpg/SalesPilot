@@ -207,6 +207,25 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- =========================================================================
+-- 7b. OAUTH NONCES (Persistent Single-Use Replay Protection)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.oauth_nonces (
+    nonce TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    organization_id TEXT,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_nonces_nonce_unique
+    ON public.oauth_nonces(nonce);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_nonces_expires_at
+    ON public.oauth_nonces(expires_at);
+
+ALTER TABLE public.oauth_nonces ENABLE ROW LEVEL SECURITY;
+
+-- =========================================================================
 -- 8. LEADS TABLE (Primary Lead Engine Source of Truth)
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS public.leads (

@@ -66,7 +66,9 @@ import {
   markGoogleAccountReauthRequired,
   hasRequiredGmailSendScope,
   normalizeExpiryMs,
-  formatExpiryIso
+  formatExpiryIso,
+  classifyGoogleCallbackError,
+  escapeOAuthHtmlText
 } from './src/backend/googleAccountsService';
 import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountries';
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
@@ -79,7 +81,18 @@ import { validateStartupEnv } from './src/security/envValidator';
 import { requestIdMiddleware, logAuditEvent } from './src/security/auditLogger';
 import { configureSecurityHeaders } from './src/security/headers';
 import { globalSanitizerMiddleware } from './src/security/sanitizer';
-import { apiTimeoutHandler } from './src/security/authMiddleware';
+import {
+  apiTimeoutHandler,
+  isProductionAuthRuntime,
+  verifySupabaseBearerJwt,
+  isPublicAuthExemptPath,
+  isValidLocalDevSession,
+  resolveAuthenticatedUser,
+  signGoogleOAuthState,
+  verifyGoogleOAuthState,
+  createSupabaseOAuthNonceStore,
+  OAuthNonceStore
+} from './src/security/authMiddleware';
 import { centralizedErrorHandler } from './src/security/errorHandler';
 
 validateStartupEnv();
@@ -1628,212 +1641,423 @@ async function startServer() {
   const tokenVerificationCache = new Map<string, { user: WorkspaceUser; expiresAt: number }>();
 
   app.use(async (req: any, res: any, next: any) => {
+    req.authMiddlewareExecuted = true;
     if (req.method === 'OPTIONS') {
       return next();
     }
     const authHeader = req.headers?.authorization || req.headers?.Authorization;
     if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1]?.trim();
+      const isProductionRuntime = isProductionAuthRuntime();
 
       // 1. Supabase Auth token validation & PostgreSQL Direct Table Lookup
+      // Strictly requires successful supabase.auth.getUser(token); NEVER decodes unverified JWT claims.
       const supabase = getSupabaseClient();
-      let sbUser: any = null;
-
-      if (supabase && token) {
-        try {
-          const { data, error } = await supabase.auth.getUser(token);
-          if (!error && data?.user) {
-            sbUser = data.user;
-          }
-        } catch (sbErr) {
-          console.warn('[AUTH] Supabase token verification failed:', sbErr);
-        }
-      }
-
-      // 1B. Fallback: Parse claims from valid unexpired Supabase JWT
-      if (!sbUser && token && token.split('.').length === 3) {
-        try {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
-          if (payload && payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
-            sbUser = {
-              id: payload.sub,
-              email: payload.email || '',
-              user_metadata: payload.user_metadata || {}
-            };
-          }
-        } catch (_) {}
-      }
+      const jwtVerification = await verifySupabaseBearerJwt(token || '', supabase);
+      const sbUser = jwtVerification.verified ? jwtVerification.user : null;
 
       if (sbUser) {
+        req.authTokenSub = sbUser.id;
+        req.authVerifiedVia = 'supabase';
         try {
-          const emailLower = (sbUser.email || '').toLowerCase();
+          const emailLower = (sbUser.email || '').trim().toLowerCase();
           const isFounder = isVerifiedFounderEmail(emailLower);
-          
+          const isSupabaseEmailConfirmed = Boolean(sbUser.email_confirmed_at || sbUser.confirmed_at);
+          const dbClient = (() => {
+            try {
+              return getPrivilegedSupabaseClient();
+            } catch (_) {
+              return supabase;
+            }
+          })();
+
+          let canonicalUserId: string = String(sbUser.id || '').trim();
           let resolvedRole: UserRole = isFounder ? 'OWNER' : 'MEMBER';
           let resolvedOrgId: string | undefined = isFounder ? 'org_salespilot_lifetime' : undefined;
           let resolvedCompanyName = isFounder ? 'SalesPilot' : (sbUser.user_metadata?.company_name || 'Workspace');
 
+          let dbUserRow: any = null;
           let dbProfile: any = null;
           let dbTeamMember: any = null;
+          let dbOrgMember: any = null;
+          let hasBlockedMembership = false;
+          const blockedOrgIds = new Set<string>();
+          const blockedMemberStatuses = new Set(['REMOVED', 'SUSPENDED', 'DISABLED', 'REVOKED', 'INACTIVE']);
+          const pendingInviteStatuses = new Set(['INVITED', 'PENDING']);
+          const allowedRoles = new Set(['OWNER', 'ADMIN', 'SALES', 'VIEWER', 'MANAGER', 'SUPER_ADMIN', 'MEMBER', 'CLIENT']);
 
-          // Always query authoritative Supabase/PostgreSQL database for profile & workspace membership
-          if (supabase) {
+          // Query authoritative Supabase/PostgreSQL tables for canonical user, profile & workspace membership
+          if (dbClient) {
             try {
-              const { data: profile } = await supabase
-                .from('profiles')
+              const { data: userById } = await dbClient
+                .from('users')
                 .select('*')
                 .eq('id', sbUser.id)
                 .maybeSingle();
+              dbUserRow = userById;
+
+              if (!dbUserRow && emailLower) {
+                const { data: userByEmail } = await dbClient
+                  .from('users')
+                  .select('*')
+                  .eq('email', emailLower)
+                  .maybeSingle();
+                dbUserRow = userByEmail;
+              }
+
+              if (dbUserRow?.id) {
+                canonicalUserId = String(dbUserRow.id).trim();
+              }
+
+              const { data: profile } = await dbClient
+                .from('profiles')
+                .select('*')
+                .eq('id', canonicalUserId)
+                .maybeSingle();
               dbProfile = profile;
 
-              const { data: tm } = await supabase
+              const { data: tmByUser } = await dbClient
                 .from('team_members')
                 .select('*, organizations(*)')
-                .eq('user_id', sbUser.id)
+                .eq('user_id', canonicalUserId)
+                .limit(1)
                 .maybeSingle();
-              dbTeamMember = tm;
 
-              if (dbProfile?.role) {
-                const r = String(profile.role).toUpperCase();
-                if (['OWNER', 'ADMIN', 'SALES', 'VIEWER', 'MANAGER', 'SUPER_ADMIN', 'MEMBER'].includes(r)) {
-                  resolvedRole = r as UserRole;
-                }
-              } else if (dbTeamMember?.role) {
-                const r = String(dbTeamMember.role).toUpperCase();
-                if (['OWNER', 'ADMIN', 'SALES', 'VIEWER', 'MANAGER', 'SUPER_ADMIN', 'MEMBER'].includes(r)) {
-                  resolvedRole = r as UserRole;
+              if (tmByUser) {
+                const tmStatus = String(tmByUser.status || 'ACTIVE').toUpperCase().trim();
+                if (blockedMemberStatuses.has(tmStatus)) {
+                  hasBlockedMembership = true;
+                  if (tmByUser.organization_id) {
+                    blockedOrgIds.add(String(tmByUser.organization_id).trim());
+                  }
+                } else if (!pendingInviteStatuses.has(tmStatus) || isSupabaseEmailConfirmed) {
+                  dbTeamMember = tmByUser;
                 }
               }
+
+              if (!dbTeamMember && !hasBlockedMembership && emailLower) {
+                const { data: tmByEmail } = await dbClient
+                  .from('team_members')
+                  .select('*, organizations(*)')
+                  .eq('email', emailLower)
+                  .limit(1)
+                  .maybeSingle();
+
+                if (tmByEmail) {
+                  const tmEmailStatus = String(tmByEmail.status || 'ACTIVE').toUpperCase().trim();
+                  if (blockedMemberStatuses.has(tmEmailStatus)) {
+                    hasBlockedMembership = true;
+                    if (tmByEmail.organization_id) {
+                      blockedOrgIds.add(String(tmByEmail.organization_id).trim());
+                    }
+                  } else if (pendingInviteStatuses.has(tmEmailStatus)) {
+                    if (isSupabaseEmailConfirmed) {
+                      dbTeamMember = tmByEmail;
+                    }
+                  } else if (!tmByEmail.user_id || String(tmByEmail.user_id).trim() === canonicalUserId) {
+                    dbTeamMember = tmByEmail;
+                  }
+                }
+              }
+
+              try {
+                const { data: om } = await dbClient
+                  .from('organization_members')
+                  .select('*')
+                  .eq('user_id', canonicalUserId)
+                  .limit(1)
+                  .maybeSingle();
+                if (om) {
+                  const omStatus = String(om.status || 'ACTIVE').toUpperCase().trim();
+                  if (blockedMemberStatuses.has(omStatus)) {
+                    hasBlockedMembership = true;
+                    if (om.organization_id) {
+                      blockedOrgIds.add(String(om.organization_id).trim());
+                    }
+                  } else if (!pendingInviteStatuses.has(omStatus) || isSupabaseEmailConfirmed) {
+                    dbOrgMember = om;
+                  }
+                }
+              } catch (_) {}
 
               if (dbTeamMember?.organizations?.id) {
                 resolvedOrgId = dbTeamMember.organizations.id;
-                resolvedCompanyName = dbTeamMember.organizations.name || resolvedCompanyName;
-              } else if (dbProfile?.organization_id) {
+                resolvedCompanyName = dbTeamMember.organizations.company_name || dbTeamMember.organizations.name || resolvedCompanyName;
+              } else if (dbTeamMember?.organization_id) {
+                resolvedOrgId = dbTeamMember.organization_id;
+              } else if (dbOrgMember?.organization_id) {
+                resolvedOrgId = dbOrgMember.organization_id;
+              } else if (dbUserRow?.organization_id && !blockedOrgIds.has(String(dbUserRow.organization_id).trim())) {
+                resolvedOrgId = dbUserRow.organization_id;
+              } else if (dbProfile?.organization_id && !blockedOrgIds.has(String(dbProfile.organization_id).trim())) {
                 resolvedOrgId = dbProfile.organization_id;
               }
 
-              // Self-healing: If user is organization owner but has VIEWER/MEMBER role, promote to OWNER
+              // Enforce strict founder org isolation BEFORE looking up organizations table
+              if (!isFounder && resolvedOrgId === 'org_salespilot_lifetime') {
+                resolvedOrgId = undefined;
+              }
+
+              let isOrgOwner = false;
               if (resolvedOrgId) {
-                const { data: orgRecord } = await supabase
+                const { data: orgRecord } = await dbClient
                   .from('organizations')
-                  .select('owner_id')
+                  .select('id, owner_id, name, company_name')
                   .eq('id', resolvedOrgId)
                   .maybeSingle();
-                
-                if (orgRecord?.owner_id === sbUser.id && (resolvedRole === 'VIEWER' || resolvedRole === 'MEMBER')) {
-                  console.info(`[AUTH] Self-healing: Promoting user ${sbUser.id} to OWNER of org ${resolvedOrgId}`);
-                  resolvedRole = 'OWNER';
+
+                isOrgOwner = Boolean(orgRecord?.owner_id && String(orgRecord.owner_id).trim() === canonicalUserId);
+
+                if (!isFounder && !isOrgOwner && blockedOrgIds.has(String(resolvedOrgId).trim())) {
+                  resolvedOrgId = undefined;
+                } else {
+                  if (orgRecord?.company_name || orgRecord?.name) {
+                    resolvedCompanyName = orgRecord.company_name || orgRecord.name;
+                  }
                 }
               }
+
+              // Resolve authoritative role without letting SQL users.role DEFAULT 'OWNER' elevate non-owner team members
+              const rawRoleCandidate = isFounder
+                ? 'OWNER'
+                : isOrgOwner
+                  ? (dbUserRow?.role || dbTeamMember?.role || dbOrgMember?.role || dbProfile?.role || 'OWNER')
+                  : (dbTeamMember?.role || dbOrgMember?.role || dbProfile?.role || dbUserRow?.role);
+
+              if (rawRoleCandidate) {
+                const r = String(rawRoleCandidate).toUpperCase().trim();
+                if (allowedRoles.has(r)) {
+                  resolvedRole = r as UserRole;
+                }
+              }
+
+              // Self-healing: If user is already recorded as the organization's owner, reflect OWNER role
+              if (isOrgOwner && (resolvedRole === 'VIEWER' || resolvedRole === 'MEMBER')) {
+                console.info(`[AUTH] Self-healing: Restoring OWNER role for organization owner ${canonicalUserId} of org ${resolvedOrgId}`);
+                resolvedRole = 'OWNER';
+              }
             } catch (qErr) {
-              console.warn('[AUTH] Error resolving profile from Supabase tables:', qErr);
+              console.warn('[AUTH] Error resolving user/profile from Supabase tables:', qErr);
             }
           }
+
+          const cleanName = isFounder
+            ? 'Soham Kharat'
+            : (dbUserRow?.full_name || dbProfile?.full_name || sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || (emailLower ? emailLower.split('@')[0] : 'Customer'));
+          const isEmailConfirmed = Boolean(isSupabaseEmailConfirmed || dbUserRow?.is_verified);
 
           if (isFounder) {
             resolvedRole = 'OWNER';
             resolvedOrgId = 'org_salespilot_lifetime';
             resolvedCompanyName = 'SalesPilot';
 
-            // Synchronize authoritative profiles & team_members in Supabase for founder
-            if (supabase) {
+            if (dbClient) {
               try {
-                await supabase.from('profiles').upsert({
-                  id: sbUser.id,
+                // 1. Ensure founder row exists in public.users FIRST (fk_organizations_owner target)
+                if (!dbUserRow) {
+                  const { error: insUserErr } = await dbClient.from('users').insert({
+                    id: canonicalUserId,
+                    email: emailLower,
+                    full_name: 'Soham Kharat',
+                    company_name: 'SalesPilot',
+                    tier: 'ENTERPRISE',
+                    role: 'OWNER',
+                    organization_id: null,
+                    is_verified: true,
+                    is_founder: true,
+                    subscription_status: 'LIFETIME',
+                    updated_at: new Date().toISOString()
+                  });
+                  if (insUserErr) console.warn('[AUTH SYNC] Founder users insert notice:', insUserErr.message);
+                }
+
+                // 2. Ensure founder organization exists with valid schema columns (subscription_plan, NOT tier)
+                const { error: orgErr } = await dbClient.from('organizations').upsert({
+                  id: 'org_salespilot_lifetime',
+                  name: 'SalesPilot Lifetime',
+                  company_name: 'SalesPilot',
+                  owner_id: canonicalUserId,
+                  subscription_plan: 'ENTERPRISE',
+                  status: 'ACTIVE'
+                }, { onConflict: 'id' });
+                if (orgErr) console.warn('[AUTH SYNC] Founder organization upsert notice:', orgErr.message);
+
+                // 3. Link public.users -> organization_id
+                await dbClient.from('users').upsert({
+                  id: canonicalUserId,
                   email: emailLower,
-                  full_name: sbUser.user_metadata?.full_name || 'Soham Kharat',
+                  full_name: 'Soham Kharat',
+                  company_name: 'SalesPilot',
+                  tier: 'ENTERPRISE',
+                  role: 'OWNER',
+                  organization_id: 'org_salespilot_lifetime',
+                  is_verified: true,
+                  is_founder: true,
+                  subscription_status: 'LIFETIME',
+                  updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+
+                await dbClient.from('profiles').upsert({
+                  id: canonicalUserId,
+                  email: emailLower,
+                  full_name: 'Soham Kharat',
                   role: 'OWNER',
                   organization_id: 'org_salespilot_lifetime',
                   updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
 
-                await supabase.from('team_members').upsert({
-                  user_id: sbUser.id,
-                  organization_id: 'org_salespilot_lifetime',
-                  role: 'OWNER',
-                  status: 'ACTIVE',
-                  email: emailLower,
-                  full_name: sbUser.user_metadata?.full_name || 'Soham Kharat'
-                }, { onConflict: 'user_id' });
-
-                await supabase.from('organizations').upsert({
-                  id: 'org_salespilot_lifetime',
-                  name: 'SalesPilot Lifetime',
-                  company_name: 'SalesPilot',
-                  owner_id: sbUser.id,
-                  tier: 'ENTERPRISE',
-                  status: 'ACTIVE'
-                }, { onConflict: 'id' });
-              } catch (_) {}
+                if (!dbTeamMember) {
+                  const { error: tmInsErr } = await dbClient.from('team_members').insert({
+                    id: `tm_${canonicalUserId}_org_salespilot_lifetime`,
+                    user_id: canonicalUserId,
+                    organization_id: 'org_salespilot_lifetime',
+                    role: 'OWNER',
+                    status: 'ACTIVE',
+                    email: emailLower,
+                    full_name: 'Soham Kharat'
+                  });
+                  if (tmInsErr) console.warn('[AUTH SYNC] Founder team_member insert notice:', tmInsErr.message);
+                }
+              } catch (syncErr: any) {
+                console.warn('[AUTH SYNC] Founder Supabase sync notice:', syncErr?.message || String(syncErr));
+              }
             }
 
             // Reconcile founder in LocalDB
-            localDb.reconcileFounderCanonicalId(sbUser.id, emailLower);
+            localDb.reconcileFounderCanonicalId(canonicalUserId, emailLower);
           } else {
             // STRICT TENANT ISOLATION FOR NON-FOUNDER / CUSTOMER
             if (resolvedOrgId === 'org_salespilot_lifetime') {
               resolvedOrgId = undefined;
             }
-            const cleanName = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer';
-            const customerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : (resolvedOrgId || `org_${sbUser.id.substring(0, 12)}`);
-            resolvedOrgId = customerOrgId;
-            resolvedCompanyName = emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`;
 
-            // If they have no role yet, they are likely the owner of their new org
-            if (resolvedRole === 'MEMBER' && !dbTeamMember && !dbProfile) {
+            const hasExistingPersonalOrInvitedOrg = Boolean(resolvedOrgId);
+            const customerOrgId = emailLower === 'pordigyai@gmail.com'
+              ? 'org_pordigy_enterprise'
+              : (resolvedOrgId || `org_${canonicalUserId.substring(0, 12)}`);
+            resolvedOrgId = customerOrgId;
+            if (!hasExistingPersonalOrInvitedOrg) {
+              resolvedCompanyName = emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`;
+            }
+
+            // Only assign OWNER when bootstrapping a user's own brand-new workspace with no existing role/membership
+            if (resolvedRole === 'MEMBER' && !dbUserRow && !dbTeamMember && !dbOrgMember && !dbProfile && !hasBlockedMembership) {
               resolvedRole = 'OWNER';
             }
 
-            if (supabase) {
+            if (dbClient) {
               try {
-                // Remove contaminated association with founder organization if any
-                await supabase.from('team_members').delete().eq('user_id', sbUser.id).eq('organization_id', 'org_salespilot_lifetime');
+                // Remove any contaminated association with founder organization
+                await dbClient.from('team_members').delete().eq('user_id', canonicalUserId).eq('organization_id', 'org_salespilot_lifetime');
 
-                // Upsert clean customer profile
-                await supabase.from('profiles').upsert({
-                  id: sbUser.id,
+                // 1. Ensure public.users row exists BEFORE public.organizations (fk_organizations_owner target)
+                if (!dbUserRow) {
+                  const { error: userInsErr } = await dbClient.from('users').insert({
+                    id: canonicalUserId,
+                    email: emailLower,
+                    full_name: cleanName,
+                    company_name: resolvedCompanyName,
+                    tier: isLifetimeSubscriberEmail(emailLower) ? 'ENTERPRISE' : 'STARTER',
+                    role: resolvedRole,
+                    organization_id: null,
+                    is_verified: isSupabaseEmailConfirmed,
+                    is_founder: false,
+                    subscription_status: isLifetimeSubscriberEmail(emailLower) ? 'LIFETIME' : 'ACTIVE',
+                    updated_at: new Date().toISOString()
+                  });
+                  if (userInsErr) {
+                    console.warn('[AUTH SYNC] Customer users insert notice:', userInsErr.message);
+                  }
+                }
+
+                // 2. Ensure target organization exists (without altering existing owner_id for invited members)
+                const { data: existingOrgRow } = await dbClient
+                  .from('organizations')
+                  .select('id, owner_id, company_name, name')
+                  .eq('id', customerOrgId)
+                  .maybeSingle();
+
+                if (!existingOrgRow) {
+                  const { error: orgInsErr } = await dbClient.from('organizations').insert({
+                    id: customerOrgId,
+                    name: resolvedCompanyName,
+                    company_name: resolvedCompanyName,
+                    owner_id: canonicalUserId,
+                    subscription_plan: isLifetimeSubscriberEmail(emailLower) ? 'ENTERPRISE' : 'STARTER',
+                    status: 'ACTIVE'
+                  });
+                  if (orgInsErr) {
+                    console.warn('[AUTH SYNC] Customer organization insert notice:', orgInsErr.message);
+                  }
+                } else if (existingOrgRow.company_name || existingOrgRow.name) {
+                  resolvedCompanyName = existingOrgRow.company_name || existingOrgRow.name;
+                }
+
+                // 3. Ensure public.users.organization_id is linked
+                if (!dbUserRow || dbUserRow.organization_id !== customerOrgId) {
+                  const { error: userUpdErr } = await dbClient
+                    .from('users')
+                    .update({
+                      organization_id: customerOrgId,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', canonicalUserId);
+                  if (userUpdErr) {
+                    console.warn('[AUTH SYNC] Customer users org update notice:', userUpdErr.message);
+                  }
+                }
+
+                // 4. Upsert clean customer profile
+                await dbClient.from('profiles').upsert({
+                  id: canonicalUserId,
                   email: emailLower,
                   full_name: cleanName,
-                  role: resolvedRole || 'OWNER',
+                  role: resolvedRole,
                   organization_id: customerOrgId,
                   updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
 
-                // Ensure customer organization exists
-                await supabase.from('organizations').upsert({
-                  id: customerOrgId,
-                  name: resolvedCompanyName,
-                  company_name: resolvedCompanyName,
-                  owner_id: sbUser.id,
-                  tier: 'STARTER',
-                  status: 'ACTIVE'
-                }, { onConflict: 'id' });
-
-                // Upsert customer team member
-                await supabase.from('team_members').upsert({
-                  user_id: sbUser.id,
-                  organization_id: customerOrgId,
-                  role: 'OWNER',
-                  status: 'ACTIVE',
-                  email: emailLower,
-                  full_name: cleanName
-                }, { onConflict: 'user_id' });
-              } catch (cleanErr) {
-                console.warn('[AUTH CLEANUP NOTICE]', cleanErr);
+                // 5. Ensure team_members entry exists only when not blocked, and only claim confirmed invites
+                if (!dbTeamMember && !blockedOrgIds.has(customerOrgId)) {
+                  const { error: tmInsErr } = await dbClient.from('team_members').insert({
+                    id: `tm_${canonicalUserId}_${customerOrgId}`,
+                    user_id: canonicalUserId,
+                    organization_id: customerOrgId,
+                    role: resolvedRole,
+                    status: 'ACTIVE',
+                    email: emailLower,
+                    full_name: cleanName
+                  });
+                  if (tmInsErr) {
+                    console.warn('[AUTH SYNC] Customer team_member insert notice:', tmInsErr.message);
+                  }
+                } else if (
+                  dbTeamMember &&
+                  !dbTeamMember.user_id &&
+                  pendingInviteStatuses.has(String(dbTeamMember.status || '').toUpperCase().trim()) &&
+                  isSupabaseEmailConfirmed
+                ) {
+                  await dbClient
+                    .from('team_members')
+                    .update({ user_id: canonicalUserId, status: 'ACTIVE' })
+                    .eq('id', dbTeamMember.id);
+                }
+              } catch (cleanErr: any) {
+                console.warn('[AUTH CLEANUP NOTICE]', cleanErr?.message || cleanErr);
               }
             }
           }
 
           const isLifetimeSubscriber = isLifetimeSubscriberEmail(emailLower);
-          let user = localDb.getUserById(sbUser.id);
-          const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(sbUser.id);
-          const defaultCustomerOrgId = emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : `org_${sbUser.id.substring(0, 8)}`;
+          let user = localDb.getUserById(canonicalUserId) || (emailLower ? localDb.getUserByEmail(emailLower) : undefined);
+          const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(canonicalUserId);
+          const defaultCustomerOrgId = emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : `org_${canonicalUserId.substring(0, 12)}`;
           const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || defaultCustomerOrgId)));
-          const cleanDisplayName = isFounder ? 'Soham Kharat' : (sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Customer');
+          const cleanDisplayName = isFounder ? 'Soham Kharat' : cleanName;
 
           if (!user) {
             user = {
-              id: sbUser.id,
+              id: canonicalUserId,
               email: sbUser.email || '',
               fullName: cleanDisplayName,
               companyName: resolvedCompanyName,
@@ -1841,7 +2065,7 @@ async function startServer() {
               tier: (isFounder || isLifetimeSubscriber) ? 'ENTERPRISE' : 'STARTER',
               role: resolvedRole,
               organizationId: orgId,
-              isVerified: true,
+              isVerified: isFounder || isEmailConfirmed,
               phone: '',
               timezone: 'Asia/Kolkata',
               language: 'English',
@@ -1851,7 +2075,8 @@ async function startServer() {
             };
             localDb.addUser(user);
           } else {
-            // Keep role & organization synchronized with authoritative record
+            // Keep id, role & organization synchronized with authoritative record
+            user.id = canonicalUserId;
             user.role = resolvedRole;
             user.organizationId = orgId;
             if (isFounder) {
@@ -1882,20 +2107,22 @@ async function startServer() {
         }
       }
 
-      // 2. Local Session Fallback for non-Supabase local developer testing
-      const session = localDb.getSession(token);
-      if (session) {
-        const user = localDb.getUserById(session.userId);
-        if (user) {
-          session.expiresAt = Math.max(session.expiresAt || 0, Date.now() + 30 * 24 * 3600 * 1000);
-          req.authenticatedUser = user;
-          return next();
+      // 2. Local Session Authentication ONLY outside production for valid, unexpired opaque non-JWT tokens
+      const isJwtToken = Boolean(token && token.split('.').length === 3);
+      if (!isProductionRuntime && token && !isJwtToken) {
+        const session = localDb.getSession(token);
+        if (isValidLocalDevSession(session, isProductionRuntime)) {
+          const user = localDb.getUserById(session.userId);
+          if (user) {
+            req.authVerifiedVia = 'local_session';
+            req.authenticatedUser = user;
+            return next();
+          }
         }
       }
 
-      // 4. Non-production sandbox development tokens (Strictly blocked in production)
-      const isProductionRuntime = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || process.env.ENVIRONMENT === 'production';
-      if (!isProductionRuntime && (token === 'sandbox_google_auth_token' || token === 'sandbox_dev_auth_token' || token === 'sb_access_token_sandbox_valid' || token.startsWith('sandbox_'))) {
+      // 3. Non-production sandbox development tokens (Strictly blocked in production & never JWTs)
+      if (!isProductionRuntime && !isJwtToken && token && (token === 'sandbox_google_auth_token' || token === 'sandbox_dev_auth_token' || token === 'sb_access_token_sandbox_valid' || token.startsWith('sandbox_'))) {
         const sandboxDevUser = localDb.getUserById('usr_sandbox_dev') || {
           id: 'usr_sandbox_dev',
           email: 'developer@sandbox.local',
@@ -1907,9 +2134,20 @@ async function startServer() {
           isFounder: false,
           subscriptionStatus: 'ACTIVE'
         };
+        req.authVerifiedVia = 'sandbox';
         req.authenticatedUser = sandboxDevUser as any;
         return next();
       }
+
+      // Bearer token verification failed: mark failure explicitly and reject with 401 on protected routes
+      req.authVerificationFailed = true;
+      req.authenticatedUser = undefined;
+
+      const reqPath = String(req.path || req.url || '').split('?')[0];
+      if (!isPublicAuthExemptPath(reqPath) && (reqPath.startsWith('/api/') || reqPath.startsWith('/gmail/') || reqPath.startsWith('/auth/'))) {
+        return res.status(401).json({ error: 'Unauthorized. Invalid or expired authentication token.' });
+      }
+      return next();
     }
 
     // Default: unauthenticated (req.authenticatedUser is undefined - no unauthorized fallback)
@@ -1979,74 +2217,13 @@ async function startServer() {
     localDb.save();
   };
 
-  // Auth resolver helper (Deny by default)
+  // Auth resolver helper (Deny by default; NEVER decodes unverified JWTs or bypasses middleware)
   const getAuthenticatedUser = (req: any): WorkspaceUser | null => {
-    if (req.authenticatedUser) {
-      const freshUser = localDb.getUserById(req.authenticatedUser.id);
-      if (freshUser) {
-        req.authenticatedUser = freshUser;
-      }
-      return req.authenticatedUser;
-    }
-    const authHeader = req.headers?.authorization || req.headers?.Authorization;
-    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1]?.trim();
-      const session = localDb.getSession(token);
-      if (session) {
-        const user = localDb.getUserById(session.userId);
-        if (user) {
-          session.expiresAt = Math.max(session.expiresAt || 0, Date.now() + 30 * 24 * 3600 * 1000);
-          req.authenticatedUser = user;
-          return user;
-        }
-      }
-      // Check valid unexpired JWT
-      if (token && token.split('.').length === 3) {
-        try {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
-          if (payload && payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
-            req.authTokenSub = payload.sub;
-            const emailLower = (payload.email || '').toLowerCase();
-            const isFounder = isVerifiedFounderEmail(emailLower);
-            let user = localDb.getUserById(payload.sub) || (emailLower ? localDb.getUserByEmail(emailLower) : null);
-            if (!user) {
-              const customerOrgId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${payload.sub.substring(0, 8)}`;
-              const orgId = isFounder ? 'org_salespilot_lifetime' : customerOrgId;
-              const cleanName = payload.user_metadata?.full_name || payload.email?.split('@')[0] || (isFounder ? 'Soham Kharat' : 'User');
-              user = {
-                id: payload.sub,
-                email: payload.email || '',
-                fullName: cleanName,
-                companyName: isFounder ? 'SalesPilot' : (emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`),
-                industry: 'SaaS & Software',
-                tier: isFounder ? 'ENTERPRISE' : 'STARTER',
-                role: isFounder ? 'OWNER' : 'OWNER', // New users are owners of their own workspace
-                organizationId: orgId,
-                isVerified: true,
-                phone: '',
-                timezone: 'Asia/Kolkata',
-                language: 'English',
-                isFounder,
-                subscriptionStatus: isFounder ? 'LIFETIME' : 'ACTIVE',
-                createdAt: new Date().toISOString()
-              };
-              localDb.addUser(user);
-            } else if (!isFounder) {
-              if (user.organizationId === 'org_salespilot_lifetime') {
-                user.organizationId = emailLower === 'pordigyai@gmail.com' ? 'org_pordigy_enterprise' : `org_${user.id.substring(0, 12)}`;
-              }
-              if (user.fullName === 'Soham Kharat' && !isVerifiedFounderEmail(user.email)) {
-                user.fullName = payload.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-              }
-              user.isFounder = false;
-            }
-            req.authenticatedUser = user;
-            return user;
-          }
-        } catch (_) {}
-      }
-    }
-    return null;
+    return resolveAuthenticatedUser(
+      req,
+      (token: string) => localDb.getSession(token),
+      (id: string) => localDb.getUserById(id)
+    );
   };
 
   // Organization security resolver helper (Never trust client organizationId, use verified user's organization, mismatch = 403)
@@ -3900,6 +4077,9 @@ async function startServer() {
     }
 
     const serverUser = getAuthenticatedUser(req);
+    if (!sbUser && !serverUser) {
+      return res.status(401).json({ error: 'Unauthorized. Invalid or expired authentication token.' });
+    }
 
     res.json({
       success: true,
@@ -18322,93 +18502,92 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     });
   });
 
-  // In-memory replay protection cache for OAuth nonces
-  const usedOAuthNonces = new Set<string>();
+  // Persistent atomic OAuth nonce store (Supabase/PostgreSQL in production; fails closed if unavailable)
+  const getOAuthNonceStore = (): OAuthNonceStore => {
+    const isProd = isProductionAuthRuntime(process.env);
+    const hasServiceRole = Boolean(
+      (process.env.SUPABASE_URL || integrations.supabaseUrl || process.env.VITE_SUPABASE_URL || '').trim() &&
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+    );
 
-  // Google OAuth URL generation
+    if (hasServiceRole) {
+      try {
+        const privilegedClient = getPrivilegedSupabaseClient();
+        return createSupabaseOAuthNonceStore(privilegedClient);
+      } catch (err: any) {
+        return {
+          async consumeNonce() {
+            return {
+              consumed: false,
+              reason: 'UNAVAILABLE',
+              error: err?.message || 'Privileged Supabase client unavailable.'
+            };
+          }
+        };
+      }
+    }
+
+    if (isProd) {
+      return {
+        async consumeNonce() {
+          return {
+            consumed: false,
+            reason: 'UNAVAILABLE',
+            error: 'SUPABASE_SERVICE_ROLE_KEY is required for persistent OAuth nonce verification in production.'
+          };
+        }
+      };
+    }
+
+    // Non-production local dev fallback using disk-backed LocalDB (never in-memory Set, never cleared on size)
+    return {
+      async consumeNonce({ nonce, userId, organizationId, expiresAtMs }) {
+        const consumed = localDb.consumeOAuthNonce(nonce, userId, organizationId, expiresAtMs);
+        return consumed ? { consumed: true } : { consumed: false, reason: 'REPLAY' };
+      },
+      async cleanupExpiredNonces(nowMs?: number) {
+        return localDb.cleanupExpiredOAuthNonces(nowMs);
+      }
+    };
+  };
+
+  // Google OAuth URL generation (fails closed when signing secret is missing)
   const createGoogleOAuthState = (
     req: any,
-    resolvedIdentity?: { userId: string; userEmail?: string; organizationId: string }
+    resolvedIdentity?: { userId: string; userEmail?: string; organizationId: string; source?: 'integrations' | 'scheduler' }
   ): string => {
     const user = getAuthenticatedUser(req);
-    const rawSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
-    const secret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
-    if (!user || !secret) return '';
+    if (!user) return '';
 
     // Verify organization_id: client-supplied headers MUST NOT override verified tenant context
     const { orgId } = resolveVerifiedOrganizationId(req, user);
     const effectiveOrgId = resolvedIdentity?.organizationId || orgId || user.organizationId || '';
     const effectiveUserId = resolvedIdentity?.userId || user.id;
     const effectiveUserEmail = (resolvedIdentity?.userEmail || user.email || '').trim().toLowerCase();
-    const nonce = crypto.randomBytes(16).toString('hex');
+    const source = resolvedIdentity?.source === 'integrations' ? 'integrations' : 'scheduler';
 
-    const payload = Buffer.from(JSON.stringify({
+    return signGoogleOAuthState({
       userId: effectiveUserId,
       userEmail: effectiveUserEmail,
       organizationId: effectiveOrgId,
-      nonce,
-      issuedAt: Date.now()
-    })).toString('base64url');
-    const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-    return `${payload}.${signature}`;
+      source
+    });
   };
 
-  const readGoogleOAuthState = (state: unknown): { userId: string; userEmail?: string; organizationId?: string } | null => {
-    const rawSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
-    const secret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
-    if (typeof state !== 'string' || !secret) return null;
-    const [payload, signature] = state.split('.');
-    if (!payload || !signature) return null;
-    const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-    if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
-    try {
-      const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-      // State expiry check: 15 minutes window
-      if (!parsed.userId || !parsed.issuedAt || Date.now() - parsed.issuedAt > 15 * 60 * 1000) return null;
-      
-      // Nonce replay protection
-      if (parsed.nonce) {
-        if (usedOAuthNonces.has(parsed.nonce)) {
-          console.warn(`[OAUTH SECURITY] Replay detected for nonce ${parsed.nonce}. Rejecting.`);
-          return null;
-        }
-        usedOAuthNonces.add(parsed.nonce);
-        // Prune nonces cache periodically
-        if (usedOAuthNonces.size > 5000) {
-          usedOAuthNonces.clear();
-        }
-      }
+  const readGoogleOAuthState = async (
+    state: unknown
+  ): Promise<{ userId: string; userEmail?: string; organizationId?: string; source: 'integrations' | 'scheduler' } | null> => {
+    const verified = await verifyGoogleOAuthState(state, getOAuthNonceStore());
+    if (!verified) return null;
 
-      // Re-verify that user exists in authoritative database
-      let dbUser = localDb.getUserById(parsed.userId);
-      if (!dbUser) {
-        // Cold start recovery: Ensure user record exists in localDb for serverless execution
-        const orgId = parsed.organizationId || `org_${parsed.userId.substring(0, 8)}`;
-        dbUser = {
-          id: parsed.userId,
-          email: parsed.userEmail || '',
-          fullName: 'User',
-          companyName: 'SalesPilot',
-          industry: 'SaaS',
-          tier: 'ENTERPRISE',
-          role: 'OWNER',
-          organizationId: orgId,
-          isVerified: true,
-          phone: '',
-          timezone: 'Asia/Kolkata',
-          language: 'English',
-          isFounder: false,
-          subscriptionStatus: 'ACTIVE',
-          createdAt: new Date().toISOString()
-        };
-        try { localDb.addUser(dbUser); } catch (_) {}
-      }
-
-      const verifiedOrg = parsed.organizationId || dbUser.organizationId;
-      return { userId: parsed.userId, userEmail: parsed.userEmail || dbUser.email || undefined, organizationId: verifiedOrg };
-    } catch (_) {
-      return null;
-    }
+    const dbUser = localDb.getUserById(verified.userId);
+    const verifiedOrg = verified.organizationId || dbUser?.organizationId;
+    return {
+      userId: verified.userId,
+      userEmail: verified.userEmail || dbUser?.email || undefined,
+      organizationId: verifiedOrg,
+      source: verified.source
+    };
   };
 
   app.get('/api/auth/google/url', async (req, res) => {
@@ -18416,33 +18595,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const rawClientId = process.env.GOOGLE_CLIENT_ID;
     if (!rawClientId) {
       console.error('[GOOGLE OAUTH URL GEN] ERROR: GOOGLE_CLIENT_ID is not configured in server environment variables.');
-      return res.status(400).json({ error: 'Google integration is temporarily unavailable. Please try again later.' });
+      return res.status(400).json({ error: 'Google OAuth server credentials are missing. Contact your administrator.' });
     }
     const clientId = rawClientId.trim().replace(/^['"]|['"]$/g, '');
-    
-    // Log the exact GOOGLE_CLIENT_ID value being used (mask the middle 60%, show first 15 and last 15 characters)
-    let maskedClientId = clientId;
-    const len = clientId.length;
-    if (len >= 30) {
-      const prefix = clientId.substring(0, 15);
-      const suffix = clientId.substring(len - 15);
-      const middleLength = len - 30;
-      maskedClientId = `${prefix}${'*'.repeat(middleLength)}${suffix}`;
-    } else {
-      const half = Math.floor(len / 2);
-      maskedClientId = clientId.substring(0, half) + '...' + clientId.substring(len - half);
-    }
-    console.log(`[GOOGLE OAUTH URL GEN] GOOGLE_CLIENT_ID: ${maskedClientId}`);
-    
-    // Explicit Audit Logs
-    console.log('[GOOGLE OAUTH AUDIT] Reading environment variable name: GOOGLE_CLIENT_ID');
-    const auditPrefix = len >= 15 ? clientId.substring(0, 15) : clientId;
-    const auditSuffix = len >= 15 ? clientId.substring(len - 15) : clientId;
-    console.log(`[GOOGLE OAUTH AUDIT] Runtime GOOGLE_CLIENT_ID characters: [First 15: "${auditPrefix}"] [Last 15: "${auditSuffix}"]`);
 
     const user = getAuthenticatedUser(req);
     if (!user) {
-      return res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required. Please sign in again.' });
     }
     const { orgId, error: orgErr, status: orgStatus } = resolveVerifiedOrganizationId(req, user);
     if (orgErr || !orgId) {
@@ -18450,24 +18609,21 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
+    const source = req.query.source === 'integrations' ? 'integrations' : 'scheduler';
 
-    // Log the redirect URI
+    // Construct redirect URI and signed state
     const redirectUri = getGoogleRedirectUri(req);
     const state = createGoogleOAuthState(req, {
       userId: canonicalIdentity.userId,
       userEmail: user.email,
-      organizationId: canonicalIdentity.organizationId
+      organizationId: canonicalIdentity.organizationId,
+      source
     });
     if (!state) {
-      return res.status(500).json({ error: 'Google integration is temporarily unavailable. Please try again later.' });
+      return res.status(500).json({ error: 'Google OAuth server credentials are missing. Unable to sign OAuth state.' });
     }
-    console.log(`[GOOGLE OAUTH AUDIT] FINAL RUNTIME REDIRECT URI: ${redirectUri}`);
-    console.log(`[GOOGLE OAUTH URL GEN] Configured Redirect URI: ${redirectUri}`);
+    console.log(`[GOOGLE OAUTH AUDIT] FINAL RUNTIME REDIRECT URI: ${redirectUri} (source=${source})`);
 
-    // Log whether the client secret exists
-    const clientSecretExists = !!process.env.GOOGLE_CLIENT_SECRET;
-    console.log(`[GOOGLE OAUTH URL GEN] GOOGLE_CLIENT_SECRET exists: ${clientSecretExists}`);
-    
     const scopes = [
       'https://www.googleapis.com/auth/gmail.send',
       'https://www.googleapis.com/auth/gmail.readonly',
@@ -18477,8 +18633,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile'
     ];
-    console.log(`[GOOGLE OAUTH URL GEN] Scopes to request: ${scopes.join(' ')}`);
-    
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -18489,11 +18644,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       state
     });
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-    
-    // Log the exact Google authorization URL before redirecting / returning
-    console.log(`[GOOGLE OAUTH URL GEN] Exact Google Authorization URL generated: ${authUrl}`);
-    
-    res.json({ url: authUrl });
+    res.json({ url: authUrl, redirectUri, source });
   });
 
   // Google OAuth Callback Handler
@@ -18503,121 +18654,101 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     const code = req.query.code as string;
     const oauthError = req.query.error as string;
+    const oauthErrorDescription = req.query.error_description as string;
     const rawClientId = process.env.GOOGLE_CLIENT_ID;
     const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    
+
     const clientId = rawClientId ? rawClientId.trim().replace(/^['"]|['"]$/g, '') : '';
     const clientSecret = rawClientSecret ? rawClientSecret.trim().replace(/^['"]|['"]$/g, '') : '';
-    const oauthContext = readGoogleOAuthState(req.query.state);
-    
-    if (oauthError) {
-      console.warn(`[GOOGLE CALLBACK FLOW] Google returned error in callback: "${oauthError}"`);
-      const errorMsg = oauthError === 'access_denied' 
-        ? 'Google connection was canceled. Please try again when you are ready.'
-        : `Google authorization failed (${oauthError}). Please try again.`;
-      return res.send(`
+    const oauthContext = await readGoogleOAuthState(req.query.state);
+    const oauthSource = oauthContext?.source === 'integrations' ? 'integrations' : 'scheduler';
+    const returnHash = oauthSource === 'integrations' ? '/#integrations' : '/#scheduler';
+    const returnLabel = oauthSource === 'integrations' ? 'Return to Integrations' : 'Return to Scheduler';
+
+    const renderCallbackFailure = (title: string, displayMsg: string, httpStatus = 200) => {
+      const safeTitle = escapeOAuthHtmlText(title);
+      const safeMsg = escapeOAuthHtmlText(displayMsg);
+      return res.status(httpStatus).send(`
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Google Connection Canceled — SalesPilot</title>
+            <title>${safeTitle} — SalesPilot</title>
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
-              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 440px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 480px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
               h3 { color: #f87171; margin-top: 0; }
-              p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+              p { color: #cbd5e1; font-size: 14px; line-height: 1.5; }
               .btn { display: inline-block; background: #3b82f6; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; margin-top: 15px; }
             </style>
           </head>
           <body>
             <div class="card">
-              <h3>Connection Canceled</h3>
-              <p>${errorMsg}</p>
-              <button class="btn" onclick="finish()">Return to Scheduler</button>
+              <h3>${safeTitle}</h3>
+              <p>${safeMsg}</p>
+              <button class="btn" onclick="finish()">${escapeOAuthHtmlText(returnLabel)}</button>
             </div>
             <script>
-              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(errorMsg)}, timestamp: Date.now() };
+              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(displayMsg)}, source: ${JSON.stringify(oauthSource)}, timestamp: Date.now() };
               try { if (window.opener && !window.opener.closed) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
               try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
               try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
               function finish() {
                 try { window.close(); } catch (_) {}
-                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
+                setTimeout(() => { window.location.replace(${JSON.stringify(`${returnHash}?google=error`)}); }, 150);
               }
               if (window.opener && !window.opener.closed) {
-                setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
+                setTimeout(() => { try { window.close(); } catch (_) {} }, 1800);
               } else {
-                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 2000);
+                setTimeout(() => { window.location.replace(${JSON.stringify(`${returnHash}?google=error`)}); }, 2500);
               }
             </script>
           </body>
         </html>
       `);
+    };
+
+    if (oauthError) {
+      console.warn(`[GOOGLE CALLBACK FLOW] Google returned error in callback: "${oauthError}" (${oauthErrorDescription || 'no description'})`);
+      const errorMsg = oauthError === 'access_denied'
+        ? 'Google connection was canceled or denied by the user.'
+        : oauthError === 'redirect_uri_mismatch'
+          ? 'Google OAuth redirect URI mismatch. Verify Authorized Redirect URIs in Google Cloud Console match the callback URL.'
+          : oauthError === 'org_internal' || oauthError === 'access_blocked'
+            ? 'Google OAuth access was blocked due to OAuth app testing or workspace restriction.'
+            : `Google authorization failed (${oauthError}). Please try again.`;
+      return renderCallbackFailure(oauthError === 'access_denied' ? 'Connection Canceled' : 'Google Authorization Failed', errorMsg);
+    }
+
+    if (!oauthContext) {
+      console.error('[GOOGLE CALLBACK FLOW] ERROR: Invalid or expired OAuth state parameter.');
+      return renderCallbackFailure(
+        'Authorization Session Expired',
+        'Your authorization session expired or state validation failed. Please try connecting again.'
+      );
     }
 
     if (!code) {
       console.error('[GOOGLE CALLBACK FLOW] ERROR: No auth code provided in query string.');
+      return renderCallbackFailure(
+        'Missing Authorization Code',
+        'Google did not return an authorization code. Please try connecting again.'
+      );
     }
-    if (!clientId) {
-      console.error('[GOOGLE CALLBACK FLOW] ERROR: GOOGLE_CLIENT_ID is missing.');
-    }
-    if (!clientSecret) {
-      console.error('[GOOGLE CALLBACK FLOW] ERROR: GOOGLE_CLIENT_SECRET is missing.');
-    }
-    if (!oauthContext) {
-      console.error('[GOOGLE CALLBACK FLOW] ERROR: Invalid or expired OAuth state parameter.');
-    }
-    
-    if (!code || !clientId || !clientSecret || !oauthContext) {
-      const displayMsg = !oauthContext
-        ? 'Your authorization session expired. Please return to Scheduler and try connecting again.'
-        : 'Unable to connect your Google account. Please try again.';
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <title>Unable to Connect Google Account</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
-              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 440px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-              h3 { color: #f87171; margin-top: 0; }
-              p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
-              .btn { display: inline-block; background: #3b82f6; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; margin-top: 15px; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h3>Unable to Connect Google Account</h3>
-              <p>${displayMsg}</p>
-              <button class="btn" onclick="finish()">Return to Scheduler</button>
-            </div>
-            <script>
-              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: ${JSON.stringify(displayMsg)}, timestamp: Date.now() };
-              try { if (window.opener && !window.opener.closed) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
-              try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
-              try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
-              function finish() {
-                try { window.close(); } catch (_) {}
-                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
-              }
-              if (window.opener && !window.opener.closed) {
-                setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
-              } else {
-                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 2000);
-              }
-            </script>
-          </body>
-        </html>
-      `);
+
+    if (!clientId || !clientSecret) {
+      console.error('[GOOGLE CALLBACK FLOW] ERROR: Server Google OAuth client credentials missing.');
+      return renderCallbackFailure(
+        'Google OAuth Configuration Error',
+        'Google OAuth server credentials are missing. Contact your administrator.'
+      );
     }
 
     const redirectUri = getGoogleRedirectUri(req);
     console.log(`[GOOGLE CALLBACK FLOW] Constructed redirect_uri: ${redirectUri}`);
 
     try {
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] Initiating token exchange fetch with Google OAuth servers...');
-      // Exchange code for tokens
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] Initiating token exchange with Google OAuth servers...');
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -18632,18 +18763,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       if (!tokenRes.ok) {
         const errText = await tokenRes.text();
-        console.error(`[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] [FAILED] HTTP Error ${tokenRes.status}: ${errText}`);
-        throw new Error(`Google exchange failed: ${errText}`);
+        console.error(`[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] [FAILED] HTTP ${tokenRes.status}: ${errText}`);
+        throw new Error(`Google exchange failed (${tokenRes.status}): ${errText}`);
       }
 
       const tokenData = await tokenRes.json() as any;
       const { access_token, refresh_token, expires_in, scope } = tokenData;
-      
-      console.log(`[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] [SUCCESS] Successfully retrieved OAuth tokens:
-        - Access Token present: ${!!access_token} (Length: ${access_token?.length || 0})
-        - Refresh Token present: ${!!refresh_token} (Length: ${refresh_token?.length || 0})
-        - Expires In: ${expires_in} seconds
-        - Scopes returned: "${scope || ''}"`);
+
+      console.log(`[GOOGLE CALLBACK FLOW] [STEP 1/5: TOKEN EXCHANGE] [SUCCESS] Access Token: ${!!access_token}, Refresh Token: ${!!refresh_token}, Scopes: "${scope || ''}"`);
 
       // Fetch user profile info
       console.log('[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] Retrieving Google user profile info...');
@@ -18653,58 +18780,25 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
       if (!userRes.ok) {
         const userErr = await userRes.text();
-        console.error(`[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] [FAILED] Profile fetch failed with status ${userRes.status}: ${userErr}`);
-        throw new Error(`Failed to fetch user info: ${userErr}`);
+        console.error(`[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] [FAILED] HTTP ${userRes.status}: ${userErr}`);
+        throw new Error(`Failed to fetch user info (${userRes.status}): ${userErr}`);
       }
 
       const userData = await userRes.json() as any;
       const email = userData.email;
-      const name = userData.name || email.split('@')[0];
+      const name = userData.name || (email ? email.split('@')[0] : 'Google User');
       const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
 
-      console.log(`[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] [SUCCESS] Profile loaded: Email="${email}", Name="${name}", Token ExpiresAt="${expiresAt}"`);
-
-      // Verify and log Gmail and Calendar permissions
       const scopesArr = scope ? scope.split(/\s+/).filter(Boolean) : [];
       const hasGmailSend = hasRequiredGmailSendScope(scopesArr);
       const hasCalendar = scopesArr.some((s: string) => s.includes('calendar'));
 
-      console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Verifying API scopes for account "${email}":
-        - Gmail send: ${hasGmailSend ? 'GRANTED [OK]' : 'NOT GRANTED'}
-        - Calendar: ${hasCalendar ? 'GRANTED [OK]' : 'NOT GRANTED'}`);
+      console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Email="${email}", gmail.send=${hasGmailSend}, calendar=${hasCalendar}`);
 
       if (!hasCalendar && !hasGmailSend) {
-        console.warn(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] [FAILED] User "${email}" did not grant either Calendar or Gmail scopes.`);
-        return res.send(`
-          <html>
-            <body style="font-family: sans-serif; text-align: center; padding: 40px; background-color: #fef2f2; color: #991b1b; display: flex; align-items: center; justify-content: center; min-height: 80vh; margin: 0;">
-              <div style="max-width: 600px; width: 100%; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); border: 1px solid #fee2e2; text-align: left;">
-                <h2 style="color: #dc2626; margin-top: 0; font-size: 24px; border-bottom: 2px solid #fee2e2; padding-bottom: 12px; display: flex; align-items: center;">
-                  <span style="margin-right: 10px; font-size: 28px;">[WARN]</span> Authorization Scopes Missing
-                </h2>
-                <p style="color: #4b5563; line-height: 1.6; font-size: 15px; margin-top: 15px;">
-                  Your Google Account was authenticated, but no Calendar permissions were granted. 
-                  SalesPilot requires Calendar permissions to schedule appointments and sync availability.
-                </p>
-                <div style="text-align: center; margin-top: 25px;">
-                  <button onclick="finish()" style="background-color: #dc2626; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;">
-                    Return to Scheduler
-                  </button>
-                </div>
-              </div>
-              <script>
-                function finish() {
-                  try { window.close(); } catch (_) {}
-                  setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
-                }
-                if (window.opener && !window.opener.closed) {
-                  window.opener.postMessage({ type: 'GOOGLE_AUTH_FAILURE', error: 'Google Calendar permissions were not granted.' }, '*');
-                  setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
-                }
-              </script>
-            </body>
-          </html>
-        `);
+        const missingScopeMsg = 'Required Google Gmail and Calendar permissions were not granted. Please approve all requested permissions and try again.';
+        console.warn(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] [FAILED] User "${email}" did not grant Calendar or Gmail scopes.`);
+        return renderCallbackFailure('Google Permissions Required', missingScopeMsg);
       }
 
       console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Saving account and setting status...');
@@ -18762,7 +18856,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         existingCalendar.fullName = name;
         existingCalendar.organizationId = oauthContext.organizationId;
         existingCalendar.userId = oauthContext.userId;
-        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Updated existing Calendar account record for ${cleanCallbackEmail}. Status: CONNECTED.`);
       } else {
         calendarAccounts.push({
           email: cleanCallbackEmail,
@@ -18776,10 +18869,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           userId: oauthContext.userId,
           createdAt: new Date().toISOString()
         });
-        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Created new Calendar account record for ${cleanCallbackEmail}. Status: CONNECTED.`);
       }
 
-      // Also persist into LocalDB unified store in dev/local environments so status + resolver stay aligned
+      // Keep LocalDB unified store synchronized
       try {
         localDb.saveGmailAccount({
           id: `ga_${oauthContext.userId}_${cleanCallbackEmail}_gmail`,
@@ -18794,7 +18886,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       } catch (_) {}
 
-      // Sync and save updated accounts
       console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering authoritative Supabase persistence...');
       saveAccountsToDisk();
       const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
@@ -18809,25 +18900,26 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           refreshToken: refresh_token || '',
           scopes: scopesArr,
           expiresAt,
-          calendarAccessVerified: hasCalendar || true
+          calendarAccessVerified: hasCalendar
         });
         console.log('[GOOGLE CALLBACK FLOW] Authoritative Supabase persistence succeeded.');
       } catch (pErr: any) {
         console.error('[GOOGLE CALLBACK FLOW] Supabase persistence error:', pErr.message || String(pErr));
-        if (process.env.NODE_ENV === 'production' || hasServiceRoleKey) {
+        if (process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || hasServiceRoleKey) {
           throw new Error(`Database persistence failed: ${pErr.message || 'Unable to save Google authorization to database.'}`);
         }
       }
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Persistence complete.');
 
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Preparing success response and notifying Scheduler...');
-      // Respond to popup window or top-level redirect, sending postMessage and redirecting to Scheduler
+      const connectedHeading = oauthSource === 'integrations' ? 'Google Account Connected' : 'Google Calendar Connected';
+      const redirectButtonLabel = oauthSource === 'integrations' ? 'Go to Integrations' : 'Go to Scheduler';
+      console.log(`[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Success (${oauthSource}).`);
+
       res.send(`
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Google Calendar Connected — SalesPilot</title>
+            <title>${escapeOAuthHtmlText(connectedHeading)} — SalesPilot</title>
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
               .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; max-width: 460px; margin: 40px auto; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
@@ -18841,28 +18933,29 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
           <body>
             <div class="card">
               <div class="icon-wrap">&#10003;</div>
-              <h3>Google Calendar Connected</h3>
-              <p>Google Workspace account <strong>${email}</strong> has been connected successfully.</p>
-              <div class="subtext">Redirecting to Scheduler...</div>
-              <button class="btn" onclick="finish()">Go to Scheduler</button>
+              <h3>${escapeOAuthHtmlText(connectedHeading)}</h3>
+              <p>Google Workspace account <strong>${escapeOAuthHtmlText(email)}</strong> has been connected successfully.</p>
+              <div class="subtext">Returning to SalesPilot...</div>
+              <button class="btn" onclick="finish()">${escapeOAuthHtmlText(redirectButtonLabel)}</button>
             </div>
             <script>
               const payload = {
                 type: 'GOOGLE_AUTH_SUCCESS',
                 email: ${JSON.stringify(email)},
                 name: ${JSON.stringify(name)},
+                gmailScopeGranted: ${JSON.stringify(hasGmailSend)},
+                calendarScopeGranted: ${JSON.stringify(hasCalendar)},
+                source: ${JSON.stringify(oauthSource)},
                 expiresAt: ${JSON.stringify(expiresAt)},
                 timestamp: Date.now()
               };
 
-              // 1. Send postMessage to opener
               try {
                 if (window.opener && !window.opener.closed) {
                   window.opener.postMessage(payload, '*');
                 }
               } catch (_) {}
 
-              // 2. Send via BroadcastChannel across tabs
               try {
                 if (typeof BroadcastChannel !== 'undefined') {
                   const bc = new BroadcastChannel('salespilot_google_oauth');
@@ -18871,7 +18964,6 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
                 }
               } catch (_) {}
 
-              // 3. Update localStorage to trigger cross-tab storage event
               try {
                 localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(payload));
               } catch (_) {}
@@ -18879,19 +18971,17 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               function finish() {
                 try { window.close(); } catch (_) {}
                 setTimeout(function() {
-                  window.location.replace('/#scheduler?google=connected');
+                  window.location.replace(${JSON.stringify(`${returnHash}?google=connected`)});
                 }, 150);
               }
 
-              // If opened in a popup with active opener, close automatically after sending message
               if (window.opener && !window.opener.closed) {
                 setTimeout(function() {
                   try { window.close(); } catch (_) {}
                 }, 800);
               } else {
-                // If direct full-window navigation, redirect straight to Scheduler
                 setTimeout(function() {
-                  window.location.replace('/#scheduler?google=connected');
+                  window.location.replace(${JSON.stringify(`${returnHash}?google=connected`)});
                 }, 1200);
               }
             </script>
@@ -18899,45 +18989,9 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         </html>
       `);
     } catch (err: any) {
-      console.error('[GOOGLE CALLBACK FLOW] [FATAL EXCEPTION ERROR] Google Auth flow crashed:', err);
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <title>Unable to Connect Google Account</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #0f172a; color: #f8fafc; }
-              .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 440px; margin: 40px auto; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-              h3 { color: #f87171; margin-top: 0; }
-              p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
-              .btn { display: inline-block; background: #3b82f6; color: white; border: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; margin-top: 15px; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h3>Unable to Connect Google Account</h3>
-              <p>Unable to connect your Google account. Please try again.</p>
-              <button class="btn" onclick="finish()">Return to Scheduler</button>
-            </div>
-            <script>
-              const errorPayload = { type: 'GOOGLE_AUTH_FAILURE', error: 'Unable to connect your Google account. Please try again.', timestamp: Date.now() };
-              try { if (window.opener && !window.opener.closed) { window.opener.postMessage(errorPayload, '*'); } } catch (_) {}
-              try { if (typeof BroadcastChannel !== 'undefined') { const bc = new BroadcastChannel('salespilot_google_oauth'); bc.postMessage(errorPayload); bc.close(); } } catch (_) {}
-              try { localStorage.setItem('salespilot_google_oauth_event', JSON.stringify(errorPayload)); } catch (_) {}
-              function finish() {
-                try { window.close(); } catch (_) {}
-                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 150);
-              }
-              if (window.opener && !window.opener.closed) {
-                setTimeout(() => { try { window.close(); } catch (_) {} }, 1500);
-              } else {
-                setTimeout(() => { window.location.replace('/#scheduler?google=error'); }, 2000);
-              }
-            </script>
-          </body>
-        </html>
-      `);
+      console.error('[GOOGLE CALLBACK FLOW] [FATAL EXCEPTION ERROR] Google Auth flow failed:', err);
+      const specificError = classifyGoogleCallbackError(err);
+      return renderCallbackFailure('Unable to Connect Google Account', specificError);
     }
   });
 

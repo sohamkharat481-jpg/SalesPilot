@@ -27,6 +27,7 @@ import { runSubscriptionExpiryAccessTestSuite } from './subscriptionExpiryAccess
 import { runGoogleOAuthAndAsyncLeadGenTestSuite } from './googleOAuthAndAsyncLeadGen.test';
 import { runGmailResolutionTests } from './gmailResolution.test';
 import { runOutreachTestEmailSuite } from './outreachTestEmail.test';
+import { runGoogleOAuthCallbackDiagnosticsTests } from './googleOAuthCallbackDiagnostics.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -313,6 +314,16 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Outreach Test Email suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 28. Google OAuth Callback Error Transparency & Sync Diagnostics Suite
+  try {
+    const res = await runGoogleOAuthCallbackDiagnosticsTests();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Google OAuth Callback Diagnostics suite crashed:', err);
     totalFailed++;
   }
 

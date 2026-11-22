@@ -1039,3 +1039,93 @@ export async function markGoogleAccountReauthRequired(
   }
 }
 
+/**
+ * Classifies Google OAuth callback failures into clear, actionable, sanitized diagnostic
+ * messages without exposing OAuth tokens, client secrets, or raw SQL internals.
+ */
+export function classifyGoogleCallbackError(rawError: unknown): string {
+  const msg = rawError instanceof Error
+    ? rawError.message
+    : typeof rawError === 'string'
+      ? rawError
+      : String(rawError || '');
+  const lower = msg.toLowerCase();
+
+  // 1. Token exchange errors returned by https://oauth2.googleapis.com/token
+  if (lower.includes('google exchange failed') || lower.includes('redirect_uri_mismatch') || lower.includes('invalid_client') || lower.includes('invalid_grant') || lower.includes('unauthorized_client') || lower.includes('disabled_client')) {
+    let parsedError = '';
+    let parsedDesc = '';
+    const jsonMatch = msg.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        parsedError = String(parsed.error || '').toLowerCase().trim();
+        parsedDesc = String(parsed.error_description || '').trim();
+      } catch (_) {}
+    }
+
+    const combined = `${parsedError} ${lower}`;
+    if (combined.includes('redirect_uri_mismatch')) {
+      return 'Google OAuth redirect URI mismatch. Verify Authorized Redirect URIs in Google Cloud Console match the callback URL.';
+    }
+    if (combined.includes('invalid_client')) {
+      return 'Google OAuth client credentials were rejected by Google (invalid_client). Check your configured OAuth Client ID and Secret.';
+    }
+    if (combined.includes('invalid_grant')) {
+      return 'Google OAuth authorization code expired or was already used. Please try connecting again.';
+    }
+    if (combined.includes('unauthorized_client')) {
+      return 'Google OAuth client is not authorized for this grant type in Google Cloud Console.';
+    }
+    if (combined.includes('disabled_client')) {
+      return 'Google OAuth client is disabled in Google Cloud Console.';
+    }
+    if (combined.includes('invalid_scope')) {
+      return 'Requested Google Gmail or Calendar scopes are invalid or not enabled on the OAuth client.';
+    }
+    if (combined.includes('access_denied')) {
+      return 'Google authorization was canceled or denied by the user.';
+    }
+    if (parsedError) {
+      return parsedDesc && parsedDesc.length <= 120
+        ? `Google token exchange failed (${parsedError}): ${parsedDesc}`
+        : `Google token exchange failed (${parsedError}). Please verify Google OAuth settings and try again.`;
+    }
+    return 'Google token exchange failed. Please verify OAuth client configuration and try again.';
+  }
+
+  // 2. Google UserInfo failure
+  if (lower.includes('failed to fetch user info') || lower.includes('userinfo')) {
+    return 'Unable to retrieve your Google account profile after authorization. Please try again.';
+  }
+
+  // 3. Authoritative Database Persistence failures
+  if (lower.includes('authenticated user does not exist in database')) {
+    return 'Unable to save Google authorization: authenticated user record was not found in the workspace database.';
+  }
+  if (lower.includes('target organization does not exist in database')) {
+    return 'Unable to save Google authorization: workspace organization record was not found in the database.';
+  }
+  if (lower.includes('does not have verified membership')) {
+    return 'Unable to save Google authorization: user does not have an active membership in this workspace.';
+  }
+  if (lower.includes('supabase_service_role_key') || lower.includes('privileged server-side')) {
+    return 'Server database configuration error: privileged database service key is missing.';
+  }
+  if (lower.includes('database persistence failed') || lower.includes('failed to persist google account') || lower.includes('failed to insert google account') || lower.includes('failed to update google account')) {
+    return 'Unable to save Google authorization to the database. Please check server database logs.';
+  }
+
+  return 'Unable to connect your Google account. Please try again.';
+}
+
+export function escapeOAuthHtmlText(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+
