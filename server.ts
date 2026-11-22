@@ -63,7 +63,10 @@ import {
   verifyGoogleCalendarConnection,
   persistAuthoritativeGoogleAccount,
   queryAuthoritativeGmailAccounts,
-  markGoogleAccountReauthRequired
+  markGoogleAccountReauthRequired,
+  hasRequiredGmailSendScope,
+  normalizeExpiryMs,
+  formatExpiryIso
 } from './src/backend/googleAccountsService';
 import { findCountryByCode, ISO_3166_1_COUNTRIES } from './src/utils/isoCountries';
 import { getPrivilegedSupabaseServerClient } from './src/lib/supabase.server';
@@ -2002,6 +2005,7 @@ async function startServer() {
         try {
           const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
           if (payload && payload.sub && payload.exp && payload.exp * 1000 > Date.now()) {
+            req.authTokenSub = payload.sub;
             const emailLower = (payload.email || '').toLowerCase();
             const isFounder = isVerifiedFounderEmail(emailLower);
             let user = localDb.getUserById(payload.sub) || (emailLower ? localDb.getUserByEmail(emailLower) : null);
@@ -2152,6 +2156,72 @@ async function startServer() {
     }
 
     return { orgId: verifiedOrgId };
+  };
+
+  /**
+   * Resolves a deterministic canonical userId for the authenticated user within their verified organization.
+   * Ensures cold-start Vercel/serverless instances using Supabase JWT payload.sub stay aligned with
+   * existing public.users / public.google_accounts user_id rows belonging strictly to THIS same user.
+   * Never resolves or crosses into another user's or another organization's identity.
+   */
+  const resolveCanonicalGoogleIdentity = async (
+    req: any,
+    user: WorkspaceUser,
+    verifiedOrgId: string
+  ): Promise<{ userId: string; organizationId: string }> => {
+    const emailLower = (user.email || '').trim().toLowerCase();
+    const jwtSub = typeof req?.authTokenSub === 'string' && req.authTokenSub.trim() ? req.authTokenSub.trim() : '';
+    const candidateSet = new Set<string>();
+    if (user.id && user.id.trim()) candidateSet.add(user.id.trim());
+    if (jwtSub) candidateSet.add(jwtSub);
+
+    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
+    const dbClient = hasServiceRoleKey ? getPrivilegedSupabaseClient() : getSupabaseClient();
+
+    let canonicalUserId = (user.id || jwtSub || '').trim();
+
+    if (dbClient) {
+      try {
+        if (emailLower) {
+          const { data: dbUser } = await dbClient
+            .from('users')
+            .select('id, email')
+            .eq('email', emailLower)
+            .maybeSingle();
+          if (dbUser?.id) {
+            const dbId = String(dbUser.id).trim();
+            candidateSet.add(dbId);
+            if (canonicalUserId === 'usr_81927391' || !jwtSub || dbId === jwtSub) {
+              canonicalUserId = dbId;
+            }
+          }
+        }
+
+        const candidateList = Array.from(candidateSet);
+        if (candidateList.length > 0) {
+          const { data: existingGoogleRow } = await dbClient
+            .from('google_accounts')
+            .select('user_id')
+            .eq('organization_id', verifiedOrgId)
+            .in('user_id', candidateList)
+            .not('access_token', 'is', null)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (existingGoogleRow?.user_id && candidateSet.has(String(existingGoogleRow.user_id).trim())) {
+            canonicalUserId = String(existingGoogleRow.user_id).trim();
+          }
+        }
+      } catch (idErr: any) {
+        console.warn('[GOOGLE IDENTITY] Canonical user lookup notice:', idErr?.message || String(idErr));
+      }
+    }
+
+    return {
+      userId: canonicalUserId || user.id,
+      organizationId: verifiedOrgId
+    };
   };
 
   // Server-side Paid Subscription Access Guard
@@ -3133,10 +3203,10 @@ async function startServer() {
       }
       localDb.logOutreachEvent(event);
     },
-    getGmailAccount: async (orgId: string, senderEmail?: string, senderUserId?: string) => {
+    getGmailAccount: async (orgId: string, userId?: string, senderEmail?: string) => {
       // Authoritative Gmail account resolution strictly queries user-owned accounts
-      if (!senderUserId) return null;
-      return resolveAuthoritativeGmailAccount({ organizationId: orgId, userId: senderUserId });
+      if (!userId) return null;
+      return resolveAuthoritativeGmailAccount({ organizationId: orgId, userId, senderEmail });
     },
     sendGmailMessage: async (account: any, recipientEmail: string, subject: string, body: string) => {
       if (!account || !account.accessToken) {
@@ -9662,12 +9732,14 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
     }
 
     const now = new Date().toISOString();
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
     const queueItemsToEnqueue: OutreachQueueItem[] = [];
 
     eligibleLeads.forEach(lead => {
       queueItemsToEnqueue.push({
         id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        organizationId: orgId,
+        organizationId: canonicalIdentity.organizationId,
+        userId: canonicalIdentity.userId,
         campaignId,
         stepId: step1.id,
         stepNumber: 1,
@@ -9965,32 +10037,27 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       return res.status(400).json({ error: 'Valid recipient email address is required.' });
     }
 
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
     let gmailAcc: any = null;
     try {
-      console.log('[TEST EMAIL RUNTIME DIAGNOSTICS]', {
-        authenticatedUserId: user.id,
-        verifiedOrgId: orgId,
-        xOrganizationIdReceived: xOrgId,
-        requestedSenderEmail: senderEmail || null,
-        resolverPath: 'resolveAuthoritativeGmailAccount'
-      });
       gmailAcc = await resolveAuthoritativeGmailAccount({
-        organizationId: orgId,
-        userId: user.id,
+        organizationId: canonicalIdentity.organizationId,
+        userId: canonicalIdentity.userId,
+        senderEmail: typeof senderEmail === 'string' && senderEmail.trim() ? senderEmail.trim() : undefined,
         xOrganizationId: xOrgId as string
       });
-      console.log('[DEBUG-GMAIL-SEND] Resolved Account:', gmailAcc ? { id: gmailAcc.id, email: gmailAcc.email, hasToken: !!gmailAcc.accessToken } : 'null');
+
       if (!gmailAcc || !gmailAcc.accessToken) {
-        return res.status(400).json({ 
-          error: 'No authorized Gmail account connected.',
-          debug: {
-            resolvedAcc: gmailAcc ? { id: gmailAcc.id, email: gmailAcc.email } : 'null'
-          }
+        return res.status(400).json({
+          error: 'No authorized Gmail account connected.'
         });
       }
       if (gmailAcc.status === 'REAUTH_REQUIRED' || gmailAcc.status === 'REAUTH_NEEDED') {
+        const missingScope = !hasRequiredGmailSendScope(gmailAcc.scopes);
         return res.status(400).json({
-          error: 'Your Gmail authorization has expired or been revoked. Please reconnect your Google account.'
+          error: missingScope
+            ? 'Your connected Google account does not include Gmail send permissions. Please reconnect Google from Integrations and grant Gmail permissions.'
+            : 'Your Gmail authorization has expired or been revoked. Please reconnect your Google account.'
         });
       }
       const testSubject = subject || 'SalesPilot Outreach Engine Connection Test';
@@ -10011,7 +10078,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       const timestamp = new Date().toISOString();
       await outreachWorker.context.logEvent({
         id: `evt_test_${Date.now()}`,
-        organizationId: orgId,
+        organizationId: canonicalIdentity.organizationId,
         campaignId: 'TEST_EMAIL',
         leadId: 'NONE',
         eventType: 'test_email_sent',
@@ -10039,7 +10106,7 @@ Respond in EXPLICIT JSON format with EXACTLY the following structure (do not inc
       const errMsg = err?.message || String(err);
       if (errMsg.includes('invalid_grant') || errMsg.includes('revoked') || errMsg.includes('expired') || errMsg.includes('REAUTH_NEEDED') || errMsg.includes('REAUTH_REQUIRED')) {
         try {
-          await markGoogleAccountReauthRequired(gmailAcc?.email || '', orgId, user.id);
+          await markGoogleAccountReauthRequired(gmailAcc?.email || '', canonicalIdentity.organizationId, canonicalIdentity.userId);
         } catch (dbErr) {
           // ignore
         }
@@ -17900,6 +17967,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     accessToken: string;
     refreshToken?: string;
     expiresAt: string; // ISO string
+    scopes?: string[];
     status: 'CONNECTED' | 'REAUTH_NEEDED' | 'REAUTH_REQUIRED' | 'ERROR' | 'DISCONNECTED';
     sendingLimit: number;
     sentToday: number;
@@ -18258,7 +18326,10 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   const usedOAuthNonces = new Set<string>();
 
   // Google OAuth URL generation
-  const createGoogleOAuthState = (req: any): string => {
+  const createGoogleOAuthState = (
+    req: any,
+    resolvedIdentity?: { userId: string; userEmail?: string; organizationId: string }
+  ): string => {
     const user = getAuthenticatedUser(req);
     const rawSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
     const secret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
@@ -18266,11 +18337,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     // Verify organization_id: client-supplied headers MUST NOT override verified tenant context
     const { orgId } = resolveVerifiedOrganizationId(req, user);
-    const effectiveOrgId = orgId || user.organizationId || '';
+    const effectiveOrgId = resolvedIdentity?.organizationId || orgId || user.organizationId || '';
+    const effectiveUserId = resolvedIdentity?.userId || user.id;
+    const effectiveUserEmail = (resolvedIdentity?.userEmail || user.email || '').trim().toLowerCase();
     const nonce = crypto.randomBytes(16).toString('hex');
 
     const payload = Buffer.from(JSON.stringify({
-      userId: user.id,
+      userId: effectiveUserId,
+      userEmail: effectiveUserEmail,
       organizationId: effectiveOrgId,
       nonce,
       issuedAt: Date.now()
@@ -18279,7 +18353,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     return `${payload}.${signature}`;
   };
 
-  const readGoogleOAuthState = (state: unknown): { userId: string; organizationId?: string } | null => {
+  const readGoogleOAuthState = (state: unknown): { userId: string; userEmail?: string; organizationId?: string } | null => {
     const rawSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'salespilot_oauth_secret_default_key_2026';
     const secret = rawSecret.trim().replace(/^['"]|['"]$/g, '');
     if (typeof state !== 'string' || !secret) return null;
@@ -18312,7 +18386,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         const orgId = parsed.organizationId || `org_${parsed.userId.substring(0, 8)}`;
         dbUser = {
           id: parsed.userId,
-          email: '',
+          email: parsed.userEmail || '',
           fullName: 'User',
           companyName: 'SalesPilot',
           industry: 'SaaS',
@@ -18331,13 +18405,13 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       }
 
       const verifiedOrg = parsed.organizationId || dbUser.organizationId;
-      return { userId: parsed.userId, organizationId: verifiedOrg };
+      return { userId: parsed.userId, userEmail: parsed.userEmail || dbUser.email || undefined, organizationId: verifiedOrg };
     } catch (_) {
       return null;
     }
   };
 
-  app.get('/api/auth/google/url', (req, res) => {
+  app.get('/api/auth/google/url', async (req, res) => {
     console.log('[GOOGLE OAUTH URL GEN] Starting URL generation flow...');
     const rawClientId = process.env.GOOGLE_CLIENT_ID;
     if (!rawClientId) {
@@ -18375,9 +18449,15 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(orgStatus || 403).json({ error: orgErr || "We couldn't verify your workspace. Please refresh and try again." });
     }
 
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
+
     // Log the redirect URI
     const redirectUri = getGoogleRedirectUri(req);
-    const state = createGoogleOAuthState(req);
+    const state = createGoogleOAuthState(req, {
+      userId: canonicalIdentity.userId,
+      userEmail: user.email,
+      organizationId: canonicalIdentity.organizationId
+    });
     if (!state) {
       return res.status(500).json({ error: 'Google integration is temporarily unavailable. Please try again later.' });
     }
@@ -18585,8 +18665,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       console.log(`[GOOGLE CALLBACK FLOW] [STEP 2/5: USER PROFILING] [SUCCESS] Profile loaded: Email="${email}", Name="${name}", Token ExpiresAt="${expiresAt}"`);
 
       // Verify and log Gmail and Calendar permissions
-      const scopesArr = scope ? scope.split(' ') : [];
-      const hasGmailSend = scopesArr.includes('https://www.googleapis.com/auth/gmail.send');
+      const scopesArr = scope ? scope.split(/\s+/).filter(Boolean) : [];
+      const hasGmailSend = hasRequiredGmailSendScope(scopesArr);
       const hasCalendar = scopesArr.some((s: string) => s.includes('calendar'));
 
       console.log(`[GOOGLE CALLBACK FLOW] [SCOPES VERIFICATION] Verifying API scopes for account "${email}":
@@ -18627,86 +18707,118 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         `);
       }
 
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Saving account and setting CONNECTED status...');
-      // Connect user to Gmail Account on server if scope present
-      if (hasGmailSend) {
-        const existingGmail = gmailAccounts.find(a => a.email === email && (a.organizationId === oauthContext.organizationId || !a.organizationId));
-        if (existingGmail) {
-          existingGmail.accessToken = access_token;
-          if (refresh_token) existingGmail.refreshToken = refresh_token;
-          existingGmail.expiresAt = expiresAt;
-          existingGmail.status = 'CONNECTED';
-          existingGmail.fullName = name;
-          existingGmail.organizationId = oauthContext.organizationId || existingGmail.organizationId;
-          existingGmail.userId = oauthContext.userId || existingGmail.userId;
-        } else {
-          gmailAccounts.push({
-            email,
-            fullName: name,
-            accessToken: access_token,
-            refreshToken: refresh_token,
-            expiresAt,
-            status: 'CONNECTED',
-            organizationId: oauthContext.organizationId,
-            userId: oauthContext.userId,
-            sendingLimit: 500,
-            sentToday: 0,
-            bounceCount: 0,
-            retryCount: 0,
-            createdAt: new Date().toISOString()
-          });
-        }
-      }
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Saving account and setting status...');
+      const cleanCallbackEmail = (email || '').toLowerCase().trim();
+      const targetGmailStatus: GmailAccount['status'] = hasGmailSend ? 'CONNECTED' : 'REAUTH_REQUIRED';
 
-      // Connect user to Calendar Account on server
-      const existingCalendar = calendarAccounts.find(c => c.email === email && (c.organizationId === oauthContext.organizationId || !c.organizationId));
-      if (existingCalendar) {
-        existingCalendar.accessToken = access_token;
-        if (refresh_token) existingCalendar.refreshToken = refresh_token;
-        existingCalendar.expiresAt = expiresAt;
-        existingCalendar.status = 'CONNECTED';
-        existingCalendar.fullName = name;
-        existingCalendar.organizationId = oauthContext.organizationId || existingCalendar.organizationId;
-        existingCalendar.userId = oauthContext.userId || existingCalendar.userId;
-        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Updated existing Calendar account record for ${email}. Status: CONNECTED.`);
+      // Connect user to Gmail Account on server (strictly scoped by organizationId + userId)
+      const existingGmail = gmailAccounts.find(
+        a =>
+          (a.email || '').toLowerCase().trim() === cleanCallbackEmail &&
+          a.organizationId === oauthContext.organizationId &&
+          a.userId === oauthContext.userId
+      );
+      if (existingGmail) {
+        existingGmail.accessToken = access_token;
+        if (refresh_token) existingGmail.refreshToken = refresh_token;
+        existingGmail.expiresAt = expiresAt;
+        existingGmail.scopes = scopesArr;
+        existingGmail.status = targetGmailStatus;
+        existingGmail.fullName = name;
+        existingGmail.organizationId = oauthContext.organizationId;
+        existingGmail.userId = oauthContext.userId;
       } else {
-        calendarAccounts.push({
-          email,
+        gmailAccounts.push({
+          email: cleanCallbackEmail,
           fullName: name,
           accessToken: access_token,
           refreshToken: refresh_token,
           expiresAt,
+          scopes: scopesArr,
+          status: targetGmailStatus,
+          organizationId: oauthContext.organizationId,
+          userId: oauthContext.userId,
+          sendingLimit: 500,
+          sentToday: 0,
+          bounceCount: 0,
+          retryCount: 0,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      // Connect user to Calendar Account on server (strictly scoped by organizationId + userId)
+      const existingCalendar = calendarAccounts.find(
+        c =>
+          (c.email || '').toLowerCase().trim() === cleanCallbackEmail &&
+          c.organizationId === oauthContext.organizationId &&
+          c.userId === oauthContext.userId
+      );
+      if (existingCalendar) {
+        existingCalendar.accessToken = access_token;
+        if (refresh_token) existingCalendar.refreshToken = refresh_token;
+        existingCalendar.expiresAt = expiresAt;
+        existingCalendar.scopes = scopesArr;
+        existingCalendar.status = 'CONNECTED';
+        existingCalendar.fullName = name;
+        existingCalendar.organizationId = oauthContext.organizationId;
+        existingCalendar.userId = oauthContext.userId;
+        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Updated existing Calendar account record for ${cleanCallbackEmail}. Status: CONNECTED.`);
+      } else {
+        calendarAccounts.push({
+          email: cleanCallbackEmail,
+          fullName: name,
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expiresAt,
+          scopes: scopesArr,
           status: 'CONNECTED',
           organizationId: oauthContext.organizationId,
           userId: oauthContext.userId,
           createdAt: new Date().toISOString()
         });
-        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Created new Calendar account record for ${email}. Status: CONNECTED.`);
+        console.log(`[GOOGLE CALLBACK FLOW] [STEP 3/5] Created new Calendar account record for ${cleanCallbackEmail}. Status: CONNECTED.`);
       }
 
+      // Also persist into LocalDB unified store in dev/local environments so status + resolver stay aligned
+      try {
+        localDb.saveGmailAccount({
+          id: `ga_${oauthContext.userId}_${cleanCallbackEmail}_gmail`,
+          userId: oauthContext.userId,
+          organizationId: oauthContext.organizationId || '',
+          email: cleanCallbackEmail,
+          accessToken: access_token,
+          refreshToken: refresh_token || existingGmail?.refreshToken || '',
+          expiresAt,
+          status: targetGmailStatus,
+          scopes: scopesArr
+        });
+      } catch (_) {}
+
       // Sync and save updated accounts
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering account synchronizations and database disk-persistence...');
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering authoritative Supabase persistence...');
       saveAccountsToDisk();
+      const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
       try {
         await persistAuthoritativeGoogleAccount({
           userId: oauthContext.userId,
+          userEmail: oauthContext.userEmail,
           organizationId: oauthContext.organizationId || '',
-          email,
+          email: cleanCallbackEmail,
           name,
           accessToken: access_token,
           refreshToken: refresh_token || '',
           scopes: scopesArr,
           expiresAt,
-          calendarAccessVerified: true
+          calendarAccessVerified: hasCalendar || true
         });
         console.log('[GOOGLE CALLBACK FLOW] Authoritative Supabase persistence succeeded.');
       } catch (pErr: any) {
         console.error('[GOOGLE CALLBACK FLOW] Supabase persistence error:', pErr.message || String(pErr));
-        if (process.env.NODE_ENV === 'production' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-          throw new Error(`Database persistence failed: ${pErr.message || 'SUPABASE_SERVICE_ROLE_KEY required for authoritative persistence.'}`);
+        if (process.env.NODE_ENV === 'production' || hasServiceRoleKey) {
+          throw new Error(`Database persistence failed: ${pErr.message || 'Unable to save Google authorization to database.'}`);
         }
       }
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Disk write complete.');
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Persistence complete.');
 
       console.log('[GOOGLE CALLBACK FLOW] [STEP 5/5: REDIRECT & MESSAGE] Preparing success response and notifying Scheduler...');
       // Respond to popup window or top-level redirect, sending postMessage and redirecting to Scheduler
@@ -18846,16 +18958,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(400).json({ error: 'Missing required parameters: email, accessToken' });
     }
 
-    const existingAcc = gmailAccounts.find(a => a.email === email);
+    const defaultScopes = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'];
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, effectiveOrgId);
+    const existingAcc = gmailAccounts.find(
+      a => a.email === email && a.organizationId === effectiveOrgId && a.userId === canonicalIdentity.userId
+    );
     const expiresTimestamp = expiresAt || new Date(Date.now() + 3600000).toISOString();
 
     if (existingAcc) {
       existingAcc.accessToken = accessToken;
       if (refreshToken) existingAcc.refreshToken = refreshToken;
       existingAcc.expiresAt = expiresTimestamp;
+      existingAcc.scopes = defaultScopes;
       existingAcc.status = 'CONNECTED';
       existingAcc.fullName = fullName || existingAcc.fullName || email.split('@')[0];
       existingAcc.organizationId = effectiveOrgId;
+      existingAcc.userId = canonicalIdentity.userId;
     } else {
       const newAcc: GmailAccount = {
         email,
@@ -18863,12 +18981,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         accessToken,
         refreshToken,
         expiresAt: expiresTimestamp,
+        scopes: defaultScopes,
         status: 'CONNECTED',
         sendingLimit: 500,
         sentToday: 0,
         bounceCount: 0,
         retryCount: 0,
         organizationId: effectiveOrgId,
+        userId: canonicalIdentity.userId,
         createdAt: new Date().toISOString()
       };
       gmailAccounts.push(newAcc);
@@ -18877,27 +18997,37 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     try {
       await persistAuthoritativeGoogleAccount({
-        userId: user.id,
+        userId: canonicalIdentity.userId,
+        userEmail: user.email,
         organizationId: effectiveOrgId,
         email,
         name: fullName || email.split('@')[0],
         accessToken,
         refreshToken: refreshToken || '',
-        scopes: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'],
+        scopes: defaultScopes,
         expiresAt: expiresTimestamp
       });
     } catch (pErr: any) {
       console.warn('[GMAIL CONNECT PERSISTENCE NOTICE]', pErr?.message || pErr);
     }
 
+    const connectedAcc = gmailAccounts.find(
+      a => a.email === email && a.organizationId === effectiveOrgId && a.userId === canonicalIdentity.userId
+    );
     res.json({ 
       message: 'Gmail account connected successfully to SalesPilot.', 
-      account: gmailAccounts.find(a => a.email === email) 
+      account: connectedAcc ? {
+        email: connectedAcc.email,
+        fullName: connectedAcc.fullName,
+        status: connectedAcc.status,
+        organizationId: connectedAcc.organizationId,
+        userId: connectedAcc.userId
+      } : null
     });
   });
 
   // Disconnect / Delete connected Gmail account
-  app.post('/gmail/disconnect', (req, res) => {
+  app.post('/gmail/disconnect', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -18908,19 +19038,56 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
 
     const { email } = req.body;
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: 'Missing account email parameter' });
     }
+    const cleanEmail = email.toLowerCase().trim();
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
 
-    const targetGmail = gmailAccounts.find(a => a.email === email);
-    if (targetGmail && targetGmail.organizationId && targetGmail.organizationId !== orgId) {
+    const targetGmail = gmailAccounts.find(
+      a => (a.email || '').toLowerCase().trim() === cleanEmail && a.organizationId === orgId
+    );
+    if (targetGmail && targetGmail.userId && targetGmail.userId !== canonicalIdentity.userId && targetGmail.userId !== user.id) {
       return res.status(403).json({ error: 'Forbidden. You do not own this Google account.' });
     }
 
-    gmailAccounts = gmailAccounts.filter(a => a.email !== email);
-    calendarAccounts = calendarAccounts.filter(c => c.email !== email);
+    gmailAccounts = gmailAccounts.filter(
+      a => !((a.email || '').toLowerCase().trim() === cleanEmail && a.organizationId === orgId && (!a.userId || a.userId === canonicalIdentity.userId || a.userId === user.id))
+    );
+    calendarAccounts = calendarAccounts.filter(
+      c => !((c.email || '').toLowerCase().trim() === cleanEmail && c.organizationId === orgId && (!c.userId || c.userId === canonicalIdentity.userId || c.userId === user.id))
+    );
     saveAccountsToDisk();
-    res.json({ success: true, message: `Account ${email} disconnected successfully from both Gmail and Google Calendar.` });
+
+    try {
+      if (localDb.db.gmailAccounts) {
+        localDb.db.gmailAccounts = localDb.db.gmailAccounts.filter(
+          g => !((g.email || '').toLowerCase().trim() === cleanEmail && (g.organizationId || g.organization_id) === orgId && ((g.userId || g.user_id) === canonicalIdentity.userId || (g.userId || g.user_id) === user.id))
+        );
+      }
+      if (localDb.db.calendarAccounts) {
+        localDb.db.calendarAccounts = localDb.db.calendarAccounts.filter(
+          c => !((c.email || '').toLowerCase().trim() === cleanEmail && (c.organizationId || c.organization_id) === orgId && ((c.userId || c.user_id) === canonicalIdentity.userId || (c.userId || c.user_id) === user.id))
+        );
+      }
+      localDb.save();
+    } catch (_) {}
+
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim()) {
+      try {
+        const privilegedClient = getPrivilegedSupabaseClient();
+        await privilegedClient
+          .from('google_accounts')
+          .delete()
+          .eq('organization_id', orgId)
+          .eq('user_id', canonicalIdentity.userId)
+          .eq('email', cleanEmail);
+      } catch (delErr: any) {
+        console.warn('[GMAIL DISCONNECT] Supabase delete notice:', delErr?.message || String(delErr));
+      }
+    }
+
+    res.json({ success: true, message: `Account ${cleanEmail} disconnected successfully from both Gmail and Google Calendar.` });
   });
 
   // Sends an Email or Saves a Draft
@@ -18934,22 +19101,42 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    const { recipient, subject, body, attachments, isDraft } = req.body;
+    const { accountId: requestedAccountId, senderEmail, recipient, subject, body, attachments, isDraft } = req.body;
 
     if (!recipient || !subject || !body) {
       return res.status(400).json({ error: 'Missing required email field (recipient, subject, or body)' });
     }
 
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
+    const requestedSenderEmail =
+      (typeof senderEmail === 'string' && senderEmail.trim()) ||
+      (typeof requestedAccountId === 'string' && requestedAccountId.trim()) ||
+      undefined;
+
     // Strictly resolve the Gmail account owned by that authenticated user within that organization authoritatively
     let senderAccount: any = await resolveAuthoritativeGmailAccount({
-      organizationId: orgId,
-      userId: user.id
+      organizationId: canonicalIdentity.organizationId,
+      userId: canonicalIdentity.userId,
+      senderEmail: requestedSenderEmail
     });
-    if (!senderAccount) {
-      senderAccount = gmailAccounts.find(a => a.organizationId === orgId && a.userId === user.id);
+    const allowInMemoryFallback =
+      process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION === 'true';
+    if (!senderAccount && allowInMemoryFallback) {
+      senderAccount = gmailAccounts.find(
+        a =>
+          a.organizationId === canonicalIdentity.organizationId &&
+          a.userId === canonicalIdentity.userId &&
+          Boolean(a.accessToken) &&
+          !String(a.accessToken).startsWith('mock_') &&
+          hasRequiredGmailSendScope(a.scopes) &&
+          (!requestedSenderEmail || a.email.toLowerCase() === requestedSenderEmail.toLowerCase())
+      );
     }
     if (!senderAccount || !senderAccount.accessToken) {
-      return res.status(400).json({ error: 'Connect your Google account from Integrations' });
+      return res.status(400).json({ error: 'No authorized Gmail account connected.' });
+    }
+    if (senderAccount.status === 'REAUTH_REQUIRED' || senderAccount.status === 'REAUTH_NEEDED') {
+      return res.status(400).json({ error: 'Your Gmail authorization has expired or been revoked. Please reconnect your Google account.' });
     }
     const accountId = senderAccount.email;
 
@@ -19133,28 +19320,62 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
-    // Query authoritative database records for this tenant and user
-    const dbAccounts = await queryAuthoritativeGmailAccounts({ organizationId: orgId, userId: user.id });
-console.log("[DEBUG] dbAccounts:", dbAccounts.length, "User OrgId:", orgId, "First Gmail Account OrgId:", gmailAccounts[0]?.organizationId);
-console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
 
-    // Fallback to memory/disk accounts only if database query returned empty and not in production
-console.log("[DEBUG] Gmail Accounts in memory:", gmailAccounts.length);
-console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const filteredAccounts = dbAccounts.length > 0 
-      ? dbAccounts 
-      : gmailAccounts.filter(a => a.organizationId === orgId);
+    // Query authoritative database records strictly for this tenant and canonical user
+    const dbAccounts = await queryAuthoritativeGmailAccounts({
+      organizationId: canonicalIdentity.organizationId,
+      userId: canonicalIdentity.userId
+    });
+
+    // Fallback to memory/disk accounts only if database query returned empty AND not in production
+    const allowInMemoryFallback =
+      process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION === 'true';
+
+    const inMemoryUserAccounts =
+      dbAccounts.length === 0 && allowInMemoryFallback
+        ? gmailAccounts
+            .filter(
+              a =>
+                a.organizationId === canonicalIdentity.organizationId &&
+                a.userId === canonicalIdentity.userId &&
+                Boolean(a.accessToken) &&
+                !String(a.accessToken).startsWith('mock_') &&
+                hasRequiredGmailSendScope(a.scopes)
+            )
+            .map(a => ({
+              id: `ga_${canonicalIdentity.userId}_${(a.email || '').toLowerCase()}_gmail`,
+              userId: a.userId,
+              email: a.email,
+              fullName: a.fullName || (a.email ? a.email.split('@')[0] : ''),
+              status: a.status,
+              createdAt: a.createdAt || new Date().toISOString(),
+              scopes: Array.isArray(a.scopes) ? a.scopes : [],
+              organizationId: a.organizationId || canonicalIdentity.organizationId,
+              accountType: 'gmail' as const,
+              sendingLimit: a.sendingLimit || 500,
+              sentToday: a.sentToday || 0,
+              bounceCount: a.bounceCount || 0,
+              retryCount: a.retryCount || 0
+            }))
+        : [];
+
+    const filteredAccounts = dbAccounts.length > 0 ? dbAccounts : inMemoryUserAccounts;
 
     const filteredQueue = gmailQueue.filter(q => {
       const acc = filteredAccounts.find((a: any) => a.email === q.accountId);
-      return acc && acc.organizationId === orgId;
+      return acc && acc.organizationId === canonicalIdentity.organizationId;
     });
     const filteredLogs = emailLogs.filter(l => {
       const acc = filteredAccounts.find((a: any) => a.email === l.accountId);
-      return acc && acc.organizationId === orgId;
+      return acc && acc.organizationId === canonicalIdentity.organizationId;
     });
 
-    const activeAccount = filteredAccounts.find((a: any) => a.userId === user.id) || filteredAccounts[0];
+    // Strictly select only an account owned by the authenticated user (preferring CONNECTED status)
+    const activeAccount =
+      filteredAccounts.find((a: any) => a.userId === canonicalIdentity.userId && a.status === 'CONNECTED') ||
+      filteredAccounts.find((a: any) => a.userId === canonicalIdentity.userId) ||
+      null;
 
     res.json({
       connected: !!activeAccount && activeAccount.status === 'CONNECTED',
@@ -19236,9 +19457,11 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
   const ACCOUNTS_STORE_PATH = path.join(process.cwd(), 'google_accounts_store.json');
 
   function synchronizeUnifiedAccounts() {
-    // 1. Sync every calendarAccount to gmailAccounts
+    // 1. Sync every calendarAccount to gmailAccounts (strictly scoped by email + organizationId + userId)
     for (const cal of calendarAccounts) {
-      let g = gmailAccounts.find(x => x.email === cal.email && (x.organizationId === cal.organizationId || !x.organizationId));
+      let g = gmailAccounts.find(
+        x => x.email === cal.email && x.organizationId === cal.organizationId && x.userId === cal.userId
+      );
       if (!g) {
         g = {
           email: cal.email,
@@ -19246,7 +19469,8 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
           accessToken: cal.accessToken,
           refreshToken: cal.refreshToken,
           expiresAt: cal.expiresAt,
-          status: cal.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED',
+          scopes: cal.scopes,
+          status: cal.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_REQUIRED',
           organizationId: cal.organizationId,
           userId: cal.userId,
           sendingLimit: 500,
@@ -19256,26 +19480,19 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
           createdAt: cal.createdAt || new Date().toISOString()
         };
         gmailAccounts.push(g);
-        console.log(`[PERSISTENCE] Sync-created Gmail account for email ${cal.email} from Calendar connection.`);
       } else {
-        // If it exists, make sure the credentials and state match!
-        let changed = false;
-        if (g.accessToken !== cal.accessToken) { g.accessToken = cal.accessToken; changed = true; }
-        if (g.refreshToken !== cal.refreshToken && cal.refreshToken) { g.refreshToken = cal.refreshToken; changed = true; }
-        if (g.expiresAt !== cal.expiresAt) { g.expiresAt = cal.expiresAt; changed = true; }
-        if (cal.organizationId && !g.organizationId) { g.organizationId = cal.organizationId; changed = true; }
-        if (cal.userId && !g.userId) { g.userId = cal.userId; changed = true; }
-        const targetStatus = cal.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED';
-        if (g.status !== targetStatus) { g.status = targetStatus; changed = true; }
-        if (changed) {
-          console.log(`[PERSISTENCE] Sync-updated Gmail credentials for ${cal.email} from Calendar connection.`);
-        }
+        if (g.accessToken !== cal.accessToken) g.accessToken = cal.accessToken;
+        if (g.refreshToken !== cal.refreshToken && cal.refreshToken) g.refreshToken = cal.refreshToken;
+        if (g.expiresAt !== cal.expiresAt) g.expiresAt = cal.expiresAt;
+        if (Array.isArray(cal.scopes) && cal.scopes.length > 0) g.scopes = cal.scopes;
       }
     }
 
-    // 2. Sync every gmailAccount to calendarAccounts
+    // 2. Sync every gmailAccount to calendarAccounts (strictly scoped by email + organizationId + userId)
     for (const g of gmailAccounts) {
-      let cal = calendarAccounts.find(x => x.email === g.email && (x.organizationId === g.organizationId || !x.organizationId));
+      let cal = calendarAccounts.find(
+        x => x.email === g.email && x.organizationId === g.organizationId && x.userId === g.userId
+      );
       if (!cal) {
         cal = {
           email: g.email,
@@ -19283,26 +19500,18 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
           accessToken: g.accessToken,
           refreshToken: g.refreshToken,
           expiresAt: g.expiresAt,
-          status: g.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED',
+          scopes: g.scopes,
+          status: g.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_REQUIRED',
           organizationId: g.organizationId,
           userId: g.userId,
           createdAt: g.createdAt || new Date().toISOString()
         };
         calendarAccounts.push(cal);
-        console.log(`[PERSISTENCE] Sync-created Calendar account for email ${g.email} from Gmail connection.`);
       } else {
-        // If it exists, make sure credentials and state match!
-        let changed = false;
-        if (cal.accessToken !== g.accessToken) { cal.accessToken = g.accessToken; changed = true; }
-        if (cal.refreshToken !== g.refreshToken && g.refreshToken) { cal.refreshToken = g.refreshToken; changed = true; }
-        if (cal.expiresAt !== g.expiresAt) { cal.expiresAt = g.expiresAt; changed = true; }
-        if (g.organizationId && !cal.organizationId) { cal.organizationId = g.organizationId; changed = true; }
-        if (g.userId && !cal.userId) { cal.userId = g.userId; changed = true; }
-        const targetStatus = g.status === 'CONNECTED' ? 'CONNECTED' : 'REAUTH_NEEDED';
-        if (cal.status !== targetStatus) { cal.status = targetStatus; changed = true; }
-        if (changed) {
-          console.log(`[PERSISTENCE] Sync-updated Calendar credentials for ${g.email} from Gmail connection.`);
-        }
+        if (cal.accessToken !== g.accessToken) cal.accessToken = g.accessToken;
+        if (cal.refreshToken !== g.refreshToken && g.refreshToken) cal.refreshToken = g.refreshToken;
+        if (cal.expiresAt !== g.expiresAt) cal.expiresAt = g.expiresAt;
+        if (Array.isArray(g.scopes) && g.scopes.length > 0) cal.scopes = g.scopes;
       }
     }
   }
@@ -19455,10 +19664,11 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
     }
     
     const scopes = verification.scopes;
-    const hasGmailSend = scopes.includes('https://www.googleapis.com/auth/gmail.send');
+    const hasGmailSend = hasRequiredGmailSendScope(scopes);
     if (!hasGmailSend) {
-      account.status = 'REAUTH_NEEDED';
+      account.status = 'REAUTH_REQUIRED';
       saveAccountsToDisk();
+      await markGoogleAccountReauthRequired(account.email, account.organizationId, account.userId);
       return { valid: false, token: '', error: 'Gmail send scope is missing. Please click Connect to re-authenticate and check the send emails checkbox.' };
     }
     
@@ -19521,31 +19731,41 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
       const privilegedClient = getPrivilegedSupabaseClient();
       const { data, error } = await privilegedClient
         .from('google_accounts')
-        .select('email, access_token, refresh_token, scopes, expiry_date, account_type, organization_id');
+        .select('id, user_id, email, access_token, refresh_token, scopes, status, expiry_date, account_type, organization_id');
       if (error) {
         console.warn('[PERSISTENCE] Supabase google_accounts load notice:', error.message);
         return;
       }
 
       for (const row of data || []) {
-        if (!row.email || !row.access_token) continue;
+        if (!row.email || !row.access_token || String(row.access_token).startsWith('mock_')) continue;
+        const rowScopes = Array.isArray(row.scopes) ? row.scopes : [];
+        const rowStatus = ((row as any).status === 'REAUTH_REQUIRED' || (row as any).status === 'REAUTH_NEEDED')
+          ? 'REAUTH_REQUIRED' as const
+          : 'CONNECTED' as const;
         const account = {
           email: row.email,
           fullName: row.email.split('@')[0],
           accessToken: row.access_token,
           refreshToken: row.refresh_token || undefined,
-          expiresAt: row.expiry_date || new Date(Date.now() + 3600000).toISOString(),
-          status: 'CONNECTED' as const,
+          expiresAt: formatExpiryIso(row.expiry_date),
+          status: rowStatus,
+          userId: row.user_id || undefined,
+          organizationId: row.organization_id || undefined,
           createdAt: new Date().toISOString(),
-          scopes: row.scopes || []
+          scopes: rowScopes
         };
         const normalizedType = (row.account_type || '').toLowerCase();
         if (normalizedType === 'calendar') {
-          const existing = calendarAccounts.find(item => item.email === row.email);
+          const existing = calendarAccounts.find(
+            item => item.email === row.email && item.organizationId === row.organization_id && item.userId === row.user_id
+          );
           if (existing) Object.assign(existing, account);
           else calendarAccounts.push(account);
         } else if (normalizedType === 'gmail') {
-          const existing = gmailAccounts.find(item => item.email === row.email);
+          const existing = gmailAccounts.find(
+            item => item.email === row.email && item.organizationId === row.organization_id && item.userId === row.user_id
+          );
           if (existing) Object.assign(existing, account);
           else gmailAccounts.push({ ...account, sendingLimit: 500, sentToday: 0, bounceCount: 0, retryCount: 0 });
         }
@@ -19644,16 +19864,20 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
           account.status = 'CONNECTED';
           console.log(`[GOOGLE AUTH - ${serviceName}] Token status: Refreshed successfully for ${email}`);
           
-          // Sync across lists (Calendar <-> Gmail)
+          // Sync across lists (Calendar <-> Gmail) scoped strictly by organizationId + userId
           if (serviceName === 'Calendar') {
-            const matchedGmail = gmailAccounts.find(g => g.email === email);
+            const matchedGmail = gmailAccounts.find(
+              g => g.email === email && g.organizationId === account.organizationId && g.userId === account.userId
+            );
             if (matchedGmail) {
               matchedGmail.accessToken = account.accessToken;
               matchedGmail.expiresAt = account.expiresAt;
               matchedGmail.status = 'CONNECTED';
             }
           } else {
-            const matchedCalendar = calendarAccounts.find(c => c.email === email);
+            const matchedCalendar = calendarAccounts.find(
+              c => c.email === email && c.organizationId === account.organizationId && c.userId === account.userId
+            );
             if (matchedCalendar) {
               matchedCalendar.accessToken = account.accessToken;
               matchedCalendar.expiresAt = account.expiresAt;
@@ -19661,6 +19885,39 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
             }
           }
           saveAccountsToDisk();
+
+          // Persist refreshed token back to Supabase public.google_accounts so serverless cold starts use the new token
+          if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim()) {
+            try {
+              const privilegedClient = getPrivilegedSupabaseClient();
+              const cleanEmailLower = email.toLowerCase().trim();
+              const applyRefreshUpdate = (expiryVal: number | string) => {
+                let q = privilegedClient
+                  .from('google_accounts')
+                  .update({
+                    access_token: account.accessToken,
+                    expiry_date: expiryVal,
+                    status: 'CONNECTED',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('email', cleanEmailLower);
+                if (account.organizationId) {
+                  q = q.eq('organization_id', account.organizationId);
+                }
+                if (account.userId) {
+                  q = q.eq('user_id', account.userId);
+                }
+                return q;
+              };
+              const { error: upErr } = await applyRefreshUpdate(normalizeExpiryMs(account.expiresAt));
+              if (upErr && (String(upErr.message || '').toLowerCase().includes('timestamp') || String(upErr.message || '').toLowerCase().includes('date/time'))) {
+                await applyRefreshUpdate(account.expiresAt);
+              }
+            } catch (syncErr: any) {
+              console.warn(`[GOOGLE AUTH - ${serviceName}] Refreshed token DB persistence notice:`, syncErr?.message || String(syncErr));
+            }
+          }
+
           return account.accessToken;
         } else {
           const oauthErr = tokenData?.error || 'token_refresh_failed';
@@ -19709,11 +19966,13 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
+
     try {
       // 1. Authoritative primary source: Supabase public.google_accounts
       const authoritativeAccount = await resolveAuthoritativeCalendarAccount({
-        organizationId: orgId,
-        userId: user.id
+        organizationId: canonicalIdentity.organizationId,
+        userId: canonicalIdentity.userId
       });
 
       if (authoritativeAccount) {
@@ -19731,8 +19990,8 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
             status: 'CONNECTED' as const,
             createdAt: authoritativeAccount.createdAt,
             scopes: authoritativeAccount.scopes,
-            organizationId: orgId,
-            userId: user.id
+            organizationId: canonicalIdentity.organizationId,
+            userId: canonicalIdentity.userId
           };
           try {
             await refreshCalendarTokenIfNeeded(tempCalAcc);
@@ -19740,12 +19999,14 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
           } catch (refreshErr) {
             console.warn(`[CALENDAR ACCOUNTS] Token refresh failed on connection check for ${authoritativeAccount.email}:`, refreshErr);
             effectiveStatus = 'REAUTH_REQUIRED';
-            markGoogleAccountReauthRequired(authoritativeAccount.email, orgId, user.id);
+            markGoogleAccountReauthRequired(authoritativeAccount.email, canonicalIdentity.organizationId, canonicalIdentity.userId);
           }
         }
 
         // Sync in-memory cache
-        const existing = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
+        const existing = calendarAccounts.find(
+          c => c.organizationId === canonicalIdentity.organizationId && c.userId === canonicalIdentity.userId
+        );
         if (existing) {
           existing.accessToken = authoritativeAccount.accessToken;
           existing.refreshToken = authoritativeAccount.refreshToken || existing.refreshToken;
@@ -19762,8 +20023,8 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
             status: (effectiveStatus === 'CONNECTED' ? 'CONNECTED' : (effectiveStatus as any)),
             createdAt: authoritativeAccount.createdAt,
             scopes: authoritativeAccount.scopes,
-            organizationId: orgId,
-            userId: user.id
+            organizationId: canonicalIdentity.organizationId,
+            userId: canonicalIdentity.userId
           });
         }
 
@@ -19783,8 +20044,14 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
       console.warn('[CALENDAR ACCOUNTS] Supabase query notice, falling back to cache:', dbErr?.message || dbErr);
     }
 
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== 'true') {
+      return res.json({ accounts: [] });
+    }
+
     loadAccountsFromDisk();
-    const filteredCalendarAccounts = calendarAccounts.filter(c => c.organizationId === orgId && c.userId === user.id);
+    const filteredCalendarAccounts = calendarAccounts.filter(
+      c => c.organizationId === canonicalIdentity.organizationId && c.userId === canonicalIdentity.userId
+    );
     res.json({
       accounts: filteredCalendarAccounts.map(c => ({
         email: c.email,
@@ -19797,7 +20064,7 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
   });
 
   // POST /calendar/disconnect
-  app.post('/calendar/disconnect', (req, res) => {
+  app.post('/calendar/disconnect', async (req, res) => {
     const user = getAuthenticatedUser(req);
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
@@ -19807,19 +20074,45 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
       return res.status(status || 403).json({ error: error || 'Organization access denied.' });
     }
 
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
     const { email } = req.body;
-    if (email) {
-      const targetAcc = calendarAccounts.find(c => c.email === email);
-      if (targetAcc && targetAcc.organizationId && targetAcc.organizationId !== orgId) {
+    if (email && typeof email === 'string') {
+      const cleanEmail = email.toLowerCase().trim();
+      const targetAcc = calendarAccounts.find(c => (c.email || '').toLowerCase().trim() === cleanEmail && c.organizationId === orgId);
+      if (targetAcc && targetAcc.userId && targetAcc.userId !== canonicalIdentity.userId && targetAcc.userId !== user.id) {
         return res.status(403).json({ error: 'Forbidden. You do not own this Google account.' });
       }
-      calendarAccounts = calendarAccounts.filter(c => c.email !== email);
-      gmailAccounts = gmailAccounts.filter(a => a.email !== email);
+      calendarAccounts = calendarAccounts.filter(
+        c => !((c.email || '').toLowerCase().trim() === cleanEmail && c.organizationId === orgId && (!c.userId || c.userId === canonicalIdentity.userId || c.userId === user.id))
+      );
+      gmailAccounts = gmailAccounts.filter(
+        a => !((a.email || '').toLowerCase().trim() === cleanEmail && a.organizationId === orgId && (!a.userId || a.userId === canonicalIdentity.userId || a.userId === user.id))
+      );
     } else {
-      calendarAccounts = calendarAccounts.filter(c => c.organizationId !== orgId);
-      gmailAccounts = gmailAccounts.filter(a => a.organizationId !== orgId);
+      calendarAccounts = calendarAccounts.filter(
+        c => !(c.organizationId === orgId && (!c.userId || c.userId === canonicalIdentity.userId || c.userId === user.id))
+      );
+      gmailAccounts = gmailAccounts.filter(
+        a => !(a.organizationId === orgId && (!a.userId || a.userId === canonicalIdentity.userId || a.userId === user.id))
+      );
     }
     saveAccountsToDisk();
+
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim()) {
+      try {
+        const privilegedClient = getPrivilegedSupabaseClient();
+        let delQuery = privilegedClient
+          .from('google_accounts')
+          .delete()
+          .eq('organization_id', orgId)
+          .eq('user_id', canonicalIdentity.userId);
+        if (email && typeof email === 'string') {
+          delQuery = delQuery.eq('email', email.toLowerCase().trim());
+        }
+        await delQuery;
+      } catch (_) {}
+    }
+
     res.json({ success: true, message: 'Google Calendar and Gmail account disconnected.' });
   });
 
@@ -19834,30 +20127,38 @@ console.log("[DEBUG] Service Role Key present:", !!process.env.SUPABASE_SERVICE_
       return res.status(status || 403).json({ error: error || 'Organization access denied.', status: 'DISCONNECTED', connected: false });
     }
 
-    let activeAcc = calendarAccounts.find(c => c.organizationId === orgId && c.userId === user.id);
+    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, orgId);
+    const allowInMemoryFallback =
+      process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION === 'true';
 
-    // If not found in-memory, query authoritative Supabase database
-    if (!activeAcc) {
-      try {
-        const dbAcc = await resolveAuthoritativeCalendarAccount({ organizationId: orgId, userId: user.id });
-        if (dbAcc) {
-          activeAcc = {
-            email: dbAcc.email,
-            fullName: dbAcc.fullName,
-            accessToken: dbAcc.accessToken,
-            refreshToken: dbAcc.refreshToken,
-            expiresAt: dbAcc.expiresAt,
-            status: (dbAcc.status === 'CONNECTED' ? 'CONNECTED' : (dbAcc.status as any)),
-            createdAt: dbAcc.createdAt,
-            scopes: dbAcc.scopes,
-            organizationId: orgId,
-            userId: user.id
-          };
-          calendarAccounts.push(activeAcc);
-        }
-      } catch (dbErr: any) {
-        console.warn('[CALENDAR STATUS] Supabase query notice:', dbErr?.message || dbErr);
+    let activeAcc: CalendarAccount | undefined = undefined;
+    try {
+      const dbAcc = await resolveAuthoritativeCalendarAccount({
+        organizationId: canonicalIdentity.organizationId,
+        userId: canonicalIdentity.userId
+      });
+      if (dbAcc) {
+        activeAcc = {
+          email: dbAcc.email,
+          fullName: dbAcc.fullName,
+          accessToken: dbAcc.accessToken,
+          refreshToken: dbAcc.refreshToken,
+          expiresAt: dbAcc.expiresAt,
+          status: (dbAcc.status === 'CONNECTED' ? 'CONNECTED' : (dbAcc.status as any)),
+          createdAt: dbAcc.createdAt,
+          scopes: dbAcc.scopes,
+          organizationId: canonicalIdentity.organizationId,
+          userId: canonicalIdentity.userId
+        };
       }
+    } catch (dbErr: any) {
+      console.warn('[CALENDAR STATUS] Supabase query notice:', dbErr?.message || dbErr);
+    }
+
+    if (!activeAcc && allowInMemoryFallback) {
+      activeAcc = calendarAccounts.find(
+        c => c.organizationId === canonicalIdentity.organizationId && c.userId === canonicalIdentity.userId
+      );
     }
 
     if (!activeAcc) {

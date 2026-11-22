@@ -25,6 +25,8 @@ import { runClientFacingProductionHardeningTestSuite } from './clientFacingProdu
 import { runLiveProductionClientE2ETestSuite } from './liveProductionClientE2E.test';
 import { runSubscriptionExpiryAccessTestSuite } from './subscriptionExpiryAccess.test';
 import { runGoogleOAuthAndAsyncLeadGenTestSuite } from './googleOAuthAndAsyncLeadGen.test';
+import { runGmailResolutionTests } from './gmailResolution.test';
+import { runOutreachTestEmailSuite } from './outreachTestEmail.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -291,6 +293,26 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Google OAuth & Async Lead Gen test suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 26. Authoritative Gmail Resolution & Persistence Regression Suite
+  try {
+    const res = await runGmailResolutionTests();
+    totalPassed += res.passedCount;
+    totalFailed += res.totalCount - res.passedCount;
+  } catch (err) {
+    console.error('Gmail Resolution regression suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 27. Controlled Test Email & OutreachWorker Isolation Suite
+  try {
+    const res = await runOutreachTestEmailSuite();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Outreach Test Email suite crashed:', err);
     totalFailed++;
   }
 

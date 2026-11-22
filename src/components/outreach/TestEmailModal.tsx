@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Send, AlertTriangle, CheckCircle, X, ShieldCheck, RefreshCw } from 'lucide-react';
+import { getAuthHeaders } from '../../utils/apiAuth';
 
 interface TestEmailModalProps {
   isOpen: boolean;
@@ -25,24 +26,25 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
       setStep('compose');
       setError(null);
       setSuccessResult(null);
+      setSenderAccount('');
       
-      // Fetch authoritative Gmail connection status from server
+      // Fetch authoritative Gmail connection status from server using unified auth headers
       const fetchStatus = async () => {
         try {
-          const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
-          const workspaceId = localStorage.getItem('salespilot_workspace_id') || localStorage.getItem('salespilot_org_id');
-          const headers: Record<string, string> = {};
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-          if (workspaceId) headers['x-organization-id'] = workspaceId;
-
+          const headers = await getAuthHeaders();
           const res = await fetch('/gmail/status', { headers });
           if (res.ok) {
             const data = await res.json();
             if (data.connected && data.account?.email) {
               setSenderAccount(data.account.email);
+            } else if (data.account?.email && (data.account?.status === 'REAUTH_REQUIRED' || data.account?.status === 'REAUTH_NEEDED')) {
+              setError(`Your Gmail authorization for ${data.account.email} has expired or is missing permissions. Please reconnect your Google Workspace account under Settings > Integrations.`);
             } else {
               setError('No authorized Gmail account connected. Please connect your Google Workspace account under Settings > Integrations.');
             }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            if (errData?.error) setError(errData.error);
           }
         } catch (_) {
           // Keep current state
@@ -79,25 +81,7 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
     setError(null);
 
     try {
-      const token = localStorage.getItem('salespilot_token') || localStorage.getItem('salespilot_session_token');
-      const workspaceId = localStorage.getItem('salespilot_workspace_id') || localStorage.getItem('salespilot_org_id') || (() => {
-        try {
-          const org = JSON.parse(localStorage.getItem('salespilot_org') || '{}');
-          return org.id;
-        } catch {
-          return null;
-        }
-      })();
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      if (workspaceId) {
-        headers['x-organization-id'] = workspaceId;
-      }
+      const headers = await getAuthHeaders();
 
       const res = await fetch('/api/v1/outreach/test-email', {
         method: 'POST',
@@ -105,7 +89,8 @@ export function TestEmailModal({ isOpen, onClose, onSuccess }: TestEmailModalPro
         body: JSON.stringify({
           recipientEmail: recipientEmail.trim(),
           subject: subject.trim(),
-          body: body.trim()
+          body: body.trim(),
+          ...(senderAccount ? { senderEmail: senderAccount } : {})
         })
       });
 

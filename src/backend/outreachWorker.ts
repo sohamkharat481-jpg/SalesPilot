@@ -228,6 +228,7 @@ export class OutreachWorker {
               id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
               organizationId: claimed.organizationId,
               campaignId: claimed.campaignId,
+              userId: claimed.userId || senderUserId,
               stepId: nextStep.id,
               stepNumber: nextStep.stepNumber,
               leadId: claimed.leadId,

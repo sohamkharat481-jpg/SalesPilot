@@ -49,6 +49,7 @@ export interface ResolveCalendarAccountOptions {
 
 export interface PersistGoogleAccountParams {
   userId: string;
+  userEmail?: string;
   organizationId: string;
   email: string;
   name?: string;
@@ -92,6 +93,73 @@ export function hasRequiredGmailSendScope(scopes: any): boolean {
   ];
 
   return scopesList.some(s => validSendScopes.includes(s.toLowerCase()));
+}
+
+/**
+ * Normalizes an expiry value (ISO string, epoch ms number, or numeric string) into epoch milliseconds.
+ * Matches schema.sql where public.google_accounts.expiry_date is BIGINT.
+ */
+export function normalizeExpiryMs(rawExpiry: string | number | null | undefined): number {
+  if (typeof rawExpiry === 'number' && Number.isFinite(rawExpiry)) {
+    return Math.floor(rawExpiry);
+  }
+  if (typeof rawExpiry === 'string') {
+    const trimmed = rawExpiry.trim();
+    if (trimmed !== '') {
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed);
+        if (Number.isFinite(num)) return Math.floor(num);
+      }
+      const parsed = Date.parse(trimmed);
+      if (Number.isFinite(parsed)) {
+        return Math.floor(parsed);
+      }
+    }
+  }
+  return Date.now() + 3600000;
+}
+
+/**
+ * Formats an expiry value (BIGINT epoch ms, numeric string, or ISO string) into an ISO-8601 string.
+ */
+export function formatExpiryIso(rawExpiry: string | number | null | undefined, fallbackMs: number = Date.now() + 3600000): string {
+  if (typeof rawExpiry === 'number' && Number.isFinite(rawExpiry)) {
+    return new Date(rawExpiry).toISOString();
+  }
+  if (typeof rawExpiry === 'string') {
+    const trimmed = rawExpiry.trim();
+    if (trimmed !== '') {
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed);
+        if (Number.isFinite(num)) return new Date(num).toISOString();
+      }
+      const parsed = Date.parse(trimmed);
+      if (Number.isFinite(parsed)) {
+        return new Date(parsed).toISOString();
+      }
+    }
+  }
+  return new Date(fallbackMs).toISOString();
+}
+
+/**
+ * Returns true if the stored expiry value is missing, unparseable (NaN), or <= Date.now().
+ */
+export function isExpiryExpired(rawExpiry: string | number | null | undefined): boolean {
+  if (rawExpiry === null || rawExpiry === undefined || rawExpiry === '') {
+    return true;
+  }
+  if (typeof rawExpiry === 'number') {
+    return !Number.isFinite(rawExpiry) || rawExpiry <= Date.now();
+  }
+  const trimmed = String(rawExpiry).trim();
+  if (!trimmed) return true;
+  if (/^\d+$/.test(trimmed)) {
+    const num = Number(trimmed);
+    return !Number.isFinite(num) || num <= Date.now();
+  }
+  const parsedTime = Date.parse(trimmed);
+  return !Number.isFinite(parsedTime) || parsedTime <= Date.now();
 }
 
 function resolveLocalDbFallback(cleanOrgId: string, userId?: string, senderEmail?: string): AuthoritativeGmailAccount | null {
@@ -139,11 +207,7 @@ function resolveLocalDbFallback(cleanOrgId: string, userId?: string, senderEmail
       const email = (matchingLocal.email || '').toLowerCase().trim();
 
       // OAuth Validation: Check expiration, NaN expiry handling, and explicit status
-      let isExpired = true;
-      if (storedExpiry) {
-        const parsedTime = new Date(storedExpiry).getTime();
-        isExpired = isNaN(parsedTime) || parsedTime <= Date.now();
-      }
+      const isExpired = isExpiryExpired(storedExpiry);
 
       const hasRefresh = Boolean(storedRefreshToken && String(storedRefreshToken).trim().length > 0);
       const isExplicitlyConnected = matchingLocal.status === 'CONNECTED';
@@ -167,7 +231,7 @@ function resolveLocalDbFallback(cleanOrgId: string, userId?: string, senderEmail
         fullName: email.split('@')[0],
         accessToken: storedToken,
         refreshToken: storedRefreshToken || undefined,
-        expiresAt: storedExpiry || new Date(0).toISOString(),
+        expiresAt: formatExpiryIso(storedExpiry, 0),
         status: effectiveStatus,
         createdAt: matchingLocal.createdAt || matchingLocal.created_at || new Date().toISOString(),
         scopes: scopesArr,
@@ -214,11 +278,7 @@ function resolveLocalDbCalendarFallback(cleanOrgId: string, cleanUserId: string)
 
       const email = (matchingLocal.email || '').toLowerCase().trim();
 
-      let isExpired = true;
-      if (storedExpiry) {
-        const parsedTime = new Date(storedExpiry).getTime();
-        isExpired = isNaN(parsedTime) || parsedTime <= Date.now();
-      }
+      const isExpired = isExpiryExpired(storedExpiry);
 
       const hasRefresh = Boolean(storedRefreshToken && String(storedRefreshToken).trim().length > 0);
       const isExplicitlyConnected = matchingLocal.status === 'CONNECTED';
@@ -235,7 +295,7 @@ function resolveLocalDbCalendarFallback(cleanOrgId: string, cleanUserId: string)
         fullName: email.split('@')[0],
         accessToken: storedToken,
         refreshToken: storedRefreshToken || undefined,
-        expiresAt: storedExpiry || new Date(0).toISOString(),
+        expiresAt: formatExpiryIso(storedExpiry, 0),
         status: effectiveStatus,
         calendarAccessVerified: effectiveStatus === 'CONNECTED',
         createdAt: matchingLocal.createdAt || matchingLocal.created_at || new Date().toISOString(),
@@ -350,18 +410,27 @@ export async function resolveAuthoritativeGmailAccount(
     return resolveLocalDbFallback(cleanOrgId, userId, senderEmail);
   }
 
-  if (!data || !data.access_token) {
+  if (!data || !data.access_token || String(data.access_token).startsWith('mock_')) {
+    if (data && String(data.access_token || '').startsWith('mock_')) {
+      return null;
+    }
     return resolveLocalDbFallback(cleanOrgId, userId, senderEmail);
   }
 
   // Double check user isolation: if userId was provided, ensure record strictly matches
-  if (userId && data.user_id && data.user_id !== userId.trim()) {
+  if (userId && userId.trim() !== '' && (!data.user_id || String(data.user_id).trim() !== userId.trim())) {
     console.warn(`[OUTREACH GOOGLE ACCOUNT] User ID mismatch: record owned by ${data.user_id}, requested by ${userId}. Rejecting cross-user send.`);
     return null;
   }
 
   const hasGmailScope = hasRequiredGmailSendScope(data.scopes);
-  const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED' || !hasGmailScope;
+  const hasRefresh = Boolean(data.refresh_token && String(data.refresh_token).trim().length > 0);
+  const isExpired = data.expiry_date != null ? isExpiryExpired(data.expiry_date) : false;
+  const isReauthRequired =
+    data.status === 'REAUTH_REQUIRED' ||
+    data.status === 'REAUTH_NEEDED' ||
+    (isExpired && !hasRefresh) ||
+    !hasGmailScope;
 
   console.log('[SAFE GMAIL RESOLVER DIAGNOSTICS]', {
     authenticatedUserId: userId || null,
@@ -373,13 +442,13 @@ export async function resolveAuthoritativeGmailAccount(
     matchedAccountType: matchedAccountType,
     credentialsPresent: true,
     hasRequiredGmailScope: hasGmailScope,
+    isExpired,
+    hasRefresh,
     resolverResult: isReauthRequired ? 'REAUTH_REQUIRED' : 'success'
   });
 
   const email = (data.email || '').toLowerCase().trim();
-  const expiresAt = data.expiry_date
-    ? (typeof data.expiry_date === 'number' ? new Date(data.expiry_date).toISOString() : String(data.expiry_date))
-    : new Date(Date.now() + 3600000).toISOString();
+  const expiresAt = formatExpiryIso(data.expiry_date);
 
   const scopesArr = Array.isArray(data.scopes) 
     ? data.scopes 
@@ -449,9 +518,7 @@ export async function resolveAuthoritativeCalendarAccount(
 
   const isReauthRequired = data.status === 'REAUTH_REQUIRED' || data.status === 'REAUTH_NEEDED';
   const email = (data.email || '').toLowerCase().trim();
-  const expiresAt = data.expiry_date
-    ? (typeof data.expiry_date === 'number' ? new Date(data.expiry_date).toISOString() : String(data.expiry_date))
-    : new Date(Date.now() + 3600000).toISOString();
+  const expiresAt = formatExpiryIso(data.expiry_date);
 
   return {
     id: data.id,
@@ -479,6 +546,7 @@ export async function persistAuthoritativeGoogleAccount(
 ): Promise<{ success: boolean; gmailId: string; calendarId: string }> {
   const {
     userId,
+    userEmail,
     organizationId,
     email,
     name,
@@ -518,6 +586,124 @@ export async function persistAuthoritativeGoogleAccount(
 
   const client = customClient || getPrivilegedSupabaseServerClient();
   const now = new Date().toISOString();
+  const expiryMs = normalizeExpiryMs(expiresAt);
+  const expiryIso = new Date(expiryMs).toISOString();
+  const cleanAuthUserEmail =
+    userEmail && typeof userEmail === 'string' && userEmail.trim().includes('@')
+      ? userEmail.toLowerCase().trim()
+      : '';
+
+  // 1. Resolve authenticated user's existing canonical database identity (read-only; never auto-provision OWNER/verified users)
+  let existingUser: any = null;
+  const { data: userById, error: userByIdErr } = await client
+    .from('users')
+    .select('id, email, organization_id, role, is_verified, is_founder')
+    .eq('id', cleanUserId)
+    .maybeSingle();
+
+  if (userByIdErr) {
+    throw new Error(`Failed to verify authenticated user in database: ${userByIdErr.message}`);
+  }
+  existingUser = userById;
+
+  if (!existingUser && cleanAuthUserEmail) {
+    const { data: userByEmail, error: userByEmailErr } = await client
+      .from('users')
+      .select('id, email, organization_id, role, is_verified, is_founder')
+      .eq('email', cleanAuthUserEmail)
+      .maybeSingle();
+
+    if (userByEmailErr) {
+      throw new Error(`Failed to verify authenticated user by email in database: ${userByEmailErr.message}`);
+    }
+    existingUser = userByEmail;
+  }
+
+  if (!existingUser || !existingUser.id) {
+    throw new Error(
+      'Cannot persist Google account: authenticated user does not exist in database.'
+    );
+  }
+
+  const canonicalUserId = String(existingUser.id).trim();
+
+  // 2. Verify target organization exists (read-only; never auto-provision organizations)
+  const { data: existingOrg, error: orgLookupErr } = await client
+    .from('organizations')
+    .select('id, owner_id, status')
+    .eq('id', cleanOrgId)
+    .maybeSingle();
+
+  if (orgLookupErr) {
+    throw new Error(`Failed to verify target organization in database: ${orgLookupErr.message}`);
+  }
+
+  if (!existingOrg || !existingOrg.id) {
+    throw new Error(
+      'Cannot persist Google account: target organization does not exist in database.'
+    );
+  }
+
+  // 3. Verify existing organization membership without creating memberships or granting roles
+  const inactiveMemberStatuses = new Set([
+    'INVITED',
+    'PENDING',
+    'REMOVED',
+    'SUSPENDED',
+    'DISABLED',
+    'REVOKED',
+    'INACTIVE'
+  ]);
+
+  let hasVerifiedMembership =
+    (existingOrg.owner_id && String(existingOrg.owner_id).trim() === canonicalUserId) ||
+    (existingUser.organization_id && String(existingUser.organization_id).trim() === cleanOrgId);
+
+  if (!hasVerifiedMembership) {
+    try {
+      const { data: tmRow, error: tmErr } = await client
+        .from('team_members')
+        .select('id, user_id, organization_id, role, status')
+        .eq('organization_id', cleanOrgId)
+        .eq('user_id', canonicalUserId)
+        .limit(1)
+        .maybeSingle();
+      if (!tmErr && tmRow) {
+        const tmStatus = tmRow.status ? String(tmRow.status).toUpperCase().trim() : 'ACTIVE';
+        if (!inactiveMemberStatuses.has(tmStatus)) {
+          hasVerifiedMembership = true;
+        }
+      }
+    } catch (_) {
+      // Proceed to check organization_members
+    }
+  }
+
+  if (!hasVerifiedMembership) {
+    try {
+      const { data: omRow, error: omErr } = await client
+        .from('organization_members')
+        .select('id, user_id, organization_id, role, status')
+        .eq('organization_id', cleanOrgId)
+        .eq('user_id', canonicalUserId)
+        .limit(1)
+        .maybeSingle();
+      if (!omErr && omRow) {
+        const omStatus = omRow.status ? String(omRow.status).toUpperCase().trim() : 'ACTIVE';
+        if (!inactiveMemberStatuses.has(omStatus)) {
+          hasVerifiedMembership = true;
+        }
+      }
+    } catch (_) {
+      // Optional table absent; rely on already checked signals
+    }
+  }
+
+  if (!hasVerifiedMembership) {
+    throw new Error(
+      'Cannot persist Google account: authenticated user does not have verified membership in the target organization.'
+    );
+  }
 
   let effectiveRefreshToken = refreshToken || '';
   if (!effectiveRefreshToken) {
@@ -525,7 +711,12 @@ export async function persistAuthoritativeGoogleAccount(
       const { data: existingRec } = await client
         .from('google_accounts')
         .select('refresh_token')
-        .eq('id', `ga_${cleanUserId}_${cleanEmail}_calendar`)
+        .in('id', [
+          `ga_${canonicalUserId}_${cleanEmail}_gmail`,
+          `ga_${canonicalUserId}_${cleanEmail}_calendar`
+        ])
+        .not('refresh_token', 'is', null)
+        .limit(1)
         .maybeSingle();
       if (existingRec?.refresh_token) {
         effectiveRefreshToken = existingRec.refresh_token;
@@ -534,35 +725,58 @@ export async function persistAuthoritativeGoogleAccount(
   }
 
   const calendarStatus = calendarAccessVerified ? 'CONNECTED' : 'CONNECTING';
+  const gmailStatus = hasRequiredGmailSendScope(scopes) ? 'CONNECTED' : 'REAUTH_REQUIRED';
 
-  const rows = [
+  const buildRows = (expiryVal: number | string, includeStatus: boolean) => [
     {
-      id: `ga_${cleanUserId}_${cleanEmail}_calendar`,
-      user_id: cleanUserId,
+      id: `ga_${canonicalUserId}_${cleanEmail}_calendar`,
+      user_id: canonicalUserId,
       organization_id: cleanOrgId,
       email: cleanEmail,
       access_token: accessToken,
       refresh_token: effectiveRefreshToken,
       scopes: scopes || [],
-      expiry_date: expiresAt,
+      expiry_date: expiryVal,
       account_type: 'calendar',
+      ...(includeStatus ? { status: calendarStatus } : {}),
       updated_at: now
     },
     {
-      id: `ga_${cleanUserId}_${cleanEmail}_gmail`,
-      user_id: cleanUserId,
+      id: `ga_${canonicalUserId}_${cleanEmail}_gmail`,
+      user_id: canonicalUserId,
       organization_id: cleanOrgId,
       email: cleanEmail,
       access_token: accessToken,
       refresh_token: effectiveRefreshToken,
       scopes: scopes || [],
-      expiry_date: expiresAt,
+      expiry_date: expiryVal,
       account_type: 'gmail',
+      ...(includeStatus ? { status: gmailStatus } : {}),
       updated_at: now
     }
   ];
 
-  const { error } = await client.from('google_accounts').upsert(rows, { onConflict: 'id' });
+  let currentExpiry: number | string = expiryMs;
+  let includeStatus = true;
+  let { error } = await client.from('google_accounts').upsert(buildRows(currentExpiry, includeStatus), { onConflict: 'id' });
+
+  // Handle non-privilege schema compatibility fallbacks only (TIMESTAMPTZ vs BIGINT expiry_date, missing status column)
+  if (error) {
+    // If live database column is TIMESTAMPTZ instead of BIGINT, retry with ISO-8601 string
+    if (String(error.message || '').toLowerCase().includes('timestamp') || String(error.message || '').toLowerCase().includes('date/time field value out of range')) {
+      currentExpiry = expiryIso;
+      const tsRetry = await client.from('google_accounts').upsert(buildRows(currentExpiry, includeStatus), { onConflict: 'id' });
+      error = tsRetry.error;
+    }
+
+    // If live database schema lacks status column, retry without status
+    if (error && String(error.message || '').toLowerCase().includes('status')) {
+      includeStatus = false;
+      const stRetry = await client.from('google_accounts').upsert(buildRows(currentExpiry, includeStatus), { onConflict: 'id' });
+      error = stRetry.error;
+    }
+  }
+
   if (error) {
     console.error('[OUTREACH GOOGLE ACCOUNT] Failed to persist accounts to public.google_accounts:', error.message);
     throw new Error(`Failed to persist Google account to database: ${error.message}`);
@@ -570,8 +784,8 @@ export async function persistAuthoritativeGoogleAccount(
 
   return {
     success: true,
-    gmailId: `ga_${cleanUserId}_${cleanEmail}_gmail`,
-    calendarId: `ga_${cleanUserId}_${cleanEmail}_calendar`
+    gmailId: `ga_${canonicalUserId}_${cleanEmail}_gmail`,
+    calendarId: `ga_${canonicalUserId}_${cleanEmail}_calendar`
   };
 }
 
@@ -612,7 +826,7 @@ export async function queryAuthoritativeGmailAccounts(options: {
       const client = customClient || getPrivilegedSupabaseServerClient();
       let query = client
         .from('google_accounts')
-        .select('id, user_id, organization_id, email, scopes, account_type, created_at, updated_at')
+        .select('id, user_id, organization_id, email, scopes, status, expiry_date, access_token, refresh_token, account_type, created_at, updated_at')
         .in('account_type', ['gmail', 'GMAIL'])
         .eq('organization_id', cleanOrgId)
         .not('access_token', 'is', null);
@@ -621,54 +835,58 @@ export async function queryAuthoritativeGmailAccounts(options: {
         query = query.eq('user_id', userId.trim());
       }
 
-      let { data, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query.order('created_at', { ascending: false });
 
-      if ((!data || data.length === 0) && userId) {
-        const fallbackRes = await client
-          .from('google_accounts')
-          .select('id, user_id, organization_id, email, scopes, account_type, created_at, updated_at')
-          .in('account_type', ['gmail', 'GMAIL'])
-          .eq('organization_id', cleanOrgId)
-          .not('access_token', 'is', null)
-          .order('created_at', { ascending: false });
-
-        if (!fallbackRes.error && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
-          data = fallbackRes.data;
-          error = fallbackRes.error;
-        }
-      }
       if (!error && Array.isArray(data)) {
-        return data.map(d => {
-          const hasGmailScope = hasRequiredGmailSendScope(d.scopes);
-          const rawStatus = (d as any).status || 'CONNECTED';
-          const isReauth = rawStatus === 'REAUTH_REQUIRED' || rawStatus === 'REAUTH_NEEDED' || !hasGmailScope;
-          const scopesArr = Array.isArray(d.scopes) 
-            ? d.scopes 
-            : (typeof d.scopes === 'string' ? d.scopes.split(/[\s,]+/).filter(Boolean) : []);
+        const cleanUserId = userId && typeof userId === 'string' ? userId.trim() : '';
+        return data
+          .filter(d => {
+            if (cleanUserId && (!d.user_id || String(d.user_id).trim() !== cleanUserId)) return false;
+            if (!d.access_token || String(d.access_token).startsWith('mock_')) return false;
+            return true;
+          })
+          .map(d => {
+            const hasGmailScope = hasRequiredGmailSendScope(d.scopes);
+            const hasRefresh = Boolean(d.refresh_token && String(d.refresh_token).trim().length > 0);
+            const isExpired = d.expiry_date != null ? isExpiryExpired(d.expiry_date) : false;
+            const rawStatus = (d as any).status || 'CONNECTED';
+            const isReauth =
+              rawStatus === 'REAUTH_REQUIRED' ||
+              rawStatus === 'REAUTH_NEEDED' ||
+              (isExpired && !hasRefresh) ||
+              !hasGmailScope;
+            const scopesArr = Array.isArray(d.scopes)
+              ? d.scopes
+              : (typeof d.scopes === 'string' ? d.scopes.split(/[\s,]+/).filter(Boolean) : []);
 
-          return {
-            id: d.id,
-            userId: d.user_id,
-            email: d.email,
-            fullName: d.email ? d.email.split('@')[0] : '',
-            status: isReauth ? 'REAUTH_REQUIRED' : rawStatus,
-            createdAt: d.created_at || new Date().toISOString(),
-            scopes: scopesArr,
-            organizationId: d.organization_id || cleanOrgId,
-            accountType: 'gmail',
-            sendingLimit: 500,
-            sentToday: 0,
-            bounceCount: 0,
-            retryCount: 0
-          };
-        });
+            return {
+              id: d.id,
+              userId: d.user_id,
+              email: d.email,
+              fullName: d.email ? d.email.split('@')[0] : '',
+              status: isReauth ? 'REAUTH_REQUIRED' : rawStatus,
+              createdAt: d.created_at || new Date().toISOString(),
+              scopes: scopesArr,
+              organizationId: d.organization_id || cleanOrgId,
+              accountType: 'gmail',
+              sendingLimit: 500,
+              sentToday: 0,
+              bounceCount: 0,
+              retryCount: 0
+            };
+          });
       }
     } catch (err: any) {
       console.warn('[OUTREACH GOOGLE ACCOUNT] Database query on google_accounts failed:', err.message);
     }
   }
 
-  // Fallback: If database is inaccessible or empty, fallback to LocalDB
+  // Production safety guard: Do not fall back to local disk/memory accounts in production
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== 'true') {
+    return [];
+  }
+
+  // Fallback: If database is inaccessible or empty in development, fallback to LocalDB strictly scoped to userId + organizationId
   try {
     if (!userId || typeof userId !== 'string' || !userId.trim()) {
       return [];
@@ -695,7 +913,7 @@ export async function queryAuthoritativeGmailAccounts(options: {
         const storedUserId = d.userId || d.user_id || cleanUserId;
         const storedOrgId = d.organizationId || d.organization_id || cleanOrgId;
 
-        const isExpired = storedExpiry ? new Date(storedExpiry).getTime() <= Date.now() : true;
+        const isExpired = isExpiryExpired(storedExpiry);
         const hasRefresh = Boolean(storedRefreshToken && String(storedRefreshToken).trim().length > 0);
         const isExplicitlyConnected = d.status === 'CONNECTED';
         const hasGmailScope = hasRequiredGmailSendScope(d.scopes);

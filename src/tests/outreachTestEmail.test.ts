@@ -195,6 +195,99 @@ export async function runOutreachTestEmailSuite() {
   );
   assert(badRecipientRes.status === 400, 'Test 8: Invalid recipient syntax handled gracefully with 400 Bad Request');
 
+  // --- TEST 9: OutreachWorker getGmailAccount parameter order & Step 2 userId propagation ---
+  let capturedGetGmailArgs: Array<{ orgId: string; userId?: string; senderEmail?: string }> = [];
+  const nextStepUpdates: Array<{ id: string; updates: Partial<OutreachQueueItem> }> = [];
+  const step1QueueItem: OutreachQueueItem = {
+    id: 'q_worker_step1',
+    organizationId: ORG_A,
+    userId: 'usr_worker_sender_1',
+    campaignId: 'camp_worker_1',
+    stepId: 'step_1',
+    stepNumber: 1,
+    leadId: 'lead_existing_1',
+    recipientEmail: 'original@company.com',
+    subject: 'Hi {{first_name}}',
+    body: 'Body content',
+    status: 'QUEUED',
+    scheduledAt: new Date(Date.now() - 1000).toISOString(),
+    attempts: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  const worker = new OutreachWorker({
+    getCampaignById: async (id, orgId) => ({
+      id,
+      organizationId: orgId,
+      userId: 'usr_worker_sender_1',
+      name: 'Test Campaign',
+      status: 'ACTIVE',
+      targetLeadIds: ['lead_existing_1'],
+      dailyLimit: 50,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }),
+    getStepsByCampaign: async (campaignId, organizationId) => [
+      {
+        id: 'step_1',
+        organizationId,
+        campaignId,
+        stepNumber: 1,
+        delayDays: 0,
+        subjectTemplate: 'Step 1',
+        bodyTemplate: 'Body 1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'step_2',
+        organizationId,
+        campaignId,
+        stepNumber: 2,
+        delayDays: 2,
+        subjectTemplate: 'Step 2 Followup',
+        bodyTemplate: 'Body 2',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ],
+    getLeadById: async (id, orgId) => leads.find(l => l.id === id && l.organizationId === orgId) || null,
+    getQueueItemsToProcess: async () => [step1QueueItem],
+    claimQueueItem: async () => step1QueueItem,
+    updateQueueItem: async (id, updates) => {
+      nextStepUpdates.push({ id, updates });
+      return true;
+    },
+    saveMessage: async () => {},
+    saveReply: async () => {},
+    cancelPendingQueueItemsForLead: async () => 0,
+    logEvent: async () => {},
+    getGmailAccount: async (orgId, userId, senderEmail) => {
+      capturedGetGmailArgs.push({ orgId, userId, senderEmail });
+      if (!userId) return null;
+      return { email: 'alice@orga.com', userId, organizationId: orgId, accessToken: 'valid_token' };
+    },
+    sendGmailMessage: async () => ({ providerMessageId: 'msg_worker_1', threadId: 'th_worker_1' }),
+    sendOwnerNotificationEmail: async () => true,
+    saveInAppNotification: async () => {}
+  });
+
+  const workerRes = await worker.processQueue(10);
+  assert(
+    workerRes.sent === 1 &&
+      capturedGetGmailArgs.length === 1 &&
+      capturedGetGmailArgs[0].orgId === ORG_A &&
+      capturedGetGmailArgs[0].userId === 'usr_worker_sender_1',
+    'Test 9: OutreachWorker calls getGmailAccount(orgId, userId) with userId as arg #2'
+  );
+
+  const scheduledStep2 = nextStepUpdates.find(u => (u.updates as any)?.stepNumber === 2);
+  assert(
+    Boolean(scheduledStep2 && scheduledStep2.updates.userId === 'usr_worker_sender_1'),
+    'Test 10: OutreachWorker preserves userId on scheduled follow-up queue items'
+  );
+
   console.log(`\n=== CONTROLLED TEST EMAIL RESULTS: ${passed} PASSED, ${failed} FAILED ===\n`);
   return { passed, failed };
 }
