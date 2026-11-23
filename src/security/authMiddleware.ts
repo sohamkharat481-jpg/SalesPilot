@@ -73,6 +73,7 @@ export async function authenticateUser(
     role: 'MEMBER' as any,
     isFounder: false,
     isVerified: Boolean(verification.user.email_confirmed_at || verification.user.confirmed_at),
+    emailConfirmedAt: verification.user.email_confirmed_at || verification.user.confirmed_at || null,
     createdAt: verification.user.created_at || new Date().toISOString()
   };
 
@@ -274,6 +275,7 @@ export function resolveGoogleOAuthStateSecret(env: NodeJS.ProcessEnv = process.e
 export interface SignedGoogleOAuthStatePayload {
   userId: string;
   userEmail?: string;
+  emailConfirmedAt?: string | null;
   organizationId: string;
   source: 'integrations' | 'scheduler';
 }
@@ -292,6 +294,7 @@ export function signGoogleOAuthState(
     JSON.stringify({
       userId: String(identity.userId).trim(),
       userEmail: identity.userEmail ? String(identity.userEmail).trim().toLowerCase() : '',
+      emailConfirmedAt: identity.emailConfirmedAt ? String(identity.emailConfirmedAt).trim() : null,
       organizationId: identity.organizationId ? String(identity.organizationId).trim() : '',
       source: identity.source === 'integrations' ? 'integrations' : 'scheduler',
       nonce,
@@ -425,7 +428,7 @@ export async function verifyGoogleOAuthState(
   state: unknown,
   nonceStore: OAuthNonceStore | null | undefined,
   env: NodeJS.ProcessEnv = process.env
-): Promise<{ userId: string; userEmail?: string; organizationId?: string; source: 'integrations' | 'scheduler' } | null> {
+): Promise<{ userId: string; userEmail?: string; emailConfirmedAt?: string | null; organizationId?: string; source: 'integrations' | 'scheduler' } | null> {
   const secret = resolveGoogleOAuthStateSecret(env);
   if (typeof state !== 'string' || !secret) {
     return null;
@@ -509,6 +512,7 @@ export async function verifyGoogleOAuthState(
   return {
     userId: cleanUserId,
     userEmail: parsed.userEmail ? String(parsed.userEmail).trim().toLowerCase() : undefined,
+    emailConfirmedAt: parsed.emailConfirmedAt ? String(parsed.emailConfirmedAt).trim() : undefined,
     organizationId: cleanOrgId,
     source: parsed.source === 'integrations' ? 'integrations' : 'scheduler'
   };

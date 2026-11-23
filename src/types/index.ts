@@ -50,6 +50,7 @@ export interface WorkspaceUser {
   role: UserRole;
   organizationId?: string;
   isVerified?: boolean;
+  emailConfirmedAt?: string | null;
   avatarUrl?: string;
   title?: string;
   phone?: string;

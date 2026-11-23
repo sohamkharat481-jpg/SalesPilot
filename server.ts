@@ -62,6 +62,8 @@ import {
   resolveAuthoritativeCalendarAccount,
   verifyGoogleCalendarConnection,
   persistAuthoritativeGoogleAccount,
+  persistGoogleAccountWithPolicy,
+  createGmailConnectHandler,
   queryAuthoritativeGmailAccounts,
   markGoogleAccountReauthRequired,
   hasRequiredGmailSendScope,
@@ -211,6 +213,10 @@ function getPort(): number {
   if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
     const parsed = parseInt(process.argv[portArgIndex + 1], 10);
     if (!isNaN(parsed)) return parsed;
+  }
+  if (process.env.NODE_ENV !== 'production' && process.env.DEFAULT_APP_PORT) {
+    const parsedDefault = parseInt(process.env.DEFAULT_APP_PORT, 10);
+    if (!isNaN(parsedDefault)) return parsedDefault;
   }
   if (process.env.PORT) {
     const parsed = parseInt(process.env.PORT, 10);
@@ -1659,6 +1665,12 @@ async function startServer() {
       if (sbUser) {
         req.authTokenSub = sbUser.id;
         req.authVerifiedVia = 'supabase';
+        req.supabaseAuthUser = {
+          id: sbUser.id,
+          email: sbUser.email || '',
+          email_confirmed_at: sbUser.email_confirmed_at || null,
+          confirmed_at: sbUser.confirmed_at || null
+        };
         try {
           const emailLower = (sbUser.email || '').trim().toLowerCase();
           const isFounder = isVerifiedFounderEmail(emailLower);
@@ -1931,111 +1943,29 @@ async function startServer() {
               resolvedOrgId = undefined;
             }
 
-            const hasExistingPersonalOrInvitedOrg = Boolean(resolvedOrgId);
             const customerOrgId = emailLower === 'pordigyai@gmail.com'
               ? 'org_pordigy_enterprise'
-              : (resolvedOrgId || `org_${canonicalUserId.substring(0, 12)}`);
+              : resolvedOrgId;
             resolvedOrgId = customerOrgId;
-            if (!hasExistingPersonalOrInvitedOrg) {
+            if (resolvedOrgId) {
               resolvedCompanyName = emailLower === 'pordigyai@gmail.com' ? 'Pordigy AI' : `${cleanName}'s Workspace`;
             }
 
-            // Only assign OWNER when bootstrapping a user's own brand-new workspace with no existing role/membership
-            if (resolvedRole === 'MEMBER' && !dbUserRow && !dbTeamMember && !dbOrgMember && !dbProfile && !hasBlockedMembership) {
-              resolvedRole = 'OWNER';
-            }
+            // Strict role verification: never auto-elevate unverified users or members to OWNER/ADMIN
+            // resolvedRole was already derived from authoritative public.users, team_members, organization_members, or profiles.
 
             if (dbClient) {
               try {
                 // Remove any contaminated association with founder organization
                 await dbClient.from('team_members').delete().eq('user_id', canonicalUserId).eq('organization_id', 'org_salespilot_lifetime');
 
-                // 1. Ensure public.users row exists BEFORE public.organizations (fk_organizations_owner target)
-                if (!dbUserRow) {
-                  const { error: userInsErr } = await dbClient.from('users').insert({
-                    id: canonicalUserId,
-                    email: emailLower,
-                    full_name: cleanName,
-                    company_name: resolvedCompanyName,
-                    tier: isLifetimeSubscriberEmail(emailLower) ? 'ENTERPRISE' : 'STARTER',
-                    role: resolvedRole,
-                    organization_id: null,
-                    is_verified: isSupabaseEmailConfirmed,
-                    is_founder: false,
-                    subscription_status: isLifetimeSubscriberEmail(emailLower) ? 'LIFETIME' : 'ACTIVE',
-                    updated_at: new Date().toISOString()
-                  });
-                  if (userInsErr) {
-                    console.warn('[AUTH SYNC] Customer users insert notice:', userInsErr.message);
-                  }
-                }
-
-                // 2. Ensure target organization exists (without altering existing owner_id for invited members)
-                const { data: existingOrgRow } = await dbClient
-                  .from('organizations')
-                  .select('id, owner_id, company_name, name')
-                  .eq('id', customerOrgId)
-                  .maybeSingle();
-
-                if (!existingOrgRow) {
-                  const { error: orgInsErr } = await dbClient.from('organizations').insert({
-                    id: customerOrgId,
-                    name: resolvedCompanyName,
-                    company_name: resolvedCompanyName,
-                    owner_id: canonicalUserId,
-                    subscription_plan: isLifetimeSubscriberEmail(emailLower) ? 'ENTERPRISE' : 'STARTER',
-                    status: 'ACTIVE'
-                  });
-                  if (orgInsErr) {
-                    console.warn('[AUTH SYNC] Customer organization insert notice:', orgInsErr.message);
-                  }
-                } else if (existingOrgRow.company_name || existingOrgRow.name) {
-                  resolvedCompanyName = existingOrgRow.company_name || existingOrgRow.name;
-                }
-
-                // 3. Ensure public.users.organization_id is linked
-                if (!dbUserRow || dbUserRow.organization_id !== customerOrgId) {
-                  const { error: userUpdErr } = await dbClient
-                    .from('users')
-                    .update({
-                      organization_id: customerOrgId,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('id', canonicalUserId);
-                  if (userUpdErr) {
-                    console.warn('[AUTH SYNC] Customer users org update notice:', userUpdErr.message);
-                  }
-                }
-
-                // 4. Upsert clean customer profile
-                await dbClient.from('profiles').upsert({
-                  id: canonicalUserId,
-                  email: emailLower,
-                  full_name: cleanName,
-                  role: resolvedRole,
-                  organization_id: customerOrgId,
-                  updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-
-                // 5. Ensure team_members entry exists only when not blocked, and only claim confirmed invites
-                if (!dbTeamMember && !blockedOrgIds.has(customerOrgId)) {
-                  const { error: tmInsErr } = await dbClient.from('team_members').insert({
-                    id: `tm_${canonicalUserId}_${customerOrgId}`,
-                    user_id: canonicalUserId,
-                    organization_id: customerOrgId,
-                    role: resolvedRole,
-                    status: 'ACTIVE',
-                    email: emailLower,
-                    full_name: cleanName
-                  });
-                  if (tmInsErr) {
-                    console.warn('[AUTH SYNC] Customer team_member insert notice:', tmInsErr.message);
-                  }
-                } else if (
+                // If user is claiming a confirmed invite for an existing organization membership
+                if (
                   dbTeamMember &&
                   !dbTeamMember.user_id &&
                   pendingInviteStatuses.has(String(dbTeamMember.status || '').toUpperCase().trim()) &&
-                  isSupabaseEmailConfirmed
+                  isSupabaseEmailConfirmed &&
+                  !blockedOrgIds.has(customerOrgId)
                 ) {
                   await dbClient
                     .from('team_members')
@@ -2051,8 +1981,7 @@ async function startServer() {
           const isLifetimeSubscriber = isLifetimeSubscriberEmail(emailLower);
           let user = localDb.getUserById(canonicalUserId) || (emailLower ? localDb.getUserByEmail(emailLower) : undefined);
           const userOrg = resolvedOrgId ? localDb.getOrganizationById(resolvedOrgId) : localDb.getOrganizationByUserId(canonicalUserId);
-          const defaultCustomerOrgId = emailLower === 'anjanapadhi21@gmail.com' ? 'org_anjana_21' : `org_${canonicalUserId.substring(0, 12)}`;
-          const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || defaultCustomerOrgId)));
+          const orgId = isFounder ? 'org_salespilot_lifetime' : (resolvedOrgId || (userOrg ? userOrg.id : (user?.organizationId || undefined)));
           const cleanDisplayName = isFounder ? 'Soham Kharat' : cleanName;
 
           if (!user) {
@@ -2066,6 +1995,7 @@ async function startServer() {
               role: resolvedRole,
               organizationId: orgId,
               isVerified: isFounder || isEmailConfirmed,
+              emailConfirmedAt: sbUser.email_confirmed_at || null,
               phone: '',
               timezone: 'Asia/Kolkata',
               language: 'English',
@@ -2079,6 +2009,7 @@ async function startServer() {
             user.id = canonicalUserId;
             user.role = resolvedRole;
             user.organizationId = orgId;
+            user.emailConfirmedAt = sbUser.email_confirmed_at || null;
             if (isFounder) {
               user.fullName = 'Soham Kharat';
               user.isFounder = true;
@@ -2284,25 +2215,6 @@ async function startServer() {
     }
 
     if (!verifiedOrgId) {
-      // Auto-provision personal organization if none exists so customer is never stranded
-      const autoOrgId = `org_${user.id.substring(0, 12)}`;
-      const autoOrg: any = {
-        id: autoOrgId,
-        name: user.companyName || `${user.fullName}'s Workspace`,
-        companyName: user.companyName || `${user.fullName}'s Workspace`,
-        domain: user.email ? user.email.split('@')[1] : '',
-        ownerId: user.id,
-        createdAt: new Date().toISOString()
-      };
-      try {
-        localDb.addOrganization(autoOrg);
-        verifiedOrgId = autoOrgId;
-        user.organizationId = autoOrgId;
-        localDb.saveUser(user);
-      } catch (_) {}
-    }
-
-    if (!verifiedOrgId) {
       console.warn(`[SECURITY] No verified organization membership found for user ${user.id}`);
       return { orgId: null, error: "We couldn't verify your workspace. Please refresh and try again.", status: 403 };
     }
@@ -2368,9 +2280,7 @@ async function startServer() {
           if (dbUser?.id) {
             const dbId = String(dbUser.id).trim();
             candidateSet.add(dbId);
-            if (canonicalUserId === 'usr_81927391' || !jwtSub || dbId === jwtSub) {
-              canonicalUserId = dbId;
-            }
+            canonicalUserId = dbId;
           }
         }
 
@@ -18554,7 +18464,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
   // Google OAuth URL generation (fails closed when signing secret is missing)
   const createGoogleOAuthState = (
     req: any,
-    resolvedIdentity?: { userId: string; userEmail?: string; organizationId: string; source?: 'integrations' | 'scheduler' }
+    resolvedIdentity?: { userId: string; userEmail?: string; emailConfirmedAt?: string | null; organizationId: string; source?: 'integrations' | 'scheduler' }
   ): string => {
     const user = getAuthenticatedUser(req);
     if (!user) return '';
@@ -18564,11 +18474,16 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const effectiveOrgId = resolvedIdentity?.organizationId || orgId || user.organizationId || '';
     const effectiveUserId = resolvedIdentity?.userId || user.id;
     const effectiveUserEmail = (resolvedIdentity?.userEmail || user.email || '').trim().toLowerCase();
+    const effectiveEmailConfirmedAt =
+      resolvedIdentity?.emailConfirmedAt !== undefined
+        ? resolvedIdentity.emailConfirmedAt
+        : (req?.supabaseAuthUser?.email_confirmed_at ?? (user as any).emailConfirmedAt ?? null);
     const source = resolvedIdentity?.source === 'integrations' ? 'integrations' : 'scheduler';
 
     return signGoogleOAuthState({
       userId: effectiveUserId,
       userEmail: effectiveUserEmail,
+      emailConfirmedAt: effectiveEmailConfirmedAt,
       organizationId: effectiveOrgId,
       source
     });
@@ -18576,15 +18491,22 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   const readGoogleOAuthState = async (
     state: unknown
-  ): Promise<{ userId: string; userEmail?: string; organizationId?: string; source: 'integrations' | 'scheduler' } | null> => {
+  ): Promise<{ userId: string; userEmail?: string; emailConfirmedAt?: string | null; organizationId?: string; source: 'integrations' | 'scheduler'; authIdentity?: any } | null> => {
     const verified = await verifyGoogleOAuthState(state, getOAuthNonceStore());
     if (!verified) return null;
 
     const dbUser = localDb.getUserById(verified.userId);
     const verifiedOrg = verified.organizationId || dbUser?.organizationId;
+    const emailConfirmedAt = verified.emailConfirmedAt || null;
     return {
       userId: verified.userId,
       userEmail: verified.userEmail || dbUser?.email || undefined,
+      emailConfirmedAt,
+      authIdentity: {
+        id: verified.userId,
+        email: verified.userEmail || undefined,
+        email_confirmed_at: emailConfirmedAt
+      },
       organizationId: verifiedOrg,
       source: verified.source
     };
@@ -18615,7 +18537,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     const redirectUri = getGoogleRedirectUri(req);
     const state = createGoogleOAuthState(req, {
       userId: canonicalIdentity.userId,
-      userEmail: user.email,
+      userEmail: (req as any)?.supabaseAuthUser?.email || user.email,
+      emailConfirmedAt: (req as any)?.supabaseAuthUser?.email_confirmed_at ?? (user as any).emailConfirmedAt ?? null,
       organizationId: canonicalIdentity.organizationId,
       source
     });
@@ -18801,9 +18724,27 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         return renderCallbackFailure('Google Permissions Required', missingScopeMsg);
       }
 
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Saving account and setting status...');
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 3/5: DATABASE SAVE & STATUS UPDATE] Triggering authoritative Supabase persistence...');
       const cleanCallbackEmail = (email || '').toLowerCase().trim();
       const targetGmailStatus: GmailAccount['status'] = hasGmailSend ? 'CONNECTED' : 'REAUTH_REQUIRED';
+
+      await persistGoogleAccountWithPolicy({
+        params: {
+          userId: oauthContext.userId,
+          userEmail: oauthContext.userEmail,
+          authIdentity: oauthContext.authIdentity,
+          emailConfirmedAt: oauthContext.emailConfirmedAt,
+          organizationId: oauthContext.organizationId || '',
+          email: cleanCallbackEmail,
+          name,
+          accessToken: access_token,
+          refreshToken: refresh_token || '',
+          scopes: scopesArr,
+          expiresAt,
+          calendarAccessVerified: hasCalendar
+        },
+        contextLabel: 'GOOGLE CALLBACK FLOW'
+      });
 
       // Connect user to Gmail Account on server (strictly scoped by organizationId + userId)
       const existingGmail = gmailAccounts.find(
@@ -18886,29 +18827,8 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
         });
       } catch (_) {}
 
-      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Triggering authoritative Supabase persistence...');
+      console.log('[GOOGLE CALLBACK FLOW] [STEP 4/5: SYNC TRIGGER] Saving local cache...');
       saveAccountsToDisk();
-      const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
-      try {
-        await persistAuthoritativeGoogleAccount({
-          userId: oauthContext.userId,
-          userEmail: oauthContext.userEmail,
-          organizationId: oauthContext.organizationId || '',
-          email: cleanCallbackEmail,
-          name,
-          accessToken: access_token,
-          refreshToken: refresh_token || '',
-          scopes: scopesArr,
-          expiresAt,
-          calendarAccessVerified: hasCalendar
-        });
-        console.log('[GOOGLE CALLBACK FLOW] Authoritative Supabase persistence succeeded.');
-      } catch (pErr: any) {
-        console.error('[GOOGLE CALLBACK FLOW] Supabase persistence error:', pErr.message || String(pErr));
-        if (process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL) || hasServiceRoleKey) {
-          throw new Error(`Database persistence failed: ${pErr.message || 'Unable to save Google authorization to database.'}`);
-        }
-      }
 
       const connectedHeading = oauthSource === 'integrations' ? 'Google Account Connected' : 'Google Calendar Connected';
       const redirectButtonLabel = oauthSource === 'integrations' ? 'Go to Integrations' : 'Go to Scheduler';
@@ -18995,90 +18915,14 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   });
 
-  // Connects a Gmail Account
-  app.post('/gmail/connect', async (req, res) => {
-    const user = getAuthenticatedUser(req);
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
-    }
-    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
-    if (error || !orgId) {
-      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
-    }
-    const effectiveOrgId = orgId;
-    const { email, fullName, accessToken, refreshToken, expiresAt, isSimulated } = req.body;
-    
-    if (!email || !accessToken) {
-      return res.status(400).json({ error: 'Missing required parameters: email, accessToken' });
-    }
-
-    const defaultScopes = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'];
-    const canonicalIdentity = await resolveCanonicalGoogleIdentity(req, user, effectiveOrgId);
-    const existingAcc = gmailAccounts.find(
-      a => a.email === email && a.organizationId === effectiveOrgId && a.userId === canonicalIdentity.userId
-    );
-    const expiresTimestamp = expiresAt || new Date(Date.now() + 3600000).toISOString();
-
-    if (existingAcc) {
-      existingAcc.accessToken = accessToken;
-      if (refreshToken) existingAcc.refreshToken = refreshToken;
-      existingAcc.expiresAt = expiresTimestamp;
-      existingAcc.scopes = defaultScopes;
-      existingAcc.status = 'CONNECTED';
-      existingAcc.fullName = fullName || existingAcc.fullName || email.split('@')[0];
-      existingAcc.organizationId = effectiveOrgId;
-      existingAcc.userId = canonicalIdentity.userId;
-    } else {
-      const newAcc: GmailAccount = {
-        email,
-        fullName: fullName || email.split('@')[0],
-        accessToken,
-        refreshToken,
-        expiresAt: expiresTimestamp,
-        scopes: defaultScopes,
-        status: 'CONNECTED',
-        sendingLimit: 500,
-        sentToday: 0,
-        bounceCount: 0,
-        retryCount: 0,
-        organizationId: effectiveOrgId,
-        userId: canonicalIdentity.userId,
-        createdAt: new Date().toISOString()
-      };
-      gmailAccounts.push(newAcc);
-    }
-    saveAccountsToDisk();
-
-    try {
-      await persistAuthoritativeGoogleAccount({
-        userId: canonicalIdentity.userId,
-        userEmail: user.email,
-        organizationId: effectiveOrgId,
-        email,
-        name: fullName || email.split('@')[0],
-        accessToken,
-        refreshToken: refreshToken || '',
-        scopes: defaultScopes,
-        expiresAt: expiresTimestamp
-      });
-    } catch (pErr: any) {
-      console.warn('[GMAIL CONNECT PERSISTENCE NOTICE]', pErr?.message || pErr);
-    }
-
-    const connectedAcc = gmailAccounts.find(
-      a => a.email === email && a.organizationId === effectiveOrgId && a.userId === canonicalIdentity.userId
-    );
-    res.json({ 
-      message: 'Gmail account connected successfully to SalesPilot.', 
-      account: connectedAcc ? {
-        email: connectedAcc.email,
-        fullName: connectedAcc.fullName,
-        status: connectedAcc.status,
-        organizationId: connectedAcc.organizationId,
-        userId: connectedAcc.userId
-      } : null
-    });
-  });
+  // Connects a Gmail Account (enforces identical authoritative Supabase persistence policy as OAuth callback)
+  app.post('/gmail/connect', createGmailConnectHandler({
+    getAuthenticatedUser,
+    resolveVerifiedOrganizationId,
+    resolveCanonicalGoogleIdentity,
+    getGmailAccounts: () => gmailAccounts,
+    saveAccountsToDisk
+  }));
 
   // Disconnect / Delete connected Gmail account
   app.post('/gmail/disconnect', async (req, res) => {
@@ -19848,8 +19692,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     return { valid: true, email: trimmed };
   }
 
-  // Load persisted accounts on start
-  loadAccountsFromDisk();
+  // Load persisted accounts on start (loadAccountsFromSupabase calls loadAccountsFromDisk once)
   loadAccountsFromSupabase().catch(err => {
     console.error('[PERSISTENCE] Supabase Google account load failed:', err.message || String(err));
   });
@@ -22464,14 +22307,26 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
   // Vite middleware / static serve setup
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const vite = await createViteServer({
+    const disableHmr = process.env.DISABLE_HMR === 'true' || Boolean(process.env.CONTROL_PLANE_PORT);
+    const vitePromise = createViteServer({
       server: { 
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined
+        hmr: disableHmr ? false : undefined,
+        watch: disableHmr ? null : undefined
       },
       appType: 'spa'
     });
-    app.use(vite.middlewares);
+    vitePromise.catch(err => {
+      console.error('[VITE] Failed to initialize Vite dev middleware:', err?.message || err);
+    });
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await vitePromise;
+        return vite.middlewares(req, res, next);
+      } catch (err) {
+        return next(err);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

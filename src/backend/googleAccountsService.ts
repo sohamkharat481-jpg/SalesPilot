@@ -47,9 +47,20 @@ export interface ResolveCalendarAccountOptions {
   privilegedClient?: SupabaseClient;
 }
 
+export interface SupabaseAuthIdentityContext {
+  id?: string;
+  email?: string;
+  email_confirmed_at?: string | null;
+  confirmed_at?: string | null;
+  user_metadata?: Record<string, any>;
+  [key: string]: any;
+}
+
 export interface PersistGoogleAccountParams {
   userId: string;
   userEmail?: string;
+  authIdentity?: SupabaseAuthIdentityContext | null;
+  emailConfirmedAt?: string | null;
   organizationId: string;
   email: string;
   name?: string;
@@ -576,8 +587,12 @@ export async function persistAuthoritativeGoogleAccount(
   const cleanUserId = userId.trim();
 
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim());
+  const isProdOrVercel =
+    process.env.NODE_ENV === 'production' ||
+    Boolean(process.env.VERCEL) ||
+    process.env.ENVIRONMENT === 'production';
   if (!hasServiceRoleKey && !customClient) {
-    if (process.env.NODE_ENV === 'production') {
+    if (isProdOrVercel) {
       throw new Error('Configuration Error: SUPABASE_SERVICE_ROLE_KEY is required in production to persist Google accounts to public.google_accounts.');
     }
     console.warn('[OUTREACH GOOGLE ACCOUNT] Skipping database persistence: SUPABASE_SERVICE_ROLE_KEY is missing.');
@@ -588,10 +603,15 @@ export async function persistAuthoritativeGoogleAccount(
   const now = new Date().toISOString();
   const expiryMs = normalizeExpiryMs(expiresAt);
   const expiryIso = new Date(expiryMs).toISOString();
+  const authIdentity = params.authIdentity;
+  const authIdentityEmail = authIdentity?.email ? String(authIdentity.email).trim().toLowerCase() : '';
+  const explicitUserEmail = userEmail ? String(userEmail).trim().toLowerCase() : '';
+  if (authIdentityEmail && explicitUserEmail && authIdentityEmail !== explicitUserEmail) {
+    throw new Error('Cannot persist Google account: authenticated user email mismatch.');
+  }
+
   const cleanAuthUserEmail =
-    userEmail && typeof userEmail === 'string' && userEmail.trim().includes('@')
-      ? userEmail.toLowerCase().trim()
-      : '';
+    authIdentityEmail || (explicitUserEmail.includes('@') ? explicitUserEmail : '');
 
   // 1. Resolve authenticated user's existing canonical database identity (read-only; never auto-provision OWNER/verified users)
   let existingUser: any = null;
@@ -606,16 +626,61 @@ export async function persistAuthoritativeGoogleAccount(
   }
   existingUser = userById;
 
-  if (!existingUser && cleanAuthUserEmail) {
+  if (existingUser) {
+    const dbUserEmail = String(existingUser.email || '').toLowerCase().trim();
+    if (cleanAuthUserEmail && dbUserEmail && dbUserEmail !== cleanAuthUserEmail) {
+      throw new Error('Cannot persist Google account: authenticated user email mismatch.');
+    }
+  }
+
+  // Fallback: If user ID not found in database, verify authenticated Supabase Auth identity context and map to canonical public.users record
+  if (!existingUser) {
+    const authEmail = cleanAuthUserEmail;
+    const rawConfirmedAt = authIdentity?.email_confirmed_at ?? params.emailConfirmedAt ?? null;
+    const authConfirmedAt = typeof rawConfirmedAt === 'string' ? rawConfirmedAt.trim() : '';
+
+    if (!authEmail || !authEmail.includes('@')) {
+      throw new Error(
+        'Cannot persist Google account: authenticated user ID was not found in database and verified user email is missing.'
+      );
+    }
+
+    // Requirement 3: Query public.users using case-insensitive email match (escaping LIKE wildcards)
+    const escapedAuthEmail = authEmail.replace(/([%_\\])/g, '\\$1');
     const { data: userByEmail, error: userByEmailErr } = await client
       .from('users')
       .select('id, email, organization_id, role, is_verified, is_founder')
-      .eq('email', cleanAuthUserEmail)
+      .ilike('email', escapedAuthEmail)
       .maybeSingle();
 
     if (userByEmailErr) {
       throw new Error(`Failed to verify authenticated user by email in database: ${userByEmailErr.message}`);
     }
+
+    if (!userByEmail) {
+      throw new Error('Cannot persist Google account: authenticated user does not exist in database.');
+    }
+
+    // Requirement 2: Require the authenticated Supabase user's email_confirmed_at to be present
+    if (!authConfirmedAt || !Number.isFinite(Date.parse(authConfirmedAt))) {
+      throw new Error(
+        'Cannot persist Google account: authenticated user email confirmation timestamp is missing (email_confirmed_at required).'
+      );
+    }
+
+    // Compare the authenticated email against public.users.email case-insensitively
+    const dbUserEmail = String(userByEmail.email || '').toLowerCase().trim();
+    if (dbUserEmail !== authEmail) {
+      throw new Error('Cannot persist Google account: email mismatch between authenticated user and database record.');
+    }
+
+    // Requirement 4: Reject unverified emails even when active team membership exists
+    if (!userByEmail.is_verified) {
+      throw new Error(
+        'Cannot persist Google account: database user email is unverified. Unverified email identities are strictly rejected even when active team membership exists.'
+      );
+    }
+
     existingUser = userByEmail;
   }
 
@@ -778,8 +843,40 @@ export async function persistAuthoritativeGoogleAccount(
   }
 
   if (error) {
-    console.error('[OUTREACH GOOGLE ACCOUNT] Failed to persist accounts to public.google_accounts:', error.message);
-    throw new Error(`Failed to persist Google account to database: ${error.message}`);
+    const errCode = String(error.code || '').trim();
+    const errMsg = String(error.message || '').trim();
+    const errDetails = String((error as any).details || '').trim();
+    const errHint = String((error as any).hint || '').trim();
+    const errConstraint = String((error as any).constraint || '').trim();
+
+    console.error('[OUTREACH GOOGLE ACCOUNT] Failed to persist accounts to public.google_accounts:', {
+      code: errCode,
+      message: errMsg,
+      details: errDetails,
+      hint: errHint,
+      constraint: errConstraint
+    });
+
+    const combined = `${errCode} ${errMsg} ${errDetails} ${errHint} ${errConstraint}`.toLowerCase();
+
+    if (errCode === '23503' || errConstraint.includes('google_accounts_user_id_fkey') || errConstraint.includes('google_accounts_organization_id_fkey') || combined.includes('foreign key') || combined.includes('fkey')) {
+      if (errConstraint === 'google_accounts_user_id_fkey' || (errCode === '23503' && (errConstraint.includes('user_id') || combined.includes('google_accounts_user_id_fkey') || combined.includes('users')))) {
+        throw new Error(
+          `Failed to persist Google account to database: foreign key constraint violation on user record (google_accounts_user_id_fkey). The user record "${canonicalUserId}" does not exist in the database.`
+        );
+      }
+      if (errConstraint === 'google_accounts_organization_id_fkey' || (errCode === '23503' && (errConstraint.includes('organization_id') || combined.includes('google_accounts_organization_id_fkey') || combined.includes('organizations')))) {
+        throw new Error(
+          `Failed to persist Google account to database: foreign key constraint violation on organization record (google_accounts_organization_id_fkey). The workspace organization "${cleanOrgId}" does not exist in the database.`
+        );
+      }
+      throw new Error(`Failed to persist Google account to database: foreign key constraint violation (${errMsg || error.message}).`);
+    }
+
+    if (errCode) {
+      throw new Error(`Failed to persist Google account to database (Code ${errCode}): ${errMsg || error.message}`);
+    }
+    throw new Error(`Failed to persist Google account to database: ${errMsg || error.message}`);
   }
 
   return {
@@ -1100,23 +1197,264 @@ export function classifyGoogleCallbackError(rawError: unknown): string {
   }
 
   // 3. Authoritative Database Persistence failures
-  if (lower.includes('authenticated user does not exist in database')) {
+  if (lower.includes('google_accounts_user_id_fkey') || (lower.includes('foreign key') && lower.includes('user_id'))) {
+    return 'Unable to save Google authorization: user record was not found in the database (google_accounts_user_id_fkey).';
+  }
+  if (lower.includes('google_accounts_organization_id_fkey') || (lower.includes('foreign key') && lower.includes('organization_id'))) {
+    return 'Unable to save Google authorization: workspace organization record was not found in the database (google_accounts_organization_id_fkey).';
+  }
+  if (lower.includes('authenticated user does not exist in database') || lower.includes('authenticated user does not exist in the database')) {
     return 'Unable to save Google authorization: authenticated user record was not found in the workspace database.';
   }
-  if (lower.includes('target organization does not exist in database')) {
+  if (lower.includes('target organization does not exist in database') || lower.includes('target organization does not exist in the database')) {
     return 'Unable to save Google authorization: workspace organization record was not found in the database.';
   }
-  if (lower.includes('does not have verified membership')) {
+  if (lower.includes('does not have verified membership') || lower.includes('does not have verified active membership')) {
     return 'Unable to save Google authorization: user does not have an active membership in this workspace.';
+  }
+  if (lower.includes('confirmation timestamp is missing') || lower.includes('email_confirmed_at required')) {
+    return 'Unable to save Google authorization: authenticated user email confirmation timestamp is missing.';
+  }
+  if (lower.includes('email is unverified') || lower.includes('unverified email identities are strictly rejected')) {
+    return 'Unable to save Google authorization: user email is unverified in the workspace database.';
+  }
+  if (lower.includes('email mismatch')) {
+    return 'Unable to save Google authorization: user email does not match authenticated identity.';
+  }
+  if (lower.includes('non-mock access token is required')) {
+    return 'Unable to save Google authorization: valid non-mock credentials are required in production.';
   }
   if (lower.includes('supabase_service_role_key') || lower.includes('privileged server-side')) {
     return 'Server database configuration error: privileged database service key is missing.';
   }
-  if (lower.includes('database persistence failed') || lower.includes('failed to persist google account') || lower.includes('failed to insert google account') || lower.includes('failed to update google account')) {
+  if (
+    lower.includes('database persistence failed') ||
+    lower.includes('failed to persist google account') ||
+    lower.includes('failed to insert google account') ||
+    lower.includes('failed to update google account') ||
+    lower.includes('failed to verify authenticated user') ||
+    lower.includes('failed to verify target organization')
+  ) {
     return 'Unable to save Google authorization to the database. Please check server database logs.';
   }
 
   return 'Unable to connect your Google account. Please try again.';
+}
+
+/**
+ * Unified production persistence policy shared across both the Google OAuth callback
+ * (/api/auth/google/callback) and /gmail/connect.
+ *
+ * Authoritative Supabase persistence is mandatory when running in production, on Vercel,
+ * or whenever SUPABASE_SERVICE_ROLE_KEY is configured.
+ */
+export function isAuthoritativeGooglePersistenceRequired(env: NodeJS.ProcessEnv = process.env): boolean {
+  const hasServiceRoleKey = Boolean(env.SUPABASE_SERVICE_ROLE_KEY && env.SUPABASE_SERVICE_ROLE_KEY.trim());
+  return (
+    env.NODE_ENV === 'production' ||
+    Boolean(env.VERCEL) ||
+    env.ENVIRONMENT === 'production' ||
+    hasServiceRoleKey
+  );
+}
+
+/**
+ * Executes persistAuthoritativeGoogleAccount under the unified production/development policy.
+ * - Production / Vercel / configured SUPABASE_SERVICE_ROLE_KEY: fails closed on any persistence error.
+ * - Local development without SUPABASE_SERVICE_ROLE_KEY: logs a warning and allows local dev fallback.
+ */
+export async function persistGoogleAccountWithPolicy(options: {
+  params: PersistGoogleAccountParams;
+  contextLabel?: string;
+  env?: NodeJS.ProcessEnv;
+  persistFn?: typeof persistAuthoritativeGoogleAccount;
+}): Promise<{
+  persisted: boolean;
+  persistenceRequired: boolean;
+  gmailId: string;
+  calendarId: string;
+  warning?: string;
+}> {
+  const env = options.env || process.env;
+  const contextLabel = options.contextLabel || 'GOOGLE ACCOUNT PERSISTENCE';
+  const persistFn = options.persistFn || persistAuthoritativeGoogleAccount;
+  const persistenceRequired = isAuthoritativeGooglePersistenceRequired(env);
+
+  try {
+    const result = await persistFn(options.params);
+    if (persistenceRequired && !result?.success) {
+      throw new Error('Authoritative Supabase persistence did not succeed.');
+    }
+    return {
+      persisted: Boolean(result?.success),
+      persistenceRequired,
+      gmailId: result?.gmailId || '',
+      calendarId: result?.calendarId || ''
+    };
+  } catch (pErr: any) {
+    const errMsg = pErr?.message || String(pErr) || 'Unable to save Google authorization to database.';
+    if (persistenceRequired) {
+      console.error(`[${contextLabel}] Supabase persistence error:`, errMsg);
+      throw new Error(`Database persistence failed: ${errMsg}`);
+    }
+    console.warn(`[${contextLabel} PERSISTENCE NOTICE] Continuing with local development store:`, errMsg);
+    return {
+      persisted: false,
+      persistenceRequired: false,
+      gmailId: '',
+      calendarId: '',
+      warning: errMsg
+    };
+  }
+}
+
+export interface GmailConnectAccountRecord {
+  email: string;
+  fullName: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: string;
+  scopes?: string[];
+  status: 'CONNECTED' | 'REAUTH_REQUIRED' | 'REAUTH_NEEDED' | 'DISCONNECTED' | 'ERROR';
+  sendingLimit: number;
+  sentToday: number;
+  bounceCount: number;
+  retryCount: number;
+  organizationId?: string;
+  userId?: string;
+  createdAt: string;
+}
+
+export interface GmailConnectHandlerDeps {
+  getAuthenticatedUser: (req: any) => any;
+  resolveVerifiedOrganizationId: (req: any, user: any) => { orgId?: string | null; error?: string; status?: number };
+  resolveCanonicalGoogleIdentity: (req: any, user: any, verifiedOrgId: string) => Promise<{ userId: string; organizationId: string }>;
+  getGmailAccounts: () => GmailConnectAccountRecord[];
+  saveAccountsToDisk: () => void;
+  persistAccount?: typeof persistAuthoritativeGoogleAccount;
+  getEnv?: () => NodeJS.ProcessEnv;
+}
+
+/**
+ * Express route handler factory for POST /gmail/connect.
+ * Enforces the identical production persistence policy as /api/auth/google/callback:
+ * authoritative Supabase persistence runs before local state mutation and fails closed
+ * in production/Vercel on persistence errors without returning a success response.
+ */
+export function createGmailConnectHandler(deps: GmailConnectHandlerDeps) {
+  return async (req: any, res: any) => {
+    const user = deps.getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = deps.resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+    const effectiveOrgId = orgId;
+    const { email, fullName, accessToken, refreshToken, expiresAt } = req.body || {};
+
+    if (!email || typeof email !== 'string' || !email.trim() || !accessToken || typeof accessToken !== 'string' || !accessToken.trim()) {
+      return res.status(400).json({ error: 'Missing required parameters: email, accessToken' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const defaultScopes = ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'];
+    const canonicalIdentity = await deps.resolveCanonicalGoogleIdentity(req, user, effectiveOrgId);
+    const expiresTimestamp = expiresAt || new Date(Date.now() + 3600000).toISOString();
+    const resolvedName = (typeof fullName === 'string' && fullName.trim()) ? fullName.trim() : cleanEmail.split('@')[0];
+
+    try {
+      await persistGoogleAccountWithPolicy({
+        params: {
+          userId: canonicalIdentity.userId,
+          userEmail: (req as any)?.supabaseAuthUser?.email || user.email,
+          authIdentity: (req as any)?.supabaseAuthUser || {
+            id: user.id,
+            email: user.email,
+            email_confirmed_at: (user as any).emailConfirmedAt || null
+          },
+          emailConfirmedAt: (req as any)?.supabaseAuthUser?.email_confirmed_at ?? (user as any).emailConfirmedAt ?? null,
+          organizationId: effectiveOrgId,
+          email: cleanEmail,
+          name: resolvedName,
+          accessToken,
+          refreshToken: refreshToken || '',
+          scopes: defaultScopes,
+          expiresAt: expiresTimestamp
+        },
+        contextLabel: 'GMAIL CONNECT',
+        env: deps.getEnv ? deps.getEnv() : process.env,
+        persistFn: deps.persistAccount
+      });
+    } catch (pErr: any) {
+      const rawMessage = pErr?.message || String(pErr) || 'Unable to save Google authorization to database.';
+      const safeError = classifyGoogleCallbackError(rawMessage);
+      const httpStatus = rawMessage.toLowerCase().includes('non-mock access token') ? 400 : 500;
+      return res.status(httpStatus).json({
+        error: safeError,
+        success: false
+      });
+    }
+
+    const gmailAccounts = deps.getGmailAccounts();
+    const existingAcc = gmailAccounts.find(
+      a =>
+        (a.email || '').toLowerCase().trim() === cleanEmail &&
+        a.organizationId === effectiveOrgId &&
+        a.userId === canonicalIdentity.userId
+    );
+
+    if (existingAcc) {
+      existingAcc.email = cleanEmail;
+      existingAcc.accessToken = accessToken;
+      if (refreshToken) existingAcc.refreshToken = refreshToken;
+      existingAcc.expiresAt = expiresTimestamp;
+      existingAcc.scopes = defaultScopes;
+      existingAcc.status = 'CONNECTED';
+      existingAcc.fullName = resolvedName || existingAcc.fullName;
+      existingAcc.organizationId = effectiveOrgId;
+      existingAcc.userId = canonicalIdentity.userId;
+    } else {
+      const newAcc: GmailConnectAccountRecord = {
+        email: cleanEmail,
+        fullName: resolvedName,
+        accessToken,
+        refreshToken,
+        expiresAt: expiresTimestamp,
+        scopes: defaultScopes,
+        status: 'CONNECTED',
+        sendingLimit: 500,
+        sentToday: 0,
+        bounceCount: 0,
+        retryCount: 0,
+        organizationId: effectiveOrgId,
+        userId: canonicalIdentity.userId,
+        createdAt: new Date().toISOString()
+      };
+      gmailAccounts.push(newAcc);
+    }
+    deps.saveAccountsToDisk();
+
+    const connectedAcc = gmailAccounts.find(
+      a =>
+        (a.email || '').toLowerCase().trim() === cleanEmail &&
+        a.organizationId === effectiveOrgId &&
+        a.userId === canonicalIdentity.userId
+    );
+    return res.json({
+      message: 'Gmail account connected successfully to SalesPilot.',
+      account: connectedAcc
+        ? {
+            email: connectedAcc.email,
+            fullName: connectedAcc.fullName,
+            status: connectedAcc.status,
+            organizationId: connectedAcc.organizationId,
+            userId: connectedAcc.userId
+          }
+        : null
+    });
+  };
 }
 
 export function escapeOAuthHtmlText(value: string): string {

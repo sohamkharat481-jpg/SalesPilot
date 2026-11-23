@@ -253,6 +253,17 @@ export async function runGmailResolutionTests() {
         email: 'rep@coldorg.com',
         organization_id: null,
         role: 'SALES',
+        is_verified: true,
+        is_founder: false
+      }
+    ],
+    [
+      'usr_unverified_member',
+      {
+        id: 'usr_unverified_member',
+        email: 'unverified.member@coldorg.com',
+        organization_id: null,
+        role: 'SALES',
         is_verified: false,
         is_founder: false
       }
@@ -275,7 +286,8 @@ export async function runGmailResolutionTests() {
   ]);
   const teamMembersTable: any[] = [
     { id: 'tm_invited', organization_id: 'org_cold_1', user_id: 'usr_invited_only', role: 'SALES', status: 'INVITED' },
-    { id: 'tm_active_rep', organization_id: 'org_cold_1', user_id: 'usr_team_member_sales', role: 'SALES', status: 'ACTIVE' }
+    { id: 'tm_active_rep', organization_id: 'org_cold_1', user_id: 'usr_team_member_sales', role: 'SALES', status: 'ACTIVE' },
+    { id: 'tm_active_unverified', organization_id: 'org_cold_1', user_id: 'usr_unverified_member', role: 'SALES', status: 'ACTIVE' }
   ];
   const orgMembersTable: any[] = [];
   let unauthorizedPrivilegedWrites = 0;
@@ -286,6 +298,8 @@ export async function runGmailResolutionTests() {
         for (const [k, v] of Object.entries(filters)) {
           if (k === '__not_null') {
             if (row[v] === null || row[v] === undefined) return false;
+          } else if (typeof row[k] === 'string' && typeof v === 'string') {
+            if (row[k].toLowerCase() !== v.toLowerCase()) return false;
           } else if (row[k] !== v) {
             return false;
           }
@@ -299,6 +313,10 @@ export async function runGmailResolutionTests() {
     const chain: any = {
       in: (k: string, vals: any[]) => buildFilterChain(rowsSource, filters, { ...inFilters, [k]: vals }),
       eq: (k: string, val: any) => buildFilterChain(rowsSource, { ...filters, [k]: val }, inFilters),
+      ilike: (k: string, val: any) => {
+        const unescaped = typeof val === 'string' ? val.replace(/\\([%_\\])/g, '$1') : val;
+        return buildFilterChain(rowsSource, { ...filters, [k]: unescaped }, inFilters);
+      },
       not: (k: string, _op: string, _val: any) => buildFilterChain(rowsSource, { ...filters, __not_null: k }, inFilters),
       order: () => chain,
       limit: () => chain,
@@ -584,6 +602,11 @@ export async function runGmailResolutionTests() {
   const repPersistOut = await persistAuthoritativeGoogleAccount({
     userId: 'sb_jwt_alias_rep_999',
     userEmail: 'rep@coldorg.com',
+    authIdentity: {
+      id: 'sb_jwt_alias_rep_999',
+      email: 'rep@coldorg.com',
+      email_confirmed_at: '2026-01-01T00:00:00.000Z'
+    },
     organizationId: 'org_cold_1',
     email: 'rep.outreach@gmail.com',
     accessToken: 'ya29.real_token_rep',
@@ -597,9 +620,9 @@ export async function runGmailResolutionTests() {
       repPersistOut.gmailId === 'ga_usr_team_member_sales_rep.outreach@gmail.com_gmail' &&
       storedDbRows.get(repPersistOut.gmailId)?.user_id === 'usr_team_member_sales' &&
       usersTable.get('usr_team_member_sales')?.role === 'SALES' &&
-      usersTable.get('usr_team_member_sales')?.is_verified === false &&
+      usersTable.get('usr_team_member_sales')?.is_verified === true &&
       unauthorizedPrivilegedWrites === 0,
-    'Resolves canonical user_id from public.users without altering SALES role or is_verified=false'
+    'Resolves canonical user_id from public.users without altering SALES role'
   );
 
   // Test 22: Founder role & customer roles remain untouched across OAuth persistence
@@ -647,6 +670,269 @@ export async function runGmailResolutionTests() {
   assert(
     fkErrMsg.includes('Failed to persist Google account to database') && unauthorizedPrivilegedWrites === 0,
     'FK 23503 fails loudly with zero user or organization upsert attempts'
+  );
+
+  // Test 24: PostgreSQL 23503 user foreign-key violation with explicit constraint
+  console.log('\nTest 24: PostgreSQL 23503 user foreign-key violation diagnostic');
+  let userFkConstraintErr = '';
+  const mockUserFkConstraintClient: any = {
+    ...mockSupabaseClient,
+    from(table: string) {
+      if (table === 'google_accounts') {
+        return {
+          select: () => mockSupabaseClient.from('google_accounts').select(),
+          upsert: async () => ({
+            error: {
+              code: '23503',
+              message: 'violates foreign key constraint',
+              constraint: 'google_accounts_user_id_fkey',
+              details: 'Key (user_id)=(usr_missing) is not present in table "users".'
+            }
+          })
+        };
+      }
+      return mockSupabaseClient.from(table);
+    }
+  };
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_prod_cold_1',
+      userEmail: 'alice@coldorg.com',
+      organizationId: 'org_cold_1',
+      email: 'userfk@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockUserFkConstraintClient
+    });
+  } catch (err: any) {
+    userFkConstraintErr = err?.message || String(err);
+  }
+  assert(userFkConstraintErr.includes('google_accounts_user_id_fkey'), 'Identifies google_accounts_user_id_fkey precisely');
+
+  // Test 25: PostgreSQL 23503 organization foreign-key violation with explicit constraint
+  console.log('\nTest 25: PostgreSQL 23503 organization foreign-key violation diagnostic');
+  let orgFkConstraintErr = '';
+  const mockOrgFkConstraintClient: any = {
+    ...mockSupabaseClient,
+    from(table: string) {
+      if (table === 'google_accounts') {
+        return {
+          select: () => mockSupabaseClient.from('google_accounts').select(),
+          upsert: async () => ({
+            error: {
+              code: '23503',
+              message: 'violates foreign key constraint',
+              constraint: 'google_accounts_organization_id_fkey',
+              details: 'Key (organization_id)=(org_missing) is not present in table "organizations".'
+            }
+          })
+        };
+      }
+      return mockSupabaseClient.from(table);
+    }
+  };
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_prod_cold_1',
+      userEmail: 'alice@coldorg.com',
+      organizationId: 'org_cold_1',
+      email: 'orgfk@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockOrgFkConstraintClient
+    });
+  } catch (err: any) {
+    orgFkConstraintErr = err?.message || String(err);
+  }
+  assert(orgFkConstraintErr.includes('google_accounts_organization_id_fkey'), 'Identifies google_accounts_organization_id_fkey precisely');
+
+  // Test 26: Generic database error
+  console.log('\nTest 26: Generic database error handling');
+  let genericDbErr = '';
+  const mockGenericDbClient: any = {
+    ...mockSupabaseClient,
+    from(table: string) {
+      if (table === 'google_accounts') {
+        return {
+          select: () => mockSupabaseClient.from('google_accounts').select(),
+          upsert: async () => ({
+            error: {
+              code: '42P01',
+              message: 'relation "public.google_accounts" does not exist'
+            }
+          })
+        };
+      }
+      return mockSupabaseClient.from(table);
+    }
+  };
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_prod_cold_1',
+      userEmail: 'alice@coldorg.com',
+      organizationId: 'org_cold_1',
+      email: 'generic@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockGenericDbClient
+    });
+  } catch (err: any) {
+    genericDbErr = err?.message || String(err);
+  }
+  assert(genericDbErr.includes('Code 42P01') || genericDbErr.includes('does not exist'), 'Handles generic database error code safely');
+
+  // Test 27: Email mismatch / unverified identity rejection
+  console.log('\nTest 27: Email mismatch rejection & secure user mapping');
+  let emailMismatchErr = '';
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_nonexistent_id_fallback',
+      userEmail: 'other@coldorg.com',
+      authIdentity: {
+        id: 'usr_nonexistent_id_fallback',
+        email: 'rep@coldorg.com',
+        email_confirmed_at: '2026-01-01T00:00:00.000Z'
+      },
+      organizationId: 'org_cold_1',
+      email: 'mismatch@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockSupabaseClient
+    });
+  } catch (err: any) {
+    emailMismatchErr = err?.message || String(err);
+  }
+  assert(emailMismatchErr.includes('mismatch'), 'Rejects email mismatch between authIdentity and userEmail');
+
+  let dbEmailMismatchErr = '';
+  const mockDbMismatchClient: any = {
+    ...mockSupabaseClient,
+    from(table: string) {
+      if (table === 'users') {
+        return {
+          select: () => ({
+            eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+            ilike: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'usr_team_member_sales',
+                  email: 'different-db-user@coldorg.com',
+                  organization_id: null,
+                  role: 'SALES',
+                  is_verified: true,
+                  is_founder: false
+                },
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return mockSupabaseClient.from(table);
+    }
+  };
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_nonexistent_id_fallback',
+      userEmail: 'rep@coldorg.com',
+      authIdentity: {
+        id: 'usr_nonexistent_id_fallback',
+        email: 'rep@coldorg.com',
+        email_confirmed_at: '2026-01-01T00:00:00.000Z'
+      },
+      organizationId: 'org_cold_1',
+      email: 'mismatch@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockDbMismatchClient
+    });
+  } catch (err: any) {
+    dbEmailMismatchErr = err?.message || String(err);
+  }
+  assert(dbEmailMismatchErr.includes('email mismatch'), 'Rejects email mismatch between authenticated Supabase email and public.users.email');
+
+  // Test 28: Missing confirmation timestamp rejection (email_confirmed_at required)
+  console.log('\nTest 28: Missing confirmation timestamp rejection (email_confirmed_at required)');
+  let missingTimestampErr = '';
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_nonexistent_for_missing_timestamp',
+      userEmail: 'rep@coldorg.com',
+      authIdentity: {
+        id: 'usr_nonexistent_for_missing_timestamp',
+        email: 'rep@coldorg.com'
+        // email_confirmed_at is intentionally omitted/missing
+      },
+      organizationId: 'org_cold_1',
+      email: 'missing.ts@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockSupabaseClient
+    });
+  } catch (err: any) {
+    missingTimestampErr = err?.message || String(err);
+  }
+  assert(
+    missingTimestampErr.includes('email_confirmed_at') || missingTimestampErr.includes('confirmation timestamp is missing'),
+    'Rejects email fallback when email_confirmed_at confirmation timestamp is missing'
+  );
+
+  // Test 29: Unverified email with active team membership rejection
+  console.log('\nTest 29: Unverified email with active team membership rejection');
+  let unverifiedWithMembershipErr = '';
+  try {
+    await persistAuthoritativeGoogleAccount({
+      userId: 'usr_nonexistent_for_unverified_member',
+      userEmail: 'unverified.member@coldorg.com',
+      authIdentity: {
+        id: 'usr_nonexistent_for_unverified_member',
+        email: 'unverified.member@coldorg.com',
+        email_confirmed_at: '2026-01-01T00:00:00.000Z'
+      },
+      organizationId: 'org_cold_1',
+      email: 'unverified.member@gmail.com',
+      accessToken: 'ya29.token',
+      scopes: ['https://www.googleapis.com/auth/gmail.send'],
+      expiresAt: futureIso,
+      privilegedClient: mockSupabaseClient
+    });
+  } catch (err: any) {
+    unverifiedWithMembershipErr = err?.message || String(err);
+  }
+  assert(
+    unverifiedWithMembershipErr.includes('unverified') || unverifiedWithMembershipErr.includes('not verified'),
+    'Rejects unverified user email identity even when active team membership exists'
+  );
+
+  // Test 30: Verified email identity fallback with case-insensitive email matching succeeds
+  console.log('\nTest 30: Verified email identity fallback with case-insensitive email matching succeeds');
+  const verifiedPersistOut = await persistAuthoritativeGoogleAccount({
+    userId: 'usr_nonexistent_alias_verified_rep',
+    userEmail: 'REP@COLDORG.COM', // Uppercase to verify case-insensitive matching
+    authIdentity: {
+      id: 'usr_nonexistent_alias_verified_rep',
+      email: 'REP@COLDORG.COM',
+      email_confirmed_at: '2026-01-01T00:00:00.000Z'
+    },
+    organizationId: 'org_cold_1',
+    email: 'rep.verified.case@gmail.com',
+    accessToken: 'ya29.verified_case_token',
+    refreshToken: '1//verified_case_refresh',
+    scopes: ['https://www.googleapis.com/auth/gmail.send'],
+    expiresAt: futureIso,
+    privilegedClient: mockSupabaseClient
+  });
+  assert(
+    verifiedPersistOut.success === true &&
+      verifiedPersistOut.gmailId === 'ga_usr_team_member_sales_rep.verified.case@gmail.com_gmail' &&
+      storedDbRows.get(verifiedPersistOut.gmailId)?.user_id === 'usr_team_member_sales',
+    'Verified email fallback succeeds with case-insensitive email matching and maps to canonical user ID'
   );
 
   console.log(`\n=== ALL GMAIL RESOLUTION REGRESSION TESTS PASSED (${passedCount}/${totalCount}) ===\n`);

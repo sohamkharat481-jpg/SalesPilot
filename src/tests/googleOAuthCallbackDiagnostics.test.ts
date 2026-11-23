@@ -3,6 +3,9 @@ import {
   classifyGoogleCallbackError,
   escapeOAuthHtmlText,
   persistAuthoritativeGoogleAccount,
+  persistGoogleAccountWithPolicy,
+  isAuthoritativeGooglePersistenceRequired,
+  createGmailConnectHandler,
   queryAuthoritativeGmailAccounts
 } from '../backend/googleAccountsService';
 import { sanitizeUserFacingError } from '../utils/errorMapper';
@@ -58,7 +61,7 @@ function createMockSupabaseForSyncTest(options: {
             return {
               data: {
                 id: filters.id || 'usr_sync_1',
-                email: filters.email || 'user@company.com',
+                email: options.userEmail || filters.email || 'user@company.com',
                 organization_id: options.membershipActive ? 'org_sync_1' : null,
                 role: options.userRole || 'SALES',
                 is_verified: true,
@@ -227,7 +230,8 @@ export async function runGoogleOAuthCallbackDiagnosticsTests(): Promise<{ passed
       userExists: true,
       orgExists: true,
       membershipActive: true,
-      userRole: 'SALES'
+      userRole: 'SALES',
+      userEmail: 'rep@company.com'
     });
 
     const result = await persistAuthoritativeGoogleAccount({
@@ -949,6 +953,411 @@ export async function runGoogleOAuthCallbackDiagnosticsTests(): Promise<{ passed
     assert(
       serverSrc.includes('SUPABASE_SERVICE_ROLE_KEY is required for persistent OAuth nonce verification in production.'),
       'server.ts must fail closed in production when SUPABASE_SERVICE_ROLE_KEY is unavailable'
+    );
+  });
+
+  await runTest('22. PostgreSQL error 23503 FK constraints (google_accounts_user_id_fkey & google_accounts_organization_id_fkey) are diagnosed precisely', async () => {
+    // 1. google_accounts_user_id_fkey error mapping
+    const userFkErr = classifyGoogleCallbackError(
+      'Failed to persist Google account to database: foreign key constraint violation on user record (google_accounts_user_id_fkey). The user record "usr_missing_123" does not exist in the database.'
+    );
+    assert(userFkErr.includes('google_accounts_user_id_fkey') && userFkErr.toLowerCase().includes('user record was not found'), `Unexpected user FK error: ${userFkErr}`);
+
+    // 2. Raw postgres 23503 user_id error mapping
+    const rawUserFkErr = classifyGoogleCallbackError(
+      'Database persistence failed: insert or update on table "google_accounts" violates foreign key constraint "google_accounts_user_id_fkey"'
+    );
+    assert(rawUserFkErr.includes('google_accounts_user_id_fkey') && rawUserFkErr.toLowerCase().includes('user record was not found'), `Unexpected raw user FK error: ${rawUserFkErr}`);
+
+    // 3. google_accounts_organization_id_fkey error mapping
+    const orgFkErr = classifyGoogleCallbackError(
+      'Failed to persist Google account to database: foreign key constraint violation on organization record (google_accounts_organization_id_fkey). The workspace organization "org_missing_456" does not exist in the database.'
+    );
+    assert(orgFkErr.includes('google_accounts_organization_id_fkey') && orgFkErr.toLowerCase().includes('workspace organization record was not found'), `Unexpected org FK error: ${orgFkErr}`);
+
+    // 4. Raw postgres 23503 organization_id error mapping
+    const rawOrgFkErr = classifyGoogleCallbackError(
+      'Database persistence failed: insert or update on table "google_accounts" violates foreign key constraint "google_accounts_organization_id_fkey"'
+    );
+    assert(rawOrgFkErr.includes('google_accounts_organization_id_fkey') && rawOrgFkErr.toLowerCase().includes('workspace organization record was not found'), `Unexpected raw org FK error: ${rawOrgFkErr}`);
+
+    // 5. Simulated database upsert returning 23503 on user_id produces specific diagnostic
+    const mockUserFkClient: any = {
+      from(table: string) {
+        const b: any = {
+          select() { return b; },
+          eq() { return b; },
+          in() { return b; },
+          not() { return b; },
+          limit() { return b; },
+          async maybeSingle() {
+            if (table === 'users') {
+              return { data: { id: 'usr_valid_sim', email: 'sim@example.com', organization_id: 'org_valid_sim', role: 'SALES', is_verified: true }, error: null };
+            }
+            if (table === 'organizations') {
+              return { data: { id: 'org_valid_sim', owner_id: 'usr_owner_sim', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'team_members') {
+              return { data: { id: 'tm_sim', user_id: 'usr_valid_sim', organization_id: 'org_valid_sim', status: 'ACTIVE' }, error: null };
+            }
+            return { data: null, error: null };
+          },
+          async upsert() {
+            return { error: { code: '23503', message: 'insert or update on table "google_accounts" violates foreign key constraint "google_accounts_user_id_fkey"' } };
+          }
+        };
+        return b;
+      }
+    };
+
+    let caughtUserFk = '';
+    try {
+      await persistAuthoritativeGoogleAccount({
+        userId: 'usr_valid_sim',
+        userEmail: 'sim@example.com',
+        organizationId: 'org_valid_sim',
+        email: 'sim@gmail.com',
+        accessToken: 'ya29.sim_token',
+        scopes: ['https://www.googleapis.com/auth/gmail.send'],
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        privilegedClient: mockUserFkClient
+      });
+    } catch (err: any) {
+      caughtUserFk = err?.message || String(err);
+    }
+    assert(caughtUserFk.includes('google_accounts_user_id_fkey'), `Expected google_accounts_user_id_fkey in error, got: ${caughtUserFk}`);
+
+    // 6. Simulated database upsert returning 23503 on organization_id produces specific diagnostic
+    const mockOrgFkClient: any = {
+      from(table: string) {
+        const b: any = {
+          select() { return b; },
+          eq() { return b; },
+          in() { return b; },
+          not() { return b; },
+          limit() { return b; },
+          async maybeSingle() {
+            if (table === 'users') {
+              return { data: { id: 'usr_valid_sim', email: 'sim@example.com', organization_id: 'org_valid_sim', role: 'SALES', is_verified: true }, error: null };
+            }
+            if (table === 'organizations') {
+              return { data: { id: 'org_valid_sim', owner_id: 'usr_owner_sim', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'team_members') {
+              return { data: { id: 'tm_sim', user_id: 'usr_valid_sim', organization_id: 'org_valid_sim', status: 'ACTIVE' }, error: null };
+            }
+            return { data: null, error: null };
+          },
+          async upsert() {
+            return { error: { code: '23503', message: 'insert or update on table "google_accounts" violates foreign key constraint "google_accounts_organization_id_fkey"' } };
+          }
+        };
+        return b;
+      }
+    };
+
+    let caughtOrgFk = '';
+    try {
+      await persistAuthoritativeGoogleAccount({
+        userId: 'usr_valid_sim',
+        userEmail: 'sim@example.com',
+        organizationId: 'org_valid_sim',
+        email: 'sim@gmail.com',
+        accessToken: 'ya29.sim_token',
+        scopes: ['https://www.googleapis.com/auth/gmail.send'],
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        privilegedClient: mockOrgFkClient
+      });
+    } catch (err: any) {
+      caughtOrgFk = err?.message || String(err);
+    }
+    assert(caughtOrgFk.includes('google_accounts_organization_id_fkey'), `Expected google_accounts_organization_id_fkey in error, got: ${caughtOrgFk}`);
+  });
+
+  await runTest('23. Zero automatic organization/user provisioning and zero OWNER role escalation in server.ts', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const serverSrc = fs.readFileSync(path.join(process.cwd(), 'server.ts'), 'utf8');
+
+    // 1. Must never invent autoOrgId = 'org_' + user.id.substring(0, 12)
+    assert(!serverSrc.includes("org_${user.id.substring(0, 12)}"), 'Must never generate unpersisted autoOrgId');
+
+    // 2. Must never auto-create customer users or organizations during authentication
+    assert(!serverSrc.includes("Customer organization insert notice"), 'Must not auto-insert customer organizations in auth middleware');
+    assert(!serverSrc.includes("Customer users insert notice"), 'Must not auto-insert customer users in auth middleware');
+
+    // 3. Must not auto-elevate role to OWNER
+    assert(!serverSrc.includes("resolvedRole = 'OWNER';\n            }\n\n            if (dbClient)"), 'Must not auto-elevate non-owner to OWNER role');
+  });
+
+  await runTest('24. Shared authoritative persistence policy enforces mandatory Supabase persistence across production, Vercel, and service-key runtimes', async () => {
+    assert.strictEqual(isAuthoritativeGooglePersistenceRequired({ NODE_ENV: 'production' } as any), true);
+    assert.strictEqual(isAuthoritativeGooglePersistenceRequired({ VERCEL: '1' } as any), true);
+    assert.strictEqual(isAuthoritativeGooglePersistenceRequired({ ENVIRONMENT: 'production' } as any), true);
+    assert.strictEqual(isAuthoritativeGooglePersistenceRequired({ SUPABASE_SERVICE_ROLE_KEY: 'srv_key_123' } as any), true);
+    assert.strictEqual(isAuthoritativeGooglePersistenceRequired({ NODE_ENV: 'development' } as any), false);
+
+    // Production/Vercel fails closed when persistFn throws OR returns success=false
+    for (const env of [
+      { NODE_ENV: 'production' },
+      { VERCEL: '1' },
+      { NODE_ENV: 'development', SUPABASE_SERVICE_ROLE_KEY: 'srv_key_123' }
+    ]) {
+      let threwOnErr = false;
+      try {
+        await persistGoogleAccountWithPolicy({
+          params: {
+            userId: 'u_pol_1',
+            organizationId: 'o_pol_1',
+            email: 'rep@acme.com',
+            accessToken: 'ya29.real_token',
+            scopes: ['https://www.googleapis.com/auth/gmail.send'],
+            expiresAt: new Date(Date.now() + 3600000).toISOString()
+          },
+          env: env as any,
+          persistFn: async () => {
+            throw new Error('PostgreSQL connection refused at postgresql://postgres:secret@db.host:5432/postgres');
+          }
+        });
+      } catch (err: any) {
+        threwOnErr = true;
+        assert(String(err?.message || '').includes('Database persistence failed:'), `Unexpected error: ${err?.message}`);
+      }
+      assert.strictEqual(threwOnErr, true, `Expected policy failure for env ${JSON.stringify(env)}`);
+
+      let threwOnFalse = false;
+      try {
+        await persistGoogleAccountWithPolicy({
+          params: {
+            userId: 'u_pol_1',
+            organizationId: 'o_pol_1',
+            email: 'rep@acme.com',
+            accessToken: 'ya29.real_token',
+            scopes: ['https://www.googleapis.com/auth/gmail.send'],
+            expiresAt: new Date(Date.now() + 3600000).toISOString()
+          },
+          env: env as any,
+          persistFn: async () => ({ success: false, gmailId: '', calendarId: '' })
+        });
+      } catch (_) {
+        threwOnFalse = true;
+      }
+      assert.strictEqual(threwOnFalse, true, `Expected failure when success=false for env ${JSON.stringify(env)}`);
+    }
+
+    // Missing SUPABASE_SERVICE_ROLE_KEY on Vercel also throws inside persistAuthoritativeGoogleAccount
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevVercel = process.env.VERCEL;
+    const prevKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    try {
+      delete process.env.NODE_ENV;
+      process.env.VERCEL = '1';
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      let threwMissingKey = false;
+      try {
+        await persistAuthoritativeGoogleAccount({
+          userId: 'u_vercel_1',
+          organizationId: 'o_vercel_1',
+          email: 'rep@acme.com',
+          accessToken: 'ya29.real_vercel_tok',
+          scopes: ['https://www.googleapis.com/auth/gmail.send'],
+          expiresAt: new Date(Date.now() + 3600000).toISOString()
+        });
+      } catch (err: any) {
+        threwMissingKey = String(err?.message || '').includes('SUPABASE_SERVICE_ROLE_KEY');
+      }
+      assert.strictEqual(threwMissingKey, true, 'Missing SUPABASE_SERVICE_ROLE_KEY must fail closed on VERCEL=1');
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = prevNodeEnv;
+      if (prevVercel === undefined) delete process.env.VERCEL; else process.env.VERCEL = prevVercel;
+      if (prevKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = prevKey;
+    }
+  });
+
+  await runTest('25. POST /gmail/connect fails closed in production and Vercel when Supabase persistence fails without returning success or mutating state', async () => {
+    const createMockRes = () => {
+      const state: { statusCode: number; body: any } = { statusCode: 200, body: null };
+      const res: any = {
+        status(code: number) {
+          state.statusCode = code;
+          return res;
+        },
+        json(payload: any) {
+          state.body = payload;
+          return res;
+        }
+      };
+      return { res, state };
+    };
+
+    const sensitiveFailures = [
+      'Failed to persist Google account to database (Code 23503): insert or update on table "google_accounts" violates foreign key constraint "google_accounts_user_id_fkey" with access_token ya29.secret_tok postgresql://user:pass@host/db',
+      'Configuration Error: SUPABASE_SERVICE_ROLE_KEY is required in production to persist Google accounts to public.google_accounts.',
+      'Cannot persist Google account: authenticated user does not have verified membership in the target organization.',
+      'PostgreSQL error 42P01: relation "google_accounts" does not exist in Supabase with GOCSPX-secret_val'
+    ];
+
+    for (const env of [{ NODE_ENV: 'production' }, { VERCEL: '1' }, { NODE_ENV: 'development', SUPABASE_SERVICE_ROLE_KEY: 'srv_key' }]) {
+      for (const failureMsg of sensitiveFailures) {
+        const gmailAccounts: any[] = [];
+        let saveDiskCalls = 0;
+
+        const handler = createGmailConnectHandler({
+          getAuthenticatedUser: () => ({ id: 'usr_1', email: 'rep@acme.com', organizationId: 'org_1', emailConfirmedAt: '2026-01-01T00:00:00Z' }),
+          resolveVerifiedOrganizationId: () => ({ orgId: 'org_1' }),
+          resolveCanonicalGoogleIdentity: async () => ({ userId: 'usr_1', organizationId: 'org_1' }),
+          getGmailAccounts: () => gmailAccounts,
+          saveAccountsToDisk: () => { saveDiskCalls++; },
+          getEnv: () => env as any,
+          persistAccount: async () => {
+            throw new Error(failureMsg);
+          }
+        });
+
+        const { res, state } = createMockRes();
+        await handler(
+          {
+            body: {
+              email: 'Rep@Gmail.com',
+              fullName: 'Sales Rep',
+              accessToken: 'ya29.real_access_token_should_never_leak',
+              refreshToken: '1//real_refresh_token_should_never_leak',
+              expiresAt: new Date(Date.now() + 3600000).toISOString()
+            }
+          },
+          res
+        );
+
+        assert(state.statusCode >= 400, `Expected non-success HTTP status for ${JSON.stringify(env)}, got ${state.statusCode}`);
+        assert.strictEqual(state.body?.success, false, 'Failure response must mark success=false');
+        assert(!String(state.body?.message || '').includes('connected successfully'), 'Must never report Gmail as connected on persistence failure');
+        assert.strictEqual(gmailAccounts.length, 0, 'gmailAccounts in-memory array must not be mutated on failure');
+        assert.strictEqual(saveDiskCalls, 0, 'saveAccountsToDisk must not be called on persistence failure');
+
+        const errOut = String(state.body?.error || '');
+        assert(errOut.length > 0, 'Failure response must contain clear error message');
+        assert(!errOut.includes('ya29.') && !errOut.includes('1//') && !errOut.includes('GOCSPX-'), 'Must never expose tokens or client secrets');
+        assert(!errOut.includes('postgresql://') && !errOut.includes('42P01') && !errOut.includes('SUPABASE_SERVICE_ROLE_KEY'), 'Must never expose SQL internals or env secret names');
+
+        // Also verify frontend error mapper preserves actionable persistence message cleanly without replacing with generic text
+        const mappedFrontendMsg = sanitizeUserFacingError(errOut, 'Fallback');
+        assert.strictEqual(mappedFrontendMsg, errOut, `Expected frontend errorMapper to preserve "${errOut}", got "${mappedFrontendMsg}"`);
+      }
+
+      // Mock token submitted to /gmail/connect in production/Vercel must fail closed (400), never succeed
+      const mockTokenAccounts: any[] = [];
+      let mockSaveCalls = 0;
+      const mockTokenHandler = createGmailConnectHandler({
+        getAuthenticatedUser: () => ({ id: 'usr_1', email: 'rep@acme.com', organizationId: 'org_1' }),
+        resolveVerifiedOrganizationId: () => ({ orgId: 'org_1' }),
+        resolveCanonicalGoogleIdentity: async () => ({ userId: 'usr_1', organizationId: 'org_1' }),
+        getGmailAccounts: () => mockTokenAccounts,
+        saveAccountsToDisk: () => { mockSaveCalls++; },
+        getEnv: () => env as any
+      });
+      const mockRes = createMockRes();
+      await mockTokenHandler(
+        { body: { email: 'sandbox@acme.com', accessToken: 'mock_sandbox_token_123' } },
+        mockRes.res
+      );
+      assert.strictEqual(mockRes.state.statusCode, 400, 'Mock sandbox token in production/Vercel must fail closed with 400');
+      assert.strictEqual(mockRes.state.body?.success, false);
+      assert.strictEqual(mockTokenAccounts.length, 0);
+      assert.strictEqual(mockSaveCalls, 0);
+      assert.strictEqual(
+        sanitizeUserFacingError(mockRes.state.body.error, 'Fallback'),
+        mockRes.state.body.error,
+        'Frontend mapper must surface mock-credential production rejection message cleanly'
+      );
+    }
+  });
+
+  await runTest('26. POST /gmail/connect preserves dev-only fallback without SUPABASE_SERVICE_ROLE_KEY and succeeds when authoritative persistence succeeds', async () => {
+    const createMockRes = () => {
+      const state: { statusCode: number; body: any } = { statusCode: 200, body: null };
+      const res: any = {
+        status(code: number) {
+          state.statusCode = code;
+          return res;
+        },
+        json(payload: any) {
+          state.body = payload;
+          return res;
+        }
+      };
+      return { res, state };
+    };
+
+    // 1. Development-only without SUPABASE_SERVICE_ROLE_KEY preserves local sandbox behavior
+    const devAccounts: any[] = [];
+    let devSaveCalls = 0;
+    const devHandler = createGmailConnectHandler({
+      getAuthenticatedUser: () => ({ id: 'usr_dev_1', email: 'dev@acme.com', organizationId: 'org_dev_1' }),
+      resolveVerifiedOrganizationId: () => ({ orgId: 'org_dev_1' }),
+      resolveCanonicalGoogleIdentity: async () => ({ userId: 'usr_dev_1', organizationId: 'org_dev_1' }),
+      getGmailAccounts: () => devAccounts,
+      saveAccountsToDisk: () => { devSaveCalls++; },
+      getEnv: () => ({ NODE_ENV: 'development' } as any)
+    });
+    const devRes = createMockRes();
+    await devHandler(
+      { body: { email: 'Sandbox@Acme.com', fullName: 'Sandbox', accessToken: 'mock_sandbox_token_dev_1' } },
+      devRes.res
+    );
+    assert.strictEqual(devRes.state.statusCode, 200);
+    assert(String(devRes.state.body?.message || '').includes('connected successfully'));
+    assert.strictEqual(devAccounts.length, 1);
+    assert.strictEqual(devAccounts[0].email, 'sandbox@acme.com');
+    assert.strictEqual(devSaveCalls, 1);
+
+    // 2. Production succeeds cleanly ONLY when authoritative persistence returns success=true
+    const prodAccounts: any[] = [];
+    let prodSaveCalls = 0;
+    const prodHandler = createGmailConnectHandler({
+      getAuthenticatedUser: () => ({ id: 'usr_prod_1', email: 'rep@acme.com', organizationId: 'org_prod_1', emailConfirmedAt: '2026-01-01T00:00:00Z' }),
+      resolveVerifiedOrganizationId: () => ({ orgId: 'org_prod_1' }),
+      resolveCanonicalGoogleIdentity: async () => ({ userId: 'usr_prod_1', organizationId: 'org_prod_1' }),
+      getGmailAccounts: () => prodAccounts,
+      saveAccountsToDisk: () => { prodSaveCalls++; },
+      getEnv: () => ({ NODE_ENV: 'production', VERCEL: '1', SUPABASE_SERVICE_ROLE_KEY: 'srv_key' } as any),
+      persistAccount: async () => ({ success: true, gmailId: 'ga_gmail_1', calendarId: 'ga_cal_1' })
+    });
+    const prodRes = createMockRes();
+    await prodHandler(
+      { body: { email: 'Rep.Gmail@gmail.com', fullName: 'Rep Gmail', accessToken: 'ya29.valid_prod_tok' } },
+      prodRes.res
+    );
+    assert.strictEqual(prodRes.state.statusCode, 200);
+    assert(String(prodRes.state.body?.message || '').includes('connected successfully'));
+    assert.strictEqual(prodAccounts.length, 1);
+    assert.strictEqual(prodSaveCalls, 1);
+  });
+
+  await runTest('27. OAuth callback, /gmail/connect, and IntegrationsView follow unified persistence policy and error mapping', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const serverSrc = fs.readFileSync(path.join(process.cwd(), 'server.ts'), 'utf8');
+    const integrationsSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/IntegrationsView.tsx'), 'utf8');
+
+    // Both callback and /gmail/connect route use unified persistence policy
+    assert(
+      serverSrc.includes("contextLabel: 'GOOGLE CALLBACK FLOW'") &&
+      serverSrc.includes("app.post('/gmail/connect', createGmailConnectHandler("),
+      'Both OAuth callback and /gmail/connect must enforce unified persistence policy'
+    );
+    assert(!serverSrc.includes('[GMAIL CONNECT PERSISTENCE NOTICE]'), 'server.ts /gmail/connect must not swallow persistence errors directly');
+
+    // Callback executes persistGoogleAccountWithPolicy before mutating local gmailAccounts/calendarAccounts/saveAccountsToDisk
+    const persistIdx = serverSrc.indexOf("contextLabel: 'GOOGLE CALLBACK FLOW'");
+    const diskSaveIdx = serverSrc.indexOf('saveAccountsToDisk();', persistIdx);
+    const localMutateIdx = serverSrc.indexOf('const existingGmail = gmailAccounts.find(', persistIdx - 200);
+    assert(persistIdx > 0 && diskSaveIdx > persistIdx && localMutateIdx > persistIdx, 'Callback must persist authoritatively before mutating local memory/disk');
+
+    // Frontend IntegrationsView maps /gmail/connect error through sanitizeUserFacingError and displays banner + alert
+    assert(
+      integrationsSrc.includes('const friendlyError = sanitizeUserFacingError(rawError,') &&
+      integrationsSrc.includes('setOauthErrorBanner(friendlyError);'),
+      'IntegrationsView handleConnectAccount must map and display backend persistence errors via sanitizeUserFacingError'
     );
   });
 

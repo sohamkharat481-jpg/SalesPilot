@@ -1080,6 +1080,7 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
   const handleConnectAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customEmail) return;
+    setOauthErrorBanner(null);
 
     try {
       const headers = await getAuthHeaders();
@@ -1098,18 +1099,24 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       if (res.ok) {
         logActivity(`Connected Gmail Account: ${customEmail}`, 'Gmail Integration');
         fetchGmailStatus();
+        setOauthErrorBanner(null);
         setIsConnectModalOpen(false);
         setCustomEmail('');
         setCustomName('');
         alert('Sandbox account created successfully.');
       } else {
         const errData = await res.json().catch(() => ({}));
-        const friendlyError = sanitizeUserFacingError(errData?.error || 'sandbox', 'Unable to create the sandbox account. Please try again.');
+        const rawError = typeof errData?.error === 'string' && errData.error.trim()
+          ? errData.error
+          : 'Unable to connect your Gmail account. Please try again.';
+        const friendlyError = sanitizeUserFacingError(rawError, 'Unable to connect your Gmail account. Please try again.');
+        setOauthErrorBanner(friendlyError);
         alert(friendlyError);
       }
     } catch (err) {
-      console.error('Error connecting sandbox account:', err);
-      const friendlyError = sanitizeUserFacingError(err, 'Unable to create the sandbox account. Please try again.');
+      console.error('Error connecting Gmail account:', err);
+      const friendlyError = sanitizeUserFacingError(err, 'Unable to connect your Gmail account. Please try again.');
+      setOauthErrorBanner(friendlyError);
       alert(friendlyError);
     }
   };

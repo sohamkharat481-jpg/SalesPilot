@@ -17,9 +17,16 @@ function hasInternalTechnicalLeak(errorStr: string): boolean {
     lower.includes('http://') ||
     lower.includes('econnrefused') ||
     lower.includes('typeerror:') ||
-    lower.includes('error:') ||
+    /^(error|typeerror|referenceerror|syntaxerror|rangeerror|internalerror):|\b(oauth error|postgresql error|postgres error|database error):/i.test(errorStr) ||
     lower.includes('{"error"') ||
     lower.includes('stack') ||
+    lower.includes('postgresql://') ||
+    lower.includes('postgres://') ||
+    lower.includes('service_role') ||
+    lower.includes('access_token') ||
+    lower.includes('refresh_token') ||
+    lower.includes('ya29.') ||
+    lower.includes('gocspx-') ||
     lower.includes('google_client_id') ||
     lower.includes('google_client_secret') ||
     lower.includes('organizationid') ||
@@ -160,7 +167,7 @@ export function sanitizeUserFacingError(rawError: unknown, fallbackMessage = 'So
     lower.includes('database') ||
     lower.includes('vercel') ||
     lower.includes('stack') ||
-    lower.includes('error:') ||
+    /^(error|typeerror|referenceerror|syntaxerror|rangeerror|internalerror):|\b(oauth error|postgresql error|postgres error|database error):/i.test(errorStr) ||
     lower.includes('http 5') ||
     lower.includes('500') ||
     lower.includes('undefined') ||

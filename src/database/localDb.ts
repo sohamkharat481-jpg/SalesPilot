@@ -253,7 +253,6 @@ export class LocalDB {
         if (!this.db.invoices) this.db.invoices = [];
 
         this.ensureDefaultWorkspacesAndMemberships();
-        this.runSafeLegacyDataMigration();
 
         console.log(`[LocalDB] Loaded database with ${this.db.users?.length || 0} users and ${this.db.leads?.length || 0} leads.`);
       } catch (err) {
@@ -868,55 +867,9 @@ export class LocalDB {
         });
       }
 
-      // 8. Migrate Google Accounts (only owned accounts with valid BIGINT expiry_date)
-      for (const ca of this.db.calendarAccounts) {
-        const caOrgId = ca.organizationId || ca.organization_id;
-        const caUserId = ca.userId || ca.user_id;
-        const caEmail = (ca.email || '').toLowerCase().trim();
-        if (!caOrgId || !caUserId || !caEmail || !ca.accessToken || String(ca.accessToken).startsWith('mock_')) continue;
-        const expMs = ca.expiresAt ? Date.parse(ca.expiresAt) : NaN;
-        await this.retryWithBackoff(async () => {
-          await this.supabase!
-            .from('google_accounts')
-            .upsert({
-              id: `ga_${caUserId}_${caEmail}_calendar`,
-              user_id: caUserId,
-              organization_id: caOrgId,
-              email: caEmail,
-              access_token: ca.accessToken || '',
-              refresh_token: ca.refreshToken || '',
-              scopes: ca.scopes || [],
-              expiry_date: Number.isFinite(expMs) ? Math.floor(expMs) : null,
-              status: ca.status || 'CONNECTED',
-              account_type: 'calendar',
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        });
-      }
-      for (const ga of this.db.gmailAccounts) {
-        const gaOrgId = ga.organizationId || ga.organization_id;
-        const gaUserId = ga.userId || ga.user_id;
-        const gaEmail = (ga.email || '').toLowerCase().trim();
-        if (!gaOrgId || !gaUserId || !gaEmail || !ga.accessToken || String(ga.accessToken).startsWith('mock_')) continue;
-        const expMs = ga.expiresAt ? Date.parse(ga.expiresAt) : NaN;
-        await this.retryWithBackoff(async () => {
-          await this.supabase!
-            .from('google_accounts')
-            .upsert({
-              id: `ga_${gaUserId}_${gaEmail}_gmail`,
-              user_id: gaUserId,
-              organization_id: gaOrgId,
-              email: gaEmail,
-              access_token: ga.accessToken || '',
-              refresh_token: ga.refreshToken || '',
-              scopes: ga.scopes || [],
-              expiry_date: Number.isFinite(expMs) ? Math.floor(expMs) : null,
-              status: ga.status || 'CONNECTED',
-              account_type: 'gmail',
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        });
-      }
+      // 8. Google accounts are managed exclusively and authoritatively via persistAuthoritativeGoogleAccount
+      // to guarantee strict foreign-key integrity (google_accounts_user_id_fkey, google_accounts_organization_id_fkey)
+      // and prevent unverified background writes.
 
       // 9. Backport any newer updates from PostgreSQL to memory cache
       console.log('[MIGRATION] Auto-migration successfully executed. Downloading latest updates from PostgreSQL...');
@@ -1359,55 +1312,8 @@ export class LocalDB {
         });
       }
 
-      // Google Accounts (only owned non-mock accounts with valid BIGINT expiry_date)
-      for (const ca of this.db.calendarAccounts) {
-        const caOrgId = ca.organizationId || ca.organization_id;
-        const caUserId = ca.userId || ca.user_id;
-        const caEmail = (ca.email || '').toLowerCase().trim();
-        if (!caOrgId || !caUserId || !caEmail || !ca.accessToken || String(ca.accessToken).startsWith('mock_')) continue;
-        const expMs = ca.expiresAt ? Date.parse(ca.expiresAt) : NaN;
-        await this.retryWithBackoff(async () => {
-          await this.supabase!
-            .from('google_accounts')
-            .upsert({
-              id: `ga_${caUserId}_${caEmail}_calendar`,
-              user_id: caUserId,
-              organization_id: caOrgId,
-              email: caEmail,
-              access_token: ca.accessToken || '',
-              refresh_token: ca.refreshToken || '',
-              scopes: ca.scopes || [],
-              expiry_date: Number.isFinite(expMs) ? Math.floor(expMs) : null,
-              status: ca.status || 'CONNECTED',
-              account_type: 'calendar',
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        });
-      }
-      for (const ga of this.db.gmailAccounts) {
-        const gaOrgId = ga.organizationId || ga.organization_id;
-        const gaUserId = ga.userId || ga.user_id;
-        const gaEmail = (ga.email || '').toLowerCase().trim();
-        if (!gaOrgId || !gaUserId || !gaEmail || !ga.accessToken || String(ga.accessToken).startsWith('mock_')) continue;
-        const expMs = ga.expiresAt ? Date.parse(ga.expiresAt) : NaN;
-        await this.retryWithBackoff(async () => {
-          await this.supabase!
-            .from('google_accounts')
-            .upsert({
-              id: `ga_${gaUserId}_${gaEmail}_gmail`,
-              user_id: gaUserId,
-              organization_id: gaOrgId,
-              email: gaEmail,
-              access_token: ga.accessToken || '',
-              refresh_token: ga.refreshToken || '',
-              scopes: ga.scopes || [],
-              expiry_date: Number.isFinite(expMs) ? Math.floor(expMs) : null,
-              status: ga.status || 'CONNECTED',
-              account_type: 'gmail',
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        });
-      }
+      // Google Accounts are persisted authoritatively via persistAuthoritativeGoogleAccount
+      // to enforce strict foreign key constraints (public.users, public.organizations) and prevent 23503 errors.
     } catch (pushErr: any) {
       console.error('[DB LIVE STREAM PUSH FAILED]', pushErr.message || pushErr);
     }
