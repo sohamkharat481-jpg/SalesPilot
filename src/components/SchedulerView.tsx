@@ -60,6 +60,7 @@ export function SchedulerView({
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
   const [googleCalendarEmail, setGoogleCalendarEmail] = useState('');
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState('CONNECTED');
+  const [calendarAuthError, setCalendarAuthError] = useState<string | null>(null);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [externalEvents, setExternalEvents] = useState<any[]>([]);
 
@@ -106,6 +107,7 @@ export function SchedulerView({
   // Centralized callback for when Google Auth succeeds across ANY channel
   const onGoogleAuthSuccess = useCallback((email?: string) => {
     console.log('[GOOGLE OAUTH] Google Calendar connected successfully. Email:', email);
+    setCalendarAuthError(null);
     setGoogleCalendarConnected(true);
     if (email) setGoogleCalendarEmail(email);
     setGoogleCalendarStatus('CONNECTED');
@@ -133,7 +135,21 @@ export function SchedulerView({
           window.history.replaceState({}, document.title, newUrl);
         } catch (_) {}
       } else if (url.searchParams.get('google') === 'error' || hash.includes('google=error')) {
-        alert('Unable to connect Google Calendar. Please try again.');
+        let errorMsg = 'Unable to connect Google Calendar. Please try again.';
+        try {
+          const rawStored = localStorage.getItem('salespilot_google_oauth_event');
+          if (rawStored) {
+            const parsed = JSON.parse(rawStored);
+            if (parsed?.type === 'GOOGLE_AUTH_FAILURE' && parsed?.error) {
+              const sanitized = sanitizeUserFacingError(parsed.error, errorMsg);
+              errorMsg =
+                typeof parsed.requestId === 'string' && parsed.requestId.trim() && !sanitized.includes(parsed.requestId.trim())
+                  ? `${sanitized} (Reference: ${parsed.requestId.trim()})`
+                  : sanitized;
+            }
+          }
+        } catch (_) {}
+        setCalendarAuthError(errorMsg);
         try {
           const newUrl = window.location.pathname + '#scheduler';
           window.history.replaceState({}, document.title, newUrl);
@@ -144,6 +160,17 @@ export function SchedulerView({
 
   // Multi-channel inter-tab and popup synchronization
   useEffect(() => {
+    const handleFailurePayload = (payload: any) => {
+      setLoadingId(null);
+      const sanitized = sanitizeUserFacingError(payload?.error, 'Unable to connect your Google account. Please try again.');
+      const friendlyError =
+        typeof payload?.requestId === 'string' && payload.requestId.trim() && !sanitized.includes(payload.requestId.trim())
+          ? `${sanitized} (Reference: ${payload.requestId.trim()})`
+          : sanitized;
+      setCalendarAuthError(friendlyError);
+      console.warn('[GOOGLE OAUTH FAILURE]', friendlyError);
+    };
+
     // 1. Window postMessage listener
     const handleGoogleAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
@@ -154,9 +181,7 @@ export function SchedulerView({
       if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
         onGoogleAuthSuccess(event.data.email);
       } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
-        setLoadingId(null);
-        const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
-        console.warn('[GOOGLE OAUTH FAILURE]', friendlyError);
+        handleFailurePayload(event.data);
       }
     };
 
@@ -169,9 +194,7 @@ export function SchedulerView({
           if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
             onGoogleAuthSuccess(event.data.email);
           } else if (event.data?.type === 'GOOGLE_AUTH_FAILURE') {
-            setLoadingId(null);
-            const friendlyError = sanitizeUserFacingError(event.data.error, 'Unable to connect your Google account. Please try again.');
-            console.warn('[GOOGLE OAUTH FAILURE]', friendlyError);
+            handleFailurePayload(event.data);
           }
         };
       }
@@ -184,6 +207,8 @@ export function SchedulerView({
           const payload = JSON.parse(event.newValue);
           if (payload.type === 'GOOGLE_AUTH_SUCCESS') {
             onGoogleAuthSuccess(payload.email);
+          } else if (payload.type === 'GOOGLE_AUTH_FAILURE') {
+            handleFailurePayload(payload);
           }
         } catch (_) {}
       }
@@ -272,6 +297,7 @@ export function SchedulerView({
   const handleConnectCalendar = async () => {
     const isReconnect = googleCalendarStatus === 'REAUTH_NEEDED';
     console.log(`[GOOGLE OAUTH] Starting ${isReconnect ? 'RECONNECT' : 'CONNECT'} flow...`);
+    setCalendarAuthError(null);
     setLoadingId(isReconnect ? 'reconnect-calendar' : 'connect-calendar');
     try {
       console.log(`[GOOGLE OAUTH] Fetching auth URL from /api/auth/google/url...`);
@@ -293,7 +319,9 @@ export function SchedulerView({
 
       if (!res.ok) {
         console.error(`[GOOGLE OAUTH] Server returned error fetching auth URL:`, data);
-        throw new Error(data?.error || `Failed to fetch Google Auth URL (${res.status}).`);
+        const baseErr = data?.error || `Failed to fetch Google Auth URL (${res.status}).`;
+        const reqId = typeof data?.requestId === 'string' && data.requestId.trim() ? data.requestId.trim() : '';
+        throw new Error(reqId && !String(baseErr).includes(reqId) ? `${baseErr} (Reference: ${reqId})` : baseErr);
       }
       console.log(`[GOOGLE OAUTH] Successfully fetched auth URL:`, data.url);
       
@@ -319,7 +347,7 @@ export function SchedulerView({
     } catch (err: any) {
       console.error(`[GOOGLE OAUTH ERROR]`, err);
       const friendlyMsg = sanitizeUserFacingError(err, 'Unable to connect your Google account. Please try again.');
-      alert(friendlyMsg);
+      setCalendarAuthError(friendlyMsg);
       setLoadingId(null);
     }
   };
@@ -898,6 +926,21 @@ export function SchedulerView({
           </>
         )}
       </div>
+
+      {calendarAuthError && (
+        <div className="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 rounded-xl flex items-start justify-between gap-3 text-xs text-rose-800 dark:text-rose-200">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <span>{calendarAuthError}</span>
+          </div>
+          <button
+            onClick={() => setCalendarAuthError(null)}
+            className="text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-200 font-semibold shrink-0 cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {testResult && (
         <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-200 space-y-2 animate-fade-in shadow-lg">

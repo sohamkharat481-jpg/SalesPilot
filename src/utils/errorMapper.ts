@@ -26,7 +26,10 @@ function hasInternalTechnicalLeak(errorStr: string): boolean {
     lower.includes('access_token') ||
     lower.includes('refresh_token') ||
     lower.includes('ya29.') ||
+    lower.includes('1//') ||
     lower.includes('gocspx-') ||
+    lower.includes('client_secret') ||
+    lower.includes('bearer ') ||
     lower.includes('google_client_id') ||
     lower.includes('google_client_secret') ||
     lower.includes('organizationid') ||
@@ -91,6 +94,10 @@ export function sanitizeUserFacingError(rawError: unknown, fallbackMessage = 'So
       lower.includes('unable to retrieve your google account profile') ||
       lower.includes('google token exchange failed') ||
       lower.includes('google authorization failed') ||
+      lower.includes('unable to connect your google account') ||
+      lower.includes('not authorized for this grant type') ||
+      lower.includes('client is disabled') ||
+      lower.includes('(reference: req_') ||
       lower.includes('popup') ||
       lower.includes('http ')
     ) {

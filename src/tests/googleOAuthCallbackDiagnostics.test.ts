@@ -6,10 +6,14 @@ import {
   persistGoogleAccountWithPolicy,
   isAuthoritativeGooglePersistenceRequired,
   createGmailConnectHandler,
-  queryAuthoritativeGmailAccounts
+  queryAuthoritativeGmailAccounts,
+  resolveAuthoritativeGmailAccount,
+  resolveAuthoritativeCalendarAccount,
+  markGoogleAccountReauthRequired,
+  hasRequiredCalendarScope
 } from '../backend/googleAccountsService';
 import { sanitizeUserFacingError } from '../utils/errorMapper';
-import { LocalDB } from '../database/localDb';
+import { LocalDB, isProductionDiskPersistenceDisabled } from '../database/localDb';
 import {
   authenticateUser,
   verifySupabaseBearerJwt,
@@ -1359,6 +1363,707 @@ export async function runGoogleOAuthCallbackDiagnosticsTests(): Promise<{ passed
       integrationsSrc.includes('setOauthErrorBanner(friendlyError);'),
       'IntegrationsView handleConnectAccount must map and display backend persistence errors via sanitizeUserFacingError'
     );
+  });
+
+  await runTest('28. Email normalization, refresh_token preservation on re-auth, and authoritative readback for Gmail & Calendar', async () => {
+    const storedRows = new Map<string, any>([
+      [
+        'legacy_uuid_cal_1',
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          user_id: 'usr_reauth_1',
+          organization_id: 'org_reauth_1',
+          email: 'rep@company.com',
+          account_type: 'calendar',
+          access_token: 'ya29.old_cal',
+          refresh_token: '1//0g_preserved_refresh_token_abc',
+          status: 'REAUTH_REQUIRED',
+          expiry_date: Date.now() - 10000,
+          scopes: ['https://www.googleapis.com/auth/calendar']
+        }
+      ],
+      [
+        'legacy_uuid_gmail_1',
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          user_id: 'usr_reauth_1',
+          organization_id: 'org_reauth_1',
+          email: 'rep@company.com',
+          account_type: 'gmail',
+          access_token: 'ya29.old_gmail',
+          refresh_token: '1//0g_preserved_refresh_token_abc',
+          status: 'REAUTH_REQUIRED',
+          expiry_date: Date.now() - 10000,
+          scopes: ['https://www.googleapis.com/auth/gmail.send']
+        }
+      ]
+    ]);
+
+    const updatesLog: Array<{ id: string; fields: any }> = [];
+    const mockDb: any = {
+      from(table: string) {
+        const filters: Record<string, any> = {};
+        const inFilters: Record<string, any[]> = {};
+        let updateFields: Record<string, any> | null = null;
+        const b: any = {
+          select() { return b; },
+          eq(col: string, val: any) { filters[col] = val; return b; },
+          in(col: string, vals: any[]) { inFilters[col] = vals; return b; },
+          not() { return b; },
+          order() { return b; },
+          limit() { return b; },
+          update(fields: Record<string, any>) {
+            updateFields = fields;
+            return {
+              eq(c1: string, v1: any) {
+                filters[c1] = v1;
+                return {
+                  eq(c2: string, v2: any) {
+                    filters[c2] = v2;
+                    return {
+                      async eq(c3: string, v3: any) {
+                        filters[c3] = v3;
+                        const existing = Array.from(storedRows.values()).find(r => r.id === filters.id);
+                        if (existing && existing.user_id === filters.user_id && existing.organization_id === filters.organization_id) {
+                          updatesLog.push({ id: existing.id, fields: { ...updateFields } });
+                          Object.assign(existing, updateFields);
+                          return { error: null };
+                        }
+                        return { error: { message: 'Row not found' } };
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          },
+          async maybeSingle() {
+            if (table === 'users') {
+              return { data: { id: 'usr_reauth_1', email: 'Rep@Company.com', organization_id: 'org_reauth_1', role: 'SALES', is_verified: true }, error: null };
+            }
+            if (table === 'organizations') {
+              return { data: { id: 'org_reauth_1', owner_id: 'usr_owner_1', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'team_members') {
+              return { data: { id: 'tm_r1', user_id: 'usr_reauth_1', organization_id: 'org_reauth_1', role: 'SALES', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'google_accounts') {
+              const rows = Array.from(storedRows.values()).filter(r => {
+                if (filters.user_id && r.user_id !== filters.user_id) return false;
+                if (filters.organization_id && r.organization_id !== filters.organization_id) return false;
+                if (filters.email && r.email !== filters.email) return false;
+                if (inFilters.account_type && !inFilters.account_type.includes(r.account_type)) return false;
+                return true;
+              });
+              return { data: rows[0] || null, error: null };
+            }
+            return { data: null, error: null };
+          },
+          then(resolve: any) {
+            if (table === 'google_accounts') {
+              const rows = Array.from(storedRows.values()).filter(r => {
+                if (filters.organization_id && r.organization_id !== filters.organization_id) return false;
+                if (filters.user_id && r.user_id !== filters.user_id) return false;
+                if (inFilters.account_type && !inFilters.account_type.includes(r.account_type)) return false;
+                return true;
+              });
+              resolve({ data: rows, error: null });
+              return;
+            }
+            resolve({ data: [], error: null });
+          }
+        };
+        return b;
+      }
+    };
+
+    // Re-authorize when Google omits refresh_token (empty string passed) & mixed-case email
+    const res = await persistAuthoritativeGoogleAccount({
+      userId: 'usr_reauth_1',
+      userEmail: 'rep@company.com',
+      organizationId: 'org_reauth_1',
+      email: '  Rep@Company.com ',
+      accessToken: 'ya29.fresh_access_token_999',
+      refreshToken: '',
+      scopes: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'],
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      calendarAccessVerified: true,
+      privilegedClient: mockDb
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.gmailId, '22222222-2222-4222-8222-222222222222');
+    assert.strictEqual(res.calendarId, '11111111-1111-4111-8111-111111111111');
+    assert.strictEqual(updatesLog.length, 2, 'Existing UUID rows should update cleanly');
+    for (const u of updatesLog) {
+      assert.strictEqual(u.fields.email, 'rep@company.com', 'Email must be normalized to lowercase');
+      assert.strictEqual(u.fields.refresh_token, '1//0g_preserved_refresh_token_abc', 'Existing refresh_token must never be overwritten with empty string');
+    }
+
+    // Authoritative readback reflects new CONNECTED state and token
+    const readback = await queryAuthoritativeGmailAccounts({
+      organizationId: 'org_reauth_1',
+      userId: 'usr_reauth_1',
+      privilegedClient: mockDb
+    });
+    assert.strictEqual(readback.length, 1);
+    assert.strictEqual(readback[0].status, 'CONNECTED');
+    assert.strictEqual(readback[0].email, 'rep@company.com');
+  });
+
+  await runTest('29. Composable schema compatibility adapts to TIMESTAMPTZ expiry, missing status/updated_at, TEXT scopes, provider NOT NULL, and UUID PK', async () => {
+    const upsertAttempts: any[] = [];
+    const strictSchemaDb: any = {
+      from(table: string) {
+        const b: any = {
+          select() { return b; },
+          eq() { return b; },
+          in() { return b; },
+          not() { return b; },
+          limit() { return b; },
+          async maybeSingle() {
+            if (table === 'users') {
+              return { data: { id: 'usr_schema_1', email: 'schema@acme.com', organization_id: 'org_schema_1', role: 'SALES', is_verified: true }, error: null };
+            }
+            if (table === 'organizations') {
+              return { data: { id: 'org_schema_1', owner_id: 'usr_owner_1', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'team_members') {
+              return { data: { id: 'tm_sch_1', user_id: 'usr_schema_1', organization_id: 'org_schema_1', status: 'ACTIVE' }, error: null };
+            }
+            return { data: null, error: null };
+          },
+          async upsert(rows: any[]) {
+            const first = rows[0];
+            upsertAttempts.push(rows);
+            if (typeof first.id === 'string' && first.id.startsWith('ga_')) {
+              return { error: { code: '22P02', message: `invalid input syntax for type uuid: "${first.id}"` } };
+            }
+            if ('status' in first) {
+              return { error: { code: 'PGRST204', message: "Could not find the 'status' column of 'google_accounts' in the schema cache" } };
+            }
+            if ('updated_at' in first) {
+              return { error: { code: '42703', message: 'column "updated_at" of relation "google_accounts" does not exist' } };
+            }
+            if (typeof first.expiry_date === 'number') {
+              return { error: { code: '22008', message: 'date/time field value out of range for type timestamp with time zone' } };
+            }
+            if (Array.isArray(first.scopes)) {
+              return { error: { code: '22P02', message: 'malformed array literal: scopes column expects text' } };
+            }
+            if (!first.provider) {
+              return { error: { code: '23502', message: 'null value in column "provider" violates not-null constraint' } };
+            }
+            return { error: null };
+          }
+        };
+        return b;
+      }
+    };
+
+    const result = await persistAuthoritativeGoogleAccount({
+      userId: 'usr_schema_1',
+      userEmail: 'schema@acme.com',
+      organizationId: 'org_schema_1',
+      email: 'schema@gmail.com',
+      accessToken: 'ya29.schema_compat_tok',
+      refreshToken: '1//schema_refresh',
+      scopes: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'],
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      calendarAccessVerified: true,
+      privilegedClient: strictSchemaDb
+    });
+
+    assert.strictEqual(result.success, true, 'Schema adaptation loop should succeed within retry budget');
+    assert(/^[0-9a-f-]{36}$/i.test(result.gmailId), `Expected deterministic UUID gmailId, got ${result.gmailId}`);
+    assert(/^[0-9a-f-]{36}$/i.test(result.calendarId), `Expected deterministic UUID calendarId, got ${result.calendarId}`);
+    const lastRows = upsertAttempts[upsertAttempts.length - 1];
+    assert.strictEqual(lastRows[0].provider, 'google');
+    assert.strictEqual(typeof lastRows[0].scopes, 'string');
+    assert.strictEqual(typeof lastRows[0].expiry_date, 'string');
+    assert(!('status' in lastRows[0]));
+    assert(!('updated_at' in lastRows[0]));
+  });
+
+  await runTest('30. Cross-tenant 23505 unique conflict fails closed and never overwrites another tenant/user row', async () => {
+    let updateCalled = false;
+    const crossTenantDb: any = {
+      from(table: string) {
+        const b: any = {
+          select() { return b; },
+          eq() { return b; },
+          in() { return b; },
+          not() { return b; },
+          limit() { return b; },
+          update() {
+            updateCalled = true;
+            return b;
+          },
+          async maybeSingle() {
+            if (table === 'users') {
+              return { data: { id: 'usr_a', email: 'usera@acme.com', organization_id: 'org_a', role: 'SALES', is_verified: true }, error: null };
+            }
+            if (table === 'organizations') {
+              return { data: { id: 'org_a', owner_id: 'usr_owner', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'team_members') {
+              return { data: { id: 'tm_a', user_id: 'usr_a', organization_id: 'org_a', status: 'ACTIVE' }, error: null };
+            }
+            // No matching row exists for THIS user+org scope (conflict belongs to a different tenant/user)
+            return { data: null, error: null };
+          },
+          async upsert() {
+            return {
+              error: {
+                code: '23505',
+                message: 'duplicate key value violates unique constraint "google_accounts_email_unique"'
+              }
+            };
+          }
+        };
+        return b;
+      }
+    };
+
+    let caughtErr: any = null;
+    try {
+      await persistAuthoritativeGoogleAccount({
+        userId: 'usr_a',
+        userEmail: 'usera@acme.com',
+        organizationId: 'org_a',
+        email: 'shared@gmail.com',
+        accessToken: 'ya29.cross_tenant_attempt',
+        scopes: ['https://www.googleapis.com/auth/gmail.send'],
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        privilegedClient: crossTenantDb
+      });
+    } catch (err) {
+      caughtErr = err;
+    }
+
+    assert(caughtErr !== null, 'Cross-tenant 23505 conflict must fail closed');
+    assert.strictEqual(updateCalled, false, 'Must NEVER update a row belonging to another user/tenant');
+    assert.strictEqual(caughtErr.pgCode, '23505');
+  });
+
+  await runTest('31. PostgreSQL error classifications (23502, 23505, 42P01, 42703/PGRST204, 42501, 22P02) map safely with reference IDs and zero leaks', () => {
+    const reqId = 'req_deadbeef12345678';
+    const pgCases: Array<{ code: string; msg: string; expectedSubstr: string }> = [
+      { code: '23502', msg: 'null value in column "email" violates not-null constraint', expectedSubstr: 'required database field was missing' },
+      { code: '23505', msg: 'duplicate key value violates unique constraint', expectedSubstr: 'conflicting Google account record' },
+      { code: '42P01', msg: 'relation "public.google_accounts" does not exist', expectedSubstr: 'required database table is missing' },
+      { code: 'PGRST204', msg: "Could not find the 'status' column in the schema cache", expectedSubstr: 'database schema is out of sync' },
+      { code: '42703', msg: 'column "scopes" does not exist', expectedSubstr: 'database schema is out of sync' },
+      { code: '42501', msg: 'new row violates row-level security policy for table "google_accounts"', expectedSubstr: 'database permission check rejected' },
+      { code: '22P02', msg: 'invalid input syntax for type bigint', expectedSubstr: 'database column format mismatch' }
+    ];
+
+    for (const tc of pgCases) {
+      const classified = classifyGoogleCallbackError(
+        `Database persistence failed: Failed to persist Google account to database (Code ${tc.code}): ${tc.msg}`,
+        reqId
+      );
+      assert(
+        classified.toLowerCase().includes(tc.expectedSubstr.toLowerCase()),
+        `Expected "${tc.expectedSubstr}" for ${tc.code}, got "${classified}"`
+      );
+      assert(classified.includes(`(Reference: ${reqId})`), `Expected reference ID in "${classified}"`);
+
+      // Must pass cleanly through frontend sanitizeUserFacingError without leaking raw SQL/codes/tokens
+      const frontendMapped = sanitizeUserFacingError(classified, 'Fallback');
+      assert.strictEqual(frontendMapped, classified, `Frontend mapper altered safe diagnostic: "${frontendMapped}"`);
+      assert(!frontendMapped.includes('postgresql://') && !frontendMapped.includes('42P01') && !frontendMapped.includes('23502'));
+    }
+
+    // Secrets / tokens injected into raw error must NEVER survive sanitizeUserFacingError
+    const redactedToken = sanitizeUserFacingError('Failed with access_token ya29.secret_123 and refresh 1//secret_456');
+    assert(!redactedToken.includes('ya29.') && !redactedToken.includes('1//'));
+  });
+
+  await runTest('32. Correlation requestId propagates across /gmail/connect failure header + JSON body and server.ts callback', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const serverSrc = fs.readFileSync(path.join(process.cwd(), 'server.ts'), 'utf8');
+
+    assert(
+      serverSrc.includes('const requestId = createCorrelationRequestId(') &&
+      serverSrc.includes("res.setHeader('x-request-id', requestId);") &&
+      serverSrc.includes('classifyGoogleCallbackError(err, requestId)'),
+      'server.ts OAuth callback must generate, attach, and classify errors with correlation requestId'
+    );
+
+    const headersWritten: Record<string, string> = {};
+    let statusOut = 0;
+    let bodyOut: any = null;
+    const handler = createGmailConnectHandler({
+      getAuthenticatedUser: () => ({ id: 'usr_corr_1', email: 'corr@acme.com', organizationId: 'org_corr_1', emailConfirmedAt: '2026-01-01T00:00:00Z' }),
+      resolveVerifiedOrganizationId: () => ({ orgId: 'org_corr_1' }),
+      resolveCanonicalGoogleIdentity: async () => ({ userId: 'usr_corr_1', organizationId: 'org_corr_1' }),
+      getGmailAccounts: () => [],
+      saveAccountsToDisk: () => {},
+      getEnv: () => ({ NODE_ENV: 'production', SUPABASE_SERVICE_ROLE_KEY: 'srv_key' } as any),
+      persistAccount: async ({ requestId }) => {
+        const err: any = new Error('Failed to persist Google account to database (Code 42501): permission denied for table google_accounts');
+        err.pgCode = '42501';
+        err.requestId = requestId;
+        throw err;
+      }
+    });
+
+    await handler(
+      {
+        requestId: 'req_trace_correlation_99',
+        body: { email: 'corr@gmail.com', accessToken: 'ya29.valid_tok' }
+      },
+      {
+        setHeader(k: string, v: string) { headersWritten[k.toLowerCase()] = v; },
+        status(code: number) {
+          statusOut = code;
+          return {
+            json(payload: any) { bodyOut = payload; }
+          };
+        }
+      }
+    );
+
+    assert.strictEqual(statusOut, 500);
+    assert.strictEqual(bodyOut?.success, false);
+    assert.strictEqual(bodyOut?.requestId, 'req_trace_correlation_99');
+    assert.strictEqual(headersWritten['x-request-id'], 'req_trace_correlation_99');
+    assert(String(bodyOut?.error || '').includes('(Reference: req_trace_correlation_99)'));
+    assert(String(bodyOut?.error || '').includes('permission check rejected'));
+  });
+
+  await runTest('33. SchedulerView displays sanitized Calendar OAuth error banner without alert on OAuth failure', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const schedulerSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/SchedulerView.tsx'), 'utf8');
+    assert(
+      schedulerSrc.includes('const [calendarAuthError, setCalendarAuthError] = useState<string | null>(null);') &&
+      schedulerSrc.includes('setCalendarAuthError(friendlyError)') &&
+      schedulerSrc.includes('{calendarAuthError && ('),
+      'SchedulerView must render sanitized calendarAuthError banner for GOOGLE_AUTH_FAILURE and google=error'
+    );
+  });
+
+  await runTest('34. 20261123000001_ensure_google_accounts_schema.sql is non-destructive, UUID/TEXT aware, and fixes all 6 schema review findings', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const migrationSql = fs.readFileSync(
+      path.join(process.cwd(), 'supabase/migrations/20261123000001_ensure_google_accounts_schema.sql'),
+      'utf8'
+    );
+    const upperSql = migrationSql.toUpperCase();
+
+    // Must NEVER drop/recreate table, truncate, delete records, or create rejecting unique indexes
+    assert(!upperSql.includes('DROP TABLE'), 'Migration must NEVER drop google_accounts');
+    assert(!upperSql.includes('TRUNCATE '), 'Migration must NEVER truncate existing rows');
+    assert(!upperSql.includes('DELETE FROM PUBLIC.GOOGLE_ACCOUNTS'), 'Migration must NEVER delete existing Google account rows');
+    assert(!upperSql.includes('CREATE UNIQUE INDEX'), 'Migration must NEVER create a unique index that could reject existing duplicate rows');
+
+    // Review fixes verification:
+    assert(migrationSql.includes("v_users_id_type := CASE WHEN LOWER(COALESCE(v_users_id_type, 'text')) = 'uuid'"), 'Must dynamically inspect parent users.id type (UUID vs TEXT)');
+    assert(migrationSql.includes("v_orgs_id_type := CASE WHEN LOWER(COALESCE(v_orgs_id_type, 'text')) = 'uuid'"), 'Must dynamically inspect parent organizations.id type (UUID vs TEXT)');
+    assert(migrationSql.includes('ALTER TABLE public.google_accounts ADD COLUMN id TEXT;') && migrationSql.includes('ADD CONSTRAINT google_accounts_pkey PRIMARY KEY (id);'), 'Must repair missing id column and add validated PK');
+    assert(migrationSql.includes('ALTER TABLE public.google_accounts ALTER COLUMN expiry_date DROP DEFAULT;') && migrationSql.includes('FLOOR(EXTRACT(EPOCH FROM expiry_date) * 1000)::BIGINT') && migrationSql.includes('pg_temp._sp_safe_expiry_ms'), 'Must safely convert TIMESTAMPTZ/TEXT expiry_date to BIGINT ms');
+    assert(migrationSql.includes('pg_temp._sp_safe_parse_scopes') && migrationSql.includes("ALTER COLUMN scopes TYPE TEXT[]"), 'Must safely reconcile TEXT/JSONB/VARCHAR[] scopes to TEXT[]');
+    assert(migrationSql.includes('v_orphan_user_count = 0') && migrationSql.includes('google_accounts_user_id_fkey'), 'Must validate zero orphans before adding user_id FK');
+    assert(migrationSql.includes('v_orphan_org_count = 0') && migrationSql.includes('google_accounts_organization_id_fkey'), 'Must validate zero orphans before adding organization_id FK');
+    assert(migrationSql.includes('v_dup_scoped_groups') && migrationSql.includes('DROP POLICY IF EXISTS') && migrationSql.includes('user_id::text = (auth.uid())::text') && migrationSql.includes('ENABLE ROW LEVEL SECURITY'), 'Must preserve RLS policies across column type alterations and audit duplicates without rejecting rows');
+  });
+
+  await runTest('35. verify_google_accounts_schema.sql provides read-only schema, constraint, RLS, orphan, and duplicate audits without exposing tokens', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const verifyPath = path.join(process.cwd(), 'supabase/verify_google_accounts_schema.sql');
+    assert(fs.existsSync(verifyPath), 'Verification SQL script must exist at supabase/verify_google_accounts_schema.sql');
+    const verifySql = fs.readFileSync(verifyPath, 'utf8');
+    const upperSql = verifySql.toUpperCase();
+
+    // Strictly read-only
+    for (const forbidden of ['INSERT ', 'UPDATE ', 'DELETE ', 'DROP ', 'ALTER ', 'CREATE ', 'TRUNCATE ']) {
+      assert(!upperSql.includes(forbidden), `Verification script must be strictly read-only (found "${forbidden.trim()}")`);
+    }
+
+    assert(verifySql.includes('information_schema.columns'));
+    assert(verifySql.includes('pg_constraint'));
+    assert(verifySql.includes('pg_indexes') || verifySql.includes('pg_index'));
+    assert(verifySql.includes('pg_policies'));
+    assert(verifySql.includes('orphaned_user_id_rows') && verifySql.includes('orphaned_organization_id_rows'));
+    assert(verifySql.includes('HAVING COUNT(*) > 1'));
+    // Must only count non-empty tokens, never return raw access_token/refresh_token columns directly
+    assert(verifySql.includes('COUNT(*) FILTER (WHERE access_token IS NOT NULL'));
+    assert(verifySql.includes('COUNT(*) FILTER (WHERE refresh_token IS NOT NULL'));
+  });
+
+  await runTest('36. Mixed-case legacy email update updates existing row without creating duplicate and preserves per-row refresh_token', async () => {
+    const legacyCalRow = {
+      id: '33333333-3333-4333-8333-333333333333',
+      user_id: 'usr_mix_1',
+      organization_id: 'org_mix_1',
+      email: 'MixedCase@Company.COM',
+      account_type: 'calendar',
+      access_token: 'ya29.old_mix_cal',
+      refresh_token: '1//cal_refresh_preserved_999',
+      status: 'CONNECTED',
+      expiry_date: Date.now() - 5000,
+      scopes: ['https://www.googleapis.com/auth/calendar']
+    };
+    const legacyGmailRow = {
+      id: '44444444-4444-4444-8444-444444444444',
+      user_id: 'usr_mix_1',
+      organization_id: 'org_mix_1',
+      email: 'MixedCase@Company.COM',
+      account_type: 'gmail',
+      access_token: 'ya29.old_mix_gmail',
+      refresh_token: '1//gmail_refresh_preserved_777',
+      status: 'CONNECTED',
+      expiry_date: Date.now() - 5000,
+      scopes: ['https://www.googleapis.com/auth/gmail.send']
+    };
+    const tableRows = [legacyCalRow, legacyGmailRow];
+    let upsertCalled = false;
+
+    const mockDb: any = {
+      from(table: string) {
+        const filters: Record<string, any> = {};
+        let ilikeEmail: string | null = null;
+        let inVals: any[] | null = null;
+        let pendingUpdate: Record<string, any> | null = null;
+        const b: any = {
+          select() { return b; },
+          eq(col: string, val: any) { filters[col] = val; return b; },
+          ilike(col: string, val: any) {
+            if (col === 'email') ilikeEmail = String(val).replace(/\\/g, '').toLowerCase();
+            return b;
+          },
+          in(col: string, vals: any[]) {
+            if (col === 'account_type') inVals = vals;
+            return b;
+          },
+          not() { return b; },
+          limit() { return b; },
+          update(fields: Record<string, any>) {
+            pendingUpdate = fields;
+            return {
+              eq(c1: string, v1: any) {
+                filters[c1] = v1;
+                return {
+                  eq(c2: string, v2: any) {
+                    filters[c2] = v2;
+                    return {
+                      async eq(c3: string, v3: any) {
+                        filters[c3] = v3;
+                        const row = tableRows.find(
+                          r => r.id === filters.id && r.user_id === filters.user_id && r.organization_id === filters.organization_id
+                        );
+                        if (!row) return { error: { message: 'Row not found' } };
+                        Object.assign(row, pendingUpdate);
+                        return { error: null };
+                      }
+                    };
+                  }
+                };
+              }
+            };
+          },
+          async upsert() {
+            upsertCalled = true;
+            return { error: null };
+          },
+          async maybeSingle() {
+            if (table === 'users') {
+              return { data: { id: 'usr_mix_1', email: 'rep@company.com', organization_id: 'org_mix_1', role: 'SALES', is_verified: true }, error: null };
+            }
+            if (table === 'organizations') {
+              return { data: { id: 'org_mix_1', owner_id: 'usr_owner_mix', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'team_members') {
+              return { data: { id: 'tm_mix_1', user_id: 'usr_mix_1', organization_id: 'org_mix_1', role: 'SALES', status: 'ACTIVE' }, error: null };
+            }
+            if (table === 'google_accounts') {
+              const found = tableRows.find(r => {
+                if (filters.user_id && r.user_id !== filters.user_id) return false;
+                if (filters.organization_id && r.organization_id !== filters.organization_id) return false;
+                if (filters.email && r.email !== filters.email) return false;
+                if (ilikeEmail && r.email.toLowerCase() !== ilikeEmail) return false;
+                if (inVals && !inVals.includes(r.account_type)) return false;
+                return true;
+              });
+              return { data: found || null, error: null };
+            }
+            return { data: null, error: null };
+          }
+        };
+        return b;
+      }
+    };
+
+    const result = await persistAuthoritativeGoogleAccount({
+      userId: 'usr_mix_1',
+      userEmail: 'rep@company.com',
+      authIdentity: { id: 'usr_mix_1', email: 'rep@company.com', email_confirmed_at: '2026-01-01T00:00:00Z' },
+      organizationId: 'org_mix_1',
+      email: 'mixedcase@company.com',
+      name: 'Rep Mixed',
+      accessToken: 'ya29.fresh_access_tok',
+      refreshToken: '',
+      scopes: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/calendar'],
+      expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+      calendarAccessVerified: true,
+      privilegedClient: mockDb,
+      requestId: 'req_mix_test_1'
+    });
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(upsertCalled, false, 'Existing mixed-case UUID rows must be updated via .update(), not duplicated');
+    assert.strictEqual(tableRows.length, 2, 'Row count must remain 2 without duplicate inserts');
+    assert.strictEqual(legacyCalRow.refresh_token, '1//cal_refresh_preserved_999', 'Calendar row must preserve its own refresh_token');
+    assert.strictEqual(legacyGmailRow.refresh_token, '1//gmail_refresh_preserved_777', 'Gmail row must preserve its own refresh_token');
+    assert.strictEqual(legacyCalRow.access_token, 'ya29.fresh_access_tok');
+    assert.strictEqual(legacyGmailRow.access_token, 'ya29.fresh_access_tok');
+  });
+
+  await runTest('37. Gmail and Calendar resolve independently and scoped reauth marking isolates service statuses', async () => {
+    const accountRows = [
+      {
+        id: 'ga_indep_gmail',
+        user_id: 'usr_indep_1',
+        organization_id: 'org_indep_1',
+        email: 'rep@indep.com',
+        account_type: 'gmail',
+        access_token: 'ya29.gmail_ok',
+        refresh_token: '',
+        expiry_date: Date.now() - 10000, // Expired with no refresh_token -> REAUTH_REQUIRED
+        status: 'CONNECTED',
+        scopes: ['https://www.googleapis.com/auth/gmail.send']
+      },
+      {
+        id: 'ga_indep_cal',
+        user_id: 'usr_indep_1',
+        organization_id: 'org_indep_1',
+        email: 'rep@indep.com',
+        account_type: 'calendar',
+        access_token: 'ya29.cal_ok',
+        refresh_token: '1//cal_refresh_valid',
+        expiry_date: Date.now() + 3600_000,
+        status: 'CONNECTED',
+        scopes: ['https://www.googleapis.com/auth/calendar']
+      }
+    ];
+
+    const mockClient: any = {
+      from(table: string) {
+        const filters: Record<string, any> = {};
+        let inVals: any[] | null = null;
+        let updatePayload: Record<string, any> | null = null;
+        const applyUpdate = () => {
+          if (!updatePayload) return { error: null };
+          for (const r of accountRows) {
+            if (filters.email && r.email !== filters.email) continue;
+            if (filters.organization_id && r.organization_id !== filters.organization_id) continue;
+            if (filters.user_id && r.user_id !== filters.user_id) continue;
+            if (inVals && !inVals.includes(r.account_type)) continue;
+            Object.assign(r, updatePayload);
+          }
+          return { error: null };
+        };
+        const b: any = {
+          select() { return b; },
+          update(fields: Record<string, any>) {
+            updatePayload = fields;
+            return b;
+          },
+          eq(col: string, val: any) { filters[col] = val; return b; },
+          in(col: string, vals: any[]) { if (col === 'account_type') inVals = vals; return b; },
+          not() { return b; },
+          order() { return b; },
+          limit() { return b; },
+          then(resolve: any) { return Promise.resolve(applyUpdate()).then(resolve); },
+          async maybeSingle() {
+            if (table !== 'google_accounts') return { data: null, error: null };
+            const found = accountRows.find(r => {
+              if (filters.organization_id && r.organization_id !== filters.organization_id) return false;
+              if (filters.user_id && r.user_id !== filters.user_id) return false;
+              if (inVals && !inVals.includes(r.account_type)) return false;
+              return true;
+            });
+            return { data: found || null, error: null, count: found ? 1 : 0 };
+          }
+        };
+        return b;
+      }
+    };
+
+    const gmailBefore = await resolveAuthoritativeGmailAccount({
+      organizationId: 'org_indep_1',
+      userId: 'usr_indep_1',
+      privilegedClient: mockClient
+    });
+    const calBefore = await resolveAuthoritativeCalendarAccount({
+      organizationId: 'org_indep_1',
+      userId: 'usr_indep_1',
+      privilegedClient: mockClient
+    });
+    assert.strictEqual(gmailBefore?.status, 'REAUTH_REQUIRED', 'Expired Gmail without refresh_token resolves REAUTH_REQUIRED');
+    assert.strictEqual(calBefore?.status, 'CONNECTED', 'Valid Calendar account resolves CONNECTED independently');
+
+    // Marking only 'gmail' REAUTH_REQUIRED must NOT invalidate 'calendar'
+    await markGoogleAccountReauthRequired('rep@indep.com', 'org_indep_1', 'usr_indep_1', mockClient, 'gmail');
+    assert.strictEqual(accountRows[0].status, 'REAUTH_REQUIRED');
+    assert.strictEqual(accountRows[1].status, 'CONNECTED', 'Calendar status must stay CONNECTED when only gmail is invalidated');
+
+    // Conversely, expired Calendar without calendar scope or refresh resolves REAUTH_REQUIRED independently
+    accountRows[1].scopes = ['https://www.googleapis.com/auth/userinfo.email'];
+    const calMissingScope = await resolveAuthoritativeCalendarAccount({
+      organizationId: 'org_indep_1',
+      userId: 'usr_indep_1',
+      privilegedClient: mockClient
+    });
+    assert.strictEqual(calMissingScope?.status, 'REAUTH_REQUIRED', 'Calendar missing calendar scope must resolve REAUTH_REQUIRED');
+    assert.strictEqual(hasRequiredCalendarScope(['https://www.googleapis.com/auth/calendar.events']), true);
+    assert.strictEqual(hasRequiredCalendarScope(['https://www.googleapis.com/auth/gmail.send']), false);
+  });
+
+  await runTest('38. Production runtime disables local filesystem DB/token persistence and rejects sandbox fallback', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    assert.strictEqual(isProductionDiskPersistenceDisabled({ NODE_ENV: 'production' } as any), true);
+    assert.strictEqual(isProductionDiskPersistenceDisabled({ VERCEL: '1' } as any), true);
+    assert.strictEqual(isProductionDiskPersistenceDisabled({ ENVIRONMENT: 'production' } as any), true);
+    assert.strictEqual(isProductionDiskPersistenceDisabled({ NODE_ENV: 'development' } as any), false);
+    assert.strictEqual(
+      isProductionDiskPersistenceDisabled({ NODE_ENV: 'production', ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION: 'true' } as any),
+      false
+    );
+
+    const serverSrc = fs.readFileSync(path.join(process.cwd(), 'server.ts'), 'utf8');
+    const authCtxSrc = fs.readFileSync(path.join(process.cwd(), 'src/authentication/AuthContext.tsx'), 'utf8');
+    assert(!serverSrc.includes('calendarAccounts[0]'), 'No cross-tenant calendarAccounts[0] fallback may remain in server.ts');
+    assert(serverSrc.includes('isProductionAuthRuntime() && process.env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== \'true\''), 'saveAccountsToDisk/loadAccountsFromDisk must be guarded in production');
+    assert(authCtxSrc.includes('if (!isLocalDev) {'), 'AuthContext.loginWithGoogle must block sandbox fallback outside local dev');
+  });
+
+  await runTest('39. Server identity resolution guards, token refresh sync, and requestId correlation across frontend & backend', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const serverSrc = fs.readFileSync(path.join(process.cwd(), 'server.ts'), 'utf8');
+    const integrationsSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/IntegrationsView.tsx'), 'utf8');
+    const schedulerSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/SchedulerView.tsx'), 'utf8');
+
+    // Middleware and resolveCanonicalGoogleIdentity enforce confirmed email + is_verified
+    assert(serverSrc.includes('if (!dbUserRow && emailLower && isSupabaseEmailConfirmed)'), 'Middleware email fallback must require isSupabaseEmailConfirmed');
+    assert(serverSrc.includes('if (!foundById && emailLower && isAuthEmailConfirmed)'), 'resolveCanonicalGoogleIdentity email fallback must require !foundById and isAuthEmailConfirmed');
+    assert(serverSrc.includes('Boolean(dbUser.is_verified)'), 'resolveCanonicalGoogleIdentity email fallback must require dbUser.is_verified');
+
+    // Refresh updates authoritativeAccount and DB scoped by account_type
+    assert(serverSrc.includes('authoritativeAccount.accessToken = tempCalAcc.accessToken;'), 'GET /calendar/accounts must sync refreshed accessToken onto authoritativeAccount');
+    assert(serverSrc.includes('.in(\'account_type\', accountTypesList)'), 'ensureAndRefreshGoogleToken must scope Supabase refresh update by account_type');
+
+    // requestId correlation across /api/auth/google/url, /gmail/status, IntegrationsView, SchedulerView
+    assert(serverSrc.includes('res.json({ url: authUrl, redirectUri, source, requestId });'), '/api/auth/google/url must return requestId');
+    assert(integrationsSrc.includes('errData?.requestId') && integrationsSrc.includes('data?.requestId'), 'IntegrationsView must preserve requestId on error');
+    assert(schedulerSrc.includes('data?.requestId'), 'SchedulerView must preserve requestId on error');
   });
 
   console.log('\n================================================================');

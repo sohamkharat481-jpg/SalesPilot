@@ -941,17 +941,19 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     }
   };
 
-  const handleGoogleOAuthSuccess = React.useCallback((email?: string, gmailScopeGranted?: boolean) => {
+  const handleGoogleOAuthSuccess = React.useCallback(async (email?: string, gmailScopeGranted?: boolean) => {
     setIsConnectingGoogle(false);
     setIsConnectModalOpen(false);
-    setOauthErrorBanner(null);
-    if (gmailScopeGranted === false) {
-      setOauthErrorBanner('Google account authenticated, but Gmail send permission (gmail.send) was not granted. Click Reconnect Google to grant all permissions.');
-    } else {
-      setOauthSuccessBanner(email ? `Google connected successfully (${email}).` : 'Google connected successfully.');
+    const statusOk = await fetchGmailStatus();
+    if (statusOk) {
+      setOauthErrorBanner(null);
+      if (gmailScopeGranted === false) {
+        setOauthErrorBanner('Google account authenticated, but Gmail send permission (gmail.send) was not granted. Click Reconnect Google to grant all permissions.');
+      } else {
+        setOauthSuccessBanner(email ? `Google connected successfully (${email}).` : 'Google connected successfully.');
+      }
+      fetchGmailInbox();
     }
-    fetchGmailStatus();
-    fetchGmailInbox();
   }, [selectedGmailAccount, activeGmailLabel, organization?.id, user?.id]);
 
   // Fetch active Gmail accounts on mount and when active user/workspace changes
@@ -977,7 +979,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         if (rawStored) {
           const parsed = JSON.parse(rawStored);
           if (parsed?.type === 'GOOGLE_AUTH_FAILURE' && parsed?.error) {
-            setOauthErrorBanner(sanitizeUserFacingError(parsed.error, 'Unable to connect your Google account. Please try again.'));
+            const sanitized = sanitizeUserFacingError(parsed.error, 'Unable to connect your Google account. Please try again.');
+            const withRef =
+              typeof parsed.requestId === 'string' && parsed.requestId.trim() && !sanitized.includes(parsed.requestId.trim())
+                ? `${sanitized} (Reference: ${parsed.requestId.trim()})`
+                : sanitized;
+            setOauthErrorBanner(withRef);
           }
         }
       } catch (_) {}
@@ -1024,9 +1031,12 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         handleGoogleOAuthSuccess(payload.email, payload.gmailScopeGranted);
       } else if (payload.type === 'GOOGLE_AUTH_FAILURE') {
         setIsConnectingGoogle(false);
-        const friendlyError = sanitizeUserFacingError(payload.error, 'Unable to connect your Google account. Please try again.');
+        const sanitized = sanitizeUserFacingError(payload.error, 'Unable to connect your Google account. Please try again.');
+        const friendlyError =
+          typeof payload.requestId === 'string' && payload.requestId.trim() && !sanitized.includes(payload.requestId.trim())
+            ? `${sanitized} (Reference: ${payload.requestId.trim()})`
+            : sanitized;
         setOauthErrorBanner(friendlyError);
-        alert(friendlyError);
       }
     };
 
@@ -1106,10 +1116,15 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         alert('Sandbox account created successfully.');
       } else {
         const errData = await res.json().catch(() => ({}));
-        const rawError = typeof errData?.error === 'string' && errData.error.trim()
+        const baseError = typeof errData?.error === 'string' && errData.error.trim()
           ? errData.error
           : 'Unable to connect your Gmail account. Please try again.';
-        const friendlyError = sanitizeUserFacingError(rawError, 'Unable to connect your Gmail account. Please try again.');
+        const reqId = typeof errData?.requestId === 'string' && errData.requestId.trim() ? errData.requestId.trim() : '';
+        const rawError = reqId && !baseError.includes(reqId) ? `${baseError} (Reference: ${reqId})` : baseError;
+        const fallbackError = reqId
+          ? `Unable to connect your Gmail account. Please try again. (Reference: ${reqId})`
+          : 'Unable to connect your Gmail account. Please try again.';
+        const friendlyError = sanitizeUserFacingError(rawError, fallbackError);
         setOauthErrorBanner(friendlyError);
         alert(friendlyError);
       }
@@ -1342,7 +1357,9 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
       }
 
       if (!res.ok) {
-        throw new Error(data?.error || `Failed to start Google connection (HTTP ${res.status}).`);
+        const baseErr = data?.error || `Failed to start Google connection (HTTP ${res.status}).`;
+        const reqId = typeof data?.requestId === 'string' && data.requestId.trim() ? data.requestId.trim() : '';
+        throw new Error(reqId && !String(baseErr).includes(reqId) ? `${baseErr} (Reference: ${reqId})` : baseErr);
       }
       if (!data?.url) {
         throw new Error('Server did not return a valid Google authorization URL.');

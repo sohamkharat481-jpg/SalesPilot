@@ -20,6 +20,14 @@ import { isVerifiedFounderEmail } from '../security/founderAllowlist';
 const DB_FILE_PATH = path.join(process.cwd(), 'salespilot_db.json');
 const GOOGLE_ACCOUNTS_FILE_PATH = path.join(process.cwd(), 'google_accounts_store.json');
 
+export function isProductionDiskPersistenceDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const isProd =
+    env.NODE_ENV === 'production' ||
+    Boolean(env.VERCEL) ||
+    env.ENVIRONMENT === 'production';
+  return isProd && env.ALLOW_LOCALDB_FALLBACK_IN_PRODUCTION !== 'true';
+}
+
 export interface DBStructure {
   users: any[];
   organizations: Organization[];
@@ -185,8 +193,8 @@ export class LocalDB {
   }
 
   private initialize(): void {
-    // 1. Try to load existing DB from disk
-    if (fs.existsSync(DB_FILE_PATH)) {
+    // 1. Try to load existing DB from disk (disabled in production/Vercel runtimes)
+    if (!isProductionDiskPersistenceDisabled() && fs.existsSync(DB_FILE_PATH)) {
       try {
         const data = fs.readFileSync(DB_FILE_PATH, 'utf-8');
         this.db = JSON.parse(data);
@@ -265,8 +273,10 @@ export class LocalDB {
 
     this.runSafeLegacyDataMigration();
 
-    // 2. Synchronize existing google_accounts_store.json (backward-compatibility)
-    this.syncGoogleAccountsStore();
+    // 2. Synchronize existing google_accounts_store.json (development backward-compatibility only)
+    if (!isProductionDiskPersistenceDisabled()) {
+      this.syncGoogleAccountsStore();
+    }
 
     // 3. Initialize Supabase client and perform async auto-migration
     this.initSupabaseClientAndMigrate();
@@ -623,6 +633,7 @@ export class LocalDB {
   }
 
   private syncGoogleAccountsStore(): void {
+    if (isProductionDiskPersistenceDisabled()) return;
     if (fs.existsSync(GOOGLE_ACCOUNTS_FILE_PATH)) {
       try {
         const fileContent = fs.readFileSync(GOOGLE_ACCOUNTS_FILE_PATH, 'utf-8');
@@ -1085,8 +1096,10 @@ export class LocalDB {
         });
       }
 
-      // Sync local file
-      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(this.db, null, 2), 'utf-8');
+      // Sync local file in development only
+      if (!isProductionDiskPersistenceDisabled()) {
+        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(this.db, null, 2), 'utf-8');
+      }
     } catch (err: any) {
       console.error('[DB SYNC] Failed to download latest data from PostgreSQL:', err.message || err);
     }
@@ -1094,14 +1107,16 @@ export class LocalDB {
 
   public save(): void {
     try {
-      // 1. Keep local cache robust and immediate
-      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(this.db, null, 2), 'utf-8');
-      
-      const oauthStore = {
-        calendarAccounts: this.db.calendarAccounts,
-        gmailAccounts: this.db.gmailAccounts
-      };
-      fs.writeFileSync(GOOGLE_ACCOUNTS_FILE_PATH, JSON.stringify(oauthStore, null, 2), 'utf-8');
+      // 1. Keep local cache in development only; never write tokens/DB to serverless disk in production
+      if (!isProductionDiskPersistenceDisabled()) {
+        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(this.db, null, 2), 'utf-8');
+
+        const oauthStore = {
+          calendarAccounts: this.db.calendarAccounts,
+          gmailAccounts: this.db.gmailAccounts
+        };
+        fs.writeFileSync(GOOGLE_ACCOUNTS_FILE_PATH, JSON.stringify(oauthStore, null, 2), 'utf-8');
+      }
 
       // 2. Perform live async push to Supabase PostgreSQL with Retry and Transactional Safety
       if (this.supabase && !this.isSyncing) {

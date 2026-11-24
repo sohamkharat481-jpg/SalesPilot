@@ -1211,7 +1211,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const supabase = getSupabaseClient();
       if (!supabase || SUPABASE_URL.includes('placeholder')) {
-        console.warn('[OAUTH] Supabase credentials not fully configured; entering sandbox login mode.');
+        if (!isLocalDev) {
+          throw new Error('Authentication service is not configured for this environment. Please contact your administrator.');
+        }
+        console.warn('[OAUTH] Supabase credentials not fully configured; entering local development sandbox login mode.');
         const mockUser: WorkspaceUser = {
           id: 'usr_sandbox_dev',
           email: 'developer@sandbox.local',
