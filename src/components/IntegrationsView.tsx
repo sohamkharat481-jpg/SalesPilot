@@ -386,12 +386,14 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: hunterEmail })
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setHunterVerifyResult(data);
+      } else {
+        setHunterVerifyResult({ email: hunterEmail, status: 'ERROR', error: data?.error || `HTTP ${res.status}` });
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setHunterVerifyResult({ email: hunterEmail, status: 'ERROR', error: e?.message || 'Request failed' });
     } finally {
       setIsVerifyingHunter(false);
     }
@@ -406,9 +408,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain: clearbitDomain })
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.enriched) {
         setClearbitResult(data.enriched);
+      } else {
+        alert(data?.error || `Clearbit enrich failed (HTTP ${res.status})`);
       }
     } catch (e) {
       console.error(e);
@@ -426,9 +430,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: pdlName })
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.person) {
         setPdlResult(data.person);
+      } else {
+        alert(data?.error || `PDL search returned no match (HTTP ${res.status})`);
       }
     } catch (e) {
       console.error(e);
@@ -446,9 +452,11 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyName: crunchbaseCompany })
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.intelligence) {
         setCrunchbaseResult(data.intelligence);
+      } else {
+        alert(data?.error || `Crunchbase lookup failed (HTTP ${res.status})`);
       }
     } catch (e) {
       console.error(e);
@@ -461,14 +469,19 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
     setIsSearchingMaps(true);
     setMapsResults([]);
     try {
-      const res = await fetch('/api/v1/googlemaps/search', {
+      const res = await authenticatedFetch('/api/v1/googlemaps/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: mapsQuery, location: mapsLocation })
+        body: JSON.stringify({
+          query: mapsQuery.trim(),
+          location: mapsLocation.trim() || 'Bangalore'
+        })
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
-        setMapsResults(data.results);
+        setMapsResults(data.results || []);
+      } else {
+        alert(data?.error || `Google Maps search failed (HTTP ${res.status})`);
       }
     } catch (e) {
       console.error(e);
@@ -2699,12 +2712,16 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                           {hunterVerifyResult.status}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 text-slate-600">
-                        <div>SMTP Handshake: <strong className="text-slate-800">{hunterVerifyResult.smtpCheck}</strong></div>
-                        <div>Deliverability Confidence: <strong className="text-slate-800">{hunterVerifyResult.confidenceScore}%</strong></div>
-                        <div>Disposable Domain: <strong className="text-slate-800">{hunterVerifyResult.isDisposable ? 'YES' : 'NO'}</strong></div>
-                        <div>Catch-all Inbox: <strong className="text-slate-800">{hunterVerifyResult.isCatchAll ? 'YES' : 'NO'}</strong></div>
-                      </div>
+                      {hunterVerifyResult.error ? (
+                        <div className="text-rose-600">{hunterVerifyResult.error}</div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4 text-slate-600">
+                          <div>SMTP Handshake: <strong className="text-slate-800">{hunterVerifyResult.smtpCheck}</strong></div>
+                          <div>Deliverability Confidence: <strong className="text-slate-800">{hunterVerifyResult.confidenceScore}%</strong></div>
+                          <div>Disposable Domain: <strong className="text-slate-800">{hunterVerifyResult.isDisposable ? 'YES' : 'NO'}</strong></div>
+                          <div>Catch-all Inbox: <strong className="text-slate-800">{hunterVerifyResult.isCatchAll ? 'YES' : 'NO'}</strong></div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2733,10 +2750,10 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     </button>
                     {clearbitResult && (
                       <div className="p-2 bg-white border border-slate-150 rounded space-y-1 text-[11px]">
-                        <div><strong>Legal:</strong> {clearbitResult.legalName}</div>
-                        <div><strong>Employees:</strong> {clearbitResult.metrics.employees}</div>
-                        <div><strong>Revenue:</strong> {clearbitResult.metrics.estimatedRevenue}</div>
-                        <div className="text-[10px] text-slate-500 overflow-hidden text-ellipsis"><strong>Tech:</strong> {clearbitResult.techStack.slice(0, 3).join(', ')}</div>
+                        <div><strong>Legal:</strong> {clearbitResult.legalName || clearbitResult.name || 'N/A'}</div>
+                        <div><strong>Employees:</strong> {clearbitResult.metrics?.employees ?? 'N/A'}</div>
+                        <div><strong>Revenue:</strong> {clearbitResult.metrics?.estimatedAnnualRevenue || clearbitResult.metrics?.estimatedRevenue || 'N/A'}</div>
+                        <div className="text-[10px] text-slate-500 overflow-hidden text-ellipsis"><strong>Tech:</strong> {Array.isArray(clearbitResult.techStack) ? clearbitResult.techStack.slice(0, 3).join(', ') : Array.isArray(clearbitResult.tech) ? clearbitResult.tech.slice(0, 3).join(', ') : 'N/A'}</div>
                       </div>
                     )}
                   </div>
@@ -2763,10 +2780,10 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     </button>
                     {pdlResult && (
                       <div className="p-2 bg-white border border-slate-150 rounded space-y-1 text-[11px]">
-                        <div><strong>Title:</strong> {pdlResult.title}</div>
-                        <div><strong>Company:</strong> {pdlResult.currentCompany}</div>
-                        <div><strong>Location:</strong> {pdlResult.location}</div>
-                        <div className="text-[10px] text-slate-500"><strong>Prev:</strong> {pdlResult.jobHistory[1]?.title || 'N/A'}</div>
+                        <div><strong>Title:</strong> {pdlResult.job_title || pdlResult.title || 'N/A'}</div>
+                        <div><strong>Company:</strong> {pdlResult.job_company_name || pdlResult.currentCompany || 'N/A'}</div>
+                        <div><strong>Location:</strong> {pdlResult.location_name || pdlResult.location || 'N/A'}</div>
+                        <div className="text-[10px] text-slate-500"><strong>Email:</strong> {pdlResult.work_email || pdlResult.emails?.[0]?.address || 'EMAIL_NOT_FOUND'}</div>
                       </div>
                     )}
                   </div>
@@ -2793,9 +2810,9 @@ export function IntegrationsView({ credentials, onSaveCredentials, onReopenOnboa
                     </button>
                     {crunchbaseResult && (
                       <div className="p-2 bg-white border border-slate-150 rounded space-y-1 text-[11px]">
-                        <div><strong>Total funding:</strong> {crunchbaseResult.totalFundingRaised}</div>
-                        <div><strong>Last Round:</strong> {crunchbaseResult.lastFundingType}</div>
-                        <div className="text-[10px] text-slate-500 overflow-hidden text-ellipsis"><strong>Lead:</strong> {crunchbaseResult.leadInvestors[0]}</div>
+                        <div><strong>Total funding:</strong> {crunchbaseResult.funding_total?.value_usd ? `$${crunchbaseResult.funding_total.value_usd}` : crunchbaseResult.totalFundingRaised || 'N/A'}</div>
+                        <div><strong>Website:</strong> {crunchbaseResult.website_url || 'N/A'}</div>
+                        <div className="text-[10px] text-slate-500 overflow-hidden text-ellipsis"><strong>Summary:</strong> {crunchbaseResult.short_description || crunchbaseResult.leadInvestors?.[0] || 'N/A'}</div>
                       </div>
                     )}
                   </div>

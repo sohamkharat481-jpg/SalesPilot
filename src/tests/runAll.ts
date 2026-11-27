@@ -28,6 +28,8 @@ import { runGoogleOAuthAndAsyncLeadGenTestSuite } from './googleOAuthAndAsyncLea
 import { runGmailResolutionTests } from './gmailResolution.test';
 import { runOutreachTestEmailSuite } from './outreachTestEmail.test';
 import { runGoogleOAuthCallbackDiagnosticsTests } from './googleOAuthCallbackDiagnostics.test';
+import { runEmailDiscoveryPipelineTests } from './emailDiscoveryPipeline.test';
+import { runGoogleMapsM2mAccessTests } from './googleMapsM2mAccess.test';
 
 async function runAllTests() {
   console.log('==================================================');
@@ -324,6 +326,26 @@ async function runAllTests() {
     totalFailed += res.failed;
   } catch (err) {
     console.error('Google OAuth Callback Diagnostics suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 29. Multi-Provider Email Discovery & Accuracy Diagnostics Suite
+  try {
+    const res = await runEmailDiscoveryPipelineTests();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Email Discovery Pipeline suite crashed:', err);
+    totalFailed++;
+  }
+
+  // 30. Google Maps M2M Access & Security Suite
+  try {
+    const res = await runGoogleMapsM2mAccessTests();
+    totalPassed += res.passed;
+    totalFailed += res.failed;
+  } catch (err) {
+    console.error('Google Maps M2M Access suite crashed:', err);
     totalFailed++;
   }
 

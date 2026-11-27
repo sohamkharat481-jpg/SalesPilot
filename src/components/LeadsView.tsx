@@ -129,6 +129,8 @@ export function LeadsView({
   const [activeJob, setActiveJob] = useState<LeadGenJob | null>(null);
   const [recentJobs, setRecentJobs] = useState<LeadGenJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [providerDiagnostics, setProviderDiagnostics] = useState<any[]>([]);
+  const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
   const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Timer cleanup helper
@@ -223,6 +225,9 @@ export function LeadsView({
         if (data?.job) {
           const updatedJob: LeadGenJob = data.job;
           setActiveJob(updatedJob);
+          if (Array.isArray(updatedJob.providerDiagnostics) && updatedJob.providerDiagnostics.length > 0) {
+            setProviderDiagnostics(updatedJob.providerDiagnostics);
+          }
           setRecentJobs(prev => {
             const idx = prev.findIndex(j => j.jobId === updatedJob.jobId);
             if (idx >= 0) {
@@ -282,12 +287,33 @@ export function LeadsView({
     }
   }, [workspaceId, pollJobStatus]);
 
+  // Fetch 8-provider Email Discovery Diagnostics
+  const fetchProviderDiagnostics = useCallback(async () => {
+    if (authReady === false) return;
+    setIsLoadingDiagnostics(true);
+    try {
+      const headers = await getAuthHeaders(undefined, workspaceId);
+      const res = await authenticatedFetch('/api/v1/leads/provider-diagnostics', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.providers)) {
+          setProviderDiagnostics(data.providers);
+        }
+      }
+    } catch (err) {
+      console.warn('[LEADS] Failed to fetch provider diagnostics:', err);
+    } finally {
+      setIsLoadingDiagnostics(false);
+    }
+  }, [authReady, workspaceId]);
+
   // Rehydrate leads and jobs on mount
   useEffect(() => {
     console.log("[LEADS_DEBUG] mount");
     fetchPersistedLeads();
     if (authReady !== false) {
       fetchRecentJobs();
+      fetchProviderDiagnostics();
     }
 
     // BFCache / pageshow handling (Browser Back navigation)
@@ -303,7 +329,7 @@ export function LeadsView({
       stopPolling();
       window.removeEventListener('pageshow', handlePageShow);
     };
-  }, [fetchPersistedLeads, fetchRecentJobs, authReady, stopPolling]);
+  }, [fetchPersistedLeads, fetchRecentJobs, fetchProviderDiagnostics, authReady, stopPolling]);
 
   useEffect(() => {
     fetch('/api/v1/workspace/permissions/matrix')
@@ -396,6 +422,7 @@ export function LeadsView({
     'linkedin-extractor': false,
     'zoominfo-direct': false,
     'google-maps': false,
+    'apollo': false,
     'google-search': false,
     'clearbit': false,
     'hunter': false,
@@ -415,6 +442,7 @@ export function LeadsView({
           const statusMap: Record<string, boolean> = {
             'clearbit': data.integrationStatuses?.find((s: any) => s.pluginId === 'clearbit')?.status === 'CONNECTED',
             'hunter': data.integrationStatuses?.find((s: any) => s.pluginId === 'hunter')?.status === 'CONNECTED',
+            'apollo': data.integrationStatuses?.find((s: any) => s.pluginId === 'apollo')?.status === 'CONNECTED',
             'peopledatalabs': data.integrationStatuses?.find((s: any) => s.pluginId === 'peopledatalabs')?.status === 'CONNECTED',
             'crunchbase': data.integrationStatuses?.find((s: any) => s.pluginId === 'crunchbase')?.status === 'CONNECTED',
             'google-maps': data.integrationStatuses?.find((s: any) => s.pluginId === 'googlemaps')?.status === 'CONNECTED',
@@ -1248,6 +1276,12 @@ export function LeadsView({
         setScraperProgress(100);
         const databaseSaveCount = data.databaseSaveCount ?? data.totalDatabaseSaved ?? generatedCount;
 
+        if (Array.isArray(data.providerDiagnostics) && data.providerDiagnostics.length > 0) {
+          setProviderDiagnostics(data.providerDiagnostics);
+        } else {
+          fetchProviderDiagnostics();
+        }
+
         if (data.providerLogs && data.providerLogs.length > 0) {
           const providerLogsList = data.providerLogs.map((pl: any) => 
             `[PROVIDER REPORT] ${pl.provider} | Status: ${pl.status} | ${pl.message}`
@@ -1946,12 +1980,41 @@ export function LeadsView({
                                 )}
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-mono">{lead.title || 'Decision Maker'}</div>
-                              <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">
+                              <div className="text-[10px] text-slate-400 mt-1 space-y-1 max-w-[230px]">
                                 {lead.email ? (
-                                  <span className="text-slate-700 dark:text-slate-300">{lead.email}</span>
+                                  <div className="truncate text-slate-700 dark:text-slate-300 font-mono" title={lead.email}>
+                                    {lead.email}
+                                  </div>
                                 ) : (
-                                  <span className="text-amber-500 dark:text-amber-400 italic font-medium">No email found (EMAIL_NOT_FOUND)</span>
+                                  <div className="text-amber-600 dark:text-amber-400 font-mono font-semibold">
+                                    EMAIL_NOT_FOUND
+                                  </div>
                                 )}
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {(() => {
+                                    const st = lead.emailStatus || (lead.email ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND');
+                                    const badgeCls =
+                                      st === 'VERIFIED'
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/50'
+                                        : st === 'UNVERIFIED'
+                                        ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/50'
+                                        : st === 'RISKY'
+                                        ? 'bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-900/50'
+                                        : st === 'INVALID'
+                                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+                                    return (
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-mono font-bold ${badgeCls}`}>
+                                        {st}
+                                      </span>
+                                    );
+                                  })()}
+                                  {lead.email && lead.emailSource && lead.emailSource !== 'NONE' && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded border bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 text-[8px] font-mono">
+                                      {lead.emailSource}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -2181,9 +2244,38 @@ export function LeadsView({
                       {selectedLead.source || 'Google Places'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-start gap-2">
                     <span className="text-slate-400 font-mono">Work Email:</span>
-                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{selectedLead.email || 'No email available'}</span>
+                    <div className="text-right space-y-1">
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300 block break-all">
+                        {selectedLead.email || 'EMAIL_NOT_FOUND'}
+                      </span>
+                      <div className="flex items-center justify-end gap-1 flex-wrap">
+                        {(() => {
+                          const st = selectedLead.emailStatus || (selectedLead.email ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND');
+                          const badgeCls =
+                            st === 'VERIFIED'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/50'
+                              : st === 'UNVERIFIED'
+                              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/50'
+                              : st === 'RISKY'
+                              ? 'bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-900/50'
+                              : st === 'INVALID'
+                              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+                          return (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-mono font-bold ${badgeCls}`}>
+                              {st}
+                            </span>
+                          );
+                        })()}
+                        {selectedLead.emailSource && selectedLead.emailSource !== 'NONE' && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded border bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 text-[9px] font-mono">
+                            via {selectedLead.emailSource}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400 font-mono">Verified Phone:</span>
@@ -3012,14 +3104,15 @@ export function LeadsView({
                   { id: 'linkedin-extractor', name: 'LinkedIn Extractor', type: 'SOCIAL DATA', desc: 'Profile analyzer pulling corporate decision structures & real-time bios.', color: 'border-indigo-500', bg: 'bg-indigo-500', text: 'text-indigo-600' },
                   { id: 'zoominfo-direct', name: 'ZoomInfo Direct Core', type: 'ENTERPRISE', desc: 'High-intent B2B target coordinates with extreme direct-dial accuracy.', color: 'border-teal-500', bg: 'bg-teal-500', text: 'text-teal-600' },
                   { id: 'google-maps', name: 'Google Maps Local Scraper', type: 'LOCAL SOURCING', desc: 'Geolocates physical business retail hubs, local registries & maps data.', color: 'border-emerald-500', bg: 'bg-emerald-500', text: 'text-emerald-600' },
-                  { id: 'google-search', name: 'Google Search Scraper', type: 'WEB DORKING', desc: 'Advanced search engine query string parsing (site:, inurl:) to catch executive lines.', color: 'border-cyan-500', bg: 'bg-cyan-500', text: 'text-cyan-600' },
-                  { id: 'clearbit', name: 'Clearbit Enrichment', type: 'DATA ENRICHMENT', desc: 'Synchronizes missing corporate assets, exact logo urls, size, and parent networks.', color: 'border-purple-500', bg: 'bg-purple-500', text: 'text-purple-600' },
-                  { id: 'hunter', name: 'Hunter.io Domain Sourcing', type: 'EMAIL VERIFY', desc: 'Fetches verified patterns & public team channels with confidence indices.', color: 'border-rose-500', bg: 'bg-rose-500', text: 'text-rose-600' },
+                  { id: 'apollo', name: 'Apollo.io B2B People', type: 'B2B CONTACTS', desc: 'Searches verified decision-maker profiles & corporate work emails by domain.', color: 'border-orange-500', bg: 'bg-orange-500', text: 'text-orange-600' },
+                  { id: 'google-search', name: 'Google Search / Serper', type: 'WEB DISCOVERY', desc: 'Searches public domain pages via Serper to resolve official websites & contacts.', color: 'border-cyan-500', bg: 'bg-cyan-500', text: 'text-cyan-600' },
+                  { id: 'clearbit', name: 'Clearbit Enrichment', type: 'DATA ENRICHMENT', desc: 'Synchronizes missing corporate assets, exact logo urls, size, and contact channels.', color: 'border-purple-500', bg: 'bg-purple-500', text: 'text-purple-600' },
+                  { id: 'hunter', name: 'Hunter.io Domain Sourcing', type: 'EMAIL VERIFY', desc: 'Discovers domain addresses & verifies SMTP deliverability.', color: 'border-rose-500', bg: 'bg-rose-500', text: 'text-rose-600' },
                   { id: 'dropcontact', name: 'Dropcontact Smart Enhancer', type: 'CRM HYGIENE', desc: 'Validates invalid emails & normalizes duplicate contacts dynamically.', color: 'border-sky-500', bg: 'bg-sky-500', text: 'text-sky-600' },
-                  { id: 'peopledatalabs', name: 'People Data Labs Index', type: 'CAREER PATHS', desc: 'Accesses PDL resume database index of 1.5B+ global candidates.', color: 'border-pink-500', bg: 'bg-pink-500', text: 'text-pink-600' },
-                  { id: 'crunchbase', name: 'Crunchbase Venture Tracker', type: 'INVESTMENTS', desc: 'Monitors corporate funding rounds, cap tables, series updates & board seats.', color: 'border-amber-500', bg: 'bg-amber-500', text: 'text-amber-600' },
+                  { id: 'peopledatalabs', name: 'People Data Labs Index', type: 'CAREER PATHS', desc: 'Accesses PDL person search index by domain & job title.', color: 'border-pink-500', bg: 'bg-pink-500', text: 'text-pink-600' },
+                  { id: 'crunchbase', name: 'Crunchbase Venture Tracker', type: 'INVESTMENTS', desc: 'Monitors corporate funding rounds, official websites, and contact emails.', color: 'border-amber-500', bg: 'bg-amber-500', text: 'text-amber-600' },
                   { id: 'builtwith', name: 'BuiltWith Tech-Stack', type: 'TECH AUDIT', desc: 'Discovers web software running on websites (HubSpot, Salesforce, etc.).', color: 'border-violet-500', bg: 'bg-violet-500', text: 'text-violet-600' },
-                  { id: 'website-crawler', name: 'Universal Website Crawler', type: 'RAW SPIDER', desc: 'Scrapes specified custom corporate URLs to extract email channels & bio links.', color: 'border-fuchsia-500', bg: 'bg-fuchsia-500', text: 'text-fuchsia-600' }
+                  { id: 'website-crawler', name: 'Website Email Crawler', type: 'CONTACT SPIDER', desc: 'Crawls official homepages, /contact, and /about pages to extract genuine emails.', color: 'border-fuchsia-500', bg: 'bg-fuchsia-500', text: 'text-fuchsia-600' }
                 ].map(prov => {
                   const isConnected = connectedProviders[prov.id];
                   const isSelected = selectedProviderId === prov.id;
@@ -3267,6 +3360,103 @@ export function LeadsView({
               }
             }}
           />
+
+          {/* Email Discovery Provider Diagnostics Matrix (All 8 Providers) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Server className="w-4 h-4 text-blue-500" /> Email Discovery Provider Diagnostics
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Real API connection state, discovery yield, verification accuracy, and provider error reporting across all 8 sources.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchProviderDiagnostics}
+                disabled={isLoadingDiagnostics}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDiagnostics ? 'animate-spin' : ''}`} /> Refresh Diagnostics
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-mono font-bold uppercase text-slate-400">
+                    <th className="py-2.5 px-3">Provider</th>
+                    <th className="py-2.5 px-3">Connection</th>
+                    <th className="py-2.5 px-3 text-right">Processed</th>
+                    <th className="py-2.5 px-3 text-right">Discovered</th>
+                    <th className="py-2.5 px-3 text-right">Verified</th>
+                    <th className="py-2.5 px-3 text-right">Unverified</th>
+                    <th className="py-2.5 px-3">Last Success</th>
+                    <th className="py-2.5 px-3">Errors / Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
+                  {providerDiagnostics.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-6 text-center text-slate-400 font-sans text-xs">
+                        {isLoadingDiagnostics ? 'Loading provider diagnostics...' : 'Click Refresh Diagnostics or run a lead discovery campaign to view per-provider stats.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    providerDiagnostics.map((prov: any) => {
+                      const statusCls =
+                        prov.connectionStatus === 'CONNECTED'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          : prov.connectionStatus === 'RATE_LIMITED'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          : prov.connectionStatus === 'ERROR'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                          : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20';
+                      return (
+                        <tr key={prov.providerId} className="hover:bg-slate-50 dark:hover:bg-slate-850/40">
+                          <td className="py-2.5 px-3 font-sans font-semibold text-slate-800 dark:text-slate-200">
+                            {prov.providerName}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${statusCls}`}>
+                              {prov.connectionStatus}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-slate-700 dark:text-slate-300">
+                            {prov.leadsProcessed ?? 0}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-blue-600 dark:text-blue-400">
+                            {prov.emailsDiscovered ?? 0}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                            {prov.verifiedEmails ?? 0}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-amber-600 dark:text-amber-400">
+                            {prov.unverifiedEmails ?? 0}
+                          </td>
+                          <td className="py-2.5 px-3 text-[10px] text-slate-500 whitespace-nowrap">
+                            {prov.lastSuccessfulRequest
+                              ? new Date(prov.lastSuccessfulRequest).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                              : '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-[10px] font-sans max-w-[220px] truncate" title={prov.lastError || ''}>
+                            {prov.lastError ? (
+                              <span className="text-rose-600 dark:text-rose-400">{prov.lastError}</span>
+                            ) : !prov.configured ? (
+                              <span className="text-slate-400">API key not configured</span>
+                            ) : (
+                              <span className="text-slate-400">None</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
         </div>
       )}

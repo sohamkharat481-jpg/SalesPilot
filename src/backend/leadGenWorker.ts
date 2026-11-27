@@ -1,5 +1,10 @@
 import { Lead, LeadGenJob, LeadNote, LeadTimelineEvent } from '../types';
-import { validateWebsite, calculateLeadScore, buildDynamicSearchQuery, LeadProviderRegistry, isGenericCompanyName } from './leadProviders';
+import { validateWebsite, calculateLeadScore, buildDynamicSearchQuery, LeadProviderRegistry, isGenericCompanyName, findOfficialWebsite } from './leadProviders';
+import {
+  discoverAndVerifyLeadEmail,
+  ProviderDiagnosticsTracker,
+  globalProviderDiagnostics,
+} from './emailDiscoveryService';
 
 export interface LeadGenWorkerContext {
   getJobById: (jobId: string, orgId: string) => Promise<LeadGenJob | null>;
@@ -44,8 +49,8 @@ export class LeadGenWorker {
    * Resumable across multiple serverless instances and worker lifecycles.
    */
   public async processJob(
-    jobId: string, 
-    organizationId: string, 
+    jobId: string,
+    organizationId: string,
     criteriaOverride?: any
   ): Promise<LeadGenJob | null> {
     if (!jobId || !organizationId) {
@@ -97,24 +102,30 @@ export class LeadGenWorker {
 
       const getProviderKey = (id: string): string | null => {
         if (id === 'google-maps' || id === 'googlemaps') {
-          const k = process.env.GOOGLE_MAPS_API_KEY || 
-                    process.env.GOOGLE_PLACES_API_KEY || 
-                    process.env.GOOGLE_MAPS_KEY || 
-                    process.env.GOOGLE_API_KEY || 
-                    process.env.VITE_GOOGLE_MAPS_API_KEY || 
-                    pluginCreds?.['googlemaps']?.apiKey;
+          const k = process.env.GOOGLE_MAPS_API_KEY ||
+                    process.env.GOOGLE_PLACES_API_KEY ||
+                    process.env.GOOGLE_MAPS_KEY ||
+                    process.env.GOOGLE_API_KEY ||
+                    process.env.VITE_GOOGLE_MAPS_API_KEY ||
+                    pluginCreds?.['googlemaps']?.apiKey ||
+                    pluginCreds?.['google-maps']?.apiKey;
           return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
         }
         if (id === 'google-search' || id === 'serper') {
-          const k = process.env.SERPER_API_KEY || 
-                    process.env.SERPER_KEY || 
-                    process.env.SERPER_API || 
-                    process.env.VITE_SERPER_API_KEY || 
-                    pluginCreds?.['serper']?.apiKey;
+          const k = process.env.SERPER_API_KEY ||
+                    process.env.SERPER_KEY ||
+                    process.env.SERPER_API ||
+                    process.env.VITE_SERPER_API_KEY ||
+                    pluginCreds?.['serper']?.apiKey ||
+                    pluginCreds?.['google-search']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
+        if (id === 'apollo' || id === 'apollo-io') {
+          const k = process.env.APOLLO_API_KEY || pluginCreds?.['apollo']?.apiKey || pluginCreds?.['apollo-io']?.apiKey;
           return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
         }
         if (id === 'peopledatalabs') {
-          const k = process.env.PDL_API_KEY || pluginCreds?.['peopledatalabs']?.apiKey;
+          const k = process.env.PDL_API_KEY || pluginCreds?.['peopledatalabs']?.apiKey || pluginCreds?.['pdl']?.apiKey;
           return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
         }
         if (id === 'clearbit') {
@@ -136,8 +147,24 @@ export class LeadGenWorker {
         return null;
       };
 
-      const gmapsKey = getProviderKey('google-maps') || (customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
+      const gmapsKey = getProviderKey('google-maps') || ((providerId === 'google-maps' || providerId === 'googlemaps') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
       const serperKey = getProviderKey('google-search') || ((providerId === 'serper' || providerId === 'google-search') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
+      const hunterKey = getProviderKey('hunter') || (providerId === 'hunter' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const apolloKey = getProviderKey('apollo') || ((providerId === 'apollo' || providerId === 'apollo-io') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const pdlKey = getProviderKey('peopledatalabs') || (providerId === 'peopledatalabs' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const clearbitKey = getProviderKey('clearbit') || (providerId === 'clearbit' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const crunchbaseKey = getProviderKey('crunchbase') || (providerId === 'crunchbase' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+
+      const runDiagnostics = new ProviderDiagnosticsTracker({
+        'google-maps': Boolean(gmapsKey),
+        'apollo': Boolean(apolloKey),
+        'peopledatalabs': Boolean(pdlKey),
+        'clearbit': Boolean(clearbitKey),
+        'hunter': Boolean(hunterKey),
+        'google-search': Boolean(serperKey),
+        'website-crawler': true,
+        'crunchbase': Boolean(crunchbaseKey),
+      });
 
       // 3. Fetch existing leads for tenant to prevent duplicate insertions
       const existingLeads = await this.context.getLeads(organizationId);
@@ -177,6 +204,7 @@ export class LeadGenWorker {
 
       // 4a. Try Google Places API (New)
       if (gmapsKey) {
+        runDiagnostics.recordAttempt('google-maps', { leadsProcessedDelta: 1 });
         try {
           const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
           const response = await fetch(textSearchUrl, {
@@ -186,9 +214,11 @@ export class LeadGenWorker {
               'X-Goog-Api-Key': gmapsKey,
               'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,places.primaryType,places.rating'
             },
-            body: JSON.stringify({ textQuery: query })
+            body: JSON.stringify({ textQuery: query }),
+            signal: AbortSignal.timeout(6000)
           });
           if (response.ok) {
+            runDiagnostics.recordAttempt('google-maps', { statusCode: response.status, success: true });
             const data = await response.json();
             const places = data.places || [];
             for (const place of places) {
@@ -203,8 +233,18 @@ export class LeadGenWorker {
                 placeId: place.id
               });
             }
+          } else {
+            const errTxt = await response.text().catch(() => '');
+            runDiagnostics.recordAttempt('google-maps', {
+              statusCode: response.status,
+              rateLimited: response.status === 429,
+              error: `Google Places HTTP ${response.status}: ${errTxt.slice(0, 140)}`,
+            });
           }
-        } catch (err) {
+        } catch (err: any) {
+          runDiagnostics.recordAttempt('google-maps', {
+            error: `Google Places fetch error: ${err?.message || String(err)}`,
+          });
           console.warn('[LEAD WORKER] Google Places API fetch error:', err);
         }
       }
@@ -213,6 +253,7 @@ export class LeadGenWorker {
 
       // 4b. Try Serper Maps API if more candidates needed
       if (candidates.length < countToGenerate && serperKey) {
+        runDiagnostics.recordAttempt('google-search', { leadsProcessedDelta: 1 });
         try {
           const serperMapsUrl = 'https://google.serper.dev/maps';
           const response = await fetch(serperMapsUrl, {
@@ -221,9 +262,11 @@ export class LeadGenWorker {
               'X-API-KEY': serperKey,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ q: query, num: Math.min(countToGenerate * 3, 20) })
+            body: JSON.stringify({ q: query, num: Math.min(countToGenerate * 3, 20) }),
+            signal: AbortSignal.timeout(6000)
           });
           if (response.ok) {
+            runDiagnostics.recordAttempt('google-search', { statusCode: response.status, success: true });
             const data = await response.json();
             const serperPlaces = data.maps || data.places || data.organic || [];
             for (const p of serperPlaces) {
@@ -238,16 +281,53 @@ export class LeadGenWorker {
                 placeId: p.placeId || p.cid || ''
               });
             }
+          } else {
+            const errTxt = await response.text().catch(() => '');
+            runDiagnostics.recordAttempt('google-search', {
+              statusCode: response.status,
+              rateLimited: response.status === 429,
+              error: `Serper Maps HTTP ${response.status}: ${errTxt.slice(0, 140)}`,
+            });
           }
-        } catch (err) {
+        } catch (err: any) {
+          runDiagnostics.recordAttempt('google-search', {
+            error: `Serper Maps fetch error: ${err?.message || String(err)}`,
+          });
           console.warn('[LEAD WORKER] Serper Maps fetch error:', err);
         }
       }
 
-      // 4c. Try pluggable registered providers if still needed
+      // 4c. Try pluggable registered providers (preserving email, contact identity, and enrichment!)
       if (candidates.length < countToGenerate) {
-        const registered = LeadProviderRegistry.getProvider(providerId);
-        if (registered && registered.id !== 'google-maps' && registered.id !== 'google-search') {
+        const providerIdsToTry = Array.from(
+          new Set([
+            providerId,
+            ...(apolloKey ? ['apollo'] : []),
+            ...(pdlKey ? ['peopledatalabs'] : []),
+            ...(crunchbaseKey ? ['crunchbase'] : []),
+          ])
+        );
+
+        for (const pid of providerIdsToTry) {
+          if (candidates.length >= countToGenerate) break;
+          const registered = LeadProviderRegistry.getProvider(pid);
+          if (!registered || registered.id === 'google-maps') continue;
+          // Skip google-search if Serper Maps already failed or returned candidates without key
+          if (registered.id === 'google-search' && !serperKey) continue;
+          // Skip providers requiring keys when no key is configured unless explicitly selected
+          const resolvedKey =
+            registered.id === 'apollo' ? apolloKey :
+            registered.id === 'hunter' ? hunterKey :
+            registered.id === 'peopledatalabs' ? pdlKey :
+            registered.id === 'clearbit' ? clearbitKey :
+            registered.id === 'crunchbase' ? crunchbaseKey :
+            registered.id === 'google-search' ? serperKey :
+            customApiKey;
+
+          if (registered.requiresApiKey && !resolvedKey && !customApiKey) continue;
+          // Skip website-crawler sourcing pass if keywords has no domain
+          if (registered.id === 'website-crawler' && !keywords.includes('.')) continue;
+
           try {
             const extra = await registered.generateLeads({
               campaignName,
@@ -257,7 +337,7 @@ export class LeadGenWorker {
               jobTitles,
               maxLeads: countToGenerate,
               city,
-              customApiKey
+              customApiKey: resolvedKey || customApiKey
             });
             for (const cand of extra) {
               if (cand.company) {
@@ -266,19 +346,30 @@ export class LeadGenWorker {
                   company: cand.company,
                   website: cand.enrichment?.website || '',
                   phone: cand.phone || '',
-                  address: cand.enrichment?.address || `${city}, ${country}`
+                  address: cand.enrichment?.address || `${city}, ${country}`,
+                  firstName: cand.firstName,
+                  lastName: cand.lastName,
+                  title: cand.title,
+                  email: cand.email,
+                  emailStatus: cand.emailStatus,
+                  emailSource: cand.emailSource,
+                  verificationProvider: cand.verificationProvider,
+                  emailVerifiedAt: cand.emailVerifiedAt,
+                  enrichment: cand.enrichment,
+                  confidenceScore: cand.confidenceScore,
+                  scoreReason: cand.scoreReason,
                 });
               }
             }
-          } catch (err) {
-            console.warn(`[LEAD WORKER] Provider ${registered.name} error:`, err);
+          } catch (err: any) {
+            console.warn(`[LEAD WORKER] Provider ${registered.name} error:`, err?.message || err);
           }
         }
       }
 
       await this.context.updateJob(jobId, { progress: Math.max(50, currentProgressBase) }, organizationId);
 
-      // 5. Validate websites, build enriched leads, and persist step-by-step
+      // 5. Validate websites, run Multi-Provider Email Discovery & Verification, and persist step-by-step
       let createdCount = alreadyCreated;
       let skippedCount = Number(claimedJob.skipped) || 0;
       let processedCount = Number(claimedJob.processed) || 0;
@@ -302,7 +393,13 @@ export class LeadGenWorker {
           continue;
         }
 
-        // 2. Strict website requirement & validation (NO company.com placeholder synthesis)
+        // 2. Website resolution via Serper (if configured) & strict validation (NO company.com placeholder synthesis)
+        if ((!cand.website || typeof cand.website !== 'string' || !cand.website.trim()) && serperKey) {
+          const resolvedSite = await findOfficialWebsite(cand.company, serperKey);
+          if (resolvedSite) {
+            cand.website = resolvedSite;
+          }
+        }
         if (!cand.website || typeof cand.website !== 'string' || !cand.website.trim()) {
           console.log(`[LEAD WORKER] Candidate "${cand.company}" discarded: missing website URL`);
           skippedCount++;
@@ -326,13 +423,32 @@ export class LeadGenWorker {
           continue;
         }
 
-        const websiteDomain = valResult.domain;
         const companyClean = cand.company.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-        // 3. Email resolution: Use real provider email if present, NEVER fabricate contact@domain
-        const email = cand.email ? cand.email.trim() : '';
-        const emailStatus = cand.email ? (cand.emailStatus || 'UNVERIFIED') : 'EMAIL_NOT_FOUND';
-        const emailSource = cand.email ? (cand.emailSource || 'API_PROVIDER') : 'NONE';
+        // 3. Multi-provider Email Discovery & Verification (Website Crawler -> Hunter -> Apollo -> PDL -> Clearbit -> Serper)
+        const discovery = await discoverAndVerifyLeadEmail({
+          company: cand.company,
+          website: cand.website,
+          firstName: cand.firstName,
+          lastName: cand.lastName,
+          existingEmail: cand.email || undefined,
+          existingEmailSource: cand.emailSource || cand.source,
+          existingEmailVerified: cand.emailStatus === 'VERIFIED',
+          keys: {
+            hunterKey,
+            apolloKey,
+            pdlKey,
+            clearbitKey,
+            serperKey,
+          },
+          diagnostics: runDiagnostics,
+        });
+
+        const email = discovery.email || '';
+        const emailStatus = discovery.emailStatus;
+        const emailSource = discovery.emailSource;
+        const verificationProvider = discovery.verificationProvider;
+        const emailVerifiedAt = discovery.emailVerifiedAt;
 
         if (email && seenEmails.has(normalizeString(email))) {
           console.log(`[LEAD WORKER] Candidate "${cand.company}" discarded: duplicate email "${email}"`);
@@ -351,9 +467,10 @@ export class LeadGenWorker {
         const leadScoreResult = calculateLeadScore({
           company: cand.company,
           phone: cand.phone,
+          title: cand.title || discovery.contactTitle,
           enrichment: {
             industry,
-            website: cand.website,
+            website: discovery.officialWebsite || cand.website,
             address: cand.address
           }
         });
@@ -361,13 +478,13 @@ export class LeadGenWorker {
         const newLeadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         const noteItem: LeadNote = {
           id: `note_${Date.now()}`,
-          text: `Sourced asynchronously via background job ${jobId}. Provider: ${cand.source}. Sourcing query: "${query}".`,
+          text: `Sourced asynchronously via background job ${jobId}. Provider: ${cand.source}. Email Status: ${emailStatus} (${emailSource}). Sourcing query: "${query}".`,
           createdAt: new Date().toISOString()
         };
         const timelineItem: LeadTimelineEvent = {
           id: `time_${Date.now()}`,
           event: 'Lead Sourced Asynchronously',
-          details: `Generated via background worker job ${jobId}.`,
+          details: `Generated via background worker job ${jobId}. Email: ${email || 'EMAIL_NOT_FOUND'} [${emailStatus} via ${emailSource}].`,
           createdAt: new Date().toISOString()
         };
 
@@ -378,30 +495,33 @@ export class LeadGenWorker {
           assignedToId: claimedJob.userId || criteria.userId || undefined,
           campaignId: claimedJob.campaignId || criteria.campaignId || undefined,
           isShared: false,
-          firstName: cand.firstName || '',
-          lastName: cand.lastName || '',
-          title: cand.title || '',
-          email: email || '',
+          firstName: cand.firstName || discovery.contactFirstName || '',
+          lastName: cand.lastName || discovery.contactLastName || '',
+          title: cand.title || discovery.contactTitle || '',
+          email,
           emailStatus,
           emailSource,
+          verificationProvider,
+          emailVerifiedAt,
           phone: cand.phone || '',
           company: cand.company,
           status: 'NEW',
           source: cand.source || 'Lead Engine AI Worker',
           leadScore: leadScoreResult.score,
-          confidenceScore: leadScoreResult.numericScore,
-          scoreReason: leadScoreResult.reason,
+          confidenceScore: cand.confidenceScore || leadScoreResult.numericScore,
+          scoreReason: cand.scoreReason || leadScoreResult.reason,
           tags: [industry, country, 'AI Verified', 'Async Sourced'].filter(Boolean),
           notesList: [noteItem],
           timelineList: [timelineItem],
           tasksList: [],
           enrichment: {
+            ...(cand.enrichment || {}),
             industry,
             country,
-            website: cand.website,
+            website: discovery.officialWebsite || cand.website,
             address: cand.address || `${city}, ${country}`,
-            companySize: criteria.employeeRange || '',
-            annualRevenue: criteria.revenueRange || '',
+            companySize: cand.enrichment?.companySize || criteria.employeeRange || '',
+            annualRevenue: cand.enrichment?.annualRevenue || criteria.revenueRange || '',
             socialLinks: cand.enrichment?.socialLinks || (companyClean ? [`https://linkedin.com/company/${companyClean}`] : [])
           },
           createdAt: new Date().toISOString(),
@@ -434,15 +554,19 @@ export class LeadGenWorker {
         }, organizationId);
       }
 
+      globalProviderDiagnostics.mergeFrom(runDiagnostics);
+      const diagnosticsSnapshot = runDiagnostics.getSnapshot();
+
       // 6. Transition state to COMPLETED
       console.log(`[LEAD WORKER] Job ${jobId} finished. Created: ${createdCount}/${totalWanted}, Skipped: ${skippedCount}, Processed: ${processedCount}.`);
-      
+
       await this.context.updateJob(jobId, {
         status: 'COMPLETED',
         progress: 100,
         processed: processedCount,
         created: createdCount,
         skipped: skippedCount,
+        providerDiagnostics: diagnosticsSnapshot,
         errorMessage: null,
         updatedAt: new Date().toISOString()
       }, organizationId);

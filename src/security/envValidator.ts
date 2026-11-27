@@ -9,6 +9,7 @@ const backendEnvSchema = z.object({
   SUPABASE_ANON_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   DATABASE_URL: z.string().optional(),
+  LINKEDIN_TOOL_MAPS_API_KEY: z.string().optional(),
 });
 
 export type ValidatedBackendEnv = z.infer<typeof backendEnvSchema>;
@@ -26,6 +27,7 @@ export function validateStartupEnv(): ValidatedBackendEnv {
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
+    LINKEDIN_TOOL_MAPS_API_KEY: process.env.LINKEDIN_TOOL_MAPS_API_KEY,
   };
 
   const missing: string[] = [];

@@ -191,6 +191,69 @@ export function LeadGenJobsManager({
             </div>
           </div>
 
+          {/* Per-Provider Email Discovery Diagnostics Breakdown */}
+          {Array.isArray(activeJob.providerDiagnostics) && activeJob.providerDiagnostics.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-500" /> Email Discovery Provider Breakdown
+                </span>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-slate-200/70 dark:border-slate-800/80 bg-white/80 dark:bg-slate-950/50">
+                <table className="w-full text-left text-[11px] font-mono border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200/70 dark:border-slate-800 text-[9px] uppercase text-slate-400">
+                      <th className="py-2 px-2.5">Provider</th>
+                      <th className="py-2 px-2.5">Status</th>
+                      <th className="py-2 px-2.5 text-right">Processed</th>
+                      <th className="py-2 px-2.5 text-right">Found</th>
+                      <th className="py-2 px-2.5 text-right">Verified</th>
+                      <th className="py-2 px-2.5 text-right">Unverified</th>
+                      <th className="py-2 px-2.5">Last Error</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+                    {activeJob.providerDiagnostics.map((diag: any) => (
+                      <tr key={diag.providerId}>
+                        <td className="py-1.5 px-2.5 font-sans font-semibold text-slate-800 dark:text-slate-200">
+                          {diag.providerName}
+                        </td>
+                        <td className="py-1.5 px-2.5">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              diag.connectionStatus === 'CONNECTED'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : diag.connectionStatus === 'RATE_LIMITED'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : diag.connectionStatus === 'ERROR'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                : 'bg-slate-500/10 text-slate-500'
+                            }`}
+                          >
+                            {diag.connectionStatus}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-2.5 text-right">{diag.leadsProcessed ?? 0}</td>
+                        <td className="py-1.5 px-2.5 text-right text-blue-600 dark:text-blue-400 font-bold">
+                          {diag.emailsDiscovered ?? 0}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-right text-emerald-600 dark:text-emerald-400 font-bold">
+                          {diag.verifiedEmails ?? 0}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-right text-amber-600 dark:text-amber-400">
+                          {diag.unverifiedEmails ?? 0}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-[10px] font-sans text-rose-500 max-w-[180px] truncate" title={diag.lastError || ''}>
+                          {diag.lastError || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Failure Error Message Callout */}
           {activeJob.status === 'FAILED' && activeJob.errorMessage && (
             <div 

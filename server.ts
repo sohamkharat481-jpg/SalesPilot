@@ -23,6 +23,14 @@ import { formatBusinessContextForPrompt, getDefaultAiOutreachProfile } from './s
 import { WorkflowRunner } from './src/lib/workflowRunner';
 import { WorkflowScheduler } from './src/lib/workflowScheduler';
 import { LeadProviderRegistry, validateWebsite, calculateLeadScore, buildDynamicSearchQuery, isGenericCompanyName } from './src/backend/leadProviders';
+import {
+  discoverAndVerifyLeadEmail,
+  extractNormalizedDomain,
+  verifyDiscoveredEmail,
+  ProviderDiagnosticsTracker,
+  globalProviderDiagnostics,
+  ALL_PROVIDER_METADATA
+} from './src/backend/emailDiscoveryService';
 import { LeadGenWorker } from './src/backend/leadGenWorker';
 import { OutreachWorker } from './src/backend/outreachWorker';
 import { VoiceProviderAdapter } from './src/server/voice/VoiceProviderAdapter';
@@ -99,6 +107,10 @@ import {
   OAuthNonceStore
 } from './src/security/authMiddleware';
 import { centralizedErrorHandler } from './src/security/errorHandler';
+import {
+  createGoogleMapsSearchHandler,
+  createGoogleMapsRateLimiter
+} from './src/backend/googleMapsSearchService';
 
 validateStartupEnv();
 
@@ -740,6 +752,7 @@ let pluginCredentials: IntegrationCredentialsMap = {
 let integrationStatuses: Record<string, IntegrationStatus> = {
   clearbit: { pluginId: 'clearbit', status: 'DISCONNECTED', averageLatencyMs: 0, successRate: 100, uptimeRate: 100, totalCalls: 0, usageCount: 0, usageLimit: 2500 },
   hunter: { pluginId: 'hunter', status: 'DISCONNECTED', averageLatencyMs: 0, successRate: 100, uptimeRate: 100, totalCalls: 0, usageCount: 0, usageLimit: 10000 },
+  apollo: { pluginId: 'apollo', status: 'DISCONNECTED', averageLatencyMs: 0, successRate: 100, uptimeRate: 100, totalCalls: 0, usageCount: 0, usageLimit: 5000 },
   peopledatalabs: { pluginId: 'peopledatalabs', status: 'DISCONNECTED', averageLatencyMs: 0, successRate: 100, uptimeRate: 100, totalCalls: 0, usageCount: 0, usageLimit: 1000 },
   crunchbase: { pluginId: 'crunchbase', status: 'DISCONNECTED', averageLatencyMs: 0, successRate: 100, uptimeRate: 100, totalCalls: 0, usageCount: 0, usageLimit: 1000 },
   googlemaps: { pluginId: 'googlemaps', status: 'DISCONNECTED', averageLatencyMs: 0, successRate: 100, uptimeRate: 100, totalCalls: 0, usageCount: 0, usageLimit: 20000 },
@@ -799,6 +812,7 @@ export let researchProvidersConfig = {
   clearbit: { enabled: true, name: 'Clearbit' },
   peopledatalabs: { enabled: true, name: 'People Data Labs' },
   hunter: { enabled: true, name: 'Hunter' },
+  apollo: { enabled: true, name: 'Apollo.io' },
   builtwith: { enabled: true, name: 'BuiltWith' },
   github: { enabled: true, name: 'GitHub' },
   news_api: { enabled: true, name: 'News APIs' },
@@ -2421,6 +2435,12 @@ async function startServer() {
     const campaignId = l.campaign_id || customFields.campaignId || parsedNotes.campaignId || undefined;
     const title = l.title || customFields.title || parsedNotes.title || 'Director';
 
+    const resolvedEmail = l.email || l.business_email || '';
+    const emailStatus = l.email_status || customFields.emailStatus || parsedNotes.emailStatus || (resolvedEmail ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND');
+    const emailSource = l.email_source || customFields.emailSource || parsedNotes.emailSource || (resolvedEmail ? (l.source || parsedNotes.source || 'Database') : 'NONE');
+    const verificationProvider = l.verification_provider || customFields.verificationProvider || parsedNotes.verificationProvider;
+    const emailVerifiedAt = l.email_verified_at || customFields.emailVerifiedAt || parsedNotes.emailVerifiedAt;
+
     return {
       id: String(l.id),
       organizationId: l.organization_id || '',
@@ -2429,7 +2449,11 @@ async function startServer() {
       isShared,
       firstName: l.first_name || parsedNotes.firstName || (l.lead_name ? l.lead_name.split(' ')[0] : 'Prospect'),
       lastName: l.last_name || parsedNotes.lastName || (l.lead_name ? l.lead_name.split(' ').slice(1).join(' ') : ''),
-      email: l.email || l.business_email || '',
+      email: resolvedEmail,
+      emailStatus,
+      emailSource,
+      verificationProvider,
+      emailVerifiedAt,
       phone: l.phone || '',
       company: l.company || 'Company',
       title: title,
@@ -2575,12 +2599,14 @@ async function startServer() {
     let rawError = row.error_message !== undefined ? row.error_message : row.errorMessage;
     let errorMessage = rawError;
     let criteria: any = row.criteria || undefined;
+    let providerDiagnostics: any[] | undefined = row.providerDiagnostics || undefined;
 
     if (typeof rawError === 'string' && rawError.startsWith('META_JSON:')) {
       try {
         const parsed = JSON.parse(rawError.substring(10));
         if (parsed && typeof parsed === 'object') {
           if (parsed.criteria !== undefined) criteria = parsed.criteria;
+          if (parsed.providerDiagnostics !== undefined) providerDiagnostics = parsed.providerDiagnostics;
           errorMessage = parsed.errorMessage || null;
         }
       } catch (_) {
@@ -2599,6 +2625,7 @@ async function startServer() {
       skipped: row.skipped ?? 0,
       errorMessage: errorMessage || null,
       criteria: criteria,
+      providerDiagnostics,
       createdAt: row.created_at || row.createdAt || new Date().toISOString(),
       updatedAt: row.updated_at || row.updatedAt || new Date().toISOString()
     };
@@ -2643,8 +2670,12 @@ async function startServer() {
 
   const addLeadGenJobAsync = async (job: LeadGenJob): Promise<void> => {
     const supabase = getSupabaseClient();
-    const formattedError = (job.criteria !== undefined)
-      ? `META_JSON:${JSON.stringify({ criteria: job.criteria, errorMessage: job.errorMessage || null })}`
+    const formattedError = (job.criteria !== undefined || job.providerDiagnostics !== undefined)
+      ? `META_JSON:${JSON.stringify({
+          criteria: job.criteria,
+          providerDiagnostics: job.providerDiagnostics,
+          errorMessage: job.errorMessage || null
+        })}`
       : (job.errorMessage || null);
 
     if (supabase) {
@@ -2674,6 +2705,9 @@ async function startServer() {
       ...data,
       updatedAt: new Date().toISOString()
     };
+    const existingLocal = localDb.getLeadGenJobById(jobId, orgId);
+    const mergedCriteria = updatedData.criteria !== undefined ? updatedData.criteria : existingLocal?.criteria;
+    const mergedDiagnostics = updatedData.providerDiagnostics !== undefined ? updatedData.providerDiagnostics : existingLocal?.providerDiagnostics;
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
@@ -2685,9 +2719,13 @@ async function startServer() {
         if (updatedData.created !== undefined) dbUpdates.created = updatedData.created;
         if (updatedData.skipped !== undefined) dbUpdates.skipped = updatedData.skipped;
         
-        if (updatedData.criteria !== undefined || updatedData.errorMessage !== undefined) {
-          if (updatedData.criteria !== undefined) {
-            dbUpdates.error_message = `META_JSON:${JSON.stringify({ criteria: updatedData.criteria, errorMessage: updatedData.errorMessage || null })}`;
+        if (updatedData.criteria !== undefined || updatedData.errorMessage !== undefined || updatedData.providerDiagnostics !== undefined) {
+          if (mergedCriteria !== undefined || mergedDiagnostics !== undefined) {
+            dbUpdates.error_message = `META_JSON:${JSON.stringify({
+              criteria: mergedCriteria,
+              providerDiagnostics: mergedDiagnostics,
+              errorMessage: updatedData.errorMessage !== undefined ? updatedData.errorMessage : (existingLocal?.errorMessage || null)
+            })}`;
           } else {
             dbUpdates.error_message = updatedData.errorMessage;
           }
@@ -2801,6 +2839,10 @@ async function startServer() {
           lastName: newLead.lastName,
           title: newLead.title,
           source: newLead.source,
+          emailStatus: newLead.emailStatus || (newLead.email ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND'),
+          emailSource: newLead.emailSource || (newLead.email ? newLead.source : 'NONE'),
+          verificationProvider: newLead.verificationProvider,
+          emailVerifiedAt: newLead.emailVerifiedAt,
           confidenceScore: newLead.confidenceScore,
           scoreReason: newLead.scoreReason,
           assignedToId: (newLead as any).assignedToId || (newLead as any).userId || '',
@@ -2846,6 +2888,10 @@ async function startServer() {
           tags: newLead.tags || [],
           custom_fields: {
             title: newLead.title,
+            emailStatus: newLead.emailStatus || (newLead.email ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND'),
+            emailSource: newLead.emailSource || (newLead.email ? newLead.source : 'NONE'),
+            verificationProvider: newLead.verificationProvider || '',
+            emailVerifiedAt: newLead.emailVerifiedAt || '',
             assignedToId: assignedTo,
             assignedTo: assignedTo,
             userId: userId,
@@ -4733,6 +4779,65 @@ async function startServer() {
     });
     console.log(`[LEADS API] GET /api/v1/leads -> returned ${filteredLeads.length} leads for org "${orgId}" (user: "${user.id}")`);
     res.json({ success: true, count: filteredLeads.length, leads: filteredLeads });
+  });
+
+  // Provider Email Discovery Diagnostics Endpoint (All 8 Providers)
+  app.get('/api/v1/leads/provider-diagnostics', async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized. Authentication token required.' });
+    }
+    const { orgId, error, status } = resolveVerifiedOrganizationId(req, user);
+    if (error || !orgId) {
+      return res.status(status || 403).json({ error: error || 'Organization access denied.' });
+    }
+
+    const cleanKey = (val: unknown) => {
+      if (!val) return '';
+      return String(val).trim().replace(/^["']|["']$/g, '');
+    };
+
+    const gmapsConfigured = Boolean(
+      cleanKey(process.env.GOOGLE_MAPS_API_KEY) ||
+      cleanKey(process.env.GOOGLE_PLACES_API_KEY) ||
+      cleanKey(process.env.GOOGLE_MAPS_KEY) ||
+      cleanKey(process.env.GOOGLE_API_KEY) ||
+      cleanKey(process.env.VITE_GOOGLE_MAPS_API_KEY) ||
+      cleanKey(pluginCredentials['googlemaps']?.apiKey)
+    );
+    const serperConfigured = Boolean(
+      cleanKey(process.env.SERPER_API_KEY) ||
+      cleanKey(process.env.SERPER_KEY) ||
+      cleanKey(process.env.SERPER_API) ||
+      cleanKey(process.env.VITE_SERPER_API_KEY) ||
+      cleanKey(pluginCredentials['serper']?.apiKey)
+    );
+
+    globalProviderDiagnostics.syncConfiguredStates({
+      'google-maps': gmapsConfigured,
+      'apollo': Boolean(cleanKey(process.env.APOLLO_API_KEY) || cleanKey(pluginCredentials['apollo']?.apiKey)),
+      'peopledatalabs': Boolean(cleanKey(process.env.PDL_API_KEY) || cleanKey(pluginCredentials['peopledatalabs']?.apiKey)),
+      'clearbit': Boolean(cleanKey(process.env.CLEARBIT_API_KEY) || cleanKey(pluginCredentials['clearbit']?.apiKey)),
+      'hunter': Boolean(cleanKey(process.env.HUNTER_API_KEY) || cleanKey(pluginCredentials['hunter']?.apiKey)),
+      'google-search': serperConfigured,
+      'website-crawler': true,
+      'crunchbase': Boolean(cleanKey(process.env.CRUNCHBASE_API_KEY) || cleanKey(pluginCredentials['crunchbase']?.apiKey)),
+    });
+
+    const providers = globalProviderDiagnostics.getSnapshot();
+    res.json({
+      success: true,
+      providers,
+      summary: {
+        totalProviders: providers.length,
+        configuredProviders: providers.filter(p => p.configured).length,
+        connectedProviders: providers.filter(p => p.connectionStatus === 'CONNECTED').length,
+        totalLeadsProcessed: providers.reduce((sum, p) => sum + p.leadsProcessed, 0),
+        totalEmailsDiscovered: providers.reduce((sum, p) => sum + p.emailsDiscovered, 0),
+        totalVerifiedEmails: providers.reduce((sum, p) => sum + p.verifiedEmails, 0),
+        totalUnverifiedEmails: providers.reduce((sum, p) => sum + p.unverifiedEmails, 0),
+      }
+    });
   });
 
   // Fetch Individual Lead by ID (Tenant Isolated)
@@ -7876,6 +7981,10 @@ Ensure the output is strictly valid JSON format.`;
           const k = process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey;
           return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
         }
+        if (id === 'apollo' || id === 'apollo-io') {
+          const k = process.env.APOLLO_API_KEY || pluginCredentials['apollo']?.apiKey;
+          return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
+        }
         if (id === 'crunchbase') {
           const k = process.env.CRUNCHBASE_API_KEY || pluginCredentials['crunchbase']?.apiKey;
           return k ? String(k).trim().replace(/^["']|["']$/g, '') : null;
@@ -7899,8 +8008,24 @@ Ensure the output is strictly valid JSON format.`;
         return null;
       };
 
-      const gmapsKey = getProviderKey('google-maps') || (customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
+      const gmapsKey = getProviderKey('google-maps') || ((providerId === 'google-maps' || providerId === 'googlemaps') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
       const serperKey = getProviderKey('google-search') || ((providerId === 'serper' || providerId === 'google-search') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : undefined);
+      const hunterKey = getProviderKey('hunter') || (providerId === 'hunter' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const apolloKey = getProviderKey('apollo') || ((providerId === 'apollo' || providerId === 'apollo-io') && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const pdlKey = getProviderKey('peopledatalabs') || (providerId === 'peopledatalabs' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const clearbitKey = getProviderKey('clearbit') || (providerId === 'clearbit' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+      const crunchbaseKey = getProviderKey('crunchbase') || (providerId === 'crunchbase' && customApiKey ? String(customApiKey).trim().replace(/^["']|["']$/g, '') : null);
+
+      const runDiagnostics = new ProviderDiagnosticsTracker({
+        'google-maps': Boolean(gmapsKey),
+        'apollo': Boolean(apolloKey),
+        'peopledatalabs': Boolean(pdlKey),
+        'clearbit': Boolean(clearbitKey),
+        'hunter': Boolean(hunterKey),
+        'google-search': Boolean(serperKey),
+        'website-crawler': true,
+        'crunchbase': Boolean(crunchbaseKey),
+      });
 
       const formatKeyLog = (key: string | undefined | null) => {
         if (!key) return 'NOT_LOADED (length: 0)';
@@ -7919,7 +8044,7 @@ Ensure the output is strictly valid JSON format.`;
       console.log('=========================================');
 
       requestLogs.push(`[SYSTEM] Sourcing initialized for campaign: "${campaignName || 'Lead Generation'}" targeting "${industry || 'All Industries'}" in "${[city, country].filter(Boolean).join(', ') || 'Target Region'}" using provider: "${providerId}".`);
-      requestLogs.push(`[SYSTEM] API key status check: Google Maps Key: ${formatKeyLog(gmapsKey)}, Serper Key: ${formatKeyLog(serperKey)}.`);
+      requestLogs.push(`[SYSTEM] API key status check: Google Maps Key: ${formatKeyLog(gmapsKey)}, Serper Key: ${formatKeyLog(serperKey)}, Hunter Key: ${formatKeyLog(hunterKey)}, Apollo Key: ${formatKeyLog(apolloKey)}.`);
 
       // Setup detailed provider Audits & API Verification
       const providerAudits: {
@@ -7942,10 +8067,11 @@ Ensure the output is strictly valid JSON format.`;
       const apiKeyVerification = {
         GOOGLE_MAPS_API_KEY: !!gmapsKey ? 'LOADED' : 'MISSING',
         SERPER_API_KEY: !!serperKey ? 'LOADED' : 'MISSING',
-        HUNTER_API_KEY: !!getProviderKey('hunter') ? 'LOADED' : 'MISSING',
-        PDL_API_KEY: !!getProviderKey('peopledatalabs') ? 'LOADED' : 'MISSING',
-        CLEARBIT_API_KEY: !!getProviderKey('clearbit') ? 'LOADED' : 'MISSING',
-        CRUNCHBASE_API_KEY: !!getProviderKey('crunchbase') ? 'LOADED' : 'MISSING',
+        APOLLO_API_KEY: !!apolloKey ? 'LOADED' : 'MISSING',
+        HUNTER_API_KEY: !!hunterKey ? 'LOADED' : 'MISSING',
+        PDL_API_KEY: !!pdlKey ? 'LOADED' : 'MISSING',
+        CLEARBIT_API_KEY: !!clearbitKey ? 'LOADED' : 'MISSING',
+        CRUNCHBASE_API_KEY: !!crunchbaseKey ? 'LOADED' : 'MISSING',
         GEMINI_API_KEY: !!process.env.GEMINI_API_KEY ? 'LOADED' : 'MISSING'
       };
 
@@ -8018,6 +8144,7 @@ Ensure the output is strictly valid JSON format.`;
         trackFailure('google-maps', 'Google Places API (New)', 'Google Maps API key is missing.');
       } else {
         const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
+        runDiagnostics.recordAttempt('google-maps', { leadsProcessedDelta: 1 });
         try {
           console.log(`[DEBUG] [Google Places API (New)] Request: POST ${textSearchUrl} | Headers: Content-Type: application/json, X-Goog-FieldMask: places.id,places.displayName,places.formattedAddress,places.location,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,places.primaryType,places.rating | Body: ${JSON.stringify({ textQuery: query })}`);
           requestLogs.push(`[DEBUG] [Google Places API (New)] Request: POST ${textSearchUrl} | Body: ${JSON.stringify({ textQuery: query })}`);
@@ -8045,12 +8172,18 @@ Ensure the output is strictly valid JSON format.`;
             requestLogs.push(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: API request failed with status ${status}. Response: ${responseText}`);
             const errReason = `Google Places API Text Search failed with status ${status}: ${responseText}`;
             mapsErrorText = errReason;
+            runDiagnostics.recordAttempt('google-maps', {
+              statusCode: status,
+              rateLimited: status === 429,
+              error: errReason,
+            });
             if (auditEntry) {
               auditEntry.status = 'FAILED';
               auditEntry.error = errReason;
             }
             trackFailure('google-maps', 'Google Places API (New)', errReason);
           } else {
+            runDiagnostics.recordAttempt('google-maps', { statusCode: status, success: true });
             const data = JSON.parse(responseText);
             gmapsPlaces = data.places || [];
             providerRawResultCount = gmapsPlaces.length;
@@ -8112,6 +8245,7 @@ Ensure the output is strictly valid JSON format.`;
           }
         } catch (err: any) {
           mapsErrorText = err.message || err;
+          runDiagnostics.recordAttempt('google-maps', { error: mapsErrorText });
           console.error('[LEAD ENGINE] Google Places API (New) Text Search call failed:', err);
           console.log(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: Exception: ${mapsErrorText}`);
           requestLogs.push(`[DEBUG] [Google Places API (New)] Sourcing completed with 0 results. Reason: Exception: ${mapsErrorText}`);
@@ -8165,6 +8299,7 @@ Ensure the output is strictly valid JSON format.`;
           const auditEntry = providerAudits.find(a => a.providerId === 'google-search');
 
           try {
+            runDiagnostics.recordAttempt('google-search', { leadsProcessedDelta: 1 });
             const response = await fetch(serperMapsUrl, {
               method: 'POST',
               headers: {
@@ -8188,12 +8323,18 @@ Ensure the output is strictly valid JSON format.`;
               requestLogs.push(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: API request failed with status ${status}. Response: ${responseText}`);
               const errReason = `Serper Maps API failed with status ${status}: ${responseText}`;
               serperMapsErrorText = errReason;
+              runDiagnostics.recordAttempt('google-search', {
+                statusCode: status,
+                rateLimited: status === 429,
+                error: errReason,
+              });
               if (auditEntry) {
                 auditEntry.status = 'FAILED';
                 auditEntry.error = errReason;
               }
               trackFailure('google-search', 'Serper Maps API (Google Search)', errReason);
             } else {
+              runDiagnostics.recordAttempt('google-search', { statusCode: status, success: true });
               const data = JSON.parse(responseText);
               const serperPlaces = data.maps || data.places || data.organic || [];
               if (!gmapsKeyExists || gmapsPlaces.length === 0) {
@@ -8249,6 +8390,7 @@ Ensure the output is strictly valid JSON format.`;
             }
           } catch (err: any) {
             serperMapsErrorText = err.message || err;
+            runDiagnostics.recordAttempt('google-search', { error: serperMapsErrorText });
             console.error('[LEAD ENGINE] Serper Local Maps failed:', err);
             console.log(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: Exception: ${serperMapsErrorText}`);
             requestLogs.push(`[DEBUG] [Serper Maps API] Sourcing completed with 0 results. Reason: Exception: ${serperMapsErrorText}`);
@@ -8264,10 +8406,14 @@ Ensure the output is strictly valid JSON format.`;
 
       // --- STAGE 3: ANY OTHER CONFIGURED REAL PROVIDERS ---
       const otherProvidersList = [
-        { id: 'crunchbase', keyName: 'CRUNCHBASE_API_KEY', keyVal: process.env.CRUNCHBASE_API_KEY || pluginCredentials['crunchbase']?.apiKey },
-        { id: 'peopledatalabs', keyName: 'PDL_API_KEY', keyVal: process.env.PDL_API_KEY || pluginCredentials['peopledatalabs']?.apiKey },
-        { id: 'clearbit', keyName: 'CLEARBIT_API_KEY', keyVal: process.env.CLEARBIT_API_KEY || pluginCredentials['clearbit']?.apiKey },
-        { id: 'hunter', keyName: 'HUNTER_API_KEY', keyVal: process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey }
+        { id: 'apollo', keyName: 'APOLLO_API_KEY', keyVal: apolloKey },
+        { id: 'crunchbase', keyName: 'CRUNCHBASE_API_KEY', keyVal: crunchbaseKey },
+        { id: 'peopledatalabs', keyName: 'PDL_API_KEY', keyVal: pdlKey },
+        { id: 'clearbit', keyName: 'CLEARBIT_API_KEY', keyVal: clearbitKey },
+        { id: 'hunter', keyName: 'HUNTER_API_KEY', keyVal: hunterKey },
+        ...(providerId === 'website-crawler' || (keywords && String(keywords).includes('.'))
+          ? [{ id: 'website-crawler', keyName: 'NONE_REQUIRED', keyVal: 'PUBLIC_CRAWLER' }]
+          : [])
       ];
 
       // Populate initial audit status for others
@@ -8330,7 +8476,7 @@ Ensure the output is strictly valid JSON format.`;
               keywords: keywords || `${industry || 'Software'} in ${city || 'Bengaluru'}`,
               maxLeads: countToGenerate,
               priority,
-              customApiKey: provInfo.keyVal, // Pass the configured key
+              customApiKey: provInfo.keyVal === 'PUBLIC_CRAWLER' ? undefined : provInfo.keyVal,
               city: city || 'Bengaluru',
               techStack,
               department,
@@ -8361,6 +8507,10 @@ Ensure the output is strictly valid JSON format.`;
                   lastName: pl.lastName,
                   title: pl.title,
                   email: pl.email,
+                  emailStatus: pl.emailStatus,
+                  emailSource: pl.emailSource,
+                  verificationProvider: pl.verificationProvider,
+                  emailVerifiedAt: pl.emailVerifiedAt,
                   confidenceScore: pl.confidenceScore,
                   scoreReason: pl.scoreReason,
                   enrichment: pl.enrichment
@@ -8403,6 +8553,8 @@ Ensure the output is strictly valid JSON format.`;
 
       // If no candidates found from real providers, return success response with empty leads list
       if (candidates.length === 0) {
+        globalProviderDiagnostics.mergeFrom(runDiagnostics);
+        const diagnosticsSnapshot = runDiagnostics.getSnapshot();
         let exactReason = `Sourcing completed with 0 results. No real businesses were found matching criteria (Industry/Keywords: "${keywords || industry || 'Software'}", City: "${city || 'Bengaluru'}", Country: "${country || 'India'}").`;
         let errParts = [];
         if (mapsErrorText) errParts.push(`Google Places API error: "${mapsErrorText}"`);
@@ -8421,6 +8573,14 @@ Ensure the output is strictly valid JSON format.`;
           detailMessage: exactReason,
           parsedLeadCount: 0,
           databaseSaveCount: 0,
+          providerDiagnostics: diagnosticsSnapshot,
+          emailDiscoveryStats: {
+            totalProcessed: 0,
+            emailsDiscovered: 0,
+            verifiedCount: 0,
+            unverifiedCount: 0,
+            notFoundCount: 0
+          },
           auditReport: {
             firstFailingProvider: firstFailingProvider || {
               id: 'google-maps',
@@ -8428,6 +8588,7 @@ Ensure the output is strictly valid JSON format.`;
               error: 'Google Maps API key is missing.'
             },
             providerAudits,
+            providerDiagnostics: diagnosticsSnapshot,
             apiKeyVerification
           },
           providerLogs: requestLogs.map((logLine, index) => ({
@@ -8509,12 +8670,35 @@ Ensure the output is strictly valid JSON format.`;
           console.log(`[VALIDATION] Successfully verified "${businessName}"!`);
           requestLogs.push(`[VERIFIED] "${businessName}": Website resolves successfully (${validation.reason}).`);
 
+          // Run multi-provider Email Discovery & Verification BEFORE deduplication and lead creation.
+          // STRICT ACCURACY RULE: Never synthesize contact@domain or info@domain guesses.
+          const discovery = await discoverAndVerifyLeadEmail({
+            company: businessName,
+            website: verifiedWebsite,
+            firstName: cand.firstName,
+            lastName: cand.lastName,
+            existingEmail: cand.email || undefined,
+            existingEmailSource: cand.emailSource || cand.source,
+            existingEmailVerified: cand.emailStatus === 'VERIFIED',
+            keys: {
+              hunterKey,
+              apolloKey,
+              pdlKey,
+              clearbitKey,
+              serperKey,
+            },
+            diagnostics: runDiagnostics,
+          });
+          for (const dLog of discovery.diagnostics) {
+            requestLogs.push(dLog);
+          }
+
           // Production-Safe Tenant-Scoped Lead Deduplication
-          const candidateEmail = cand.email || (finalDomain ? `contact@${finalDomain}` : '');
-          const normNewEmail = candidateEmail ? candidateEmail.toLowerCase().trim() : '';
-          const normNewDomain = finalDomain ? finalDomain.toLowerCase().trim() : extractDomain(verifiedWebsite);
+          const discoveredEmail = discovery.email || '';
+          const normNewEmail = discoveredEmail ? discoveredEmail.toLowerCase().trim() : '';
+          const normNewDomain = finalDomain ? finalDomain.toLowerCase().trim() : extractDomain(discovery.officialWebsite || verifiedWebsite);
           const normNewCompany = businessName ? businessName.toLowerCase().replace(/[^a-z0-9]/g, '').trim() : '';
-          const normNewContact = ((cand.firstName || '') + ' ' + (cand.lastName || '')).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          const normNewContact = ((cand.firstName || discovery.contactFirstName || '') + ' ' + (cand.lastName || discovery.contactLastName || '')).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 
           let isDuplicate = false;
           let duplicateReason = '';
@@ -8554,12 +8738,16 @@ Ensure the output is strictly valid JSON format.`;
             deduplicatedCount++;
             continue;
           }
+
+          (cand as any)._discovery = discovery;
         } else {
           console.warn(`[VALIDATION] Website invalid for "${businessName}": ${validation.reason}. Discarding lead.`);
           requestLogs.push(`[DISCARDED] "${businessName}": Website verification failed (${validation.reason}). Lead discarded.`);
           validationRejectedCount++;
           continue;
         }
+
+        const discovery = (cand as any)._discovery as Awaited<ReturnType<typeof discoverAndVerifyLeadEmail>>;
 
         // Serper Enrichment (Organic overview search if Serper Key is configured)
         let companyOverview = `Located at ${address}. Sourced via ${cand.source}.`;
@@ -8594,16 +8782,20 @@ Ensure the output is strictly valid JSON format.`;
 
         const newLead: Lead = {
           id: tempLeadId,
-          firstName: cand.firstName || '',
-          lastName: cand.lastName || '',
-          email: cand.email || (finalDomain ? `contact@${finalDomain}` : ''),
+          firstName: cand.firstName || discovery.contactFirstName || '',
+          lastName: cand.lastName || discovery.contactLastName || '',
+          email: discovery.email || '',
+          emailStatus: discovery.emailStatus,
+          emailSource: discovery.emailSource,
+          verificationProvider: discovery.verificationProvider,
+          emailVerifiedAt: discovery.emailVerifiedAt,
           phone: phone || '',
           company: businessName,
-          title: cand.title || (jobTitles ? jobTitles.split(',')[0].trim() : ''),
+          title: cand.title || discovery.contactTitle || (jobTitles ? jobTitles.split(',')[0].trim() : ''),
           status: 'NEW',
           leadScore: 'Warm',
           confidenceScore: cand.confidenceScore || 80,
-          scoreReason: cand.scoreReason || `Real business sourced via ${cand.source}. Location and Website validated.`,
+          scoreReason: cand.scoreReason || `Real business sourced via ${cand.source}. Location and Website validated. Email status: ${discovery.emailStatus} (${discovery.emailSource}).`,
           tags: [`${cand.source} Sourced`, industry || 'Commercial', city || 'Local'].filter(Boolean),
           lastUpdated: new Date().toISOString(),
           notesList: [],
@@ -8611,14 +8803,14 @@ Ensure the output is strictly valid JSON format.`;
             { id: `t_gen_${Date.now()}_1`, text: `Initiate ${cand.source} outreach sequence`, completed: false, dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() }
           ],
           timelineList: [
-            { id: `tl_gen_${Date.now()}_1`, event: `Sourced via ${cand.source}`, details: `Real business verified on ${cand.source}. Website: ${verifiedWebsite || 'Website not available.'}, Phone: ${phone}.`, createdAt: new Date().toISOString() }
+            { id: `tl_gen_${Date.now()}_1`, event: `Sourced via ${cand.source}`, details: `Real business verified on ${cand.source}. Website: ${discovery.officialWebsite || verifiedWebsite || 'Website not available.'}, Phone: ${phone}, Email: ${discovery.email || 'EMAIL_NOT_FOUND'} [${discovery.emailStatus} via ${discovery.emailSource}].`, createdAt: new Date().toISOString() }
           ],
           enrichment: {
             companySize: companySize || '11-50 employees',
             techStack: cand.enrichment?.techStack || ['WordPress', 'GSuite', 'WhatsApp Business'],
             fundingRound: cand.enrichment?.fundingRound || 'Bootstrapped',
             annualRevenue: revenueRange || 'Rs.1 Crore - Rs.5 Crore',
-            website: verifiedWebsite,
+            website: discovery.officialWebsite || verifiedWebsite,
             country: country || 'India',
             industry: industry || 'Commercial Enterprise',
             companyOverview: companyOverview,
@@ -8701,6 +8893,10 @@ Ensure the output is strictly valid JSON format.`;
                   firstName: newLead.firstName,
                   lastName: newLead.lastName,
                   email: newLead.email,
+                  emailStatus: newLead.emailStatus,
+                  emailSource: newLead.emailSource,
+                  verificationProvider: newLead.verificationProvider,
+                  emailVerifiedAt: newLead.emailVerifiedAt,
                   company: newLead.company,
                   title: newLead.title,
                   source: newLead.source,
@@ -8721,6 +8917,10 @@ Ensure the output is strictly valid JSON format.`;
                 tags: newLead.tags || [],
                 custom_fields: {
                   title: newLead.title,
+                  emailStatus: newLead.emailStatus || (newLead.email ? 'UNVERIFIED' : 'EMAIL_NOT_FOUND'),
+                  emailSource: newLead.emailSource || (newLead.email ? newLead.source : 'NONE'),
+                  verificationProvider: newLead.verificationProvider || '',
+                  emailVerifiedAt: newLead.emailVerifiedAt || '',
                   industry: newLead.enrichment?.industry || industry || 'Software',
                   country: newLead.enrichment?.country || country || 'India',
                   linkedin: newLead.enrichment?.socialLinks?.[0] || '',
@@ -8796,6 +8996,16 @@ Ensure the output is strictly valid JSON format.`;
       }
 
       // --- EXHAUSTED / ERROR DETECTING HANDLERS ---
+      globalProviderDiagnostics.mergeFrom(runDiagnostics);
+      const diagnosticsSnapshot = runDiagnostics.getSnapshot();
+      const emailDiscoveryStats = {
+        totalProcessed: results.length,
+        emailsDiscovered: results.filter(r => Boolean(r.email)).length,
+        verifiedCount: results.filter(r => r.emailStatus === 'VERIFIED').length,
+        unverifiedCount: results.filter(r => r.emailStatus === 'UNVERIFIED' || r.emailStatus === 'RISKY').length,
+        notFoundCount: results.filter(r => !r.email || r.emailStatus === 'EMAIL_NOT_FOUND').length,
+      };
+
       if (results.length === 0) {
         let exactReason = 'All lead sourcing providers and verification pipelines completed with 0 verified leads.';
 
@@ -8816,13 +9026,6 @@ Ensure the output is strictly valid JSON format.`;
         console.log(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
         requestLogs.push(`[LEAD ENGINE] Sourcing completed with 0 results. Reason: ${exactReason}`);
 
-        console.log(`[TELEMETRY] PROVIDER_ATTEMPTED: ${providerAttempted}`);
-        console.log(`[TELEMETRY] PROVIDER_HTTP_STATUS: ${providerHttpStatus}`);
-        console.log(`[TELEMETRY] PROVIDER_RAW_RESULT_COUNT: ${providerRawResultCount}`);
-        console.log(`[TELEMETRY] PROVIDER_PARSED_RESULT_COUNT: ${providerParsedResultCount}`);
-        console.log(`[TELEMETRY] VALIDATION_REJECTED_COUNT: ${validationRejectedCount}`);
-        console.log(`[TELEMETRY] GENERATED_COUNT: 0`);
-
         const responsePayload = {
           success: true,
           count: 0,
@@ -8838,6 +9041,8 @@ Ensure the output is strictly valid JSON format.`;
           deduplicatedCount,
           databaseSaveCount: 0,
           parsedLeadCount: candidates.length,
+          providerDiagnostics: diagnosticsSnapshot,
+          emailDiscoveryStats,
           telemetry: {
             PROVIDER_ATTEMPTED: providerAttempted,
             PROVIDER_HTTP_STATUS: providerHttpStatus,
@@ -8860,6 +9065,8 @@ Ensure the output is strictly valid JSON format.`;
               error: mapsErrorText || 'Google Maps Places Search completed with 0 results.'
             },
             providerAudits,
+            providerDiagnostics: diagnosticsSnapshot,
+            emailDiscoveryStats,
             apiKeyVerification
           },
           providerLogs: requestLogs.map((logLine, index) => ({
@@ -8877,15 +9084,8 @@ Ensure the output is strictly valid JSON format.`;
       localDb.db.leads = leads;
       saveDb();
 
-      console.log(`[LEAD ENGINE SUCCESS] Sourcing completed! Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Database Save Count: ${insertedToSupabase} (Supabase) + ${results.length} (Local DB).`);
-      requestLogs.push(`[SUMMARY] Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Database Save Count: ${insertedToSupabase}.`);
-
-      console.log(`[TELEMETRY] PROVIDER_ATTEMPTED: ${providerAttempted}`);
-      console.log(`[TELEMETRY] PROVIDER_HTTP_STATUS: ${providerHttpStatus}`);
-      console.log(`[TELEMETRY] PROVIDER_RAW_RESULT_COUNT: ${providerRawResultCount}`);
-      console.log(`[TELEMETRY] PROVIDER_PARSED_RESULT_COUNT: ${providerParsedResultCount}`);
-      console.log(`[TELEMETRY] VALIDATION_REJECTED_COUNT: ${validationRejectedCount}`);
-      console.log(`[TELEMETRY] GENERATED_COUNT: ${results.length}`);
+      console.log(`[LEAD ENGINE SUCCESS] Sourcing completed! Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Emails Discovered: ${emailDiscoveryStats.emailsDiscovered}, Database Save Count: ${insertedToSupabase} (Supabase) + ${results.length} (Local DB).`);
+      requestLogs.push(`[SUMMARY] Parsed Lead Count: ${candidates.length}, Verified Lead Count: ${results.length}, Emails Discovered: ${emailDiscoveryStats.emailsDiscovered} (Verified: ${emailDiscoveryStats.verifiedCount}, Unverified: ${emailDiscoveryStats.unverifiedCount}, Not Found: ${emailDiscoveryStats.notFoundCount}), Database Save Count: ${insertedToSupabase}.`);
 
       res.json({
         success: true,
@@ -8903,6 +9103,8 @@ Ensure the output is strictly valid JSON format.`;
         validationRejectedCount,
         deduplicatedCount,
         parsedLeadCount: candidates.length,
+        providerDiagnostics: diagnosticsSnapshot,
+        emailDiscoveryStats,
         telemetry: {
           PROVIDER_ATTEMPTED: providerAttempted,
           PROVIDER_HTTP_STATUS: providerHttpStatus,
@@ -8921,6 +9123,8 @@ Ensure the output is strictly valid JSON format.`;
           databaseSaveCount: insertedToSupabase,
           firstFailingProvider,
           providerAudits,
+          providerDiagnostics: diagnosticsSnapshot,
+          emailDiscoveryStats,
           apiKeyVerification
         },
         providerLogs: requestLogs.map((logLine, index) => ({
@@ -15515,6 +15719,88 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
               details = `Cashfree authentication rejected. Status: ${response.status}`;
             }
           }
+        } else if (id === 'apollo') {
+          const apiKey = creds.apiKey || process.env.APOLLO_API_KEY;
+          if (!apiKey) {
+            isOk = false;
+            details = 'Apollo.io API Key is unconfigured.';
+          } else {
+            const response = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+              body: JSON.stringify({ q_keywords: 'software', per_page: 1, page: 1 }),
+              signal: getAbortSignal()
+            });
+            latency = Date.now() - start;
+            if (response.ok) {
+              isOk = true;
+              details = 'Apollo.io API verified successfully.';
+            } else {
+              errMsg = await response.text().catch(() => `HTTP ${response.status}`);
+              details = `Apollo.io verification failed (HTTP ${response.status}): ${errMsg.slice(0, 140)}`;
+            }
+          }
+        } else if (id === 'peopledatalabs') {
+          const apiKey = creds.apiKey || process.env.PDL_API_KEY;
+          if (!apiKey) {
+            isOk = false;
+            details = 'People Data Labs API Key is unconfigured.';
+          } else {
+            const response = await fetch('https://api.peopledatalabs.com/v5/person/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+              body: JSON.stringify({ query: { bool: { must: [{ term: { job_company_location_country: 'india' } }] } }, size: 1 }),
+              signal: getAbortSignal()
+            });
+            latency = Date.now() - start;
+            if (response.ok) {
+              isOk = true;
+              details = 'People Data Labs API verified successfully.';
+            } else {
+              errMsg = await response.text().catch(() => `HTTP ${response.status}`);
+              details = `People Data Labs handshake failed (HTTP ${response.status}): ${errMsg.slice(0, 140)}`;
+            }
+          }
+        } else if (id === 'clearbit') {
+          const apiKey = creds.apiKey || process.env.CLEARBIT_API_KEY;
+          if (!apiKey) {
+            isOk = false;
+            details = 'Clearbit API Key is unconfigured.';
+          } else {
+            const response = await fetch('https://prospector.clearbit.com/v1/people/search?domain=stripe.com&limit=1', {
+              headers: { Authorization: `Bearer ${apiKey}` },
+              signal: getAbortSignal()
+            });
+            latency = Date.now() - start;
+            if (response.ok) {
+              isOk = true;
+              details = 'Clearbit API verified successfully.';
+            } else {
+              errMsg = await response.text().catch(() => `HTTP ${response.status}`);
+              details = `Clearbit handshake failed (HTTP ${response.status}): ${errMsg.slice(0, 140)}`;
+            }
+          }
+        } else if (id === 'crunchbase') {
+          const apiKey = creds.apiKey || process.env.CRUNCHBASE_API_KEY;
+          if (!apiKey) {
+            isOk = false;
+            details = 'Crunchbase API Key is unconfigured.';
+          } else {
+            const response = await fetch(`https://api.crunchbase.com/api/v4/searches/organizations?user_key=${encodeURIComponent(apiKey)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ field_ids: ['identifier'], query: [{ type: 'predicate', field_id: 'facet_ids', operator_id: 'includes', values: ['company'] }], limit: 1 }),
+              signal: getAbortSignal()
+            });
+            latency = Date.now() - start;
+            if (response.ok) {
+              isOk = true;
+              details = 'Crunchbase API verified successfully.';
+            } else {
+              errMsg = await response.text().catch(() => `HTTP ${response.status}`);
+              details = `Crunchbase handshake failed (HTTP ${response.status}): ${errMsg.slice(0, 140)}`;
+            }
+          }
         } else if (id === 'slack') {
           const webhookUrl = creds.webhookUrl || creds.apiKey || process.env.SLACK_WEBHOOK_URL;
           if (!webhookUrl) {
@@ -21934,229 +22220,319 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
     }
   });
 
-  // --- MODULE 8: HUNTER EMAIL VERIFIER ENDPOINTS ---
-  app.post('/api/v1/hunter/verify', (req, res) => {
+  // --- MODULE 8: HUNTER EMAIL VERIFIER & APOLLO ENDPOINTS (REAL API BACKED) ---
+  app.post('/api/v1/hunter/verify', async (req, res) => {
     const { email } = req.body;
     if (!email) {
       return res.status(400).json({ success: false, error: 'email is required' });
     }
 
+    const hunterKey = (process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey || '').trim();
+    const start = Date.now();
     integrationStatuses.hunter.totalCalls += 1;
     integrationStatuses.hunter.usageCount += 1;
-    integrationStatuses.hunter.status = 'CONNECTED';
-    integrationStatuses.hunter.averageLatencyMs = 90;
 
-    const domain = email.split('@')[1] || '';
-    const isDomainDisposable = ['tempmail.com', 'mailinator.com', 'yopmail.com'].includes(domain);
-    const confidenceScore = isDomainDisposable ? 12 : Math.floor(Math.random() * 20) + 80; // high confidence for real domains
-    const status = confidenceScore > 85 ? 'DELIVERABLE' : confidenceScore > 50 ? 'RISKY' : 'UNDELIVERABLE';
+    try {
+      const verification = await verifyDiscoveredEmail(String(email), {
+        hunterApiKey: hunterKey || null,
+        diagnostics: globalProviderDiagnostics,
+      });
+      integrationStatuses.hunter.averageLatencyMs = Date.now() - start;
+      integrationStatuses.hunter.status = hunterKey ? 'CONNECTED' : 'DISCONNECTED';
 
-    logIntegrationEvent('hunter', 'INFO', `Verified outbound address: ${email}`, `Confidence: ${confidenceScore}%. Status: ${status}.`);
-    res.json({
-      success: true,
-      email,
-      status,
-      confidenceScore,
-      isCatchAll: domain.includes('corporation') || Math.random() > 0.85,
-      isDisposable: isDomainDisposable,
-      smtpCheck: confidenceScore > 85 ? 'ACTIVE_STATION' : 'REJECTED',
-      syncedWithCrm: true
-    });
+      const mappedStatus =
+        verification.status === 'VERIFIED' ? 'DELIVERABLE' :
+        verification.status === 'RISKY' ? 'RISKY' :
+        verification.status === 'INVALID' ? 'UNDELIVERABLE' : 'UNVERIFIED';
+
+      logIntegrationEvent('hunter', 'INFO', `Verified outbound address: ${email}`, `Provider: ${verification.verificationProvider}. Status: ${verification.status}.`);
+      res.json({
+        success: true,
+        email: String(email).trim().toLowerCase(),
+        status: mappedStatus,
+        emailStatus: verification.status,
+        verificationProvider: verification.verificationProvider,
+        mxStatus: verification.mxStatus,
+        confidenceScore: verification.status === 'VERIFIED' ? 95 : verification.mxStatus === 'HAS_MX' ? 60 : 15,
+        isCatchAll: verification.status === 'RISKY',
+        isDisposable: verification.status === 'INVALID',
+        smtpCheck: verification.status === 'VERIFIED' ? 'VERIFIED' : (hunterKey ? verification.status : 'HUNTER_API_KEY_UNCONFIGURED'),
+        syncedWithCrm: true
+      });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'Verification failed' });
+    }
   });
 
-  app.post('/api/v1/hunter/domain-search', (req, res) => {
+  app.post('/api/v1/hunter/domain-search', async (req, res) => {
     const { domain } = req.body;
-    if (!domain) {
-      return res.status(400).json({ success: false, error: 'domain is required' });
+    const cleanDomain = extractNormalizedDomain(String(domain || ''));
+    if (!cleanDomain) {
+      return res.status(400).json({ success: false, error: 'A valid company domain is required' });
+    }
+    const hunterKey = (process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey || '').trim();
+    if (!hunterKey) {
+      return res.status(400).json({ success: false, error: 'HUNTER_API_KEY is not configured.' });
     }
 
-    integrationStatuses.hunter.totalCalls += 1;
-    integrationStatuses.hunter.usageCount += 5;
-
-    logIntegrationEvent('hunter', 'INFO', `Scanned domain records for ${domain}`, `Discovered verified emails.`);
-    res.json({
-      success: true,
-      domain,
-      pattern: '{first}.{last}@' + domain,
-      verifiedCount: 12,
-      results: [
-        { email: 'ananya.sharma@' + domain, confidence: 98, name: 'Ananya Sharma', title: 'Managing Director' },
-        { email: 'support@' + domain, confidence: 95, name: 'Support Node', title: 'Customer Operations' },
-        { email: 'sales@' + domain, confidence: 91, name: 'Sales Hub', title: 'Outbound SDR Desk' }
-      ]
-    });
+    try {
+      const apiRes = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(cleanDomain)}&api_key=${encodeURIComponent(hunterKey)}&limit=10`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      const data = await apiRes.json() as any;
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ success: false, error: data?.errors?.[0]?.details || `Hunter HTTP ${apiRes.status}` });
+      }
+      const emails = (data?.data?.emails || []).map((e: any) => ({
+        email: e.value,
+        confidence: e.confidence,
+        verificationStatus: e.verification?.status || 'unknown',
+        name: [e.first_name, e.last_name].filter(Boolean).join(' '),
+        title: e.position || ''
+      }));
+      integrationStatuses.hunter.totalCalls += 1;
+      integrationStatuses.hunter.status = 'CONNECTED';
+      logIntegrationEvent('hunter', 'INFO', `Scanned domain records for ${cleanDomain}`, `Discovered ${emails.length} addresses.`);
+      res.json({
+        success: true,
+        domain: cleanDomain,
+        pattern: data?.data?.pattern || null,
+        verifiedCount: emails.filter((e: any) => e.verificationStatus === 'valid').length,
+        results: emails
+      });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'Hunter domain search failed' });
+    }
   });
 
-  app.post('/api/v1/hunter/finder', (req, res) => {
+  app.post('/api/v1/hunter/finder', async (req, res) => {
     const { firstName, lastName, domain } = req.body;
-    if (!firstName || !domain) {
-      return res.status(400).json({ success: false, error: 'firstName and domain parameters are required' });
+    const cleanDomain = extractNormalizedDomain(String(domain || ''));
+    if (!firstName || !cleanDomain) {
+      return res.status(400).json({ success: false, error: 'firstName and valid domain parameters are required' });
+    }
+    const hunterKey = (process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey || '').trim();
+    if (!hunterKey) {
+      return res.status(400).json({ success: false, error: 'HUNTER_API_KEY is not configured.' });
     }
 
-    integrationStatuses.hunter.totalCalls += 1;
-    integrationStatuses.hunter.usageCount += 3;
+    try {
+      const url = `https://api.hunter.io/v2/email-finder?domain=${encodeURIComponent(cleanDomain)}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName || '')}&api_key=${encodeURIComponent(hunterKey)}`;
+      const apiRes = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const data = await apiRes.json() as any;
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ success: false, error: data?.errors?.[0]?.details || `Hunter HTTP ${apiRes.status}` });
+      }
+      const foundEmail = data?.data?.email || '';
+      if (!foundEmail) {
+        return res.json({ success: true, email: '', emailStatus: 'EMAIL_NOT_FOUND', confidenceScore: 0, status: 'EMAIL_NOT_FOUND' });
+      }
+      res.json({
+        success: true,
+        email: foundEmail,
+        confidenceScore: data?.data?.score || 0,
+        status: data?.data?.verification?.status === 'valid' ? 'VERIFIED' : 'UNVERIFIED'
+      });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'Hunter email finder failed' });
+    }
+  });
 
-    const email = `${firstName.toLowerCase()}.${(lastName || '').toLowerCase()}@${domain}`;
-    logIntegrationEvent('hunter', 'INFO', `Ran email finder for "${firstName} ${lastName || ''}" at ${domain}`, `Constructed matching address: ${email}`);
-    res.json({
-      success: true,
-      email,
-      confidenceScore: 92,
-      status: 'VERIFIED_SMTP_MATCH'
-    });
+  app.post('/api/v1/apollo/search', async (req, res) => {
+    const { domain, keywords, jobTitles, country } = req.body;
+    const apolloKey = (process.env.APOLLO_API_KEY || pluginCredentials['apollo']?.apiKey || '').trim();
+    if (!apolloKey) {
+      return res.status(400).json({ success: false, error: 'APOLLO_API_KEY is not configured.' });
+    }
+    try {
+      const cleanDomain = domain ? extractNormalizedDomain(String(domain)) : '';
+      const apiRes = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
+        body: JSON.stringify({
+          ...(cleanDomain ? { q_organization_domains_list: [cleanDomain] } : {}),
+          ...(keywords ? { q_keywords: keywords } : {}),
+          ...(jobTitles ? { person_titles: String(jobTitles).split(',').map((s: string) => s.trim()).filter(Boolean) } : {}),
+          ...(country ? { person_locations: [country] } : {}),
+          per_page: 10,
+          page: 1,
+        }),
+        signal: AbortSignal.timeout(6000)
+      });
+      const data = await apiRes.json() as any;
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ success: false, error: data?.message || `Apollo HTTP ${apiRes.status}` });
+      }
+      res.json({ success: true, people: data?.people || [] });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'Apollo search failed' });
+    }
   });
 
   // --- MODULE 9: CLEARBIT ENRICHMENT ENDPOINTS ---
-  app.post('/api/v1/clearbit/enrich', (req, res) => {
+  app.post('/api/v1/clearbit/enrich', async (req, res) => {
     const { domain } = req.body;
-    if (!domain) {
-      return res.status(400).json({ success: false, error: 'domain is required' });
+    const cleanDomain = extractNormalizedDomain(String(domain || ''));
+    if (!cleanDomain) {
+      return res.status(400).json({ success: false, error: 'A valid company domain is required' });
+    }
+    const clearbitKey = (process.env.CLEARBIT_API_KEY || pluginCredentials['clearbit']?.apiKey || '').trim();
+    if (!clearbitKey) {
+      return res.status(400).json({ success: false, error: 'CLEARBIT_API_KEY is not configured.' });
     }
 
-    integrationStatuses.clearbit.totalCalls += 1;
-    integrationStatuses.clearbit.usageCount += 1;
-    integrationStatuses.clearbit.status = 'CONNECTED';
-    integrationStatuses.clearbit.averageLatencyMs = 150;
-
-    const companyBaseName = (domain.split('.')[0] || 'Enterprise').charAt(0).toUpperCase() + (domain.split('.')[0] || 'Enterprise').slice(1);
-    const enriched = {
-      name: `${companyBaseName} Technologies`,
-      legalName: `${companyBaseName} Technologies Pvt Ltd`,
-      domain,
-      logo: `https://logo.clearbit.com/${domain}`,
-      tags: ['SaaS', 'B2B', 'Marketing Automation', 'Enterprise Tech'],
-      metrics: {
-        employees: 85,
-        employeesRange: '51-200',
-        estimatedRevenue: '$5.0M USD',
-        raised: '$2.5M USD Series A'
-      },
-      techStack: ['Vercel', 'Supabase', 'Stripe', 'OpenAI', 'React', 'Google Workspace'],
-      geo: {
-        country: 'India',
-        city: 'Bangalore',
-        state: 'Karnataka',
-        postalCode: '560001'
+    try {
+      const apiRes = await fetch(`https://company.clearbit.com/v2/companies/find?domain=${encodeURIComponent(cleanDomain)}`, {
+        headers: { Authorization: `Bearer ${clearbitKey}` },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ success: false, error: `Clearbit HTTP ${apiRes.status}` });
       }
-    };
-
-    logIntegrationEvent('clearbit', 'INFO', `Enriched corporate dataset for ${domain}`, `Pulled tech stack and employee counts.`);
-    res.json({ success: true, enriched });
+      const companyData = await apiRes.json() as any;
+      integrationStatuses.clearbit.totalCalls += 1;
+      integrationStatuses.clearbit.status = 'CONNECTED';
+      res.json({ success: true, enriched: companyData });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'Clearbit enrich failed' });
+    }
   });
 
   // --- MODULE 10: PEOPLE DATA LABS ENDPOINTS ---
-  app.post('/api/v1/peopledatalabs/search-person', (req, res) => {
-    const { name, title, linkedinUrl } = req.body;
-    if (!name && !linkedinUrl) {
-      return res.status(400).json({ success: false, error: 'name or linkedinUrl parameter is required' });
+  app.post('/api/v1/peopledatalabs/search-person', async (req, res) => {
+    const { name, title, linkedinUrl, domain } = req.body;
+    if (!name && !linkedinUrl && !domain) {
+      return res.status(400).json({ success: false, error: 'name, domain, or linkedinUrl parameter is required' });
+    }
+    const pdlKey = (process.env.PDL_API_KEY || pluginCredentials['peopledatalabs']?.apiKey || '').trim();
+    if (!pdlKey) {
+      return res.status(400).json({ success: false, error: 'PDL_API_KEY is not configured.' });
     }
 
-    integrationStatuses.peopledatalabs.totalCalls += 1;
-    integrationStatuses.peopledatalabs.usageCount += 10;
-    integrationStatuses.peopledatalabs.status = 'CONNECTED';
+    try {
+      const must: any[] = [];
+      if (name) must.push({ match: { full_name: String(name) } });
+      if (title) must.push({ match: { job_title: String(title) } });
+      if (domain) must.push({ term: { job_company_website: extractNormalizedDomain(String(domain)) } });
+      if (linkedinUrl) must.push({ term: { linkedin_url: String(linkedinUrl) } });
 
-    logIntegrationEvent('peopledatalabs', 'INFO', `Queried PDL database. Search: "${name || linkedinUrl}"`);
-    res.json({
-      success: true,
-      person: {
-        fullName: name || 'Professional Contact',
-        gender: 'unspecified',
-        linkedinUrl: linkedinUrl || 'https://linkedin.com/in/prospect',
-        title: title || 'Executive Director',
-        currentCompany: 'Enterprise Partner',
-        location: 'Bangalore, India',
-        emails: ['contact@enterprise.com'],
-        phones: ['+919876543210'],
-        jobHistory: [
-          { title: 'Executive Director', company: 'Enterprise Partner', duration: '2023 - Present' },
-          { title: 'Lead Outreach Strategist', company: 'Global Growth Media', duration: '2021 - 2023' },
-          { title: 'Senior SDR Manager', company: 'Growth Inbounds', duration: '2019 - 2021' }
-        ],
-        education: [
-          { degree: 'Master of Business Administration (MBA)', school: 'Indian Institute of Management (IIM)', year: '2019' }
-        ]
+      const apiRes = await fetch('https://api.peopledatalabs.com/v5/person/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': pdlKey },
+        body: JSON.stringify({ query: { bool: { must } }, size: 3 }),
+        signal: AbortSignal.timeout(5000)
+      });
+      const data = await apiRes.json() as any;
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ success: false, error: data?.error?.message || `PDL HTTP ${apiRes.status}` });
       }
-    });
+      const person = data?.data?.[0] || null;
+      integrationStatuses.peopledatalabs.totalCalls += 1;
+      integrationStatuses.peopledatalabs.status = 'CONNECTED';
+      res.json({ success: true, person });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'PDL search failed' });
+    }
   });
 
   // --- MODULE 11: CRUNCHBASE GLOBAL INTEL ---
-  app.post('/api/v1/crunchbase/intelligence', (req, res) => {
+  app.post('/api/v1/crunchbase/intelligence', async (req, res) => {
     const { companyName, domain } = req.body;
     if (!companyName && !domain) {
       return res.status(400).json({ success: false, error: 'companyName or domain parameter is required' });
     }
+    const crunchbaseKey = (process.env.CRUNCHBASE_API_KEY || pluginCredentials['crunchbase']?.apiKey || '').trim();
+    if (!crunchbaseKey) {
+      return res.status(400).json({ success: false, error: 'CRUNCHBASE_API_KEY is not configured.' });
+    }
 
-    integrationStatuses.crunchbase.totalCalls += 1;
-    integrationStatuses.crunchbase.usageCount += 5;
-    integrationStatuses.crunchbase.status = 'CONNECTED';
-
-    const cleanName = companyName || domain.split('.')[0].toUpperCase();
-    logIntegrationEvent('crunchbase', 'INFO', `Queried Crunchbase Growth index for "${cleanName}"`);
-    res.json({
-      success: true,
-      intelligence: {
-        companyName: cleanName,
-        domain: domain || 'targetdomain.com',
-        fundingStatus: 'Early Stage Venture',
-        lastFundingType: 'Seed Round',
-        totalFundingRaised: '$1,200,000 USD',
-        lastFundingAmount: '$1,200,000 USD',
-        lastFundingDate: 'November 14, 2025',
-        leadInvestors: ['Sequoia India Spark Fund', 'Kalaari Capital Launchpad'],
-        investorsCount: 4,
-        acquisitionsCount: 0,
-        growthRankScore: 92,
-        crunchbaseProfileUrl: `https://www.crunchbase.com/organization/${cleanName.toLowerCase().replace(/ /g, '-')}`
+    try {
+      const searchText = companyName || extractNormalizedDomain(String(domain || ''));
+      const apiRes = await fetch(`https://api.crunchbase.com/api/v4/searches/organizations?user_key=${encodeURIComponent(crunchbaseKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          field_ids: ['identifier', 'short_description', 'website_url', 'funding_total'],
+          query: [{ type: 'predicate', field_id: 'short_description', operator_id: 'contains', values: [searchText] }],
+          limit: 3
+        }),
+        signal: AbortSignal.timeout(5000)
+      });
+      const data = await apiRes.json() as any;
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ success: false, error: `Crunchbase HTTP ${apiRes.status}` });
       }
-    });
+      integrationStatuses.crunchbase.totalCalls += 1;
+      integrationStatuses.crunchbase.status = 'CONNECTED';
+      res.json({ success: true, intelligence: data?.entities?.[0]?.properties || null, entities: data?.entities || [] });
+    } catch (err: any) {
+      res.status(502).json({ success: false, error: err?.message || 'Crunchbase lookup failed' });
+    }
   });
 
   // --- MODULE 12: GOOGLE MAPS LOCAL SCRAPER ---
-  app.post('/api/v1/googlemaps/search', (req, res) => {
-    const { query, location = 'Bangalore', radius = 5000 } = req.body;
-    if (!query) {
-      return res.status(400).json({ success: false, error: 'Search query is required' });
-    }
+  const googleMapsSearchLimiter = createGoogleMapsRateLimiter();
+  app.post(
+    '/api/v1/googlemaps/search',
+    createGoogleMapsSearchHandler({
+      getGoogleMapsApiKey: () =>
+        (
+          process.env.GOOGLE_MAPS_API_KEY ||
+          process.env.GOOGLE_PLACES_API_KEY ||
+          pluginCredentials['googlemaps']?.apiKey ||
+          ''
+        ).trim(),
+      getSharedSecret: () => (process.env.LINKEDIN_TOOL_MAPS_API_KEY || '').trim(),
+      getAuthenticatedUser,
+      rateLimiter: googleMapsSearchLimiter,
+      onSearchSuccess: () => {
+        integrationStatuses.googlemaps.totalCalls += 1;
+        integrationStatuses.googlemaps.status = 'CONNECTED';
+      }
+    })
+  );
 
-    integrationStatuses.googlemaps.totalCalls += 1;
-    integrationStatuses.googlemaps.usageCount += 15;
-    integrationStatuses.googlemaps.status = 'CONNECTED';
-
-    // Simulated high-fidelity local business details scraped from Maps API
-    const businesses = [
-      { name: 'Vanguard Local Advertising', address: '4th Block, Koramangala, Bangalore, KA 560034', phone: '+918012345670', website: 'vanguardlocalads.in', rating: 4.8, reviewsCount: 142, placeId: 'ChIJa81723_Kora1' },
-      { name: 'Skyline Media Agency', address: 'Indiranagar Double Road, Bangalore, KA 560008', phone: '+918012345671', website: 'skylinemedia.in', rating: 4.6, reviewsCount: 89, placeId: 'ChIJa19302_Indi2' },
-      { name: 'Zenith SEO Solutions', address: 'M.G. Road Central, Bangalore, KA 560001', phone: '+918012345672', website: 'zenithseo.co', rating: 4.4, reviewsCount: 34, placeId: 'ChIJa00112_MGRod3' }
-    ];
-
-    logIntegrationEvent('googlemaps', 'INFO', `Scraped Google Maps directory for "${query}" near ${location}`, `Found ${businesses.length} local matching businesses with ratings and phone contacts.`);
-    res.json({ success: true, results: businesses });
-  });
-
-  app.post('/api/v1/googlemaps/import', (req, res) => {
-    const { business, tags = ['Google Maps', 'Local Import'] } = req.body;
+  app.post('/api/v1/googlemaps/import', async (req, res) => {
+    const { business } = req.body;
     if (!business || !business.name) {
       return res.status(400).json({ success: false, error: 'business details are required' });
     }
 
-    // Append directly to the live CRM array
+    const hunterKey = (process.env.HUNTER_API_KEY || pluginCredentials['hunter']?.apiKey || '').trim() || null;
+    const apolloKey = (process.env.APOLLO_API_KEY || pluginCredentials['apollo']?.apiKey || '').trim() || null;
+    const serperKey = (process.env.SERPER_API_KEY || pluginCredentials['serper']?.apiKey || '').trim() || null;
+
+    const discovery = await discoverAndVerifyLeadEmail({
+      company: business.name,
+      website: business.website || '',
+      keys: { hunterKey, apolloKey, serperKey },
+      diagnostics: globalProviderDiagnostics,
+    });
+
     const newLead: Lead = {
       id: `lead_maps_${Date.now()}`,
-      firstName: business.name,
-      lastName: '(Maps Local)',
-      email: `contact@${business.website || 'localbusiness.com'}`,
-      phone: business.phone || 'N/A',
-      title: 'Business Owner',
+      firstName: discovery.contactFirstName || '',
+      lastName: discovery.contactLastName || '',
+      email: discovery.email || '',
+      emailStatus: discovery.emailStatus,
+      emailSource: discovery.emailSource,
+      verificationProvider: discovery.verificationProvider,
+      emailVerifiedAt: discovery.emailVerifiedAt,
+      phone: business.phone || '',
+      title: discovery.contactTitle || '',
       company: business.name,
       status: 'NEW',
+      source: 'Google Maps Local Scraper',
       enrichment: {
-        website: business.website || '',
+        website: discovery.officialWebsite || business.website || '',
         industry: 'Local Services',
         country: 'India',
         companySize: '1-10 employees',
         annualRevenue: '< $1M',
-        aiBrief: `Sourced from Google Maps. Active offline/local digital profile with rating ${business.rating || '4.5'}/5 (${business.reviewsCount || 0} reviews). Address: ${business.address}`,
-        techStack: []
+        aiBrief: `Sourced from Google Maps. Rating ${business.rating || 'N/A'}/5 (${business.reviewsCount || 0} reviews). Address: ${business.address || 'N/A'}. Email status: ${discovery.emailStatus} (${discovery.emailSource}).`,
+        techStack: [],
+        address: business.address || '',
+        googlePlaceId: business.placeId || ''
       },
       researchStatus: 'COMPLETED',
       researchProgress: 100,
@@ -22167,7 +22543,7 @@ Keep your reply professional, warm, results-oriented, and highly specific to the
 
     leads.unshift(newLead);
     triggerOutreachAutomation(newLead.id);
-    logIntegrationEvent('googlemaps', 'INFO', `Imported local business lead: ${business.name} directly into SalesPilot CRM.`, `Created Lead ID: ${newLead.id}`);
+    logIntegrationEvent('googlemaps', 'INFO', `Imported local business lead: ${business.name}`, `Email: ${newLead.email || 'EMAIL_NOT_FOUND'} [${newLead.emailStatus}]`);
     res.json({ success: true, lead: newLead });
   });
 

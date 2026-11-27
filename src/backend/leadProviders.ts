@@ -1,5 +1,14 @@
 import { Lead } from '../types';
 import dns from 'dns';
+import {
+  extractNormalizedDomain,
+  crawlWebsiteForEmails,
+  discoverAndVerifyLeadEmail,
+  verifyDiscoveredEmail,
+  isSafePublicUrl,
+  globalProviderDiagnostics,
+  isEmailRelevantToBusiness,
+} from './emailDiscoveryService';
 
 /**
  * Lead Generation Parameters passed from UI / Campaign Config
@@ -148,7 +157,7 @@ export async function validateWebsite(websiteUrl: string): Promise<{ isValid: bo
     return { isValid: false, reason: 'Invalid Domain format' };
   }
 
-  // Reject temporary, fake, placeholder, or AI-generated domains
+  // Reject temporary, fake, placeholder, or AI-generated domains + enforce SSRF guard
   const explicitFakeDomains = [
     'localhost', '127.0.0.1', 'example.com', 'test.com', 'fakesite.com',
     'placeholder.com', 'mysite.com', 'fakedomain.com', 'fakenames.com',
@@ -165,6 +174,11 @@ export async function validateWebsite(websiteUrl: string): Promise<{ isValid: bo
     lowerDomain.endsWith('.local')
   ) {
     return { isValid: false, reason: `Rejected placeholder/test domain: ${domain}` };
+  }
+
+  const ssrfCheck = await isSafePublicUrl(cleanUrl, { skipDnsCheck: true });
+  if (!ssrfCheck.safe) {
+    return { isValid: false, reason: ssrfCheck.reason || `Blocked unsafe URL: ${cleanUrl}` };
   }
 
   // DNS Resolution check (NXDOMAIN Reject)
@@ -260,26 +274,13 @@ export async function findOfficialWebsite(companyName: string, apiKey: string): 
  */
 export async function verifyEmail(email: string, apiKey?: string): Promise<'Verified' | 'Unverified' | 'Unknown'> {
   if (!email || !email.includes('@')) return 'Unverified';
-  
-  const hunterKey = apiKey || process.env.HUNTER_API_KEY;
-  if (!hunterKey) {
-    const isStandardDomain = !email.endsWith('.temp') && !email.endsWith('.mock') && !email.endsWith('.test');
-    return isStandardDomain ? 'Unknown' : 'Unverified';
-  }
-
-  try {
-    const response = await fetch(`https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${hunterKey}`);
-    const data = await response.json() as any;
-    if (data && data.data) {
-      const status = data.data.status;
-      if (status === 'valid') return 'Verified';
-      if (status === 'invalid') return 'Unverified';
-    }
-    return 'Unknown';
-  } catch (err) {
-    console.error('Hunter Email verification failed:', err);
-    return 'Unknown';
-  }
+  const result = await verifyDiscoveredEmail(email, {
+    hunterApiKey: apiKey || process.env.HUNTER_API_KEY,
+    diagnostics: globalProviderDiagnostics,
+  });
+  if (result.status === 'VERIFIED') return 'Verified';
+  if (result.status === 'INVALID') return 'Unverified';
+  return 'Unknown';
 }
 
 /**
@@ -574,103 +575,150 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
   public apiKeyEnvName = 'PDL_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const apiKey = process.env.PDL_API_KEY || params.customApiKey;
+    const apiKey = (process.env.PDL_API_KEY || params.customApiKey || '').trim();
     const apiKeyExists = !!apiKey;
     console.log(`[DEBUG] [People Data Labs Index] API Key Exists: ${apiKeyExists}`);
 
     if (!apiKey) {
-      console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: API Key is missing.`);
+      globalProviderDiagnostics.recordAttempt('peopledatalabs', {
+        error: 'PDL_API_KEY is missing from environment/settings.',
+      });
       throw new Error('PDL API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
-    console.log(`[LEAD PROVIDER - PDL] Querying PDL resume index...`);
+    globalProviderDiagnostics.recordAttempt('peopledatalabs', { leadsProcessedDelta: 1 });
 
     try {
+      const primaryTitle = (params.jobTitles || 'Director').split(',')[0].trim();
+      const targetDomain = extractNormalizedDomain(params.keywords);
+      const mustClauses: any[] = [];
+
+      if (targetDomain) {
+        mustClauses.push({ term: { job_company_website: targetDomain } });
+      } else {
+        if (primaryTitle) {
+          mustClauses.push({ match: { job_title: primaryTitle } });
+        }
+        if (params.country) {
+          mustClauses.push({ term: { location_country: params.country.toLowerCase() } });
+        }
+      }
+
       const queryPayload = {
-        query: {
-          bool: {
-            must: [
-              { term: { job_title_role: params.jobTitles.split(',')[0].trim().toLowerCase() } },
-              { term: { location_country: params.country.toLowerCase() } }
-            ]
-          }
-        },
-        size: params.maxLeads
+        query: { bool: { must: mustClauses } },
+        size: Math.min(params.maxLeads || 5, 10)
       };
 
       const url = 'https://api.peopledatalabs.com/v5/person/search';
-      console.log(`[DEBUG] [People Data Labs Index] Request: POST ${url} | Headers: Content-Type: application/json | Body: ${JSON.stringify(queryPayload)}`);
-
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Api-Key': apiKey
         },
-        body: JSON.stringify(queryPayload)
+        body: JSON.stringify(queryPayload),
+        signal: AbortSignal.timeout(6000)
       });
 
-      console.log(`[DEBUG] [People Data Labs Index] Response Status: ${response.status}`);
-
+      const rlRem = response.headers.get('x-ratelimit-remaining');
       if (!response.ok) {
-        console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
-        throw new Error(`PDL Person Search API failed with status ${response.status}`);
+        const errText = await response.text().catch(() => '');
+        const msg = `PDL Person Search API failed with status ${response.status}: ${errText.slice(0, 160)}`;
+        globalProviderDiagnostics.recordAttempt('peopledatalabs', {
+          statusCode: response.status,
+          rateLimitRemaining: rlRem,
+          rateLimited: response.status === 429,
+          error: msg,
+        });
+        throw new Error(msg);
       }
 
       const data = await response.json() as any;
       const records = data.data || [];
-      console.log(`[DEBUG] [People Data Labs Index] Businesses returned: ${records.length}`);
+      globalProviderDiagnostics.recordAttempt('peopledatalabs', {
+        statusCode: response.status,
+        rateLimitRemaining: rlRem,
+        success: true,
+      });
 
       const results: Partial<Lead>[] = [];
-      let rejectedCount = 0;
 
       for (const item of records) {
         const companyUrl = item.job_company_website || '';
-        if (!companyUrl) {
-          rejectedCount++;
-          continue;
-        }
+        if (!companyUrl) continue;
 
         const validation = await validateWebsite(companyUrl);
-        if (!validation.isValid) {
-          console.warn(`[PDL VALIDATOR] Rejecting record: ${item.fullName} at ${item.job_company_name} due to invalid domain: ${validation.reason}`);
-          console.log(`[DEBUG] [People Data Labs Index] Website validation rejected for company "${item.job_company_name}": ${validation.reason}`);
-          rejectedCount++;
-          continue;
+        if (!validation.isValid) continue;
+
+        const officialDomain = validation.domain || extractNormalizedDomain(companyUrl);
+        const rawEmail = item.work_email || (item.emails && item.emails[0]?.address) || '';
+        let finalEmail = '';
+        let emailStatus: Lead['emailStatus'] = 'EMAIL_NOT_FOUND';
+        let emailSource = 'NONE';
+        let verificationProvider: string | undefined;
+        let emailVerifiedAt: string | undefined;
+
+        if (rawEmail && isEmailRelevantToBusiness(rawEmail, officialDomain, item.job_company_name)) {
+          const ver = await verifyDiscoveredEmail(rawEmail, { diagnostics: globalProviderDiagnostics });
+          if (ver.status !== 'INVALID') {
+            finalEmail = rawEmail.toLowerCase().trim();
+            emailStatus = ver.status;
+            emailSource = 'PDL';
+            verificationProvider = ver.verificationProvider;
+            if (ver.status === 'VERIFIED') emailVerifiedAt = new Date().toISOString();
+          }
         }
 
-        const email = item.work_email || (item.emails && item.emails[0]?.address) || '';
-        if (!email) {
-          console.log(`[DEBUG] [People Data Labs Index] Rejected record for company "${item.job_company_name}" due to: Missing email address.`);
-          rejectedCount++;
-          continue;
+        if (!finalEmail) {
+          const discovered = await discoverAndVerifyLeadEmail({
+            company: item.job_company_name || '',
+            website: companyUrl,
+            firstName: item.first_name,
+            lastName: item.last_name,
+            diagnostics: globalProviderDiagnostics,
+          });
+          finalEmail = discovered.email;
+          emailStatus = discovered.emailStatus;
+          emailSource = discovered.emailSource;
+          verificationProvider = discovered.verificationProvider;
+          emailVerifiedAt = discovered.emailVerifiedAt;
         }
 
-        const hunterStatus = await verifyEmail(email);
+        if (finalEmail) {
+          globalProviderDiagnostics.recordAttempt('peopledatalabs', {
+            emailsDiscoveredDelta: 1,
+            verifiedDelta: emailStatus === 'VERIFIED' ? 1 : 0,
+            unverifiedDelta: emailStatus !== 'VERIFIED' ? 1 : 0,
+          });
+        }
 
         const prospect: Partial<Lead> = {
-          firstName: item.first_name || 'Contact',
-          lastName: item.last_name || 'Profile',
-          email: email,
+          firstName: item.first_name || '',
+          lastName: item.last_name || '',
+          email: finalEmail,
+          emailStatus,
+          emailSource,
+          verificationProvider,
+          emailVerifiedAt,
           phone: item.phone_numbers?.[0] || '',
-          company: item.job_company_name || 'Enterprise Client',
-          title: item.job_title || params.jobTitles.split(',')[0],
+          company: item.job_company_name || '',
+          title: item.job_title || primaryTitle,
           leadScore: 'Hot',
           confidenceScore: 85,
-          scoreReason: 'PDL Verified Professional Career Record.',
-          tags: ['PDL Sourced', params.industry, 'Resume Verified'],
+          scoreReason: 'PDL Professional Career Record.',
+          tags: ['PDL Sourced', params.industry, 'Resume Verified'].filter(Boolean),
           enrichment: {
             companySize: item.job_company_size || params.companySize || '51-200 employees',
-            techStack: item.skills || ['GSuite', 'AWS', 'SaaS'],
-            fundingRound: 'Venture Backed',
+            techStack: item.skills || ['SaaS'],
+            fundingRound: 'Private',
             annualRevenue: params.revenueRange || 'Unknown',
             website: companyUrl,
             country: params.country,
             industry: params.industry,
-            companyOverview: `${item.job_company_name} is a verified business specialized in current B2B workflows.`,
+            companyOverview: `${item.job_company_name} matched via People Data Labs.`,
             painPoints: ['Manual outbound sourcing limits', 'Lead routing bottlenecks'],
-            whyGoodProspect: 'Matches resume profile optimized for automated platforms.',
-            decisionMakerInfo: `${item.first_name} holds direct executive decision coordinates.`,
+            whyGoodProspect: 'Matches target role and corporate profile.',
+            decisionMakerInfo: `${item.first_name || 'Contact'} (${item.job_title || 'Decision Maker'})`,
             socialLinks: [item.linkedin_url || item.linkedin_username].filter(Boolean)
           }
         };
@@ -680,18 +728,12 @@ export class PeopleDataLabsLeadProvider implements LeadProvider {
         prospect.confidenceScore = scoring.numericScore;
         prospect.scoreReason = scoring.reason;
 
-        results.push(prospect);
-      }
-
-      console.log(`[DEBUG] [People Data Labs Index] Businesses rejected after validation: ${rejectedCount}`);
-      if (results.length === 0) {
-        console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: No businesses matched validation rules or query returned no records.`);
+        if (prospect.company) results.push(prospect);
       }
 
       return results;
     } catch (err: any) {
       console.error('[PDL API ERROR] Sourcing failed:', err);
-      console.log(`[DEBUG] [People Data Labs Index] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`People Data Labs service error: ${err.message || err}`);
     }
   }
@@ -708,88 +750,118 @@ export class ClearbitLeadProvider implements LeadProvider {
   public apiKeyEnvName = 'CLEARBIT_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const apiKey = process.env.CLEARBIT_API_KEY || params.customApiKey;
-    const apiKeyExists = !!apiKey;
-    console.log(`[DEBUG] [Clearbit Enrichment Crawler] API Key Exists: ${apiKeyExists}`);
-
+    const apiKey = (process.env.CLEARBIT_API_KEY || params.customApiKey || '').trim();
     if (!apiKey) {
-      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: API Key is missing.`);
+      globalProviderDiagnostics.recordAttempt('clearbit', {
+        error: 'CLEARBIT_API_KEY is missing from environment/settings.',
+      });
       throw new Error('Clearbit API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
-    console.log(`[LEAD PROVIDER - CLEARBIT] Invoking Clearbit Prospector...`);
+    const domain = extractNormalizedDomain(params.keywords);
+    if (!domain) {
+      const msg = `Clearbit Prospector requires a valid business domain (e.g. stripe.com), received "${params.keywords || ''}".`;
+      globalProviderDiagnostics.recordAttempt('clearbit', { error: msg });
+      throw new Error(msg);
+    }
+
+    globalProviderDiagnostics.recordAttempt('clearbit', { leadsProcessedDelta: 1 });
 
     try {
-      const url = `https://prospector.clearbit.com/v1/people/search`;
-      const requestBody = {
-        domain: params.keywords.includes('.') ? params.keywords : `${params.keywords}.com`,
-        role: params.jobTitles.split(',')[0].trim(),
-        limit: params.maxLeads
-      };
-      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Request: POST ${url} | Headers: Authorization: Bearer [MASKED], Content-Type: application/json | Body: ${JSON.stringify(requestBody)}`);
+      const role = (params.jobTitles || '').split(',')[0].trim();
+      const queryParams = new URLSearchParams({
+        domain,
+        limit: String(Math.min(params.maxLeads || 5, 10)),
+      });
+      if (role) queryParams.set('role', role);
 
+      const url = `https://prospector.clearbit.com/v1/people/search?${queryParams.toString()}`;
       const response = await fetch(url, {
-        method: 'POST',
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify(requestBody)
+        signal: AbortSignal.timeout(5000)
       });
 
-      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Response Status: ${response.status}`);
-
       if (!response.ok) {
-        console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
-        throw new Error(`Clearbit API failed with status ${response.status}`);
+        const errBody = await response.text().catch(() => '');
+        const msg = `Clearbit API failed with status ${response.status}: ${errBody.slice(0, 160)}`;
+        globalProviderDiagnostics.recordAttempt('clearbit', {
+          statusCode: response.status,
+          rateLimited: response.status === 429,
+          error: msg,
+        });
+        throw new Error(msg);
       }
 
-      const records = await response.json() as any;
-      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Businesses returned: ${records.length}`);
+      const raw = await response.json() as any;
+      const records = Array.isArray(raw) ? raw : (raw?.results || []);
+      globalProviderDiagnostics.recordAttempt('clearbit', {
+        statusCode: response.status,
+        success: true,
+      });
 
       const results: Partial<Lead>[] = [];
-      let rejectedCount = 0;
 
       for (const item of records) {
-        const website = item.company?.domain || '';
-        if (!website) {
-          rejectedCount++;
-          continue;
-        }
-
+        const website = item.company?.domain || domain;
         const validation = await validateWebsite(website);
-        if (!validation.isValid) {
-          console.log(`[DEBUG] [Clearbit Enrichment Crawler] Website validation rejected for company "${item.company?.name}": ${validation.reason}`);
-          rejectedCount++;
-          continue;
+        if (!validation.isValid) continue;
+
+        const rawEmail = item.email || '';
+        let finalEmail = '';
+        let emailStatus: Lead['emailStatus'] = 'EMAIL_NOT_FOUND';
+        let emailSource = 'NONE';
+        let verificationProvider: string | undefined;
+        let emailVerifiedAt: string | undefined;
+
+        if (rawEmail && isEmailRelevantToBusiness(rawEmail, validation.domain || domain, item.company?.name)) {
+          const ver = await verifyDiscoveredEmail(rawEmail, { diagnostics: globalProviderDiagnostics });
+          if (ver.status !== 'INVALID') {
+            finalEmail = rawEmail.toLowerCase().trim();
+            emailStatus = ver.status;
+            emailSource = 'CLEARBIT';
+            verificationProvider = ver.verificationProvider;
+            if (ver.status === 'VERIFIED') emailVerifiedAt = new Date().toISOString();
+          }
         }
 
-        const email = item.email || '';
-        const hunterStatus = await verifyEmail(email);
+        if (finalEmail) {
+          globalProviderDiagnostics.recordAttempt('clearbit', {
+            emailsDiscoveredDelta: 1,
+            verifiedDelta: emailStatus === 'VERIFIED' ? 1 : 0,
+            unverifiedDelta: emailStatus !== 'VERIFIED' ? 1 : 0,
+          });
+        }
 
         const prospect: Partial<Lead> = {
           firstName: item.name?.givenName || '',
           lastName: item.name?.familyName || '',
-          email: email,
+          email: finalEmail,
+          emailStatus,
+          emailSource,
+          verificationProvider,
+          emailVerifiedAt,
           phone: item.phone || '',
-          company: item.company?.name || '',
+          company: item.company?.name || domain,
           title: item.title || '',
           leadScore: 'Very Hot',
           confidenceScore: 90,
-          scoreReason: 'Clearbit Verified Record.',
-          tags: ['Clearbit Sourced', params.industry, 'Verified Domain'],
+          scoreReason: 'Clearbit Prospector Record.',
+          tags: ['Clearbit Sourced', params.industry, 'Verified Domain'].filter(Boolean),
           enrichment: {
             companySize: item.company?.metrics?.employeesRange || params.companySize || '11-50 employees',
-            techStack: item.company?.tech || ['Segment', 'Stripe', 'Google Analytics'],
-            fundingRound: item.company?.metrics?.raised ? `Raised funding` : 'Private',
+            techStack: item.company?.tech || [],
+            fundingRound: item.company?.metrics?.raised ? 'Funded' : 'Private',
             annualRevenue: item.company?.metrics?.estimatedAnnualRevenue || params.revenueRange || 'Unknown',
             website: website,
             country: params.country,
             industry: params.industry,
-            companyOverview: item.company?.description || `${item.company?.name} is highly enriched.`,
+            companyOverview: item.company?.description || `${item.company?.name || domain} enriched via Clearbit.`,
             painPoints: ['Outbound data hygiene', 'CRM enrichment lags'],
-            whyGoodProspect: 'Highly aligned with API tools and data integrations.',
-            decisionMakerInfo: `${item.name?.givenName} drives platform adoption.`,
+            whyGoodProspect: 'Aligned with data-driven outbound workflows.',
+            decisionMakerInfo: `${item.name?.givenName || 'Contact'} (${item.title || 'Decision Maker'})`,
             socialLinks: [item.linkedin].filter(Boolean)
           }
         };
@@ -802,15 +874,9 @@ export class ClearbitLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
-      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Businesses rejected after validation: ${rejectedCount}`);
-      if (results.length === 0) {
-        console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: No records matched validation rules or query returned no records.`);
-      }
-
       return results;
     } catch (err: any) {
       console.error('[CLEARBIT API ERROR] Sourcing failed:', err);
-      console.log(`[DEBUG] [Clearbit Enrichment Crawler] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Clearbit service error: ${err.message || err}`);
     }
   }
@@ -827,80 +893,109 @@ export class HunterLeadProvider implements LeadProvider {
   public apiKeyEnvName = 'HUNTER_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const apiKey = process.env.HUNTER_API_KEY || params.customApiKey;
-    const apiKeyExists = !!apiKey;
-    console.log(`[DEBUG] [Hunter.io Domain Sourcing] API Key Exists: ${apiKeyExists}`);
-
+    const apiKey = (process.env.HUNTER_API_KEY || params.customApiKey || '').trim();
     if (!apiKey) {
-      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: API Key is missing.`);
+      globalProviderDiagnostics.recordAttempt('hunter', {
+        error: 'HUNTER_API_KEY is missing from environment/settings.',
+      });
       throw new Error('Hunter API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
-    console.log(`[LEAD PROVIDER - HUNTER] Querying Hunter Domain Search for: ${params.keywords}`);
+    const domain = extractNormalizedDomain(params.keywords);
+    if (!domain) {
+      const msg = `Hunter.io Domain Search requires a valid domain (e.g. stripe.com), received "${params.keywords || ''}".`;
+      globalProviderDiagnostics.recordAttempt('hunter', { error: msg });
+      throw new Error(msg);
+    }
+
+    globalProviderDiagnostics.recordAttempt('hunter', { leadsProcessedDelta: 1 });
 
     try {
-      const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(params.keywords)}&api_key=${apiKey}&limit=${params.maxLeads}`;
-      const logUrl = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(params.keywords)}&api_key=[MASKED]&limit=${params.maxLeads}`;
-      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Request: GET ${logUrl}`);
+      const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${encodeURIComponent(apiKey)}&limit=${Math.min(params.maxLeads || 5, 10)}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      const rlRem = response.headers.get('x-ratelimit-remaining');
 
-      const response = await fetch(url);
-      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Response Status: ${response.status}`);
-      
       if (!response.ok) {
-        console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
-        throw new Error(`Hunter API failed with status ${response.status}`);
+        const errBody = await response.text().catch(() => '');
+        const msg = `Hunter API failed with status ${response.status}: ${errBody.slice(0, 160)}`;
+        globalProviderDiagnostics.recordAttempt('hunter', {
+          statusCode: response.status,
+          rateLimitRemaining: rlRem,
+          rateLimited: response.status === 429,
+          error: msg,
+        });
+        throw new Error(msg);
       }
 
       const data = await response.json() as any;
-      const emailsList = data.data?.emails || [];
-      const companyName = data.data?.organization || params.keywords.split('.')[0];
-      const website = `www.${data.data?.domain || params.keywords}`;
-      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Businesses returned: ${emailsList.length}`);
+      globalProviderDiagnostics.recordAttempt('hunter', {
+        statusCode: response.status,
+        rateLimitRemaining: rlRem,
+        success: true,
+      });
 
-      // DNS & HTTP responder validation
+      const emailsList = data.data?.emails || [];
+      const companyName = data.data?.organization || domain.split('.')[0];
+      const resolvedDomain = data.data?.domain || domain;
+      const website = `https://${resolvedDomain}`;
+
       const validation = await validateWebsite(website);
       if (!validation.isValid) {
-        console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: Domain "${website}" failed safety validation: ${validation.reason}`);
         throw new Error(`Hunter.io matched domain "${website}" failed safety validation: ${validation.reason}`);
       }
 
       const results: Partial<Lead>[] = [];
-      let rejectedCount = 0;
 
       for (const item of emailsList) {
-        const email = item.value || '';
-        const isDM = params.jobTitles.split(',').some(t => item.position?.toLowerCase().includes(t.trim().toLowerCase()));
-        
+        const email = (item.value || '').toLowerCase().trim();
+        if (!email) continue;
+
+        const isDM = (params.jobTitles || '').split(',').some(t => t.trim() && item.position?.toLowerCase().includes(t.trim().toLowerCase()));
         if (params.decisionMakerOnly && !isDM && item.position) {
-          console.log(`[DEBUG] [Hunter.io Domain Sourcing] Contact rejected (not DM): "${email}" (${item.position})`);
-          rejectedCount++;
-          // Skip if strict decision makers only
           continue;
         }
 
+        const hunterValid = item.verification?.status === 'valid';
+        const ver = await verifyDiscoveredEmail(email, {
+          hunterApiKey: apiKey,
+          providerVerified: hunterValid,
+          diagnostics: globalProviderDiagnostics,
+        });
+        if (ver.status === 'INVALID') continue;
+
+        globalProviderDiagnostics.recordAttempt('hunter', {
+          emailsDiscoveredDelta: 1,
+          verifiedDelta: ver.status === 'VERIFIED' ? 1 : 0,
+          unverifiedDelta: ver.status !== 'VERIFIED' ? 1 : 0,
+        });
+
         const prospect: Partial<Lead> = {
-          firstName: item.first_name || 'Contact',
-          lastName: item.last_name || 'Expert',
-          email: email,
+          firstName: item.first_name || '',
+          lastName: item.last_name || '',
+          email,
+          emailStatus: ver.status,
+          emailSource: 'HUNTER',
+          verificationProvider: ver.verificationProvider,
+          emailVerifiedAt: ver.status === 'VERIFIED' ? new Date().toISOString() : undefined,
           phone: item.phone_number || '',
           company: companyName,
-          title: item.position || params.jobTitles.split(',')[0],
+          title: item.position || '',
           leadScore: item.confidence > 80 ? 'Very Hot' : 'Hot',
           confidenceScore: item.confidence || 80,
-          scoreReason: `Hunter.io domain match with ${item.confidence}% confidence rating.`,
-          tags: ['Hunter.io', 'Domain Match', params.industry],
+          scoreReason: `Hunter.io domain match (${ver.status}, confidence ${item.confidence || 'N/A'}%).`,
+          tags: ['Hunter.io', 'Domain Match', params.industry].filter(Boolean),
           enrichment: {
             companySize: params.companySize || '11-50 employees',
-            techStack: ['Hunter Email Tracker', 'Mailgun', 'GSuite'],
-            fundingRound: 'Bootstrapped',
+            techStack: [],
+            fundingRound: 'Unknown',
             annualRevenue: params.revenueRange || 'Unknown',
             website: website,
             country: params.country,
             industry: params.industry,
-            companyOverview: `${companyName} specialized in modern enterprise delivery channels.`,
+            companyOverview: `${companyName} (${resolvedDomain}) sourced via Hunter.io.`,
             painPoints: ['High bounce rates', 'Outbox reputation security'],
-            whyGoodProspect: 'Requires validated outbound sequences.',
-            decisionMakerInfo: `${item.first_name || 'The prospect'} is listed as holding operational positions.`,
+            whyGoodProspect: 'Domain email verified via Hunter.io.',
+            decisionMakerInfo: `${item.first_name || 'Contact'} (${item.position || 'Team Member'})`,
             socialLinks: [item.linkedin].filter(Boolean)
           }
         };
@@ -913,16 +1008,212 @@ export class HunterLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
-      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Businesses rejected after validation: ${rejectedCount}`);
-      if (results.length === 0) {
-        console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: No contacts matched validation rules or query returned no emails.`);
+      return results;
+    } catch (err: any) {
+      console.error('[HUNTER API ERROR] Sourcing failed:', err);
+      throw new Error(`Hunter.io service error: ${err.message || err}`);
+    }
+  }
+}
+
+/**
+ * 5B. Apollo.io People & Organization Sourcing Provider
+ */
+export class ApolloLeadProvider implements LeadProvider {
+  public id = 'apollo';
+  public name = 'Apollo.io';
+  public description = 'Queries Apollo.io B2B database for verified decision-maker contacts, company domains, and work email verification statuses.';
+  public requiresApiKey = true;
+  public apiKeyEnvName = 'APOLLO_API_KEY';
+
+  public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
+    const apiKey = (process.env.APOLLO_API_KEY || params.customApiKey || '').trim();
+    if (!apiKey) {
+      globalProviderDiagnostics.recordAttempt('apollo', {
+        error: 'APOLLO_API_KEY is missing from environment/settings.',
+      });
+      throw new Error('Apollo.io API key not configured. Please enter your credentials in the Integrations panel.');
+    }
+
+    globalProviderDiagnostics.recordAttempt('apollo', { leadsProcessedDelta: 1 });
+
+    try {
+      const targetDomain = extractNormalizedDomain(params.keywords);
+      const titlesList = (params.jobTitles || '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const requestBody: Record<string, any> = {
+        per_page: Math.min(params.maxLeads || 5, 10),
+        page: 1,
+      };
+      if (targetDomain) {
+        requestBody.q_organization_domains_list = [targetDomain];
+      } else {
+        const kw = [params.industry, params.keywords].filter(Boolean).join(' ').trim();
+        if (kw) requestBody.q_keywords = kw;
+        const loc = [params.city, params.country].filter(Boolean).join(', ');
+        if (loc) requestBody.organization_locations = [loc];
+      }
+      if (titlesList.length > 0) {
+        requestBody.person_titles = titlesList.slice(0, 5);
+      }
+
+      const response = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'X-Api-Key': apiKey,
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(6000),
+      });
+
+      const rlRem = response.headers.get('x-ratelimit-remaining');
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        const msg = `Apollo API failed with status ${response.status}: ${errBody.slice(0, 160)}`;
+        globalProviderDiagnostics.recordAttempt('apollo', {
+          statusCode: response.status,
+          rateLimitRemaining: rlRem,
+          rateLimited: response.status === 429,
+          error: msg,
+        });
+        throw new Error(msg);
+      }
+
+      const data = (await response.json()) as any;
+      globalProviderDiagnostics.recordAttempt('apollo', {
+        statusCode: response.status,
+        rateLimitRemaining: rlRem,
+        success: true,
+      });
+
+      const people = data.people || [];
+      const results: Partial<Lead>[] = [];
+
+      for (const person of people) {
+        const orgWebsite = person.organization?.website_url || (person.organization?.primary_domain ? `https://${person.organization.primary_domain}` : '');
+        const companyName = person.organization?.name || '';
+        if (!companyName || !orgWebsite) continue;
+
+        const validation = await validateWebsite(orgWebsite);
+        if (!validation.isValid) continue;
+
+        const officialDomain = validation.domain || extractNormalizedDomain(orgWebsite);
+        let rawEmail = person.email || '';
+        let rawStatus = person.email_status || '';
+
+        if (!rawEmail && person.id && person.has_email) {
+          try {
+            const matchRes = await fetch('https://api.apollo.io/api/v1/people/match', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': apiKey,
+              },
+              body: JSON.stringify({ id: person.id, reveal_personal_emails: false }),
+              signal: AbortSignal.timeout(4500),
+            });
+            if (matchRes.ok) {
+              const matchJson = (await matchRes.json()) as any;
+              rawEmail = matchJson?.person?.email || '';
+              rawStatus = matchJson?.person?.email_status || rawStatus;
+            }
+          } catch {
+            // proceed to website fallback discovery
+          }
+        }
+
+        let finalEmail = '';
+        let emailStatus: Lead['emailStatus'] = 'EMAIL_NOT_FOUND';
+        let emailSource = 'NONE';
+        let verificationProvider: string | undefined;
+        let emailVerifiedAt: string | undefined;
+
+        if (rawEmail && isEmailRelevantToBusiness(rawEmail, officialDomain, companyName)) {
+          const ver = await verifyDiscoveredEmail(rawEmail, {
+            providerVerified: rawStatus === 'verified',
+            diagnostics: globalProviderDiagnostics,
+          });
+          if (ver.status !== 'INVALID') {
+            finalEmail = rawEmail.toLowerCase().trim();
+            emailStatus = ver.status;
+            emailSource = 'APOLLO';
+            verificationProvider = ver.verificationProvider;
+            if (ver.status === 'VERIFIED') emailVerifiedAt = new Date().toISOString();
+          }
+        }
+
+        if (!finalEmail) {
+          const discovered = await discoverAndVerifyLeadEmail({
+            company: companyName,
+            website: orgWebsite,
+            firstName: person.first_name,
+            lastName: person.last_name,
+            keys: { apolloKey: apiKey },
+            diagnostics: globalProviderDiagnostics,
+          });
+          finalEmail = discovered.email;
+          emailStatus = discovered.emailStatus;
+          emailSource = discovered.emailSource;
+          verificationProvider = discovered.verificationProvider;
+          emailVerifiedAt = discovered.emailVerifiedAt;
+        }
+
+        if (finalEmail) {
+          globalProviderDiagnostics.recordAttempt('apollo', {
+            emailsDiscoveredDelta: 1,
+            verifiedDelta: emailStatus === 'VERIFIED' ? 1 : 0,
+            unverifiedDelta: emailStatus !== 'VERIFIED' ? 1 : 0,
+          });
+        }
+
+        const prospect: Partial<Lead> = {
+          firstName: person.first_name || '',
+          lastName: person.last_name || '',
+          email: finalEmail,
+          emailStatus,
+          emailSource,
+          verificationProvider,
+          emailVerifiedAt,
+          phone: person.phone_numbers?.[0]?.sanitized_number || person.organization?.phone || '',
+          company: companyName,
+          title: person.title || '',
+          leadScore: 'Very Hot',
+          confidenceScore: 88,
+          scoreReason: `Apollo.io B2B match (${emailStatus}).`,
+          tags: ['Apollo.io', params.industry || 'B2B'].filter(Boolean),
+          enrichment: {
+            companySize: person.organization?.estimated_num_employees ? `${person.organization.estimated_num_employees} employees` : (params.companySize || ''),
+            techStack: [],
+            fundingRound: 'Private',
+            annualRevenue: params.revenueRange || 'Unknown',
+            website: orgWebsite,
+            country: person.country || params.country,
+            industry: person.organization?.industry || params.industry,
+            companyOverview: `${companyName} sourced via Apollo.io.`,
+            painPoints: ['Outbound scale efficiency'],
+            whyGoodProspect: 'Matched decision-maker role and verified company website.',
+            decisionMakerInfo: `${person.first_name || ''} ${person.last_name || ''} (${person.title || 'Decision Maker'})`.trim(),
+            socialLinks: [person.linkedin_url].filter(Boolean),
+          },
+        };
+
+        const scoring = calculateLeadScore(prospect);
+        prospect.leadScore = scoring.score;
+        prospect.confidenceScore = scoring.numericScore;
+        prospect.scoreReason = scoring.reason;
+
+        results.push(prospect);
       }
 
       return results;
     } catch (err: any) {
-      console.error('[HUNTER API ERROR] Sourcing failed:', err);
-      console.log(`[DEBUG] [Hunter.io Domain Sourcing] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
-      throw new Error(`Hunter.io service error: ${err.message || err}`);
+      console.error('[APOLLO API ERROR] Sourcing failed:', err);
+      throw new Error(`Apollo.io service error: ${err.message || err}`);
     }
   }
 }
@@ -938,27 +1229,27 @@ export class CrunchbaseLeadProvider implements LeadProvider {
   public apiKeyEnvName = 'CRUNCHBASE_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const apiKey = process.env.CRUNCHBASE_API_KEY || params.customApiKey;
-    const apiKeyExists = !!apiKey;
-    console.log(`[DEBUG] [Crunchbase Venture Tracker] API Key Exists: ${apiKeyExists}`);
-
+    const apiKey = (process.env.CRUNCHBASE_API_KEY || params.customApiKey || '').trim();
     if (!apiKey) {
-      console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: API Key is missing.`);
+      globalProviderDiagnostics.recordAttempt('crunchbase', {
+        error: 'CRUNCHBASE_API_KEY is missing from environment/settings.',
+      });
       throw new Error('Crunchbase API key not configured. Please enter your credentials in the Integrations panel.');
     }
 
-    console.log(`[LEAD PROVIDER - CRUNCHBASE] Querying Crunchbase organization search...`);
+    globalProviderDiagnostics.recordAttempt('crunchbase', { leadsProcessedDelta: 1 });
 
     try {
       const url = 'https://api.crunchbase.com/api/v4/searches/organizations';
+      const searchTerms = [params.keywords, params.industry].filter(Boolean).join(' ').trim() || 'Software';
       const requestBody = {
         field_ids: ['name', 'website_url', 'short_description', 'employee_count', 'funding_total', 'linkedin'],
         query: [
-          { type: 'predicate', field_id: 'categories', operator: 'includes', values: [params.industry] }
+          { type: 'predicate', field_id: 'short_description', operator: 'contains', values: [searchTerms] },
+          { type: 'predicate', field_id: 'facet_ids', operator: 'includes', values: ['company'] }
         ],
-        limit: params.maxLeads
+        limit: Math.min(params.maxLeads || 5, 10)
       };
-      console.log(`[DEBUG] [Crunchbase Venture Tracker] Request: POST ${url} | Headers: X-Cb-User-Key: [MASKED], Content-Type: application/json | Body: ${JSON.stringify(requestBody)}`);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -966,67 +1257,80 @@ export class CrunchbaseLeadProvider implements LeadProvider {
           'X-Cb-User-Key': apiKey,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(6000)
       });
 
-      console.log(`[DEBUG] [Crunchbase Venture Tracker] Response Status: ${response.status}`);
-
       if (!response.ok) {
-        console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
-        throw new Error(`Crunchbase API failed with status ${response.status}`);
+        const errBody = await response.text().catch(() => '');
+        const msg = `Crunchbase API failed with status ${response.status}: ${errBody.slice(0, 160)}`;
+        globalProviderDiagnostics.recordAttempt('crunchbase', {
+          statusCode: response.status,
+          rateLimited: response.status === 429,
+          error: msg,
+        });
+        throw new Error(msg);
       }
 
       const data = await response.json() as any;
-      const cards = data.entities || [];
-      console.log(`[DEBUG] [Crunchbase Venture Tracker] Businesses returned: ${cards.length}`);
+      globalProviderDiagnostics.recordAttempt('crunchbase', {
+        statusCode: response.status,
+        success: true,
+      });
 
+      const cards = data.entities || [];
       const results: Partial<Lead>[] = [];
-      let rejectedCount = 0;
 
       for (const card of cards) {
         const properties = card.properties || {};
-        const website = properties.website_url || '';
+        const website = properties.website_url?.value || properties.website_url || '';
+        const companyName = properties.name || properties.identifier?.value || '';
+        if (!companyName || !website) continue;
 
-        let verifiedWebsite = '';
-        let domain = '';
-        if (website) {
-          const validation = await validateWebsite(website);
-          if (validation.isValid) {
-            verifiedWebsite = website;
-            domain = validation.domain || '';
-          } else {
-            console.log(`[DEBUG] [Crunchbase Venture Tracker] Website validation rejected for company "${properties.name}": ${validation.reason}`);
-            rejectedCount++;
-          }
-        } else {
-          rejectedCount++;
+        const validation = await validateWebsite(website);
+        if (!validation.isValid) continue;
+
+        const discovered = await discoverAndVerifyLeadEmail({
+          company: companyName,
+          website,
+          diagnostics: globalProviderDiagnostics,
+        });
+
+        if (discovered.email) {
+          globalProviderDiagnostics.recordAttempt('crunchbase', {
+            emailsDiscoveredDelta: 1,
+            verifiedDelta: discovered.emailStatus === 'VERIFIED' ? 1 : 0,
+            unverifiedDelta: discovered.emailStatus !== 'VERIFIED' ? 1 : 0,
+          });
         }
 
         const prospect: Partial<Lead> = {
-          firstName: 'Sourcing',
-          lastName: 'Director',
-          email: '',
-          emailStatus: 'EMAIL_NOT_FOUND',
-          emailSource: 'NONE',
+          firstName: discovered.contactFirstName || '',
+          lastName: discovered.contactLastName || '',
+          email: discovered.email,
+          emailStatus: discovered.emailStatus,
+          emailSource: discovered.emailSource,
+          verificationProvider: discovered.verificationProvider,
+          emailVerifiedAt: discovered.emailVerifiedAt,
           phone: '',
-          company: properties.name,
-          title: 'Growth Sourcing Lead',
+          company: companyName,
+          title: discovered.contactTitle || '',
           leadScore: 'Very Hot',
           confidenceScore: 90,
           scoreReason: 'Crunchbase Verified Venture Sourced Record.',
-          tags: ['Crunchbase Active', 'Venture Funded', params.industry],
+          tags: ['Crunchbase Active', 'Venture Funded', params.industry].filter(Boolean),
           enrichment: {
             companySize: properties.employee_count || params.companySize || '11-50 employees',
-            techStack: ['React', 'Google Analytics', 'AWS'],
-            fundingRound: properties.funding_total ? `Raised Sourcing Cap` : 'Private',
+            techStack: [],
+            fundingRound: properties.funding_total ? 'Venture Funded' : 'Private',
             annualRevenue: params.revenueRange || 'Unknown',
-            website: verifiedWebsite,
+            website,
             country: params.country,
             industry: params.industry,
-            companyOverview: properties.short_description || `${properties.name} is Crunchbase listed.`,
+            companyOverview: properties.short_description || `${companyName} is listed on Crunchbase.`,
             painPoints: ['Venture scaling pressures', 'Pipeline validation hurdles'],
-            whyGoodProspect: 'Requires immediate lead pipeline solutions to convert venture targets.',
-            decisionMakerInfo: 'Executive operations team managing technology stack additions.',
+            whyGoodProspect: 'Active Crunchbase-tracked organization with validated domain.',
+            decisionMakerInfo: 'Executive operations team.',
             socialLinks: [properties.linkedin?.value].filter(Boolean)
           }
         };
@@ -1039,15 +1343,9 @@ export class CrunchbaseLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
-      console.log(`[DEBUG] [Crunchbase Venture Tracker] Businesses rejected after validation: ${rejectedCount}`);
-      if (results.length === 0) {
-        console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: No organizations matched validation rules or query returned no entities.`);
-      }
-
       return results;
     } catch (err: any) {
       console.error('[CRUNCHBASE API ERROR] Sourcing failed:', err);
-      console.log(`[DEBUG] [Crunchbase Venture Tracker] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Crunchbase service error: ${err.message || err}`);
     }
   }
@@ -1055,42 +1353,35 @@ export class CrunchbaseLeadProvider implements LeadProvider {
 
 /**
  * 7. Serper / Google Search Web Scraper
- * Uses Serper.dev Google Search API to fetch real verified business websites
+ * Uses Serper.dev Google Search API to fetch real verified business websites + contact emails
  */
 export class GoogleSearchLeadProvider implements LeadProvider {
   public id = 'google-search';
   public name = 'Google Search Web Scraper';
-  public description = 'Leverages Google Search Dorking commands to harvest public executive contacts via Serper API.';
+  public description = 'Leverages Google Search queries via Serper API to discover official websites and publicly listed corporate emails.';
   public requiresApiKey = true;
   public apiKeyEnvName = 'SERPER_API_KEY';
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    const rawKey = process.env.SERPER_API_KEY || 
-                   process.env.SERPER_KEY || 
-                   process.env.SERPER_API || 
-                   process.env.VITE_SERPER_API_KEY || 
+    const rawKey = process.env.SERPER_API_KEY ||
+                   process.env.SERPER_KEY ||
+                   process.env.SERPER_API ||
+                   process.env.VITE_SERPER_API_KEY ||
                    params.customApiKey;
     const apiKey = rawKey ? String(rawKey).trim().replace(/^["']|["']$/g, '') : '';
-    const apiKeyExists = !!apiKey;
-    console.log(`[DEBUG] [Google Search Web Scraper] API Key Exists: ${apiKeyExists} (length: ${apiKey.length})`);
 
     if (!apiKey) {
-      console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API Key is missing.`);
+      globalProviderDiagnostics.recordAttempt('google-search', {
+        error: 'SERPER_API_KEY is missing from environment/settings.',
+      });
       throw new Error('Serper.dev API key not configured. Please connect Serper via the Integrations panel.');
     }
 
-    console.log(`[LEAD PROVIDER - SEARCH] Querying Google Search via Serper for: ${params.keywords}...`);
+    globalProviderDiagnostics.recordAttempt('google-search', { leadsProcessedDelta: 1 });
 
     try {
-      const q = `site:linkedin.com/in "${params.jobTitles.split(',')[0].trim()}" "${params.industry}" "${params.city || ''}"`;
-      console.log(`\n=========================================`);
-      console.log(`[LEAD ENGINE PIPELINE] STAGE 1: INITIATING SEARCH`);
-      console.log(`1. Search Query: "${q}"`);
-      console.log(`2. Provider Used: "${this.name}" (${this.id})`);
-      console.log(`=========================================`);
-
+      const q = `site:linkedin.com/in "${(params.jobTitles || 'Founder').split(',')[0].trim()}" "${params.industry}" "${params.city || ''}"`;
       const url = 'https://google.serper.dev/search';
-      console.log(`[DEBUG] [Google Search Web Scraper] Request: POST ${url} | Headers: X-API-KEY: [MASKED], Content-Type: application/json | Body: ${JSON.stringify({ q, num: params.maxLeads })}`);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -1098,59 +1389,44 @@ export class GoogleSearchLeadProvider implements LeadProvider {
           'X-API-KEY': apiKey,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ q, num: params.maxLeads })
+        body: JSON.stringify({ q, num: Math.min(params.maxLeads || 5, 10) }),
+        signal: AbortSignal.timeout(5000)
       });
 
-      console.log(`[DEBUG] [Google Search Web Scraper] Response Status: ${response.status}`);
-
       if (!response.ok) {
-        console.error(`[LEAD ENGINE PIPELINE] Google Search failed: API status ${response.status}`);
-        console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API request failed with status ${response.status}.`);
-        throw new Error(`Serper API returned status ${response.status}`);
+        const errBody = await response.text().catch(() => '');
+        const msg = `Serper API returned status ${response.status}: ${errBody.slice(0, 160)}`;
+        globalProviderDiagnostics.recordAttempt('google-search', {
+          statusCode: response.status,
+          rateLimited: response.status === 429,
+          error: msg,
+        });
+        throw new Error(msg);
       }
 
       const data = await response.json() as any;
-      
-      console.log(`\n[LEAD ENGINE PIPELINE] STAGE 2: RAW API RESPONSE RECEIVED`);
-      console.log(`3. Raw API Response Sample:`, JSON.stringify(data).substring(0, 500) + '... (truncated for readability)');
-      
-      const organic = data.organic || [];
-      const totalReturned = organic.length;
-      console.log(`4. Number of businesses/contacts returned from API: ${totalReturned}`);
-      console.log(`[DEBUG] [Google Search Web Scraper] Businesses returned: ${totalReturned}`);
+      globalProviderDiagnostics.recordAttempt('google-search', {
+        statusCode: response.status,
+        success: true,
+      });
 
+      const organic = data.organic || [];
       const results: Partial<Lead>[] = [];
-      let totalDiscarded = 0;
-      const discardReasons: string[] = [];
 
       for (const result of organic) {
         const titleText = result.title || '';
-        if (!titleText) {
-          totalDiscarded++;
-          discardReasons.push(`Discarded index item: Empty title text.`);
-          console.log(`   - DISCARDED: Empty title.`);
-          continue;
-        }
+        if (!titleText) continue;
 
-        // Split on common separators: " - ", " | ", " : ", " – ", " — "
         let parts = titleText.split(/\s*[-|–—:]\s*/);
-        parts = parts.map(p => p.trim()).filter(p => p && !p.toLowerCase().includes('linkedin'));
-
-        if (parts.length === 0) {
-          totalDiscarded++;
-          discardReasons.push(`Discarded "${titleText}": Unparseable title structure (parts count is 0).`);
-          console.log(`   - DISCARDED: Unparseable title structure: "${titleText}"`);
-          continue;
-        }
+        parts = parts.map((p: string) => p.trim()).filter((p: string) => p && !p.toLowerCase().includes('linkedin'));
+        if (parts.length === 0) continue;
 
         const nameParts = parts[0].trim().split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
-
         const roleText = parts[1] || '';
         const snippet = result.snippet || '';
 
-        // Extract potential company name from snippet or title
         let company = '';
         if (parts[2]) {
           company = parts[2].replace('| LinkedIn', '').trim();
@@ -1160,57 +1436,50 @@ export class GoogleSearchLeadProvider implements LeadProvider {
             company = matchCompany[1].trim();
           }
         }
+        if (!company || isGenericCompanyName(company)) continue;
 
-        // Find official website via verified search instead of guessing companyname.com
-        let website = '';
-        let domain = '';
-        if (company && company !== 'Enterprise Partner' && apiKey) {
-          const searchWebsite = await findOfficialWebsite(company, apiKey);
-          if (searchWebsite) {
-            const validation = await validateWebsite(searchWebsite);
-            if (validation.isValid) {
-              website = searchWebsite;
-              domain = validation.domain || '';
-            } else {
-              console.log(`[DEBUG] [Google Search Web Scraper] Website validation rejected for company "${company}": ${validation.reason}`);
-              totalDiscarded++;
-            }
-          } else {
-            totalDiscarded++;
-          }
-        } else {
-          totalDiscarded++;
-        }
+        const searchWebsite = await findOfficialWebsite(company, apiKey);
+        if (!searchWebsite) continue;
 
-        const email = '';
-        const emailStatus = 'EMAIL_NOT_FOUND' as const;
-        const emailSource = 'NONE';
+        const validation = await validateWebsite(searchWebsite);
+        if (!validation.isValid) continue;
+
+        const discovered = await discoverAndVerifyLeadEmail({
+          company,
+          website: searchWebsite,
+          firstName,
+          lastName,
+          keys: { serperKey: apiKey },
+          diagnostics: globalProviderDiagnostics,
+        });
 
         const prospect: Partial<Lead> = {
           firstName,
           lastName,
-          email,
-          emailStatus,
-          emailSource,
+          email: discovered.email,
+          emailStatus: discovered.emailStatus,
+          emailSource: discovered.emailSource,
+          verificationProvider: discovered.verificationProvider,
+          emailVerifiedAt: discovered.emailVerifiedAt,
           phone: '',
           company,
           title: roleText,
           leadScore: 'Warm',
           confidenceScore: 75,
-          scoreReason: 'Serper Sourced LinkedIn Public Search Index Record.',
-          tags: ['Google Search', 'LinkedIn Index', params.industry],
+          scoreReason: 'Serper Sourced Public Search Index Record.',
+          tags: ['Google Search', 'LinkedIn Index', params.industry].filter(Boolean),
           enrichment: {
             companySize: params.companySize || '11-50 employees',
-            techStack: ['LinkedIn Insight Tag', 'Google Workspace', 'SaaS'],
+            techStack: [],
             fundingRound: 'Private',
             annualRevenue: 'Unknown',
-            website: website,
+            website: searchWebsite,
             country: params.country,
             industry: params.industry,
-            companyOverview: `${company} is a leading organization. Sourced profile snippet: ${snippet}`,
-            painPoints: ['Manual LinkedIn outbound limitations', 'Inbound conversion drop-offs'],
-            whyGoodProspect: 'Directly sourced from executive search pipelines.',
-            decisionMakerInfo: `${firstName} matches active B2B profile matching role "${roleText}"`,
+            companyOverview: `${company}: ${snippet}`,
+            painPoints: ['Manual outbound limitations'],
+            whyGoodProspect: 'Sourced from live search index with validated company website.',
+            decisionMakerInfo: `${firstName} (${roleText || 'Decision Maker'})`,
             socialLinks: [result.link].filter(Boolean)
           }
         };
@@ -1223,28 +1492,9 @@ export class GoogleSearchLeadProvider implements LeadProvider {
         results.push(prospect);
       }
 
-      console.log(`\n=========================================`);
-      console.log(`[LEAD ENGINE PIPELINE] SEARCH PERFORMANCE REPORT`);
-      console.log(`5. Number of businesses discarded: ${totalDiscarded}`);
-      if (totalDiscarded > 0) {
-        console.log(`6. Reason each business was discarded:`);
-        discardReasons.forEach((reason, idx) => {
-          console.log(`   [${idx + 1}] ${reason}`);
-        });
-      } else {
-        console.log(`6. Reason each business was discarded: None discarded.`);
-      }
-      console.log(`=========================================\n`);
-
-      console.log(`[DEBUG] [Google Search Web Scraper] Businesses rejected after validation: ${totalDiscarded}`);
-      if (results.length === 0) {
-        console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: No businesses matched validation rules or search query returned no contacts.`);
-      }
-
       return results;
     } catch (err: any) {
       console.error('[SERPER API ERROR] Sourcing failed:', err);
-      console.log(`[DEBUG] [Google Search Web Scraper] Sourcing completed with 0 results. Reason: API Exception - ${err.message || err}`);
       throw new Error(`Serper Google Search error: ${err.message || err}`);
     }
   }
@@ -1252,59 +1502,108 @@ export class GoogleSearchLeadProvider implements LeadProvider {
 
 /**
  * 8. Universal Website Crawler
- * Crawls and validates specified user URLs directly
+ * Crawls homepage + /contact + /about pages directly to extract and verify genuine public contact emails.
  */
 export class WebsiteCrawlingLeadProvider implements LeadProvider {
   public id = 'website-crawler';
   public name = 'Universal Website Crawler';
-  public description = 'Crawls specific custom URLs to parse team directory bios, contact headers, email fields, and metadata links directly.';
+  public description = 'Crawls corporate homepages, contact pages, and about pages to extract publicly listed email addresses without guessing.';
   public requiresApiKey = false;
 
   public async generateLeads(params: LeadGenerationParams): Promise<Partial<Lead>[]> {
-    console.log(`[DEBUG] [Universal Website Crawler] API Key Exists: false (Not required)`);
-    console.log(`[LEAD PROVIDER - WEB CRAWLER] Parsing target corporate domain: ${params.keywords}`);
-
-    const domain = params.keywords.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].split('?')[0].trim();
-    const website = `http://${domain}`;
-
-    console.log(`[DEBUG] [Universal Website Crawler] Request: GET ${website}`);
-    const validation = await validateWebsite(website);
-    console.log(`[DEBUG] [Universal Website Crawler] Website validation response isValid: ${validation.isValid} | Reason: ${validation.reason || 'None'}`);
-
-    let rejectedCount = 0;
-    if (!validation.isValid) {
-      console.warn(`[CRAWLER WARNING] Target URL "${website}" failed DNS/HTTP validation: ${validation.reason}. Continuing anyway with available business data.`);
+    const rawTarget = (params.keywords || '').trim();
+    const domain = extractNormalizedDomain(rawTarget);
+    if (!domain) {
+      const msg = `Website Email Crawler requires a valid website URL or domain (e.g. stripe.com), received "${rawTarget}".`;
+      globalProviderDiagnostics.recordAttempt('website-crawler', { error: msg });
+      throw new Error(msg);
     }
 
-    const email = '';
-    const emailStatus = 'EMAIL_NOT_FOUND' as const;
-    const emailSource = 'NONE';
+    const startUrl = /^https?:\/\//i.test(rawTarget) ? rawTarget : `https://${domain}`;
+    globalProviderDiagnostics.recordAttempt('website-crawler', { leadsProcessedDelta: 1 });
+
+    const validation = await validateWebsite(startUrl);
+    if (!validation.isValid) {
+      const msg = `Target URL "${startUrl}" failed validation: ${validation.reason}`;
+      globalProviderDiagnostics.recordAttempt('website-crawler', { error: msg });
+      throw new Error(msg);
+    }
+
+    const companyName = domain.split('.')[0].toUpperCase();
+    const crawlRes = await crawlWebsiteForEmails(startUrl, {
+      companyName,
+      maxPages: 10,
+      timeoutMs: 6000,
+    });
+
+    if (crawlRes.pagesCrawled > 0) {
+      globalProviderDiagnostics.recordAttempt('website-crawler', {
+        statusCode: 200,
+        success: true,
+      });
+    } else if (crawlRes.errors.length > 0) {
+      globalProviderDiagnostics.recordAttempt('website-crawler', {
+        error: crawlRes.errors[0],
+      });
+    }
+
+    let email = '';
+    let emailStatus: Lead['emailStatus'] = 'EMAIL_NOT_FOUND';
+    let emailSource = 'NONE';
+    let verificationProvider: string | undefined;
+    let emailVerifiedAt: string | undefined;
+
+    for (const candidate of crawlRes.emails) {
+      const ver = await verifyDiscoveredEmail(candidate.email, {
+        diagnostics: globalProviderDiagnostics,
+      });
+      if (ver.status !== 'INVALID') {
+        email = candidate.email;
+        emailStatus = ver.status;
+        emailSource = 'WEBSITE_CRAWLER';
+        verificationProvider = ver.verificationProvider;
+        if (ver.status === 'VERIFIED') emailVerifiedAt = new Date().toISOString();
+        break;
+      }
+    }
+
+    if (email) {
+      globalProviderDiagnostics.recordAttempt('website-crawler', {
+        emailsDiscoveredDelta: 1,
+        verifiedDelta: emailStatus === 'VERIFIED' ? 1 : 0,
+        unverifiedDelta: emailStatus !== 'VERIFIED' ? 1 : 0,
+      });
+    }
 
     const prospect: Partial<Lead> = {
       firstName: '',
       lastName: '',
-      email: email,
+      email,
       emailStatus,
       emailSource,
+      verificationProvider,
+      emailVerifiedAt,
       phone: '',
-      company: domain.split('.')[0].toUpperCase(),
+      company: companyName,
       title: '',
       leadScore: 'Warm',
       confidenceScore: 82,
-      scoreReason: 'Successfully crawled target URL coordinates and verified DNS resolution.',
-      tags: ['Custom Crawler', 'Web Scraped', params.industry],
+      scoreReason: email
+        ? `Crawled ${crawlRes.pagesCrawled} page(s) on ${crawlRes.domain} and discovered ${email} (${emailStatus}).`
+        : `Crawled ${crawlRes.pagesCrawled} page(s) on ${crawlRes.domain}; no publicly listed email found (EMAIL_NOT_FOUND).`,
+      tags: ['Custom Crawler', 'Web Scraped', params.industry].filter(Boolean),
       enrichment: {
         companySize: params.companySize || '11-50 employees',
-        techStack: ['WordPress', 'Nginx', 'Tailwind'],
-        fundingRound: 'Bootstrapped',
+        techStack: [],
+        fundingRound: 'Unknown',
         annualRevenue: 'Unknown',
-        website: website,
+        website: crawlRes.finalWebsiteUrl || startUrl,
         country: params.country,
         industry: params.industry,
-        companyOverview: `${domain} is a live domain verified under secure crawler validation.`,
-        painPoints: ['Manual outbound workflows', 'Low contact directory coverage'],
-        whyGoodProspect: 'Matches requirements for immediate cold email triggers.',
-        decisionMakerInfo: 'Operations management overseeing web domains.',
+        companyOverview: `${crawlRes.domain} crawled across ${crawlRes.pagesCrawled} page(s).`,
+        painPoints: ['Manual outbound workflows'],
+        whyGoodProspect: 'Verified corporate website domain.',
+        decisionMakerInfo: 'Website contact channel.',
         socialLinks: []
       }
     };
@@ -1313,9 +1612,6 @@ export class WebsiteCrawlingLeadProvider implements LeadProvider {
     prospect.leadScore = scoring.score;
     prospect.confidenceScore = scoring.numericScore;
     prospect.scoreReason = scoring.reason;
-
-    console.log(`[DEBUG] [Universal Website Crawler] Businesses returned: 1`);
-    console.log(`[DEBUG] [Universal Website Crawler] Businesses rejected after validation: ${rejectedCount}`);
 
     return [prospect];
   }
@@ -1328,8 +1624,8 @@ export class LeadProviderRegistry {
   private static providers: Map<string, LeadProvider> = new Map();
 
   static {
-    // Self register default production-only providers (Removing AI-generated, fictional Astra Gemini Spider completely!)
     this.register(new GoogleMapsLeadProvider());
+    this.register(new ApolloLeadProvider());
     this.register(new PeopleDataLabsLeadProvider());
     this.register(new ClearbitLeadProvider());
     this.register(new HunterLeadProvider());
@@ -1344,9 +1640,9 @@ export class LeadProviderRegistry {
   }
 
   public static getProvider(id: string): LeadProvider | undefined {
-    // Graceful aliases for frontend matching
     if (id === 'google-maps' || id === 'googlemaps') return this.providers.get('google-maps');
     if (id === 'google-search' || id === 'serper') return this.providers.get('google-search');
+    if (id === 'apollo' || id === 'apollo-io') return this.providers.get('apollo');
     return this.providers.get(id);
   }
 
