@@ -109,7 +109,8 @@ import {
 import { centralizedErrorHandler } from './src/security/errorHandler';
 import {
   createGoogleMapsSearchHandler,
-  createGoogleMapsRateLimiter
+  createGoogleMapsRateLimiter,
+  createGoogleMapsM2mFingerprintHandler
 } from './src/backend/googleMapsSearchService';
 
 validateStartupEnv();
@@ -4756,6 +4757,20 @@ async function startServer() {
 
     return res.json(result);
   });
+
+  // Temporary Read-Only Auth Fingerprint Diagnostic (Admin-only, never exposes or logs secret)
+  app.get(
+    '/api/v1/diagnostics/googlemaps-m2m-fingerprint',
+    createGoogleMapsM2mFingerprintHandler({
+      getSharedSecret: () => process.env.LINKEDIN_TOOL_MAPS_API_KEY || '',
+      getAuthenticatedUser,
+      isPlatformAdmin: (u) => {
+        if (!u) return false;
+        const emailLower = String(u.email || '').trim().toLowerCase();
+        return isVerifiedFounderEmail(emailLower) || u.role === 'SUPER_ADMIN';
+      }
+    })
+  );
 
   // Fetch Leads List (Stateless Database Query)
   app.get('/api/v1/leads', async (req, res) => {

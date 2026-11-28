@@ -8,6 +8,8 @@ import {
   isStrongSharedSecret,
   validateGoogleMapsSearchBody,
   sanitizeUpstreamMapsError,
+  computeSecretFingerprint,
+  createGoogleMapsM2mFingerprintHandler,
   GOOGLE_MAPS_PLACES_ENDPOINT,
   GOOGLE_MAPS_PLACES_FIELD_MASK,
   GOOGLE_MAPS_QUERY_MAX_LENGTH,
@@ -476,6 +478,72 @@ export async function runGoogleMapsM2mAccessTests(): Promise<{ passed: number; f
     assert.ok(!redacted.includes(MOCK_GMAPS_KEY));
     assert.ok(!redacted.includes(TEST_SHARED_SECRET));
     assert.ok(!redacted.includes('tok_1234567890'));
+  });
+
+  await runTest('8. Read-only M2M fingerprint diagnostic restricts access to platform admins and returns only configured + 8-char SHA-256 fingerprint', async () => {
+    const crypto = await import('crypto');
+    const expectedFp = crypto
+      .createHash('sha256')
+      .update(TEST_SHARED_SECRET.trim(), 'utf8')
+      .digest('hex')
+      .slice(0, 8);
+
+    // Helper checks: trimmed parity & unconfigured state
+    assert.deepStrictEqual(computeSecretFingerprint(`  ${TEST_SHARED_SECRET} \n`), {
+      configured: true,
+      fingerprint: expectedFp,
+    });
+    assert.strictEqual(expectedFp.length, 8);
+    assert.deepStrictEqual(computeSecretFingerprint(''), { configured: false, fingerprint: null });
+    assert.deepStrictEqual(computeSecretFingerprint('   '), { configured: false, fingerprint: null });
+    assert.deepStrictEqual(computeSecretFingerprint(undefined), { configured: false, fingerprint: null });
+
+    let activeUser: any = null;
+    const fpHandler = createGoogleMapsM2mFingerprintHandler({
+      getSharedSecret: () => ` ${TEST_SHARED_SECRET} `,
+      getAuthenticatedUser: () => activeUser,
+    });
+
+    const diagApp = express();
+    diagApp.get('/api/v1/diagnostics/googlemaps-m2m-fingerprint', fpHandler);
+    const srv = await new Promise<http.Server>((resolve) => {
+      const s = diagApp.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    const addr = srv.address();
+    if (!addr || typeof addr === 'string') {
+      srv.close();
+      throw new Error('Failed to bind diagnostic test port');
+    }
+    const baseUrl = `http://127.0.0.1:${addr.port}`;
+
+    try {
+      // Unauthenticated -> 401
+      activeUser = null;
+      const r401 = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`);
+      assert.strictEqual(r401.status, 401);
+
+      // Regular tenant owner / admin -> 403
+      activeUser = { id: 'usr_customer_1', email: 'owner@acme.com', role: 'OWNER', isFounder: false };
+      const r403Owner = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`);
+      assert.strictEqual(r403Owner.status, 403);
+
+      activeUser = { id: 'usr_member_1', email: 'rep@acme.com', role: 'SALES', isFounder: false };
+      const r403Member = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`);
+      assert.strictEqual(r403Member.status, 403);
+
+      // Platform admin (SUPER_ADMIN or isFounder) -> 200 with ONLY configured & fingerprint
+      activeUser = { id: 'usr_super_1', email: 'admin@salespilot.co', role: 'SUPER_ADMIN', isFounder: false };
+      const r200 = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`);
+      assert.strictEqual(r200.status, 200);
+      assert.strictEqual(r200.headers.get('cache-control'), 'no-store');
+      const rawBody = await r200.text();
+      assert.ok(!rawBody.includes(TEST_SHARED_SECRET), 'Original secret must never appear in response');
+      const jsonBody = JSON.parse(rawBody);
+      assert.deepStrictEqual(Object.keys(jsonBody).sort(), ['configured', 'fingerprint']);
+      assert.deepStrictEqual(jsonBody, { configured: true, fingerprint: expectedFp });
+    } finally {
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
   });
 
   console.log(`\n  GOOGLE MAPS M2M ACCESS RESULTS: ${passed} passed, ${failed} failed\n`);

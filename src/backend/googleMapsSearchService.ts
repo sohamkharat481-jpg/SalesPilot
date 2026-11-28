@@ -477,3 +477,69 @@ export function createGoogleMapsSearchHandler(deps: GoogleMapsSearchHandlerDeps)
     }
   };
 }
+
+export interface SecretFingerprintDiagnostic {
+  configured: boolean;
+  fingerprint: string | null;
+}
+
+export function computeSecretFingerprint(secret: unknown): SecretFingerprintDiagnostic {
+  const clean = typeof secret === 'string' ? secret.trim() : '';
+  if (!clean) {
+    return { configured: false, fingerprint: null };
+  }
+  const fingerprint = crypto
+    .createHash('sha256')
+    .update(clean, 'utf8')
+    .digest('hex')
+    .slice(0, 8);
+  return { configured: true, fingerprint };
+}
+
+export function createGoogleMapsM2mFingerprintHandler(deps: {
+  getSharedSecret?: () => string;
+  getAuthenticatedUser?: (req: any) => WorkspaceUser | null;
+  isPlatformAdmin?: (user: WorkspaceUser | null) => boolean;
+} = {}) {
+  return (req: Request, res: Response) => {
+    const user = deps.getAuthenticatedUser ? deps.getAuthenticatedUser(req) : null;
+    if (!user || !user.id) {
+      return res.status(401).json({
+        error: 'Unauthorized. Authentication token required.',
+      });
+    }
+
+    const isAllowed = deps.isPlatformAdmin
+      ? deps.isPlatformAdmin(user)
+      : Boolean(user.isFounder || user.role === 'SUPER_ADMIN');
+
+    if (!isAllowed) {
+      try {
+        logAuditEvent(req, 'GOOGLE_MAPS_M2M_FINGERPRINT', 'MAPS_API', 'DENIED', user);
+      } catch (_) {}
+      return res.status(403).json({
+        error: 'Forbidden. Diagnostic access restricted to platform administrators.',
+      });
+    }
+
+    const rawSecret =
+      deps.getSharedSecret?.() ??
+      process.env[GOOGLE_MAPS_SHARED_SECRET_ENV_VAR] ??
+      '';
+    const diagnostic = computeSecretFingerprint(rawSecret);
+
+    try {
+      logAuditEvent(req, 'GOOGLE_MAPS_M2M_FINGERPRINT', 'MAPS_API', 'SUCCESS', user, {
+        configured: diagnostic.configured,
+        fingerprint: diagnostic.fingerprint,
+      });
+    } catch (_) {}
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      configured: diagnostic.configured,
+      fingerprint: diagnostic.fingerprint,
+    });
+  };
+}
+
