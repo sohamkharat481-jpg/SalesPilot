@@ -10,6 +10,7 @@ import {
   BarChart, Bar, Cell, Legend, PieChart, Pie
 } from 'recharts';
 import { Lead, Campaign, Appointment } from '../types';
+import { authenticatedFetch } from '../utils/apiAuth';
 
 interface SuperAdminViewProps {
   leads: Lead[];
@@ -144,6 +145,47 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
   const [compileStep, setCompileStep] = useState('');
+
+  // Maps M2M Secret Fingerprint Diagnostic State (never stores/logs original secret)
+  const [m2mFingerprintLoading, setM2mFingerprintLoading] = useState(false);
+  const [m2mFingerprintResult, setM2mFingerprintResult] = useState<{
+    configured: boolean;
+    fingerprint: string | null;
+  } | null>(null);
+  const [m2mFingerprintError, setM2mFingerprintError] = useState<string | null>(null);
+
+  const handleCheckMapsM2mFingerprint = async () => {
+    setM2mFingerprintLoading(true);
+    setM2mFingerprintError(null);
+    try {
+      const res = await authenticatedFetch('/api/v1/diagnostics/googlemaps-m2m-fingerprint', {
+        method: 'GET',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setM2mFingerprintResult(null);
+        setM2mFingerprintError(
+          typeof data?.error === 'string' && data.error.trim()
+            ? data.error
+            : `Diagnostic check failed (HTTP ${res.status})`
+        );
+        return;
+      }
+      const fp =
+        typeof data?.fingerprint === 'string' && /^[a-f0-9]{8}$/i.test(data.fingerprint.trim())
+          ? data.fingerprint.trim().toLowerCase()
+          : null;
+      setM2mFingerprintResult({
+        configured: Boolean(data?.configured),
+        fingerprint: fp,
+      });
+    } catch (_) {
+      setM2mFingerprintResult(null);
+      setM2mFingerprintError('Unable to reach diagnostic endpoint.');
+    } finally {
+      setM2mFingerprintLoading(false);
+    }
+  };
 
   // Fetch real superadmin overview data from backend
   useEffect(() => {
@@ -549,6 +591,58 @@ export function SuperAdminView({ leads, campaigns, appointments, user }: SuperAd
                   </div>
                 </div>
 
+              </div>
+
+              {/* Maps M2M Authentication Fingerprint Diagnostic */}
+              <div className="bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-rose-400 shrink-0">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-white font-bold">
+                        Google Maps M2M Authentication Diagnostic
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Verify whether <span className="font-mono text-slate-300">LINKEDIN_TOOL_MAPS_API_KEY</span> is configured and inspect its 8-character SHA-256 fingerprint.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckMapsM2mFingerprint}
+                    disabled={m2mFingerprintLoading}
+                    className="px-4 py-2 bg-rose-650 hover:bg-rose-700 disabled:opacity-60 text-white font-bold text-xs rounded-lg transition flex items-center gap-2 shrink-0 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${m2mFingerprintLoading ? 'animate-spin' : ''}`} />
+                    {m2mFingerprintLoading ? 'Checking...' : 'Check Maps M2M Fingerprint'}
+                  </button>
+                </div>
+
+                {m2mFingerprintError && (
+                  <div className="bg-rose-950/40 border border-rose-800/60 text-rose-300 px-3.5 py-2.5 rounded-lg text-xs font-mono flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{m2mFingerprintError}</span>
+                  </div>
+                )}
+
+                {m2mFingerprintResult && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950 border border-slate-850 p-4 rounded-lg font-mono text-xs">
+                    <div>
+                      <div className="text-[10px] uppercase text-slate-500">Configuration Status</div>
+                      <div className={`mt-1 font-bold ${m2mFingerprintResult.configured ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {m2mFingerprintResult.configured ? 'Configured' : 'Not Configured'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase text-slate-500">8-Character SHA-256 Fingerprint</div>
+                      <div className="mt-1 font-bold text-white tracking-wider">
+                        {m2mFingerprintResult.fingerprint || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Real-time Load Traffic Chart */}

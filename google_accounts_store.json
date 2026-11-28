@@ -917,6 +917,33 @@
       "organizationId": "org_gcal_conn_test_1795804465273",
       "userId": "usr_invalid",
       "createdAt": "2026-11-27T18:34:25.273Z"
+    },
+    {
+      "email": "usera@gcalconn.com",
+      "fullName": "User A Calendar",
+      "accessToken": "mock_valid_token_a",
+      "refreshToken": "mock_refresh_token_a",
+      "expiresAt": "2026-11-28T12:21:24.467Z",
+      "status": "CONNECTED",
+      "organizationId": "org_gcal_conn_test_1795864884467",
+      "userId": "usr_gcal_conn_a",
+      "createdAt": "2026-11-28T11:21:24.467Z",
+      "calendarId": "primary",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "lastVerifiedAt": "2026-11-28T11:21:24.467Z"
+    },
+    {
+      "email": "invalid@gcalconn.com",
+      "fullName": "Invalid User",
+      "accessToken": "mock_invalid_token",
+      "expiresAt": "2026-11-28T12:21:24.467Z",
+      "status": "REAUTH_REQUIRED",
+      "organizationId": "org_gcal_conn_test_1795864884467",
+      "userId": "usr_invalid",
+      "createdAt": "2026-11-28T11:21:24.467Z"
     }
   ],
   "gmailAccounts": [
@@ -947,7 +974,7 @@
       "email": "user1_clean_test@example.com",
       "accessToken": "ya29.valid_test_access_token_12345",
       "refreshToken": "1//refresh_token_user1",
-      "expiresAt": "2026-11-27T19:34:29.991Z",
+      "expiresAt": "2026-11-28T12:21:28.503Z",
       "status": "CONNECTED",
       "scopes": [
         "https://www.googleapis.com/auth/gmail.send"
@@ -960,7 +987,7 @@
       "email": "unowned_test@example.com",
       "accessToken": "ya29.valid_test_access_token_12345",
       "refreshToken": "",
-      "expiresAt": "2026-11-27T19:34:29.991Z",
+      "expiresAt": "2026-11-28T12:21:28.503Z",
       "status": "CONNECTED"
     },
     {
@@ -970,7 +997,7 @@
       "email": "expired_no_refresh_test@example.com",
       "accessToken": "ya29.valid_test_access_token_12345",
       "refreshToken": "",
-      "expiresAt": "2026-11-27T17:34:29.991Z",
+      "expiresAt": "2026-11-28T10:21:28.503Z",
       "status": "CONNECTED"
     },
     {
@@ -990,7 +1017,7 @@
       "email": "lacking_scopes_test@example.com",
       "accessToken": "ya29.valid_test_access_token_12345",
       "refreshToken": "1//valid_refresh_token",
-      "expiresAt": "2026-11-27T19:34:29.991Z",
+      "expiresAt": "2026-11-28T12:21:28.503Z",
       "status": "CONNECTED",
       "scopes": [
         "https://www.googleapis.com/auth/calendar.readonly"
@@ -1003,7 +1030,7 @@
       "email": "empty_scopes_test@example.com",
       "accessToken": "ya29.valid_test_access_token_12345",
       "refreshToken": "1//valid_refresh_token",
-      "expiresAt": "2026-11-27T19:34:29.991Z",
+      "expiresAt": "2026-11-28T12:21:28.503Z",
       "status": "CONNECTED",
       "scopes": []
     },
@@ -1014,7 +1041,7 @@
       "email": "string_scopes_test@example.com",
       "accessToken": "ya29.valid_test_access_token_12345",
       "refreshToken": "1//valid_refresh_token",
-      "expiresAt": "2026-11-27T19:34:29.991Z",
+      "expiresAt": "2026-11-28T12:21:28.503Z",
       "status": "CONNECTED",
       "scopes": "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email"
     },
@@ -1677,6 +1704,26 @@
       "accessToken": "mock_token_b",
       "status": "CONNECTED",
       "connectedAt": "2026-11-27T18:34:28.249Z"
+    },
+    {
+      "id": "gm_acc_a_1795864886859",
+      "userId": "usr_client_a_1795864886859",
+      "organizationId": "org_client_a_1795864886859",
+      "email": "arjun.sales@apexgrowth.com",
+      "fullName": "Arjun Verma",
+      "accessToken": "mock_token_a",
+      "status": "CONNECTED",
+      "connectedAt": "2026-11-28T11:21:27.145Z"
+    },
+    {
+      "id": "gm_acc_b_1795864886859",
+      "userId": "usr_client_b_1795864886859",
+      "organizationId": "org_client_b_1795864886859",
+      "email": "kavita.outreach@zenithlogistics.in",
+      "fullName": "Kavita Patel",
+      "accessToken": "mock_token_b",
+      "status": "CONNECTED",
+      "connectedAt": "2026-11-28T11:21:27.230Z"
     }
   ]
 }

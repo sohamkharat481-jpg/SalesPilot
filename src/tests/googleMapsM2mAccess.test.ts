@@ -546,6 +546,112 @@ export async function runGoogleMapsM2mAccessTests(): Promise<{ passed: number; f
     }
   });
 
+  await runTest('9. Bearer token middleware authorizes Super Admin / Founder and rejects missing, invalid, or non-admin tokens; SuperAdminView uses authenticatedFetch', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const crypto = await import('crypto');
+    const { authenticateUser } = await import('../security/authMiddleware');
+
+    const mockSupabaseVerifier = {
+      auth: {
+        async getUser(token: string) {
+          if (token === 'valid_founder_jwt') {
+            return {
+              data: {
+                user: {
+                  id: 'usr_founder_jwt',
+                  email: 'sohamkharat481@gmail.com',
+                  email_confirmed_at: '2026-01-01T00:00:00Z',
+                  user_metadata: { full_name: 'Soham Kharat' },
+                },
+              },
+              error: null,
+            };
+          }
+          if (token === 'valid_non_admin_jwt') {
+            return {
+              data: {
+                user: {
+                  id: 'usr_regular_jwt',
+                  email: 'customer@example.com',
+                  email_confirmed_at: '2026-01-01T00:00:00Z',
+                  user_metadata: { full_name: 'Customer User' },
+                },
+              },
+              error: null,
+            };
+          }
+          return { data: { user: null }, error: { message: 'Invalid JWT' } };
+        },
+      },
+    };
+
+    const diagApp = express();
+    diagApp.get(
+      '/api/v1/diagnostics/googlemaps-m2m-fingerprint',
+      (req, res, next) => authenticateUser(req as any, res, next, mockSupabaseVerifier),
+      createGoogleMapsM2mFingerprintHandler({
+        getSharedSecret: () => TEST_SHARED_SECRET,
+        getAuthenticatedUser: (req: any) => req.user || null,
+        isPlatformAdmin: (u: any) =>
+          Boolean(u && (u.role === 'SUPER_ADMIN' || u.isFounder || String(u.email).toLowerCase() === 'sohamkharat481@gmail.com')),
+      })
+    );
+
+    const srv = await new Promise<http.Server>((resolve) => {
+      const s = diagApp.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    const addr = srv.address();
+    if (!addr || typeof addr === 'string') {
+      srv.close();
+      throw new Error('Failed to bind Bearer auth diagnostic test port');
+    }
+    const baseUrl = `http://127.0.0.1:${addr.port}`;
+
+    try {
+      // Missing Bearer token -> 401
+      const noToken = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`);
+      assert.strictEqual(noToken.status, 401);
+
+      // Invalid Bearer token -> 401
+      const badToken = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`, {
+        headers: { Authorization: 'Bearer forged_jwt_token' },
+      });
+      assert.strictEqual(badToken.status, 401);
+
+      // Valid non-admin Bearer token -> 403
+      const nonAdmin = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`, {
+        headers: { Authorization: 'Bearer valid_non_admin_jwt' },
+      });
+      assert.strictEqual(nonAdmin.status, 403);
+
+      // Valid founder/admin Bearer token -> 200 with 8-char fingerprint & zero secret leak
+      const adminRes = await fetch(`${baseUrl}/api/v1/diagnostics/googlemaps-m2m-fingerprint`, {
+        headers: { Authorization: 'Bearer valid_founder_jwt' },
+      });
+      assert.strictEqual(adminRes.status, 200);
+      const bodyText = await adminRes.text();
+      assert.ok(!bodyText.includes(TEST_SHARED_SECRET));
+      const parsed = JSON.parse(bodyText);
+      const expectedFp = crypto
+        .createHash('sha256')
+        .update(TEST_SHARED_SECRET.trim(), 'utf8')
+        .digest('hex')
+        .slice(0, 8);
+      assert.deepStrictEqual(parsed, { configured: true, fingerprint: expectedFp });
+    } finally {
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
+
+    // Verify SuperAdminView integrates the button and authenticatedFetch without secret references
+    const superAdminPath = path.resolve(process.cwd(), 'src/components/SuperAdminView.tsx');
+    const uiSource = fs.readFileSync(superAdminPath, 'utf8');
+    assert.ok(uiSource.includes("import { authenticatedFetch } from '../utils/apiAuth'"));
+    assert.ok(uiSource.includes("authenticatedFetch('/api/v1/diagnostics/googlemaps-m2m-fingerprint'"));
+    assert.ok(uiSource.includes('Check Maps M2M Fingerprint'));
+    assert.ok(!uiSource.includes('process.env.LINKEDIN_TOOL_MAPS_API_KEY'));
+  });
+
   console.log(`\n  GOOGLE MAPS M2M ACCESS RESULTS: ${passed} passed, ${failed} failed\n`);
   return { passed, failed };
 }
